@@ -8,14 +8,21 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header>
-    <div class="container">
-      <h1><span class="crown">&#128081;</span> Rey Midas <span class="accent">Digitales</span></h1>
+  <header class="hero">
+    <div class="hero-glow"></div>
+    <div class="container hero-inner">
+      <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
       <p class="tagline">Juegos digitales PlayStation 5 y PlayStation 4 &middot; Costa Rica</p>
+      <a id="heroCta" class="cta" href="#catalogo">Ver catálogo</a>
     </div>
   </header>
 
-  <main class="container">
+  <main class="container" id="catalogo">
+    <div class="section-title">
+      <h2>Catálogo</h2>
+      <p>Los mejores juegos al mejor precio. Tocá una tarjeta para escribirnos por WhatsApp.</p>
+    </div>
+
     <div class="toolbar">
       <input id="search" type="search" placeholder="Buscar juego por nombre..." autocomplete="off">
       <div class="filters">
@@ -30,10 +37,26 @@
     <div id="grid" class="grid" hidden></div>
   </main>
 
+  <section class="how-to">
+    <div class="container how-inner">
+      <img src="/assets/mascot.png" alt="" class="mascot">
+      <div class="how-text">
+        <h2>¿Cómo comprar?</h2>
+        <ol class="steps">
+          <li><strong>Elegí tu juego</strong> en el catálogo de arriba.</li>
+          <li><strong>Tocá la tarjeta</strong> y se abre WhatsApp con el mensaje listo.</li>
+          <li><strong>Confirmamos disponibilidad</strong> y forma de pago (SINPE o transferencia).</li>
+          <li><strong>Recibís tu código</strong> al instante y a jugar.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
   <footer>
     <div class="container">
       <p>&copy; 2026 Rey Midas Digitales</p>
       <p>Consultas y compras por WhatsApp: <a id="waLink" href="#" target="_blank" rel="noopener"></a></p>
+      <p class="attribution">Precios cortesía de <a href="https://psprices.com" target="_blank" rel="noopener">PSprices</a></p>
     </div>
   </footer>
 

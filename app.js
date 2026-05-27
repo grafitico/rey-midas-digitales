@@ -11,12 +11,12 @@ const CONFIG = {
   // Margen sobre el precio (1.20 = 20% de ganancia). 1.0 = sin margen.
   markup: 1.20,
 
-  // Categorías de PS Store a cargar. Buscá el ID en la URL de PS Store:
-  // https://store.playstation.com/en-us/pages/browse/1?4000-5999=webBasePrice&6000-7999=webBasePrice/<ESTE-ES-EL-ID>/1
-  // pages = cuántas páginas traer (máx 5 por la API)
-  categories: [
-    { id: "44d8bb20-653e-431e-8ad0-c0a365f68d2f", label: "Ofertas", pages: 3 },
-  ],
+  // Región de PS Store (Costa Rica = cr, USA = us, México = mx, etc.)
+  region: "cr",
+
+  // Colección de PSPrices a mostrar.
+  // La API demo solo soporta "most-wanted-deals" (24 juegos máx).
+  collection: "most-wanted-deals",
 };
 
 // ============================================================
@@ -46,8 +46,11 @@ attachEvents();
 async function load() {
   setStatus("Cargando catálogo, esto puede tardar unos segundos...");
   try {
-    const cats = encodeURIComponent(JSON.stringify(CONFIG.categories));
-    const res = await fetch(`/api/scrape?mode=bulk&categories=${cats}`);
+    const params = new URLSearchParams({
+      region: CONFIG.region,
+      collection: CONFIG.collection,
+    });
+    const res = await fetch(`/api/scrape?${params}`);
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Respuesta inválida");
     allGames = (data.games || []).sort((a, b) => {
@@ -55,7 +58,7 @@ async function load() {
       return b.discount - a.discount;
     });
     if (!allGames.length) {
-      setStatus("No se encontraron juegos. Verificá los IDs de categoría.", true);
+      setStatus("No se encontraron juegos. Probá más tarde.", true);
       return;
     }
     render();
