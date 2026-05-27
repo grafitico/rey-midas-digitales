@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Rey Midas Digitales — Tienda de juegos digitales PlayStation 5 y PlayStation 4 en Costa Rica.">
+  <title>Rey Midas Digitales — Juegos PS5 / PS4</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1><span class="crown">&#128081;</span> Rey Midas <span class="accent">Digitales</span></h1>
+      <p class="tagline">Juegos digitales PlayStation 5 y PlayStation 4 &middot; Costa Rica</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Buscar juego por nombre..." autocomplete="off">
+      <div class="filters">
+        <button class="filter active" data-platform="all">Todos</button>
+        <button class="filter" data-platform="PS5">PS5</button>
+        <button class="filter" data-platform="PS4">PS4</button>
+        <button class="filter" data-sale="true">En oferta</button>
+      </div>
+    </div>
+
+    <div id="status" class="status">Cargando catalogo...</div>
+    <div id="grid" class="grid" hidden></div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 Rey Midas Digitales</p>
+      <p>Consultas y compras por WhatsApp: <a id="waLink" href="#" target="_blank" rel="noopener"></a></p>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
