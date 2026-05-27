@@ -3,60 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Rey Midas Digitales — Tienda de juegos digitales PlayStation 5 y PlayStation 4 en Costa Rica.">
-  <title>Rey Midas Digitales — Juegos PS5 / PS4</title>
+  <meta name="description" content="Rey Midas Digitales — Tienda de juegos digitales PlayStation 5 y PlayStation 4 en Costa Rica. Cuenta Principal y Secundaria.">
+  <title>Rey Midas Digitales — Juegos PS5 / PS4 Costa Rica</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="hero">
-    <div class="hero-glow"></div>
-    <div class="container hero-inner">
-      <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
-      <p class="tagline">Juegos digitales PlayStation 5 y PlayStation 4 &middot; Costa Rica</p>
-      <a id="heroCta" class="cta" href="#catalogo">Ver catálogo</a>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="#/" class="brand">
+        <img src="/assets/logo.png" alt="Rey Midas Digitales" class="brand-logo">
+      </a>
+      <nav class="topnav">
+        <a href="#/" data-route="home">Inicio</a>
+        <a href="#/plataforma/PS5" data-route="PS5">PS5</a>
+        <a href="#/plataforma/PS4" data-route="PS4">PS4</a>
+        <a href="#/plataforma/PS3" data-route="PS3">PS3</a>
+        <a href="#/plataforma/Switch" data-route="Switch">Switch</a>
+        <a href="#/plataforma/Xbox" data-route="Xbox">Xbox</a>
+      </nav>
     </div>
   </header>
 
-  <main class="container" id="catalogo">
-    <div class="section-title">
-      <h2>Catálogo</h2>
-      <p>Los mejores juegos al mejor precio. Tocá una tarjeta para escribirnos por WhatsApp.</p>
-    </div>
-
-    <div class="toolbar">
-      <input id="search" type="search" placeholder="Buscar juego por nombre..." autocomplete="off">
-      <div class="filters">
-        <button class="filter active" data-platform="all">Todos</button>
-        <button class="filter" data-platform="PS5">PS5</button>
-        <button class="filter" data-platform="PS4">PS4</button>
-        <button class="filter" data-sale="true">En oferta</button>
-      </div>
-    </div>
-
-    <div id="status" class="status">Cargando catalogo...</div>
-    <div id="grid" class="grid" hidden></div>
+  <main id="app">
+    <!-- Vistas renderizadas por app.js -->
   </main>
-
-  <section class="how-to">
-    <div class="container how-inner">
-      <img src="/assets/mascot.png" alt="" class="mascot">
-      <div class="how-text">
-        <h2>¿Cómo comprar?</h2>
-        <ol class="steps">
-          <li><strong>Elegí tu juego</strong> en el catálogo de arriba.</li>
-          <li><strong>Tocá la tarjeta</strong> y se abre WhatsApp con el mensaje listo.</li>
-          <li><strong>Confirmamos disponibilidad</strong> y forma de pago (SINPE o transferencia).</li>
-          <li><strong>Recibís tu código</strong> al instante y a jugar.</li>
-        </ol>
-      </div>
-    </div>
-  </section>
 
   <footer>
     <div class="container">
-      <p>&copy; 2026 Rey Midas Digitales</p>
-      <p>Consultas y compras por WhatsApp: <a id="waLink" href="#" target="_blank" rel="noopener"></a></p>
-      <p class="attribution">Precios cortesía de <a href="https://psprices.com" target="_blank" rel="noopener">PSprices</a></p>
+      <p class="footer-brand">Rey Midas Digitales</p>
+      <p>WhatsApp: <a id="waLink" href="#" target="_blank" rel="noopener"></a></p>
+      <p class="payments">Aceptamos: SINPE Móvil &middot; Transferencia bancaria</p>
+      <p class="attribution">&copy; 2026 Rey Midas Digitales &middot; Precios cortesía de <a href="https://psprices.com" target="_blank" rel="noopener">PSprices</a></p>
     </div>
   </footer>
 
