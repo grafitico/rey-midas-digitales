@@ -3,16 +3,16 @@
 // ============================================================
 const CONFIG = {
   // Tu número de WhatsApp con código de país, SIN el signo +
-  whatsapp: "50688888888",
+  whatsapp: "50661468733",
 
   // Tipo de cambio CRC por USD
-  exchangeRate: 525,
+  exchangeRate: 530,
 
   // Margen sobre el precio (1.20 = 20% de ganancia). 1.0 = sin margen.
   markup: 1.20,
 
   // Categorías de PS Store a cargar. Buscá el ID en la URL de PS Store:
-  // https://store.playstation.com/es-cr/category/<ESTE-ES-EL-ID>/1
+  // https://store.playstation.com/en-us/pages/browse/1?4000-5999=webBasePrice&6000-7999=webBasePrice/<ESTE-ES-EL-ID>/1
   // pages = cuántas páginas traer (máx 5 por la API)
   categories: [
     { id: "44d8bb20-653e-431e-8ad0-c0a365f68d2f", label: "Ofertas", pages: 3 },
