@@ -3,8 +3,6 @@
 // ============================================================
 const CONFIG = {
   whatsapp: "50661468733",
-  region: "cr",
-  collection: "most-wanted-deals",
 
   // Precio final = USD * exchangeRate * markup
   pricing: {
@@ -64,11 +62,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const params = new URLSearchParams({
-      region: CONFIG.region,
-      collection: CONFIG.collection,
-    });
-    const res = await fetch(`/api/scrape?${params}`);
+    const res = await fetch(`/api/scrape`);
     const data = await res.json();
     if (!data.success) throw new Error(data.error || "Respuesta inválida");
     allGames = (data.games || []).sort((a, b) => {
