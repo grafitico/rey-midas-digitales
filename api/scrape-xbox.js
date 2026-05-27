@@ -35,6 +35,17 @@ export default async function handler(req, res) {
       else errors.push({ batch: i, error: r.reason?.message || String(r.reason) });
     });
 
+    // Modo debug: devolver el primer producto crudo para inspeccionar estructura
+    if (req.query.debug === "1") {
+      return res.status(200).json({
+        success: true,
+        idsFetched: sample.length,
+        productsReturned: all.length,
+        firstProduct: all[0] || null,
+        errors: errors.length ? errors : undefined,
+      });
+    }
+
     const games = all.map(normalize).filter(Boolean).sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return b.discount - a.discount;
