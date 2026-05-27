@@ -14,6 +14,9 @@ const CONFIG = {
   // Plataformas con catálogo activo. Switch/Xbox/PS3 quedan visibles
   // pero muestran "Próximamente" hasta que les conectemos un data source.
   activePlatforms: ["PS5", "PS4"],
+
+  // Cantidad de juegos por página en el catálogo.
+  perPage: 50,
 };
 
 // ============================================================
@@ -29,19 +32,69 @@ waLink.href = `https://wa.me/${CONFIG.whatsapp}`;
 waLink.textContent = formatPhone(CONFIG.whatsapp);
 
 // ============================================================
+// Carrito (persistido en localStorage)
+// ============================================================
+const CART_KEY = "rmd_cart_v1";
+
+function loadCart() {
+  try { return JSON.parse(localStorage.getItem(CART_KEY) || "[]"); }
+  catch { return []; }
+}
+function saveCart(items) {
+  localStorage.setItem(CART_KEY, JSON.stringify(items));
+  updateCartBadge();
+}
+function addToCart(game, modality) {
+  const items = loadCart();
+  const price = modality === "principal" ? principalCRC(game.priceUSD) : secundariaCRC(game.priceUSD);
+  const exists = items.find(i => i.id === game.id && i.modality === modality);
+  if (exists) return false;
+  items.push({
+    id: game.id,
+    title: game.title,
+    platform: game.platform,
+    imageUrl: game.imageUrl,
+    modality,
+    priceCRC: price,
+  });
+  saveCart(items);
+  return true;
+}
+function removeFromCart(id, modality) {
+  const items = loadCart().filter(i => !(i.id === id && i.modality === modality));
+  saveCart(items);
+}
+function clearCart() { saveCart([]); }
+
+function updateCartBadge() {
+  const badge = document.getElementById("cartBadge");
+  if (!badge) return;
+  const count = loadCart().length;
+  badge.textContent = count;
+  badge.classList.toggle("show", count > 0);
+}
+
+// ============================================================
 // Routing por hash
 // ============================================================
 function parseRoute() {
   const h = location.hash.replace(/^#/, "") || "/";
-  if (h === "/" || h === "") return { name: "home" };
+  if (h === "/" || h === "") return { name: "home", page: 1 };
+
   const partes = h.replace(/^\//, "").split("/");
+  if (partes[0] === "carrito") return { name: "cart" };
+
   if (partes[0] === "plataforma" && partes[1]) {
-    return { name: "platform", platform: decodeURIComponent(partes[1]) };
+    const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
+    return { name: "platform", platform: decodeURIComponent(partes[1]), page };
   }
   if (partes[0] === "producto" && partes[1]) {
     return { name: "product", id: decodeURIComponent(partes[1]) };
   }
-  return { name: "home" };
+  if (partes[0] === "p" && partes[1]) {
+    return { name: "home", page: parseInt(partes[1], 10) || 1 };
+  }
+  return { name: "home", page: 1 };
 }
 
 function navigateActive() {
@@ -50,7 +103,8 @@ function navigateActive() {
     const r = a.dataset.route;
     const active =
       (route.name === "home" && r === "home") ||
-      (route.name === "platform" && r === route.platform);
+      (route.name === "platform" && r === route.platform) ||
+      (route.name === "cart" && r === "cart");
     a.classList.toggle("active", active);
   });
 }
@@ -82,30 +136,32 @@ async function load() {
 // ============================================================
 function render() {
   navigateActive();
+  updateCartBadge();
   const route = parseRoute();
   if (route.name === "product") return renderProduct(route.id);
-  if (route.name === "platform") return renderPlatform(route.platform);
-  return renderHome();
+  if (route.name === "platform") return renderPlatform(route.platform, route.page);
+  if (route.name === "cart") return renderCart();
+  return renderHome(route.page);
 }
 
-function renderHome() {
+function renderHome(page = 1) {
   app.innerHTML = `
     ${heroHTML()}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Catálogo destacado</h2>
-        <p>Los juegos más buscados al mejor precio. Cuenta Principal y Secundaria disponibles.</p>
+        <p>Tocá un juego para ver detalles y agregarlo al carrito.</p>
       </div>
       ${toolbarHTML()}
       <div id="grid" class="grid"></div>
+      <div id="pagination" class="pagination"></div>
     </section>
     ${howToHTML()}
   `;
-  mountToolbar();
-  renderGrid(allGames);
+  mountToolbar(null, page, "/");
 }
 
-function renderPlatform(platform) {
+function renderPlatform(platform, page = 1) {
   const active = CONFIG.activePlatforms.includes(platform);
   if (!active) {
     app.innerHTML = `
@@ -128,10 +184,10 @@ function renderPlatform(platform) {
       </div>
       ${toolbarHTML(false)}
       <div id="grid" class="grid"></div>
+      <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list);
-  renderGrid(list);
+  mountToolbar(list, page, `/plataforma/${platform}`);
 }
 
 function renderProduct(id) {
@@ -152,8 +208,6 @@ function renderProduct(id) {
   }
   const principal = principalCRC(g.priceUSD);
   const secundaria = secundariaCRC(g.priceUSD);
-  const msgPri = encodeURIComponent(`Hola, me interesa "${g.title}" (${g.platform}) en CUENTA PRINCIPAL por ${formatCRC(principal)}. ¿Está disponible?`);
-  const msgSec = encodeURIComponent(`Hola, me interesa "${g.title}" (${g.platform}) en CUENTA SECUNDARIA por ${formatCRC(secundaria)}. ¿Está disponible?`);
   app.innerHTML = `
     <section class="container product-page">
       <a class="back-link" href="#/">&larr; Volver al catálogo</a>
@@ -168,18 +222,18 @@ function renderProduct(id) {
           <p class="product-desc">Juego digital para ${escapeHtml(g.platform)}. Te entregamos el acceso por WhatsApp luego de confirmar el pago por SINPE Móvil o transferencia bancaria.</p>
 
           <div class="price-options">
-            <a class="price-card principal" href="https://wa.me/${CONFIG.whatsapp}?text=${msgPri}" target="_blank" rel="noopener">
+            <div class="price-card principal">
               <div class="price-label">Cuenta Principal</div>
               <div class="price-amount">${formatCRC(principal)}</div>
               <div class="price-note">Acceso completo, sin restricciones</div>
-              <span class="price-cta">Comprar por WhatsApp</span>
-            </a>
-            <a class="price-card secundaria" href="https://wa.me/${CONFIG.whatsapp}?text=${msgSec}" target="_blank" rel="noopener">
+              <button class="price-cta" data-add="principal" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
+            </div>
+            <div class="price-card secundaria">
               <div class="price-label">Cuenta Secundaria</div>
               <div class="price-amount">${formatCRC(secundaria)}</div>
               <div class="price-note">Más económico, requiere estar conectado</div>
-              <span class="price-cta">Comprar por WhatsApp</span>
-            </a>
+              <button class="price-cta" data-add="secundaria" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
+            </div>
           </div>
 
           <div class="product-meta">
@@ -192,6 +246,120 @@ function renderProduct(id) {
       </div>
     </section>
   `;
+  bindAddButtons(g);
+}
+
+function bindAddButtons(game) {
+  document.querySelectorAll("[data-add]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const mod = btn.dataset.add;
+      const added = addToCart(game, mod);
+      if (added) {
+        showToast(`Agregado al carrito (${mod === "principal" ? "Principal" : "Secundaria"})`);
+        btn.textContent = "Agregado ✓";
+        btn.classList.add("added");
+        setTimeout(() => {
+          btn.textContent = "Agregar al carrito";
+          btn.classList.remove("added");
+        }, 2000);
+      } else {
+        showToast("Ese juego ya está en tu carrito");
+      }
+    });
+  });
+}
+
+// ============================================================
+// Carrito (vista)
+// ============================================================
+function renderCart() {
+  const items = loadCart();
+  if (!items.length) {
+    app.innerHTML = `
+      <section class="container empty-state">
+        <h2>Tu carrito está vacío</h2>
+        <p>Agregá juegos desde el catálogo y los pedís todos juntos por WhatsApp.</p>
+        <a class="cta" href="#/">Ir al catálogo</a>
+      </section>
+    `;
+    return;
+  }
+  const total = items.reduce((s, i) => s + i.priceCRC, 0);
+  app.innerHTML = `
+    <section class="container cart-page">
+      <a class="back-link" href="#/">&larr; Seguir comprando</a>
+      <h1 class="cart-title">Tu pedido</h1>
+      <div class="cart-list">
+        ${items.map(cartItemHTML).join("")}
+      </div>
+      <div class="cart-summary">
+        <div class="cart-row total">
+          <span>Total</span>
+          <span class="cart-total">${formatCRC(total)}</span>
+        </div>
+        <button id="checkoutBtn" class="cta cta-wa">Enviar pedido por WhatsApp</button>
+        <button id="clearCartBtn" class="cta-secondary">Vaciar carrito</button>
+        <p class="cart-note">Te respondemos para confirmar disponibilidad y enviarte los datos de pago (SINPE o transferencia).</p>
+      </div>
+    </section>
+  `;
+  bindCartActions();
+}
+
+function cartItemHTML(item) {
+  const img = item.imageUrl
+    ? `<img src="${escapeAttr(item.imageUrl)}" alt="${escapeAttr(item.title)}">`
+    : `<div class="placeholder">🎮</div>`;
+  const modLabel = item.modality === "principal" ? "Cuenta Principal" : "Cuenta Secundaria";
+  const modClass = item.modality === "principal" ? "principal" : "secundaria";
+  return `
+    <div class="cart-item">
+      <div class="cart-img">${img}</div>
+      <div class="cart-info">
+        <div class="cart-game-title">${escapeHtml(item.title)}</div>
+        <div class="cart-meta">
+          <span class="cart-platform">${escapeHtml(item.platform)}</span>
+          <span class="cart-modality ${modClass}">${modLabel}</span>
+        </div>
+      </div>
+      <div class="cart-price">${formatCRC(item.priceCRC)}</div>
+      <button class="cart-remove" data-remove-id="${escapeAttr(item.id)}" data-remove-mod="${item.modality}" aria-label="Quitar del carrito">&times;</button>
+    </div>
+  `;
+}
+
+function bindCartActions() {
+  document.querySelectorAll("[data-remove-id]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      removeFromCart(btn.dataset.removeId, btn.dataset.removeMod);
+      renderCart();
+    });
+  });
+  const clearBtn = document.getElementById("clearCartBtn");
+  if (clearBtn) clearBtn.addEventListener("click", () => {
+    if (confirm("¿Vaciar el carrito?")) { clearCart(); renderCart(); }
+  });
+  const checkoutBtn = document.getElementById("checkoutBtn");
+  if (checkoutBtn) checkoutBtn.addEventListener("click", checkout);
+}
+
+function checkout() {
+  const items = loadCart();
+  if (!items.length) return;
+  const total = items.reduce((s, i) => s + i.priceCRC, 0);
+  const lines = items.map((i, idx) =>
+    `${idx + 1}. ${i.title} (${i.platform}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
+  );
+  const msg = [
+    "Hola Rey Midas, quiero pedir lo siguiente:",
+    "",
+    ...lines,
+    "",
+    `Total: ${formatCRC(total)}`,
+    "",
+    "¿Me confirman disponibilidad y datos de pago? Gracias.",
+  ].join("\n");
+  window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
 }
 
 // ============================================================
@@ -229,10 +397,10 @@ function howToHTML() {
         <div class="how-text">
           <h2>¿Cómo comprar?</h2>
           <ol class="steps">
-            <li><strong>Elegí tu juego</strong> y la modalidad (Principal o Secundaria).</li>
-            <li><strong>Tocá el botón de WhatsApp</strong> y te llega el mensaje listo.</li>
+            <li><strong>Elegí tus juegos</strong> y agregalos al carrito.</li>
+            <li><strong>Enviá el pedido</strong> por WhatsApp con un solo botón.</li>
             <li><strong>Pagás por SINPE</strong> o transferencia bancaria.</li>
-            <li><strong>Te entregamos el código</strong> o el acceso de inmediato.</li>
+            <li><strong>Te entregamos el código</strong> o el acceso al instante.</li>
           </ol>
         </div>
       </div>
@@ -262,27 +430,33 @@ function toolbarHTML(showPlatformFilters = true) {
 }
 
 // ============================================================
-// Grid + filtros locales
+// Grid + filtros + paginación
 // ============================================================
 const localFilters = { platform: "all", sale: false, q: "" };
 let localList = [];
+let currentPage = 1;
+let currentRouteBase = "/";
 
-function mountToolbar(baseList) {
+function mountToolbar(baseList, page = 1, routeBase = "/") {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";
   localList = baseList || allGames;
+  currentPage = page;
+  currentRouteBase = routeBase;
 
   const search = document.getElementById("search");
-  if (!search) return;
-  let debounce;
-  search.addEventListener("input", (e) => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => {
-      localFilters.q = e.target.value.trim();
-      applyFilters();
-    }, 150);
-  });
+  if (search) {
+    let debounce;
+    search.addEventListener("input", (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        localFilters.q = e.target.value.trim();
+        currentPage = 1;
+        applyFilters();
+      }, 150);
+    });
+  }
   document.querySelectorAll(".filter").forEach(btn => {
     btn.addEventListener("click", () => {
       if (btn.dataset.sale) {
@@ -294,9 +468,11 @@ function mountToolbar(baseList) {
           b.classList.toggle("active", b === btn)
         );
       }
+      currentPage = 1;
       applyFilters();
     });
   });
+  applyFilters();
 }
 
 function applyFilters() {
@@ -310,12 +486,17 @@ function applyFilters() {
     list = list.filter(g => g.title.toLowerCase().includes(q));
   }
   renderGrid(list);
+  renderPagination(list.length);
+}
+
+function paginate(list) {
+  const start = (currentPage - 1) * CONFIG.perPage;
+  return list.slice(start, start + CONFIG.perPage);
 }
 
 function renderGrid(list) {
   const grid = document.getElementById("grid");
   if (!grid) return;
-
   if (!loaded) {
     grid.innerHTML = `<div class="status">Cargando catálogo...</div>`;
     return;
@@ -328,7 +509,57 @@ function renderGrid(list) {
     grid.innerHTML = `<div class="status">No hay juegos que coincidan.</div>`;
     return;
   }
-  grid.innerHTML = list.map(cardHTML).join("");
+  const page = paginate(list);
+  grid.innerHTML = page.map(cardHTML).join("");
+}
+
+function renderPagination(total) {
+  const el = document.getElementById("pagination");
+  if (!el) return;
+  const pages = Math.max(1, Math.ceil(total / CONFIG.perPage));
+  if (pages <= 1) { el.innerHTML = ""; return; }
+
+  const items = pageRange(currentPage, pages);
+  el.innerHTML = `
+    <button class="page-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>‹ Anterior</button>
+    ${items.map(it => it === "..."
+      ? `<span class="page-ellipsis">…</span>`
+      : `<button class="page-btn ${it === currentPage ? "active" : ""}" data-page="${it}">${it}</button>`
+    ).join("")}
+    <button class="page-btn" data-page="${currentPage + 1}" ${currentPage === pages ? "disabled" : ""}>Siguiente ›</button>
+  `;
+  el.querySelectorAll("[data-page]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const p = parseInt(btn.dataset.page, 10);
+      if (!p || p < 1 || p > pages) return;
+      goToPage(p);
+    });
+  });
+}
+
+function pageRange(current, total) {
+  const out = [];
+  const window_ = 1;
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - window_ && i <= current + window_)) {
+      out.push(i);
+    } else if (out[out.length - 1] !== "...") {
+      out.push("...");
+    }
+  }
+  return out;
+}
+
+function goToPage(p) {
+  currentPage = p;
+  const base = currentRouteBase === "/" ? "" : currentRouteBase;
+  const newHash = p === 1 ? `#/${base.replace(/^\//, "")}` : `#${base}/p/${p}`;
+  if (location.hash !== newHash) {
+    location.hash = newHash;
+  } else {
+    applyFilters();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
 
 function cardHTML(g) {
@@ -359,6 +590,23 @@ function cardHTML(g) {
       </div>
     </a>
   `;
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(text) {
+  let t = document.getElementById("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    t.className = "toast";
+    document.body.appendChild(t);
+  }
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 2200);
 }
 
 // ============================================================
