@@ -2,6 +2,9 @@
   "functions": {
     "api/scrape.js": {
       "maxDuration": 30
+    },
+    "api/scrape-xbox.js": {
+      "maxDuration": 30
     }
   }
 }

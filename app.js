@@ -11,9 +11,9 @@ const CONFIG = {
     secundariaMarkup: 0.30,   // ~30% del USD → cuenta secundaria
   },
 
-  // Plataformas con catálogo activo. Switch/Xbox/PS3 quedan visibles
+  // Plataformas con catálogo activo. Switch/PS3 quedan visibles
   // pero muestran "Próximamente" hasta que les conectemos un data source.
-  activePlatforms: ["PS5", "PS4"],
+  activePlatforms: ["PS5", "PS4", "Xbox"],
 
   // Cantidad de juegos por página en el catálogo.
   perPage: 50,
@@ -116,10 +116,21 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const res = await fetch(`/api/scrape`);
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || "Respuesta inválida");
-    allGames = (data.games || []).sort((a, b) => {
+    const [psn, xbox] = await Promise.allSettled([
+      fetch("/api/scrape").then(r => r.json()),
+      fetch("/api/scrape-xbox").then(r => r.json()),
+    ]);
+    const games = [];
+    if (psn.status === "fulfilled" && psn.value.success) {
+      games.push(...(psn.value.games || []));
+    }
+    if (xbox.status === "fulfilled" && xbox.value.success) {
+      games.push(...(xbox.value.games || []).filter(g => !g._placeholder));
+    }
+    if (!games.length) {
+      throw new Error("No se pudo cargar ningún juego");
+    }
+    allGames = games.sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return b.discount - a.discount;
     });
@@ -417,6 +428,7 @@ function toolbarHTML(showPlatformFilters = true) {
           <button class="filter active" data-platform="all">Todos</button>
           <button class="filter" data-platform="PS5">PS5</button>
           <button class="filter" data-platform="PS4">PS4</button>
+          <button class="filter" data-platform="Xbox">Xbox</button>
           <button class="filter" data-sale="true">En oferta</button>
         </div>
       ` : `
