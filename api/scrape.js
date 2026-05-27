@@ -1,141 +1,95 @@
+// PSPrices demo API proxy (no auth required, limit 24 games per call)
+// Docs: https://psprices.com/b2b/playstation-api/
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate");
+  res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { categoryId, page = "1", productId, mode } = req.query;
+  const region = (req.query.region || "cr").toLowerCase();
+  const collection = req.query.collection || "most-wanted-deals";
 
   try {
-    if (mode === "category" && categoryId) {
-      const url = `https://store.playstation.com/es-cr/category/${categoryId}/${page}`;
-      const html = await fetchPSStore(url);
-      const games = parseStorePage(html);
-      return res.status(200).json({ success: true, count: games.length, games });
+    const url = `https://psprices.com/api/b2b/demo/?region=${encodeURIComponent(region)}&collection=${encodeURIComponent(collection)}`;
+    const upstream = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0; +https://rey-midas-digitales.vercel.app)",
+        "Accept": "application/json",
+      },
+    });
+
+    if (!upstream.ok) {
+      const body = await upstream.text();
+      return res.status(502).json({
+        success: false,
+        error: `PSPrices respondió ${upstream.status}`,
+        upstreamBody: body.slice(0, 500),
+      });
     }
 
-    if (mode === "product" && productId) {
-      const url = `https://store.playstation.com/es-cr/product/${productId}`;
-      const html = await fetchPSStore(url);
-      const game = parseProductPage(html, productId);
-      return res.status(200).json({ success: true, game });
-    }
+    const data = await upstream.json();
+    const rawList = Array.isArray(data)
+      ? data
+      : data.games || data.items || data.results || data.data || [];
 
-    if (mode === "bulk") {
-      const categories = JSON.parse(req.query.categories || "[]");
-      let allGames = [];
-      for (const cat of categories) {
-        const pagesToFetch = Math.min(cat.pages || 1, 5);
-        for (let p = 1; p <= pagesToFetch; p++) {
-          const url = `https://store.playstation.com/es-cr/category/${cat.id}/${p}`;
-          try {
-            const html = await fetchPSStore(url);
-            const parsed = parseStorePage(html);
-            allGames = allGames.concat(parsed);
-          } catch (e) { console.error(e.message); }
-        }
-      }
-      const map = new Map();
-      for (const g of allGames) map.set(g.id, g);
-      return res.status(200).json({ success: true, count: map.size, games: Array.from(map.values()) });
-    }
+    const games = rawList.map(normalize).filter(Boolean);
 
-    return res.status(400).json({ success: false, error: "Especifica mode=category, product o bulk" });
+    return res.status(200).json({
+      success: true,
+      count: games.length,
+      region,
+      collection,
+      games,
+      attribution: "Powered by PSprices",
+    });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
 }
 
-async function fetchPSStore(url) {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
-      "Cache-Control": "no-cache",
-    },
-  });
-  if (!res.ok) throw new Error(`PS Store respondio ${res.status}`);
-  return await res.text();
-}
+function normalize(g) {
+  if (!g || typeof g !== "object") return null;
+  const name = g.name || g.title || g.product_name;
+  if (!name) return null;
 
-function parseStorePage(html) {
-  const games = [];
-  if (!html || html.length < 500) return games;
+  const pricing = g.pricing || g.price || {};
+  const current = num(pricing.current_price ?? pricing.discounted_price ?? pricing.price ?? g.current_price);
+  const original = num(pricing.original_price ?? pricing.base_price ?? g.original_price) || current;
+  if (!current && current !== 0) return null;
 
-  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
-  if (nextDataMatch) {
-    try {
-      const data = JSON.parse(nextDataMatch[1]);
-      const cache = data?.props?.apolloState || {};
-      for (const key of Object.keys(cache)) {
-        const obj = cache[key];
-        if (!obj || typeof obj !== "object") continue;
-        if (obj.__typename === "Product" || (obj.id && /^(EP|UP)/.test(obj.id))) {
-          const product = normalizeProduct(obj);
-          if (product) games.push(product);
-        }
-      }
-    } catch (e) { console.error("parse error:", e.message); }
-  }
-  return games;
-}
-
-function normalizeProduct(p) {
-  if (!p.id || !p.name) return null;
-  const priceInfo = p.price || {};
-  const current = parsePrice(priceInfo.discountedValue || priceInfo.basePrice);
-  const original = parsePrice(priceInfo.basePrice) || current;
-  if (!current) return null;
-
+  const platforms = (g.platforms || g.platform || []).map(p => String(p).toUpperCase());
+  const hasPS5 = platforms.some(p => p.includes("PS5"));
+  const hasPS4 = platforms.some(p => p.includes("PS4"));
   let platform = "PS4";
-  const plats = p.platforms || [];
-  const hasPS5 = plats.includes("PS5") || /PS5/i.test(p.name);
-  const hasPS4 = plats.includes("PS4");
   if (hasPS5 && hasPS4) platform = "PS5/PS4";
   else if (hasPS5) platform = "PS5";
+  else if (!hasPS4 && /PS5/i.test(name)) platform = "PS5";
 
-  let imageUrl = "";
-  if (Array.isArray(p.media)) {
-    const img = p.media.find(m => m.role === "MASTER") || p.media[0];
-    if (img) imageUrl = img.url;
-  }
+  const discount = Number.isFinite(pricing.discount_percent)
+    ? Math.round(pricing.discount_percent)
+    : original > current ? Math.round((1 - current / original) * 100) : 0;
 
-  const onSale = original > current;
   return {
-    id: p.id,
-    title: p.name,
+    id: g.id || g.sku || g.title_id || name,
+    title: name,
     platform,
-    imageUrl,
-    url: `https://store.playstation.com/es-cr/product/${p.id}`,
+    imageUrl: g.image_url || g.image || g.cover || g.cover_url || g.thumbnail || g.icon || "",
+    url: g.url || g.store_url || g.psprices_url || "",
     priceUSD: current,
     originalPriceUSD: original,
-    onSale,
-    discount: onSale ? Math.round((1 - current / original) * 100) : 0,
-    isBundle: /bundle|edition|collection|pack|trilogy|complete|deluxe|ultimate|gold|premium|definitive|remaster/i.test(p.name),
-    addedAt: Date.now(),
+    onSale: original > current,
+    discount,
+    currency: pricing.currency || g.currency || "USD",
+    isBundle: /bundle|edition|collection|pack|deluxe|ultimate|gold|premium|definitive|remaster/i.test(name),
   };
 }
 
-function parsePrice(str) {
-  if (!str) return 0;
-  if (typeof str === "number") return str;
-  const m = str.toString().match(/[\d.]+/);
+function num(v) {
+  if (v == null) return 0;
+  if (typeof v === "number") return v;
+  const m = String(v).match(/[\d.]+/);
   return m ? parseFloat(m[0]) : 0;
-}
-
-function parseProductPage(html, productId) {
-  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
-  if (m) {
-    try {
-      const data = JSON.parse(m[1]);
-      const cache = data?.props?.apolloState || {};
-      for (const key of Object.keys(cache)) {
-        if (cache[key]?.id === productId) return normalizeProduct(cache[key]);
-      }
-    } catch (e) {}
-  }
-  return null;
 }
