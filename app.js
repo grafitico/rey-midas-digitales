@@ -17,6 +17,12 @@ const CONFIG = {
 
   // Cantidad de juegos por página en el catálogo.
   perPage: 50,
+
+  // Supabase — completar con los valores de Settings → API
+  supabase: {
+    url: "",
+    anonKey: "",
+  },
 };
 
 // ============================================================
@@ -28,6 +34,99 @@ let allGames = [];
 let loaded = false;
 let loadError = null;
 let nintendo = { telegramChannel: "", bundles: [] };
+
+// ============================================================
+// Supabase (auth + database)
+// ============================================================
+const sb = (CONFIG.supabase.url && CONFIG.supabase.anonKey && window.supabase)
+  ? window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey)
+  : null;
+
+let currentUser = null;
+let currentProfile = null;
+
+async function initAuth() {
+  if (!sb) {
+    renderAuthSlot();
+    return;
+  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+  }
+  renderAuthSlot();
+  sb.auth.onAuthStateChange(async (event, session) => {
+    currentUser = session?.user || null;
+    currentProfile = null;
+    if (currentUser) await loadProfile();
+    renderAuthSlot();
+    const r = parseRoute();
+    if (["mi-cuenta", "admin", "login"].includes(r.name)) render();
+  });
+}
+
+async function loadProfile() {
+  if (!sb || !currentUser) return;
+  const { data } = await sb
+    .from("profiles")
+    .select("*")
+    .eq("id", currentUser.id)
+    .single();
+  currentProfile = data || null;
+}
+
+async function loginWithGoogle() {
+  if (!sb) return alert("Auth no configurado.");
+  await sb.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: location.origin },
+  });
+}
+
+async function logout() {
+  if (!sb) return;
+  await sb.auth.signOut();
+  location.hash = "#/";
+}
+
+function renderAuthSlot() {
+  const slot = document.getElementById("authSlot");
+  if (!slot) return;
+  if (!sb) {
+    slot.innerHTML = "";
+    return;
+  }
+  if (!currentUser) {
+    slot.innerHTML = `<a href="#/login" data-route="login" class="auth-btn">Iniciar sesión</a>`;
+    return;
+  }
+  const name = currentProfile?.full_name || currentUser.email.split("@")[0];
+  const avatar = currentProfile?.avatar_url
+    ? `<img src="${escapeAttr(currentProfile.avatar_url)}" alt="">`
+    : `<span class="avatar-fallback">${escapeHtml(name[0]?.toUpperCase() || "?")}</span>`;
+  slot.innerHTML = `
+    <div class="auth-menu">
+      <button class="auth-trigger" id="authTrigger">
+        ${avatar}
+        <span class="auth-name">${escapeHtml(name)}</span>
+      </button>
+      <div class="auth-dropdown" id="authDropdown" hidden>
+        <a href="#/mi-cuenta">Mi cuenta</a>
+        ${currentProfile?.is_admin ? `<a href="#/admin">Admin</a>` : ""}
+        <button id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </div>
+  `;
+  const trigger = document.getElementById("authTrigger");
+  const dropdown = document.getElementById("authDropdown");
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.hidden = !dropdown.hidden;
+  });
+  document.addEventListener("click", () => { dropdown.hidden = true; }, { once: true });
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+}
 
 waLink.href = `https://wa.me/${CONFIG.whatsapp}`;
 waLink.textContent = formatPhone(CONFIG.whatsapp);
@@ -95,6 +194,9 @@ function parseRoute() {
   if (partes[0] === "nintendo" && partes[1]) {
     return { name: "bundle", id: decodeURIComponent(partes[1]) };
   }
+  if (partes[0] === "login") return { name: "login" };
+  if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
+  if (partes[0] === "admin") return { name: "admin" };
   if (partes[0] === "p" && partes[1]) {
     return { name: "home", page: parseInt(partes[1], 10) || 1 };
   }
@@ -226,6 +328,9 @@ function render() {
     return renderPlatform(route.platform, route.page);
   }
   if (route.name === "cart") return renderCart();
+  if (route.name === "login") return renderLogin();
+  if (route.name === "mi-cuenta") return renderMyAccount();
+  if (route.name === "admin") return renderAdmin();
   return renderHome(route.page);
 }
 
@@ -841,7 +946,260 @@ function escapeHtml(s) {
 const escapeAttr = escapeHtml;
 
 // ============================================================
+// Login / Mi cuenta / Admin
+// ============================================================
+function renderLogin() {
+  if (currentUser) {
+    location.hash = "#/mi-cuenta";
+    return;
+  }
+  app.innerHTML = `
+    <section class="container auth-page">
+      <div class="auth-card">
+        <h1>Iniciá sesión</h1>
+        <p>Accedé con Google para ver tus compras, los datos de cuenta y los códigos del verificador.</p>
+        <button class="google-btn" id="googleLoginBtn">
+          <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.8-2 13.3-5.2l-6.1-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.6l6.1 5.2C40.6 36.5 44 30.8 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+          Continuar con Google
+        </button>
+        <p class="auth-note">No vamos a publicar nada en tu cuenta de Google. Solo usamos tu email para identificarte.</p>
+      </div>
+    </section>
+  `;
+  document.getElementById("googleLoginBtn").addEventListener("click", loginWithGoogle);
+}
+
+async function renderMyAccount() {
+  if (!currentUser) { location.hash = "#/login"; return; }
+  app.innerHTML = `
+    <section class="container account-page">
+      <div class="account-header">
+        <h1>Mi cuenta</h1>
+        <p>${escapeHtml(currentProfile?.full_name || currentUser.email)}</p>
+      </div>
+      <div id="purchasesList">Cargando compras...</div>
+    </section>
+  `;
+  const { data, error } = await sb
+    .from("purchases")
+    .select("*")
+    .order("purchase_date", { ascending: false });
+  const list = document.getElementById("purchasesList");
+  if (error) {
+    list.innerHTML = `<div class="status error">Error: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  if (!data?.length) {
+    list.innerHTML = `
+      <div class="empty-purchases">
+        <p>Todavía no tenés compras cargadas.</p>
+        <p>Cuando hagamos una venta, vas a ver acá los datos de la cuenta, la contraseña y los códigos del verificador.</p>
+      </div>
+    `;
+    return;
+  }
+  list.innerHTML = data.map(purchaseCardHTML).join("");
+}
+
+function purchaseCardHTML(p) {
+  const date = new Date(p.purchase_date + "T00:00:00").toLocaleDateString("es-CR", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+  const modLabel = p.modality ? `<span class="cart-modality ${escapeAttr(p.modality)}">${escapeHtml(p.modality)}</span>` : "";
+  return `
+    <article class="purchase-card">
+      <header class="purchase-head">
+        <div>
+          <span class="cart-platform">${escapeHtml(p.platform)}</span>
+          ${modLabel}
+        </div>
+        <time>${escapeHtml(date)}</time>
+      </header>
+      <dl class="purchase-fields">
+        <div><dt>Email de la cuenta</dt><dd class="copy-able" data-copy="${escapeAttr(p.account_email)}">${escapeHtml(p.account_email)}</dd></div>
+        <div><dt>Contraseña</dt><dd class="copy-able" data-copy="${escapeAttr(p.account_password)}">${escapeHtml(p.account_password)}</dd></div>
+        ${p.verifier_codes ? `<div><dt>Códigos del verificador</dt><dd class="copy-able pre" data-copy="${escapeAttr(p.verifier_codes)}">${escapeHtml(p.verifier_codes)}</dd></div>` : ""}
+        ${p.games ? `<div class="full"><dt>Juegos en la cuenta</dt><dd class="pre">${escapeHtml(p.games)}</dd></div>` : ""}
+        ${p.notes ? `<div class="full"><dt>Notas</dt><dd>${escapeHtml(p.notes)}</dd></div>` : ""}
+      </dl>
+      <p class="purchase-hint">Tip: tocá un campo para copiarlo.</p>
+    </article>
+  `;
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest(".copy-able");
+  if (!el) return;
+  const text = el.dataset.copy;
+  navigator.clipboard?.writeText(text).then(() => showToast("Copiado al portapapeles"));
+});
+
+async function renderAdmin() {
+  if (!currentUser) { location.hash = "#/login"; return; }
+  if (!currentProfile?.is_admin) {
+    app.innerHTML = `
+      <section class="container empty-state">
+        <h2>Sin permisos</h2>
+        <p>Tu cuenta no tiene acceso al panel de administración.</p>
+        <a class="cta" href="#/">Volver al inicio</a>
+      </section>
+    `;
+    return;
+  }
+  app.innerHTML = `
+    <section class="container admin-page">
+      <h1>Panel Admin</h1>
+      <div class="admin-grid">
+        <form id="purchaseForm" class="admin-form">
+          <h2>Cargar nueva compra</h2>
+          <label>Email del cliente
+            <input name="client_email" type="email" required placeholder="cliente@email.com">
+          </label>
+          <div class="row">
+            <label>Fecha de compra
+              <input name="purchase_date" type="date" required value="${new Date().toISOString().slice(0,10)}">
+            </label>
+            <label>Plataforma
+              <select name="platform" required>
+                <option value="PS5">PS5</option>
+                <option value="PS4">PS4</option>
+                <option value="PS3">PS3</option>
+                <option value="Xbox">Xbox</option>
+                <option value="Switch">Switch</option>
+              </select>
+            </label>
+            <label>Modalidad
+              <select name="modality">
+                <option value="">—</option>
+                <option value="principal">Principal</option>
+                <option value="secundaria">Secundaria</option>
+                <option value="bundle">Bundle</option>
+                <option value="individual">Individual</option>
+              </select>
+            </label>
+          </div>
+          <label>Email de la cuenta vendida
+            <input name="account_email" type="text" required>
+          </label>
+          <label>Contraseña de la cuenta
+            <input name="account_password" type="text" required>
+          </label>
+          <label>Códigos del verificador (2FA)
+            <textarea name="verifier_codes" rows="3" placeholder="Uno por línea"></textarea>
+          </label>
+          <label>Juegos en la cuenta
+            <textarea name="games" rows="4" placeholder="Uno por línea"></textarea>
+          </label>
+          <label>Notas (opcional)
+            <textarea name="notes" rows="2"></textarea>
+          </label>
+          <button type="submit">Guardar compra</button>
+          <p id="purchaseFormStatus" class="form-status"></p>
+        </form>
+
+        <div class="admin-list">
+          <h2>Últimas compras cargadas</h2>
+          <div id="adminPurchases">Cargando...</div>
+        </div>
+      </div>
+    </section>
+  `;
+  document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
+  loadAdminPurchases();
+}
+
+async function loadAdminPurchases() {
+  const box = document.getElementById("adminPurchases");
+  if (!box) return;
+  const { data, error } = await sb
+    .from("purchases")
+    .select("*, profiles!purchases_user_id_fkey(email,full_name)")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    box.innerHTML = `<div class="status error">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  if (!data?.length) {
+    box.innerHTML = `<p class="empty-state-small">Todavía no hay compras cargadas.</p>`;
+    return;
+  }
+  box.innerHTML = data.map(p => `
+    <div class="admin-purchase">
+      <header>
+        <strong>${escapeHtml(p.profiles?.email || "?")}</strong>
+        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
+        <time>${escapeHtml(p.purchase_date)}</time>
+        <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar">×</button>
+      </header>
+      <p class="admin-account">${escapeHtml(p.account_email)} / ${escapeHtml(p.account_password)}</p>
+    </div>
+  `).join("");
+  box.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar esta compra?")) return;
+      await sb.from("purchases").delete().eq("id", btn.dataset.del);
+      loadAdminPurchases();
+    });
+  });
+}
+
+async function handleAdminSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const status = document.getElementById("purchaseFormStatus");
+  const fd = new FormData(form);
+  const clientEmail = String(fd.get("client_email")).trim().toLowerCase();
+
+  status.textContent = "Buscando cliente...";
+  status.className = "form-status";
+
+  // Buscar el user_id por email
+  const { data: profile, error: profErr } = await sb
+    .from("profiles")
+    .select("id")
+    .ilike("email", clientEmail)
+    .maybeSingle();
+  if (profErr) {
+    status.textContent = `Error: ${profErr.message}`;
+    status.className = "form-status error";
+    return;
+  }
+  if (!profile) {
+    status.textContent = `No encontré un cliente con email "${clientEmail}". Ese cliente tiene que loguearse al menos una vez en el sitio antes.`;
+    status.className = "form-status error";
+    return;
+  }
+
+  const payload = {
+    user_id: profile.id,
+    purchase_date: fd.get("purchase_date"),
+    platform: fd.get("platform"),
+    modality: fd.get("modality") || null,
+    account_email: fd.get("account_email"),
+    account_password: fd.get("account_password"),
+    verifier_codes: fd.get("verifier_codes") || null,
+    games: fd.get("games") || null,
+    notes: fd.get("notes") || null,
+  };
+
+  status.textContent = "Guardando...";
+  const { error } = await sb.from("purchases").insert(payload);
+  if (error) {
+    status.textContent = `Error: ${error.message}`;
+    status.className = "form-status error";
+    return;
+  }
+  status.textContent = "✓ Compra cargada";
+  status.className = "form-status ok";
+  form.reset();
+  form.querySelector('input[name="purchase_date"]').value = new Date().toISOString().slice(0,10);
+  loadAdminPurchases();
+}
+
+// ============================================================
 // Boot
 // ============================================================
 render();
 load();
+initAuth();
