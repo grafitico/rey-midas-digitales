@@ -5,6 +5,9 @@
     },
     "api/scrape-xbox.js": {
       "maxDuration": 30
+    },
+    "api/cover.js": {
+      "maxDuration": 15
     }
   }
 }

@@ -147,6 +147,68 @@ async function load() {
   } finally {
     loaded = true;
     render();
+    enrichBundleCovers();
+  }
+}
+
+// Auto-busca carátulas de Nintendo para los bundles sin coverUrl.
+// Cachea cada resultado en localStorage para no re-pedirlas.
+async function enrichBundleCovers() {
+  if (!nintendo.bundles?.length) return;
+  const updated = [];
+  await Promise.all(nintendo.bundles.map(async (b) => {
+    if (b.coverUrl) return;
+    const firstGame = b.games?.[0]?.name;
+    if (!firstGame) return;
+    const key = `cover:${firstGame}`;
+    let url = localStorage.getItem(key);
+    if (url === null) {
+      try {
+        const r = await fetch(`/api/cover?q=${encodeURIComponent(firstGame)}`);
+        const data = await r.json();
+        url = data.coverUrl || "";
+        localStorage.setItem(key, url);
+      } catch {
+        url = "";
+      }
+    }
+    if (url) {
+      b.coverUrl = url;
+      updated.push(b.id);
+    }
+  }));
+  if (!updated.length) return;
+  // Si el usuario está en una vista que muestra bundles, actualizamos en DOM
+  // sin re-renderizar entero (evita perder scroll).
+  applyCoverUpdates(updated);
+}
+
+function applyCoverUpdates(bundleIds) {
+  const bundles = nintendo.bundles || [];
+  for (const id of bundleIds) {
+    const b = bundles.find(x => x.id === id);
+    if (!b?.coverUrl) continue;
+    // Tarjetas en la grilla y/o imagen de detalle
+    document.querySelectorAll(`a[href$="/nintendo/${encodeURIComponent(id)}"] .card-image`).forEach(box => {
+      const placeholder = box.querySelector(".placeholder");
+      if (placeholder) {
+        const img = new Image();
+        img.src = b.coverUrl;
+        img.alt = `Bundle ${id}`;
+        img.loading = "lazy";
+        placeholder.replaceWith(img);
+      }
+    });
+    // Detalle (la URL actual termina en /nintendo/<id>)
+    if (location.hash.endsWith(`/nintendo/${encodeURIComponent(id)}`)) {
+      const detail = document.querySelector(".product-image .placeholder");
+      if (detail) {
+        const img = new Image();
+        img.src = b.coverUrl;
+        img.alt = `Bundle ${id}`;
+        detail.replaceWith(img);
+      }
+    }
   }
 }
 
