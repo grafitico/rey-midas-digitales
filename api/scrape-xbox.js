@@ -109,35 +109,38 @@ function normalize(p) {
     images[0];
   if (poster) imageUrl = poster.Uri.startsWith("//") ? `https:${poster.Uri}` : poster.Uri;
 
-  // Precio: el menor MSRP/ListPrice de todas las SKUs/Availabilities
-  let listPrice = Infinity;
-  let msrp = 0;
-  const skus = p.DisplaySkuAvailabilities || [];
-  for (const sku of skus) {
+  // Precio: cada producto tiene varias SKU (full / trial) y cada SKU tiene varias
+  // Availabilities. Muchas son de Game Pass/licencia/trial con ListPrice=0 y son
+  // ruido. Lo que queremos es el menor ListPrice > 0 de una SKU "full" cuya
+  // Availability tenga acción "Purchase".
+  const candidates = [];
+  for (const sku of (p.DisplaySkuAvailabilities || [])) {
+    if (sku.Sku?.SkuType && sku.Sku.SkuType !== "full") continue;
     for (const av of (sku.Availabilities || [])) {
+      const actions = av.Actions || [];
+      if (!actions.includes("Purchase")) continue;
       const price = av.OrderManagementData?.Price;
       if (!price) continue;
-      if (typeof price.ListPrice === "number" && price.ListPrice < listPrice) {
-        listPrice = price.ListPrice;
-        if (typeof price.MSRP === "number") msrp = Math.max(msrp, price.MSRP);
-      }
+      const list = Number(price.ListPrice);
+      if (!list || list <= 0) continue;
+      candidates.push({
+        list,
+        msrp: Number(price.MSRP) || list,
+      });
     }
   }
-  if (!isFinite(listPrice) || listPrice <= 0) return null;
+  if (!candidates.length) return null;
 
-  const onSale = msrp > listPrice;
-  const original = msrp || listPrice;
-
-  // Plataforma: buscar en categorías/tags
-  const categories = (p.Properties?.Categories || []).map(c => String(c).toLowerCase());
-  const isPC = categories.some(c => c.includes("pc") || c.includes("windows"));
-  const isXbox = !categories.length || categories.some(c => c.includes("xbox") || c.includes("console"));
-  const platform = isPC && !isXbox ? "Xbox PC" : "Xbox";
+  // Mejor oferta = menor list price
+  const best = candidates.reduce((a, b) => (a.list < b.list ? a : b));
+  const listPrice = best.list;
+  const original = best.msrp;
+  const onSale = original > listPrice;
 
   return {
     id: `xbox-${id}`,
     title,
-    platform,
+    platform: "Xbox",
     imageUrl,
     url: `https://www.xbox.com/games/store/_/${id}`,
     priceUSD: listPrice,
