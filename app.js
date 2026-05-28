@@ -85,12 +85,13 @@ async function loadProfile() {
   currentProfile = data || null;
 }
 
-async function loginWithGoogle() {
+async function loginWithEmail(email) {
   if (!sb) return alert("Auth no configurado.");
-  await sb.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: location.origin },
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: location.origin },
   });
+  return error;
 }
 
 async function logout() {
@@ -958,24 +959,52 @@ const escapeAttr = escapeHtml;
 // Login / Mi cuenta / Admin
 // ============================================================
 function renderLogin() {
-  if (currentUser) {
-    location.hash = "#/mi-cuenta";
-    return;
-  }
+  if (currentUser) { location.hash = "#/mi-cuenta"; return; }
   app.innerHTML = `
     <section class="container auth-page">
       <div class="auth-card">
         <h1>Iniciá sesión</h1>
-        <p>Accedé con Google para ver tus compras, los datos de cuenta y los códigos del verificador.</p>
-        <button class="google-btn" id="googleLoginBtn">
-          <svg viewBox="0 0 48 48" width="20" height="20"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.8-2 13.3-5.2l-6.1-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.6l6.1 5.2C40.6 36.5 44 30.8 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
-          Continuar con Google
-        </button>
-        <p class="auth-note">No vamos a publicar nada en tu cuenta de Google. Solo usamos tu email para identificarte.</p>
+        <p>Ingresá tu email y te enviamos un enlace mágico para entrar sin contraseña.</p>
+        <form id="loginForm" class="login-form">
+          <label>Tu email
+            <input id="loginEmail" type="email" required placeholder="vos@ejemplo.com" autocomplete="email">
+          </label>
+          <button type="submit" class="login-submit-btn">Enviar enlace de acceso</button>
+        </form>
+        <div id="loginMsg" hidden class="login-msg">
+          <div class="login-sent-icon">✉️</div>
+          <p>Revisá tu bandeja de entrada.</p>
+          <p>Enviamos un enlace de acceso a <strong id="loginEmailSent"></strong>.</p>
+          <p class="auth-note">Si no lo ves en 1-2 minutos, chequeá spam o carpeta de promociones.</p>
+          <button class="cta-secondary" id="loginRetry">Usar otro email</button>
+        </div>
+        <p class="auth-note">Solo usamos tu email para identificarte. Nada de spam.</p>
       </div>
     </section>
   `;
-  document.getElementById("googleLoginBtn").addEventListener("click", loginWithGoogle);
+  const form = document.getElementById("loginForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("loginEmail").value.trim();
+    const btn = form.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.textContent = "Enviando...";
+    const error = await loginWithEmail(email);
+    if (error) {
+      btn.disabled = false;
+      btn.textContent = "Enviar enlace de acceso";
+      showToast(error.message || "Error al enviar. Intentá de nuevo.");
+      return;
+    }
+    form.hidden = true;
+    const msg = document.getElementById("loginMsg");
+    msg.hidden = false;
+    document.getElementById("loginEmailSent").textContent = email;
+  });
+  document.getElementById("loginRetry").addEventListener("click", () => {
+    document.getElementById("loginForm").hidden = false;
+    document.getElementById("loginMsg").hidden = true;
+  });
 }
 
 async function renderMyAccount() {
