@@ -1,75 +1,72 @@
 # Setup de Supabase para Rey Midas Digitales
 
-Pasos manuales que tenés que hacer **vos** una sola vez. Después me pasás los datos al final y yo dejo todo conectado.
+**IMPORTANTE:** Esta versión usa autenticación propia (custom). Supabase se usa SOLO como base de datos. No hace falta configurar SMTP, providers, magic links ni nada de eso. Olvidate de los rate limits de email.
 
-## 1. Crear el proyecto
+---
 
-1. Andá a https://supabase.com y registrate (con Google es más rápido).
+## 1. Crear el proyecto Supabase
+
+1. Andá a https://supabase.com → registrate (con Google es lo más rápido).
 2. New project:
    - **Name**: `rey-midas-digitales`
-   - **Database password**: poné una contraseña fuerte y guardala.
-   - **Region**: `South America (São Paulo)` — la más cercana a Costa Rica.
-   - **Pricing plan**: Free.
-3. Esperá ~2 minutos a que termine el provisioning.
+   - **Database password**: poné una fuerte y guardala.
+   - **Region**: South America (São Paulo).
+   - **Pricing**: Free.
+3. Esperá ~2 minutos.
 
 ## 2. Correr el esquema SQL
 
-1. En el dashboard del proyecto, andá a **SQL Editor** (ícono `</>` en la sidebar).
-2. Click en **New query**.
-3. Abrí el archivo `supabase-schema.sql` de este repo, copiá todo el contenido y pegalo en el editor.
-4. Click en **Run** (abajo a la derecha). Debería decir "Success. No rows returned".
+1. Sidebar → **SQL Editor** → **New query**.
+2. Copiá todo el contenido de `supabase-schema.sql` → pegalo → **Run**.
+3. Debe decir "Success".
 
-## 3. Pasarme los datos de conexión
+> Si ya tenías la versión anterior corriendo: este SQL **borra las tablas viejas** (`profiles`, `purchases`) y las crea de cero. Si tenías datos reales, hacé backup primero. Si no, no pasa nada.
 
-1. En la sidebar, **Settings** (engranaje abajo) → **API**.
-2. Necesitamos tres cosas (todas se configuran en Vercel como env vars):
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL` (ej: `https://abcdef.supabase.co`)
-   - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY` (pública, va al navegador)
-   - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (**secreta**, solo server-side — habilita la API admin para crear clientes)
+## 3. Configurar las env vars en Vercel
 
-Si conectaste Supabase vía la integración de Vercel, las dos primeras ya están. La tercera tenés que agregarla a mano:
+En Vercel → tu proyecto → **Settings → Environment Variables**, agregá:
 
-1. En Vercel → tu proyecto → **Settings** → **Environment Variables**
-2. Add new:
-   - Name: `SUPABASE_SERVICE_ROLE_KEY`
-   - Value: la service_role key de Supabase
-   - Environment: **Production** (y Preview / Development si querés)
-3. Save y **redesplegá** el proyecto (Vercel → Deployments → ... → Redeploy).
+| Nombre | Valor |
+|---|---|
+| `SUPABASE_URL` | Project URL de Supabase (ej: `https://abcdef.supabase.co`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key de Supabase (la **secreta**, no la anon) |
 
-## 4. El primer admin (vos)
+Para conseguir esos valores: Supabase → **Settings → API**.
 
-El sistema usa **email + contraseña** para todos los logins. No hay magic links ni códigos por email. Necesitás crearte tu cuenta admin a mano:
+> El `service_role key` da acceso completo a la base. Por eso solo se usa server-side (en `/api/*.js`) y nunca se manda al navegador.
 
-1. Supabase → **Authentication** → **Users** → **Add user** → **Create new user**.
-2. Llená:
-   - Email: `grafiticopublicidad@gmail.com`
-   - Password: una contraseña fuerte tuya (guardala — es la que vas a usar para entrar al panel admin).
-   - **Auto Confirm User**: ACTIVADO (sino te pide verificación por email y no llega).
-3. Click **Create user**.
-4. Ahora hacete admin en la base de datos. SQL Editor → New query → pegar y correr:
-   ```sql
-   UPDATE public.profiles SET is_admin = TRUE
-   WHERE email = 'grafiticopublicidad@gmail.com';
-   ```
-5. Andá a https://reymidascr.com/#/login, ingresá tu email + contraseña → ¡adentro! Vas a ver el menú **Admin** en tu perfil.
+Después de agregarlas, **Redeploy** el proyecto.
+
+## 4. Crear tu cuenta admin (primera vez)
+
+1. Andá a `https://reymidascr.com/#/login`.
+2. Como sos el primero en entrar, el sitio detecta que no hay usuarios y te muestra **"Crear primer admin"**.
+3. Llená email + nombre + contraseña.
+4. Click **Crear cuenta admin** → entrás directamente al panel admin.
+
+Esa cuenta queda como admin para siempre. El botón de "crear primer admin" se deshabilita automáticamente cuando ya hay al menos un usuario.
 
 ## 5. Crear cuentas de clientes
 
-A partir de ahora **no usás más el dashboard de Supabase para esto**. Desde la web:
+Desde el panel `#/admin`:
 
-1. Andá a `#/admin` en el sitio.
-2. Arriba de todo: **"Crear cliente nuevo"**.
-   - Email del cliente.
-   - Nombre (opcional).
-   - Contraseña inicial (por defecto: `Midas2026` — el cliente la puede cambiar después).
-3. Click **Crear cuenta**.
-4. Te aparece un mensaje listo para copiar y mandarle al cliente por WhatsApp.
-5. Después usá el formulario de abajo para **cargarle compras** a ese cliente.
+1. Arriba: **"Crear cliente nuevo"** → email + nombre opcional + contraseña inicial (default `Midas2026`).
+2. Click Crear → te aparece el mensaje listo para copiar y mandar al cliente por WhatsApp.
+3. Cargale las compras con el formulario de abajo.
 
-## 6. Cliente cambia contraseña
+El cliente entra con su email + contraseña, ve sus compras en `/mi-cuenta`, y puede cambiar la contraseña cuando quiera.
 
-Cuando el cliente entra a `#/mi-cuenta`, tiene un botón **"Cambiar contraseña"** para que la actualice cuando quiera.
+## ¿Y si pierdo la contraseña de admin?
 
-## ¿Y los emails?
+Como sos el admin único, no hay un "olvidé mi contraseña" automático (eso requeriría SMTP). Pero podés resetearla a mano:
 
-No usamos email para nada del login. Si en algún momento querés agregar recuperación de contraseña por email, lo conectamos con Resend después.
+1. Supabase → SQL Editor → New query → corré esto (cambiá `'tu-nueva-pass'`):
+```sql
+-- Genera un hash scrypt simulado NO sirve, porque la app
+-- usa Node.js crypto.scryptSync con formato propio.
+-- En su lugar, borrá tu fila y volvé a hacer bootstrap:
+DELETE FROM app_users WHERE email = 'grafiticopublicidad@gmail.com';
+```
+2. Andá a `#/login`, te aparece otra vez "Crear primer admin", creá la cuenta con la contraseña nueva.
+
+(Solo funciona si vos sos el único usuario; si ya creaste clientes, eliminarte borraría sus compras por la cascada. En ese caso pedime que te arme un endpoint de reset y lo agrego.)

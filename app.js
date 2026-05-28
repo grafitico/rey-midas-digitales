@@ -17,12 +17,6 @@ const CONFIG = {
 
   // Cantidad de juegos por página en el catálogo.
   perPage: 50,
-
-  // Supabase — completar con los valores de Settings → API
-  supabase: {
-    url: "",
-    anonKey: "",
-  },
 };
 
 // ============================================================
@@ -36,104 +30,131 @@ let loadError = null;
 let nintendo = { telegramChannel: "", bundles: [] };
 
 // ============================================================
-// Supabase (auth + database)
+// Auth propio — usa los endpoints en /api/auth y /api/* con un
+// token HMAC guardado en localStorage. Sin Supabase Auth.
 // ============================================================
-let sb = null;
+const TOKEN_KEY = "rmd_token_v1";
 let currentUser = null;
-let currentProfile = null;
+let usersExist = true; // se actualiza en initAuth(); controla el botón "Crear primer admin"
 
-async function initAuth() {
-  // Cargamos las credenciales desde /api/config (las pone Vercel via env vars).
-  try {
-    const res = await fetch("/api/config");
-    const data = await res.json();
-    const url = data?.supabase?.url || CONFIG.supabase.url;
-    const key = data?.supabase?.anonKey || CONFIG.supabase.anonKey;
-    if (!url || !key || !window.supabase) {
-      renderAuthSlot();
-      return;
-    }
-    sb = window.supabase.createClient(url, key);
-  } catch {
-    renderAuthSlot();
-    return;
-  }
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+function clearToken() { localStorage.removeItem(TOKEN_KEY); }
 
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    await loadProfile();
-  }
-  renderAuthSlot();
-  sb.auth.onAuthStateChange(async (event, session) => {
-    currentUser = session?.user || null;
-    currentProfile = null;
-    if (currentUser) await loadProfile();
-    renderAuthSlot();
-    if (event === "SIGNED_IN") {
-      const r = parseRoute();
-      if (r.name === "login" || r.name === "auth-callback") {
-        location.hash = "#/mi-cuenta";
-        return;
-      }
-    }
-    const r = parseRoute();
-    if (["mi-cuenta", "admin", "login"].includes(r.name)) render();
+// Wrapper para todos los fetches a la API: agrega el token y parsea errores.
+async function apiPost(path, body) {
+  const headers = { "Content-Type": "application/json" };
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(path, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
   });
+  let data = {};
+  try { data = await res.json(); } catch { /* respuesta vacía */ }
+  if (!res.ok) {
+    const err = new Error(data.error || `Error ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
 }
 
-async function loadProfile() {
-  if (!sb || !currentUser) return;
-  const { data } = await sb
-    .from("profiles")
-    .select("*")
-    .eq("id", currentUser.id)
-    .single();
-  currentProfile = data || null;
+async function initAuth() {
+  const token = getToken();
+  if (token) {
+    try {
+      const { user } = await apiPost("/api/auth", { action: "me" });
+      currentUser = user;
+    } catch (err) {
+      // Token inválido / expirado: limpiar
+      if (err.status === 401) clearToken();
+      currentUser = null;
+    }
+  }
+  // Detectar si ya hay algún usuario en la base (para mostrar bootstrap o no)
+  if (!currentUser) {
+    try {
+      // Intento de bootstrap dummy — si responde 403 ya hay usuarios.
+      const test = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "bootstrap", email: "", password: "" }),
+      });
+      const data = await test.json().catch(() => ({}));
+      // 400 = "email/pass requeridos" → no hay usuarios todavía
+      // 403 = "ya hay usuarios" → bootstrap deshabilitado
+      usersExist = test.status === 403 || /Ya hay usuarios/i.test(data.error || "");
+    } catch { usersExist = true; }
+  }
+  renderAuthSlot();
+  const r = parseRoute();
+  if (["mi-cuenta", "admin", "login"].includes(r.name)) render();
 }
 
 async function loginWithPassword(email, password) {
-  if (!sb) return { message: "Auth no configurado." };
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  return error;
+  try {
+    const { token, user } = await apiPost("/api/auth", { action: "login", email, password });
+    setToken(token);
+    currentUser = user;
+    usersExist = true;
+    renderAuthSlot();
+    return null;
+  } catch (err) {
+    return err;
+  }
+}
+
+async function bootstrapAdmin(email, password, fullName) {
+  try {
+    const { token, user } = await apiPost("/api/auth", {
+      action: "bootstrap", email, password, full_name: fullName || null,
+    });
+    setToken(token);
+    currentUser = user;
+    usersExist = true;
+    renderAuthSlot();
+    return null;
+  } catch (err) {
+    return err;
+  }
 }
 
 async function changePassword(newPassword) {
-  if (!sb) return { message: "Auth no configurado." };
-  const { error } = await sb.auth.updateUser({ password: newPassword });
-  return error;
+  try {
+    await apiPost("/api/auth", { action: "change-password", password: newPassword });
+    return null;
+  } catch (err) {
+    return err;
+  }
 }
 
-async function logout() {
-  if (!sb) return;
-  await sb.auth.signOut();
+function logout() {
+  clearToken();
+  currentUser = null;
+  renderAuthSlot();
   location.hash = "#/";
 }
 
 function renderAuthSlot() {
   const slot = document.getElementById("authSlot");
   if (!slot) return;
-  if (!sb) {
-    slot.innerHTML = "";
-    return;
-  }
   if (!currentUser) {
     slot.innerHTML = `<a href="#/login" data-route="login" class="auth-btn">Iniciar sesión</a>`;
     return;
   }
-  const name = currentProfile?.full_name || currentUser.email.split("@")[0];
-  const avatar = currentProfile?.avatar_url
-    ? `<img src="${escapeAttr(currentProfile.avatar_url)}" alt="">`
-    : `<span class="avatar-fallback">${escapeHtml(name[0]?.toUpperCase() || "?")}</span>`;
+  const name = currentUser.full_name || currentUser.email.split("@")[0];
+  const initial = (name[0] || "?").toUpperCase();
   slot.innerHTML = `
     <div class="auth-menu">
       <button class="auth-trigger" id="authTrigger">
-        ${avatar}
+        <span class="avatar-fallback">${escapeHtml(initial)}</span>
         <span class="auth-name">${escapeHtml(name)}</span>
       </button>
       <div class="auth-dropdown" id="authDropdown" hidden>
         <a href="#/mi-cuenta">Mi cuenta</a>
-        ${currentProfile?.is_admin ? `<a href="#/admin">Admin</a>` : ""}
+        ${currentUser.is_admin ? `<a href="#/admin">Admin</a>` : ""}
         <button id="logoutBtn">Cerrar sesión</button>
       </div>
     </div>
@@ -201,9 +222,10 @@ function parseRoute() {
   const h = location.hash.replace(/^#/, "") || "/";
   if (h === "/" || h === "") return { name: "home", page: 1 };
 
-  // Supabase redirige acá con errores o tokens de auth
+  // Hashes viejos de Supabase Auth — limpiarlos y mandar a inicio.
   if (h.includes("error=") || h.includes("access_token=")) {
-    return { name: "auth-callback" };
+    setTimeout(() => { history.replaceState(null, "", location.pathname); location.hash = "#/"; }, 0);
+    return { name: "home", page: 1 };
   }
 
   const partes = h.replace(/^\//, "").split("/");
@@ -346,7 +368,6 @@ function render() {
   navigateActive();
   updateCartBadge();
   const route = parseRoute();
-  if (route.name === "auth-callback") return renderAuthCallback();
   if (route.name === "product") return renderProduct(route.id);
   if (route.name === "bundle") return renderBundle(route.id);
   if (route.name === "platform") {
@@ -974,53 +995,52 @@ const escapeAttr = escapeHtml;
 // ============================================================
 // Login / Mi cuenta / Admin
 // ============================================================
-function renderAuthCallback() {
-  const params = new URLSearchParams(location.hash.replace(/^#/, ""));
-  const error = params.get("error_description") || params.get("error");
+function renderLogin() {
+  if (currentUser) { location.hash = "#/mi-cuenta"; return; }
 
-  if (error) {
-    const isExpired = params.get("error_code") === "otp_expired";
+  // Si NO existe ningún usuario todavía, mostramos el form de "Crear primer admin".
+  if (!usersExist) {
     app.innerHTML = `
       <section class="container auth-page">
         <div class="auth-card">
-          <div class="login-sent-icon">${isExpired ? "⏱️" : "❌"}</div>
-          <h1>${isExpired ? "Enlace expirado" : "Error de acceso"}</h1>
-          <p>${isExpired
-            ? "El enlace de acceso ya expiró. Iniciá sesión con tu email y contraseña."
-            : escapeHtml(decodeURIComponent(error.replace(/\+/g, " ")))
-          }</p>
-          <a class="login-submit-btn" href="#/login" style="display:block;text-align:center;text-decoration:none;padding:0.9rem 1.5rem;border-radius:999px;">
-            Ir a iniciar sesión
-          </a>
+          <h1>Crear primer admin</h1>
+          <p>Como sos el primero en entrar, esta cuenta va a ser administradora del sistema.</p>
+          <form id="bootstrapForm" class="login-form">
+            <label>Email
+              <input id="bsEmail" type="email" required placeholder="vos@ejemplo.com" autocomplete="email">
+            </label>
+            <label>Nombre (opcional)
+              <input id="bsName" type="text" placeholder="Tu nombre">
+            </label>
+            <label>Contraseña (mínimo 6 caracteres)
+              <input id="bsPassword" type="password" required minlength="6" autocomplete="new-password">
+            </label>
+            <button type="submit" class="login-submit-btn">Crear cuenta admin</button>
+          </form>
         </div>
       </section>
     `;
+    document.getElementById("bootstrapForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("bsEmail").value.trim();
+      const name = document.getElementById("bsName").value.trim();
+      const password = document.getElementById("bsPassword").value;
+      const btn = e.target.querySelector("button[type='submit']");
+      btn.disabled = true;
+      btn.textContent = "Creando...";
+      const error = await bootstrapAdmin(email, password, name);
+      if (error) {
+        btn.disabled = false;
+        btn.textContent = "Crear cuenta admin";
+        showToast(error.message || "Error creando la cuenta.");
+        return;
+      }
+      showToast("Cuenta creada ✓");
+      location.hash = "#/admin";
+    });
     return;
   }
 
-  // Limpia la URL y redirige según si hay sesión activa o no
-  app.innerHTML = `
-    <section class="container auth-page">
-      <div class="auth-card">
-        <div class="login-sent-icon">⏳</div>
-        <h1>Iniciando sesión...</h1>
-        <p>Esperá un momento.</p>
-        <a class="cta-secondary" href="#/login" style="display:block;text-align:center;margin-top:1rem;">Ir al login si no responde</a>
-      </div>
-    </section>
-  `;
-
-  // Esperar a que onAuthStateChange procese el token. Si en 2.5s no hay sesión, mandar a login.
-  setTimeout(async () => {
-    if (!sb) { location.replace("#/login"); return; }
-    const { data: { session } } = await sb.auth.getSession();
-    history.replaceState(null, "", location.pathname + location.search);
-    location.hash = session ? "#/mi-cuenta" : "#/login";
-  }, 2500);
-}
-
-function renderLogin() {
-  if (currentUser) { location.hash = "#/mi-cuenta"; return; }
   app.innerHTML = `
     <section class="container auth-page">
       <div class="auth-card">
@@ -1035,7 +1055,7 @@ function renderLogin() {
           </label>
           <button type="submit" class="login-submit-btn">Entrar</button>
         </form>
-        <p class="auth-note">¿No tenés cuenta o no te llega el acceso? Escribinos por WhatsApp y te creamos una al instante.</p>
+        <p class="auth-note">¿No tenés cuenta? Escribinos por WhatsApp y te creamos una al instante.</p>
         <a class="cta-secondary" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito que me creen una cuenta para ver mis compras.")}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:0.6rem;">Pedir cuenta por WhatsApp</a>
       </div>
     </section>
@@ -1053,13 +1073,10 @@ function renderLogin() {
     if (error) {
       btn.disabled = false;
       btn.textContent = "Entrar";
-      const msg = /invalid login credentials/i.test(error.message || "")
-        ? "Email o contraseña incorrectos."
-        : (error.message || "No pudimos entrar. Intentá de nuevo.");
-      showToast(msg);
+      showToast(error.message || "No pudimos entrar. Intentá de nuevo.");
       return;
     }
-    // onAuthStateChange se encarga de la redirección
+    location.hash = currentUser.is_admin ? "#/admin" : "#/mi-cuenta";
   });
 }
 
@@ -1069,7 +1086,7 @@ async function renderMyAccount() {
     <section class="container account-page">
       <div class="account-header">
         <h1>Mi cuenta</h1>
-        <p>${escapeHtml(currentProfile?.full_name || currentUser.email)}</p>
+        <p>${escapeHtml(currentUser.full_name || currentUser.email)}</p>
         <button class="cta-secondary small" id="changePwdBtn">Cambiar contraseña</button>
       </div>
       <div id="pwdBox" hidden class="pwd-change">
@@ -1105,25 +1122,23 @@ async function renderMyAccount() {
     document.getElementById("pwdBox").hidden = true;
     document.getElementById("newPwd").value = "";
   });
-  const { data, error } = await sb
-    .from("purchases")
-    .select("*")
-    .order("purchase_date", { ascending: false });
+
   const list = document.getElementById("purchasesList");
-  if (error) {
-    list.innerHTML = `<div class="status error">Error: ${escapeHtml(error.message)}</div>`;
-    return;
+  try {
+    const { purchases } = await apiPost("/api/purchases", { action: "mine" });
+    if (!purchases?.length) {
+      list.innerHTML = `
+        <div class="empty-purchases">
+          <p>Todavía no tenés compras cargadas.</p>
+          <p>Cuando hagamos una venta, vas a ver acá los datos de la cuenta, la contraseña y los códigos del verificador.</p>
+        </div>
+      `;
+      return;
+    }
+    list.innerHTML = purchases.map(purchaseCardHTML).join("");
+  } catch (err) {
+    list.innerHTML = `<div class="status error">Error: ${escapeHtml(err.message)}</div>`;
   }
-  if (!data?.length) {
-    list.innerHTML = `
-      <div class="empty-purchases">
-        <p>Todavía no tenés compras cargadas.</p>
-        <p>Cuando hagamos una venta, vas a ver acá los datos de la cuenta, la contraseña y los códigos del verificador.</p>
-      </div>
-    `;
-    return;
-  }
-  list.innerHTML = data.map(purchaseCardHTML).join("");
 }
 
 function purchaseCardHTML(p) {
@@ -1161,7 +1176,7 @@ document.addEventListener("click", (e) => {
 
 async function renderAdmin() {
   if (!currentUser) { location.hash = "#/login"; return; }
-  if (!currentProfile?.is_admin) {
+  if (!currentUser.is_admin) {
     app.innerHTML = `
       <section class="container empty-state">
         <h2>Sin permisos</h2>
@@ -1269,23 +1284,8 @@ async function handleCreateClient(e) {
 
   status.textContent = "Creando cuenta...";
   status.className = "form-status";
-
-  const { data: { session } } = await sb.auth.getSession();
   try {
-    const res = await fetch("/api/admin-create-client", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ email, password, full_name: fullName }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      status.textContent = `Error: ${data.error || res.statusText}`;
-      status.className = "form-status error";
-      return;
-    }
+    await apiPost("/api/clients", { action: "create", email, password, full_name: fullName });
     status.innerHTML = `
       ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>.<br>
       Mandale por WhatsApp:<br>
@@ -1298,7 +1298,7 @@ async function handleCreateClient(e) {
     form.querySelector('input[name="full_name"]').value = "";
     form.querySelector('input[name="password"]').value = "Midas2026";
   } catch (err) {
-    status.textContent = `Error de red: ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     status.className = "form-status error";
   }
 }
@@ -1306,37 +1306,37 @@ async function handleCreateClient(e) {
 async function loadAdminPurchases() {
   const box = document.getElementById("adminPurchases");
   if (!box) return;
-  const { data, error } = await sb
-    .from("purchases")
-    .select("*, profiles!purchases_user_id_fkey(email,full_name)")
-    .order("created_at", { ascending: false })
-    .limit(20);
-  if (error) {
-    box.innerHTML = `<div class="status error">${escapeHtml(error.message)}</div>`;
-    return;
-  }
-  if (!data?.length) {
-    box.innerHTML = `<p class="empty-state-small">Todavía no hay compras cargadas.</p>`;
-    return;
-  }
-  box.innerHTML = data.map(p => `
-    <div class="admin-purchase">
-      <header>
-        <strong>${escapeHtml(p.profiles?.email || "?")}</strong>
-        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
-        <time>${escapeHtml(p.purchase_date)}</time>
-        <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar">×</button>
-      </header>
-      <p class="admin-account">${escapeHtml(p.account_email)} / ${escapeHtml(p.account_password)}</p>
-    </div>
-  `).join("");
-  box.querySelectorAll("[data-del]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("¿Eliminar esta compra?")) return;
-      await sb.from("purchases").delete().eq("id", btn.dataset.del);
-      loadAdminPurchases();
+  try {
+    const { purchases } = await apiPost("/api/purchases", { action: "list-all" });
+    if (!purchases?.length) {
+      box.innerHTML = `<p class="empty-state-small">Todavía no hay compras cargadas.</p>`;
+      return;
+    }
+    box.innerHTML = purchases.map(p => `
+      <div class="admin-purchase">
+        <header>
+          <strong>${escapeHtml(p.app_users?.email || "?")}</strong>
+          <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
+          <time>${escapeHtml(p.purchase_date)}</time>
+          <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar">×</button>
+        </header>
+        <p class="admin-account">${escapeHtml(p.account_email)} / ${escapeHtml(p.account_password)}</p>
+      </div>
+    `).join("");
+    box.querySelectorAll("[data-del]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("¿Eliminar esta compra?")) return;
+        try {
+          await apiPost("/api/purchases", { action: "delete", id: btn.dataset.del });
+          loadAdminPurchases();
+        } catch (err) {
+          showToast(err.message);
+        }
+      });
     });
-  });
+  } catch (err) {
+    box.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
+  }
 }
 
 async function handleAdminSubmit(e) {
@@ -1344,52 +1344,32 @@ async function handleAdminSubmit(e) {
   const form = e.target;
   const status = document.getElementById("purchaseFormStatus");
   const fd = new FormData(form);
-  const clientEmail = String(fd.get("client_email")).trim().toLowerCase();
-
-  status.textContent = "Buscando cliente...";
-  status.className = "form-status";
-
-  // Buscar el user_id por email
-  const { data: profile, error: profErr } = await sb
-    .from("profiles")
-    .select("id")
-    .ilike("email", clientEmail)
-    .maybeSingle();
-  if (profErr) {
-    status.textContent = `Error: ${profErr.message}`;
-    status.className = "form-status error";
-    return;
-  }
-  if (!profile) {
-    status.textContent = `No encontré un cliente con email "${clientEmail}". Ese cliente tiene que loguearse al menos una vez en el sitio antes.`;
-    status.className = "form-status error";
-    return;
-  }
-
-  const payload = {
-    user_id: profile.id,
-    purchase_date: fd.get("purchase_date"),
-    platform: fd.get("platform"),
-    modality: fd.get("modality") || null,
-    account_email: fd.get("account_email"),
-    account_password: fd.get("account_password"),
-    verifier_codes: fd.get("verifier_codes") || null,
-    games: fd.get("games") || null,
-    notes: fd.get("notes") || null,
-  };
 
   status.textContent = "Guardando...";
-  const { error } = await sb.from("purchases").insert(payload);
-  if (error) {
-    status.textContent = `Error: ${error.message}`;
+  status.className = "form-status";
+
+  try {
+    await apiPost("/api/purchases", {
+      action: "create",
+      client_email: String(fd.get("client_email")).trim().toLowerCase(),
+      purchase_date: fd.get("purchase_date"),
+      platform: fd.get("platform"),
+      modality: fd.get("modality") || null,
+      account_email: fd.get("account_email"),
+      account_password: fd.get("account_password"),
+      verifier_codes: fd.get("verifier_codes") || null,
+      games: fd.get("games") || null,
+      notes: fd.get("notes") || null,
+    });
+    status.textContent = "✓ Compra cargada";
+    status.className = "form-status ok";
+    form.reset();
+    form.querySelector('input[name="purchase_date"]').value = new Date().toISOString().slice(0,10);
+    loadAdminPurchases();
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
     status.className = "form-status error";
-    return;
   }
-  status.textContent = "✓ Compra cargada";
-  status.className = "form-status ok";
-  form.reset();
-  form.querySelector('input[name="purchase_date"]').value = new Date().toISOString().slice(0,10);
-  loadAdminPurchases();
 }
 
 // ============================================================
