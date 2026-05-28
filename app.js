@@ -191,6 +191,11 @@ function parseRoute() {
   const h = location.hash.replace(/^#/, "") || "/";
   if (h === "/" || h === "") return { name: "home", page: 1 };
 
+  // Supabase redirige acá con errores o tokens de auth
+  if (h.includes("error=") || h.includes("access_token=")) {
+    return { name: "auth-callback" };
+  }
+
   const partes = h.replace(/^\//, "").split("/");
   if (partes[0] === "carrito") return { name: "cart" };
 
@@ -331,6 +336,7 @@ function render() {
   navigateActive();
   updateCartBadge();
   const route = parseRoute();
+  if (route.name === "auth-callback") return renderAuthCallback();
   if (route.name === "product") return renderProduct(route.id);
   if (route.name === "bundle") return renderBundle(route.id);
   if (route.name === "platform") {
@@ -958,6 +964,42 @@ const escapeAttr = escapeHtml;
 // ============================================================
 // Login / Mi cuenta / Admin
 // ============================================================
+function renderAuthCallback() {
+  const params = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const error = params.get("error_description") || params.get("error");
+
+  if (error) {
+    const isExpired = params.get("error_code") === "otp_expired";
+    app.innerHTML = `
+      <section class="container auth-page">
+        <div class="auth-card">
+          <div class="login-sent-icon">${isExpired ? "⏱️" : "❌"}</div>
+          <h1>${isExpired ? "Enlace expirado" : "Error de acceso"}</h1>
+          <p>${isExpired
+            ? "El enlace de acceso ya expiró (tienen validez de 60 minutos). Pedí uno nuevo."
+            : escapeHtml(decodeURIComponent(error.replace(/\+/g, " ")))
+          }</p>
+          <a class="login-submit-btn" href="#/login" style="display:block;text-align:center;text-decoration:none;padding:0.9rem 1.5rem;border-radius:999px;">
+            Pedir nuevo enlace
+          </a>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  // Token válido — Supabase lo procesa solo vía onAuthStateChange
+  app.innerHTML = `
+    <section class="container auth-page">
+      <div class="auth-card">
+        <div class="login-sent-icon">⏳</div>
+        <h1>Iniciando sesión...</h1>
+        <p>Espera un momento.</p>
+      </div>
+    </section>
+  `;
+}
+
 function renderLogin() {
   if (currentUser) { location.hash = "#/mi-cuenta"; return; }
   app.innerHTML = `
