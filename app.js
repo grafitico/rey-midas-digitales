@@ -28,6 +28,9 @@ let allGames = [];
 let loaded = false;
 let loadError = null;
 let nintendo = { telegramChannel: "", bundles: [] };
+let psBundles = { bundles: [] };
+let xboxBundles = { bundles: [] };
+let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 
 // ============================================================
 // Auth propio — usa los endpoints en /api/auth y /api/* con un
@@ -187,7 +190,12 @@ function saveCart(items) {
 }
 function addToCart(game, modality) {
   const items = loadCart();
-  const price = modality === "principal" ? principalCRC(game.priceUSD) : secundariaCRC(game.priceUSD);
+  let price;
+  if (game._manualPrices) {
+    price = modality === "principal" ? game.priceCRC_principal : game.priceCRC_secundaria;
+  } else {
+    price = modality === "principal" ? principalCRC(game.priceUSD) : secundariaCRC(game.priceUSD);
+  }
   const exists = items.find(i => i.id === game.id && i.modality === modality);
   if (exists) return false;
   items.push({
@@ -239,7 +247,20 @@ function parseRoute() {
     return { name: "product", id: decodeURIComponent(partes[1]) };
   }
   if (partes[0] === "nintendo" && partes[1]) {
-    return { name: "bundle", id: decodeURIComponent(partes[1]) };
+    return { name: "bundle", id: decodeURIComponent(partes[1]), type: "nintendo" };
+  }
+  if (partes[0] === "ps-bundle" && partes[1]) {
+    return { name: "bundle", id: decodeURIComponent(partes[1]), type: "ps" };
+  }
+  if (partes[0] === "xbox-bundle" && partes[1]) {
+    return { name: "bundle", id: decodeURIComponent(partes[1]), type: "xbox" };
+  }
+  if (partes[0] === "bundles" && partes[1]) {
+    return { name: "bundles-list", platform: decodeURIComponent(partes[1]) };
+  }
+  if (partes[0] === "ofertas") {
+    const page = (partes[1] === "p" && partes[2]) ? parseInt(partes[2], 10) || 1 : 1;
+    return { name: "ofertas", page };
   }
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
@@ -269,10 +290,13 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
+      fetch("/ps-bundles.json").then(r => r.json()),
+      fetch("/xbox-bundles.json").then(r => r.json()),
+      fetch("/offers.json").then(r => r.json()),
     ]);
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
@@ -284,12 +308,30 @@ async function load() {
     if (nin.status === "fulfilled" && nin.value && Array.isArray(nin.value.bundles)) {
       nintendo = nin.value;
     }
-    if (!games.length && !nintendo.bundles.length) {
+    if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
+      psBundles = psB.value;
+    }
+    if (xboxB.status === "fulfilled" && xboxB.value && Array.isArray(xboxB.value.bundles)) {
+      xboxBundles = xboxB.value;
+    }
+    if (offers.status === "fulfilled" && offers.value && Array.isArray(offers.value.offers)) {
+      manualOffers = offers.value.offers.map(o => ({
+        ...o,
+        _manualPrices: true,
+        onSale: true,
+        discount: o.originalPriceCRC && o.priceCRC_principal
+          ? Math.round((1 - o.priceCRC_principal / o.originalPriceCRC) * 100)
+          : 0,
+      }));
+      // Las ofertas manuales se mergean al catálogo principal
+      games.push(...manualOffers);
+    }
+    if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
     allGames = games.sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
-      return b.discount - a.discount;
+      return (b.discount || 0) - (a.discount || 0);
     });
   } catch (err) {
     loadError = err.message;
@@ -369,11 +411,13 @@ function render() {
   updateCartBadge();
   const route = parseRoute();
   if (route.name === "product") return renderProduct(route.id);
-  if (route.name === "bundle") return renderBundle(route.id);
+  if (route.name === "bundle") return renderBundle(route.id, route.type || "nintendo");
   if (route.name === "platform") {
     if (route.platform === "Switch") return renderSwitch();
     return renderPlatform(route.platform, route.page);
   }
+  if (route.name === "bundles-list") return renderBundlesList(route.platform);
+  if (route.name === "ofertas") return renderOfertas(route.page);
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
   if (route.name === "mi-cuenta") return renderMyAccount();
@@ -443,15 +487,15 @@ function renderProduct(id) {
     `;
     return;
   }
-  const principal = principalCRC(g.priceUSD);
-  const secundaria = secundariaCRC(g.priceUSD);
+  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD);
+  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD);
   app.innerHTML = `
     <section class="container product-page">
       <a class="back-link" href="#/">&larr; Volver al catálogo</a>
       <div class="product-grid">
         <div class="product-image">
           ${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}">` : `<div class="placeholder">🎮</div>`}
-          ${g.onSale ? `<span class="badge-sale">-${g.discount}% PSN</span>` : ""}
+          ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
         </div>
         <div class="product-info">
           <span class="product-platform">${escapeHtml(g.platform)}</span>
@@ -459,18 +503,22 @@ function renderProduct(id) {
           <p class="product-desc">Juego digital para ${escapeHtml(g.platform)}. Te entregamos el acceso por WhatsApp luego de confirmar el pago por SINPE Móvil o transferencia bancaria.</p>
 
           <div class="price-options">
-            <div class="price-card principal">
-              <div class="price-label">Cuenta Principal</div>
-              <div class="price-amount">${formatCRC(principal)}</div>
-              <div class="price-note">Acceso completo, sin restricciones</div>
-              <button class="price-cta" data-add="principal" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
-            </div>
-            <div class="price-card secundaria">
-              <div class="price-label">Cuenta Secundaria</div>
-              <div class="price-amount">${formatCRC(secundaria)}</div>
-              <div class="price-note">Más económico, requiere estar conectado</div>
-              <button class="price-cta" data-add="secundaria" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
-            </div>
+            ${principal != null ? `
+              <div class="price-card principal">
+                <div class="price-label">Cuenta Principal</div>
+                <div class="price-amount">${formatCRC(principal)}</div>
+                <div class="price-note">Acceso completo, sin restricciones</div>
+                <button class="price-cta" data-add="principal" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
+              </div>
+            ` : ""}
+            ${secundaria != null ? `
+              <div class="price-card secundaria">
+                <div class="price-label">Cuenta Secundaria</div>
+                <div class="price-amount">${formatCRC(secundaria)}</div>
+                <div class="price-note">Más económico, requiere estar conectado</div>
+                <button class="price-cta" data-add="secundaria" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
+              </div>
+            ` : ""}
           </div>
 
           <div class="product-meta">
@@ -503,7 +551,7 @@ function renderSwitch() {
       </div>
       ${bundles.length ? `
         <div class="grid bundles">
-          ${bundles.map(bundleCardHTML).join("")}
+          ${bundles.map(b => bundleCardHTML(b, "nintendo")).join("")}
         </div>
       ` : `
         <div class="status">Aún no hay bundles publicados. Mientras tanto pasate por nuestro canal de Telegram.</div>
@@ -512,16 +560,88 @@ function renderSwitch() {
   `;
 }
 
-function bundleCardHTML(b) {
+function renderBundlesList(platform) {
+  const cfg = {
+    PS: { source: psBundles, title: "Bundles PlayStation", subtitle: "Bundles de PS5/PS4 con varios juegos por un solo precio.", type: "ps" },
+    Xbox: { source: xboxBundles, title: "Bundles Xbox", subtitle: "Bundles de Xbox con varios juegos por un solo precio.", type: "xbox" },
+  }[platform];
+  if (!cfg) {
+    app.innerHTML = `<section class="container empty-state"><h2>Plataforma no encontrada</h2><a class="cta" href="#/">Inicio</a></section>`;
+    return;
+  }
+  const bundles = cfg.source.bundles || [];
+  app.innerHTML = `
+    ${heroSlimHTML(cfg.title)}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>${escapeHtml(cfg.title)}</h2>
+        <p>${escapeHtml(cfg.subtitle)} ${bundles.length} ${bundles.length === 1 ? "bundle disponible" : "bundles disponibles"}.</p>
+        ${cfg.source.telegramChannel ? `
+          <a class="telegram-link" href="${escapeAttr(cfg.source.telegramChannel)}" target="_blank" rel="noopener">
+            Ver más en Telegram &rarr;
+          </a>
+        ` : ""}
+      </div>
+      ${bundles.length ? `
+        <div class="grid bundles">
+          ${bundles.map(b => bundleCardHTML(b, cfg.type)).join("")}
+        </div>
+      ` : `
+        <div class="status">Aún no hay bundles publicados. Escribinos por WhatsApp para consultar.</div>
+      `}
+    </section>
+  `;
+}
+
+function renderOfertas(page = 1) {
+  const list = (allGames || []).filter(g => g.onSale);
+  app.innerHTML = `
+    ${heroSlimHTML("Ofertas")}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>Ofertas y promos</h2>
+        <p>${list.length} ${list.length === 1 ? "juego en oferta" : "juegos en oferta"}.</p>
+      </div>
+      ${toolbarHTML()}
+      <div id="grid" class="grid"></div>
+      <div id="pagination" class="pagination"></div>
+    </section>
+  `;
+  mountToolbar(list, page, "/ofertas");
+}
+
+function bundleCardHTML(b, type = "nintendo") {
+  const routes = { nintendo: "nintendo", ps: "ps-bundle", xbox: "xbox-bundle" };
+  const badges = { nintendo: "Switch", ps: "PlayStation", xbox: "Xbox" };
   const cover = b.coverUrl
     ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}" loading="lazy">`
     : `<div class="placeholder">🎮</div>`;
   const firstGame = b.games && b.games[0] ? b.games[0].name : "";
+  const hasDual = b.priceCRC_principal !== undefined || b.priceCRC_secundaria !== undefined;
+  const priceRows = hasDual ? `
+    ${b.priceCRC_principal != null ? `
+      <div class="price-row">
+        <span class="price-tag">Principal</span>
+        <span class="price-value">${formatCRC(b.priceCRC_principal)}</span>
+      </div>
+    ` : ""}
+    ${b.priceCRC_secundaria != null ? `
+      <div class="price-row secundaria">
+        <span class="price-tag">Secundaria</span>
+        <span class="price-value">${formatCRC(b.priceCRC_secundaria)}</span>
+      </div>
+    ` : ""}
+  ` : `
+    <div class="price-row">
+      <span class="price-tag">Precio</span>
+      <span class="price-value">${formatCRC(b.priceCRC)}</span>
+    </div>
+  `;
   return `
-    <a class="card bundle-card" href="#/nintendo/${encodeURIComponent(b.id)}">
+    <a class="card bundle-card" href="#/${routes[type]}/${encodeURIComponent(b.id)}">
       <div class="card-image">
         ${cover}
-        <span class="badge-platform">Switch</span>
+        <span class="badge-platform">${badges[type]}</span>
       </div>
       <div class="card-body">
         <div class="card-title">Bundle ${escapeHtml(b.id)}</div>
@@ -531,28 +651,31 @@ function bundleCardHTML(b) {
         </div>
         ${firstGame ? `<div class="bundle-first">Incluye: ${escapeHtml(firstGame)}…</div>` : ""}
         <div class="price-rows">
-          <div class="price-row">
-            <span class="price-tag">Precio</span>
-            <span class="price-value">${formatCRC(b.priceCRC)}</span>
-          </div>
+          ${priceRows}
         </div>
       </div>
     </a>
   `;
 }
 
-function renderBundle(id) {
+function renderBundle(id, type = "nintendo") {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
     return;
   }
-  const b = (nintendo.bundles || []).find(x => String(x.id) === String(id));
+  const sources = {
+    nintendo: { list: nintendo.bundles || [], platform: "Nintendo Switch", backHref: "#/plataforma/Switch", telegram: nintendo.telegramChannel },
+    ps: { list: psBundles.bundles || [], platform: "PlayStation", backHref: "#/bundles/PS", telegram: psBundles.telegramChannel },
+    xbox: { list: xboxBundles.bundles || [], platform: "Xbox", backHref: "#/bundles/Xbox", telegram: xboxBundles.telegramChannel },
+  };
+  const src = sources[type] || sources.nintendo;
+  const b = src.list.find(x => String(x.id) === String(id));
   if (!b) {
     app.innerHTML = `
       <section class="container empty-state">
         <h2>Bundle no encontrado</h2>
         <p>Ese bundle ya no está disponible o fue retirado.</p>
-        <a class="cta" href="#/plataforma/Switch">Ver bundles</a>
+        <a class="cta" href="${src.backHref}">Ver bundles</a>
       </section>
     `;
     return;
@@ -560,29 +683,59 @@ function renderBundle(id) {
   const cover = b.coverUrl
     ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}">`
     : `<div class="placeholder">🎮</div>`;
-  const waMsg = encodeURIComponent(`Hola, me interesa el BUNDLE ${b.id} (${b.games?.length || 0} juegos por ${formatCRC(b.priceCRC)}). ¿Sigue disponible?`);
+
+  // Bundles PS/Xbox tienen 2 precios (principal/secundaria), Nintendo tiene 1.
+  const hasDual = b.priceCRC_principal !== undefined || b.priceCRC_secundaria !== undefined;
+  const priceForMsg = hasDual
+    ? (b.priceCRC_principal || b.priceCRC_secundaria)
+    : b.priceCRC;
+  const waMsg = encodeURIComponent(`Hola, me interesa el BUNDLE ${b.id} (${b.games?.length || 0} juegos por ${formatCRC(priceForMsg)}). ¿Sigue disponible?`);
+
+  const priceBlock = hasDual ? `
+    <div class="price-options">
+      ${b.priceCRC_principal != null ? `
+        <div class="price-card principal">
+          <div class="price-label">Cuenta Principal</div>
+          <div class="price-amount">${formatCRC(b.priceCRC_principal)}</div>
+          <div class="price-note">Acceso completo, sin restricciones</div>
+        </div>
+      ` : ""}
+      ${b.priceCRC_secundaria != null ? `
+        <div class="price-card secundaria">
+          <div class="price-label">Cuenta Secundaria</div>
+          <div class="price-amount">${formatCRC(b.priceCRC_secundaria)}</div>
+          <div class="price-note">Más económico, requiere estar conectado</div>
+        </div>
+      ` : ""}
+    </div>
+  ` : `
+    <div class="bundle-price">
+      <span class="price-label">Precio del bundle</span>
+      <span class="price-amount">${formatCRC(b.priceCRC)}</span>
+    </div>
+  `;
+
   app.innerHTML = `
     <section class="container product-page">
-      <a class="back-link" href="#/plataforma/Switch">&larr; Volver a bundles</a>
+      <a class="back-link" href="${src.backHref}">&larr; Volver a bundles</a>
       <div class="product-grid">
         <div class="product-image">${cover}</div>
         <div class="product-info">
-          <span class="product-platform">Nintendo Switch</span>
+          <span class="product-platform">${escapeHtml(src.platform)}</span>
           <h1>Bundle ${escapeHtml(b.id)}</h1>
-          <p class="product-desc">Cuenta Nintendo Switch con los siguientes juegos preinstalados. Total: ${b.games?.length || 0} juegos${b.totalSize ? ` &middot; ${escapeHtml(b.totalSize)}` : ""}.</p>
+          <p class="product-desc">Cuenta ${escapeHtml(src.platform)} con los siguientes juegos preinstalados. Total: ${b.games?.length || 0} juegos${b.totalSize ? ` &middot; ${escapeHtml(b.totalSize)}` : ""}.</p>
 
-          <div class="bundle-price">
-            <span class="price-label">Precio del bundle</span>
-            <span class="price-amount">${formatCRC(b.priceCRC)}</span>
-          </div>
+          ${priceBlock}
 
           <div class="bundle-cta-row">
             <a class="cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
               Comprar por WhatsApp
             </a>
-            <a class="cta-telegram" href="${escapeAttr(nintendo.telegramChannel || "#")}" target="_blank" rel="noopener">
-              Ver en Telegram
-            </a>
+            ${src.telegram ? `
+              <a class="cta-telegram" href="${escapeAttr(src.telegram)}" target="_blank" rel="noopener">
+                Ver en Telegram
+              </a>
+            ` : ""}
           </div>
 
           <div class="bundle-games">
@@ -917,8 +1070,8 @@ function goToPage(p) {
 }
 
 function cardHTML(g) {
-  const principal = principalCRC(g.priceUSD);
-  const secundaria = secundariaCRC(g.priceUSD);
+  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD);
+  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD);
   const img = g.imageUrl
     ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">`
     : `<div class="placeholder">🎮</div>`;
@@ -926,20 +1079,24 @@ function cardHTML(g) {
     <a class="card" href="#/producto/${encodeURIComponent(g.id)}">
       <div class="card-image">
         ${img}
-        ${g.onSale ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
+        ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
         <span class="badge-platform">${escapeHtml(g.platform)}</span>
       </div>
       <div class="card-body">
         <div class="card-title">${escapeHtml(g.title)}</div>
         <div class="price-rows">
-          <div class="price-row">
-            <span class="price-tag">Principal</span>
-            <span class="price-value">${formatCRC(principal)}</span>
-          </div>
-          <div class="price-row secundaria">
-            <span class="price-tag">Secundaria</span>
-            <span class="price-value">${formatCRC(secundaria)}</span>
-          </div>
+          ${principal != null ? `
+            <div class="price-row">
+              <span class="price-tag">Principal</span>
+              <span class="price-value">${formatCRC(principal)}</span>
+            </div>
+          ` : ""}
+          ${secundaria != null ? `
+            <div class="price-row secundaria">
+              <span class="price-tag">Secundaria</span>
+              <span class="price-value">${formatCRC(secundaria)}</span>
+            </div>
+          ` : ""}
         </div>
       </div>
     </a>
