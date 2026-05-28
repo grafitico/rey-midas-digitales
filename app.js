@@ -11,9 +11,9 @@ const CONFIG = {
     secundariaMarkup: 0.30,   // ~30% del USD → cuenta secundaria
   },
 
-  // Plataformas con catálogo activo. Switch/PS3 quedan visibles
-  // pero muestran "Próximamente" hasta que les conectemos un data source.
-  activePlatforms: ["PS5", "PS4", "Xbox"],
+  // Plataformas con catálogo activo. PS3 queda visible
+  // pero muestra "Próximamente" hasta que le conectemos un data source.
+  activePlatforms: ["PS5", "PS4", "Xbox", "Switch"],
 
   // Cantidad de juegos por página en el catálogo.
   perPage: 50,
@@ -27,6 +27,7 @@ const waLink = document.getElementById("waLink");
 let allGames = [];
 let loaded = false;
 let loadError = null;
+let nintendo = { telegramChannel: "", bundles: [] };
 
 waLink.href = `https://wa.me/${CONFIG.whatsapp}`;
 waLink.textContent = formatPhone(CONFIG.whatsapp);
@@ -91,6 +92,9 @@ function parseRoute() {
   if (partes[0] === "producto" && partes[1]) {
     return { name: "product", id: decodeURIComponent(partes[1]) };
   }
+  if (partes[0] === "nintendo" && partes[1]) {
+    return { name: "bundle", id: decodeURIComponent(partes[1]) };
+  }
   if (partes[0] === "p" && partes[1]) {
     return { name: "home", page: parseInt(partes[1], 10) || 1 };
   }
@@ -116,9 +120,10 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox] = await Promise.allSettled([
+    const [psn, xbox, nin] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
+      fetch("/nintendo-bundles.json").then(r => r.json()),
     ]);
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
@@ -127,7 +132,10 @@ async function load() {
     if (xbox.status === "fulfilled" && xbox.value.success) {
       games.push(...(xbox.value.games || []).filter(g => !g._placeholder));
     }
-    if (!games.length) {
+    if (nin.status === "fulfilled" && nin.value && Array.isArray(nin.value.bundles)) {
+      nintendo = nin.value;
+    }
+    if (!games.length && !nintendo.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
     allGames = games.sort((a, b) => {
@@ -150,7 +158,11 @@ function render() {
   updateCartBadge();
   const route = parseRoute();
   if (route.name === "product") return renderProduct(route.id);
-  if (route.name === "platform") return renderPlatform(route.platform, route.page);
+  if (route.name === "bundle") return renderBundle(route.id);
+  if (route.name === "platform") {
+    if (route.platform === "Switch") return renderSwitch();
+    return renderPlatform(route.platform, route.page);
+  }
   if (route.name === "cart") return renderCart();
   return renderHome(route.page);
 }
@@ -258,6 +270,122 @@ function renderProduct(id) {
     </section>
   `;
   bindAddButtons(g);
+}
+
+// ============================================================
+// Switch / bundles Nintendo
+// ============================================================
+function renderSwitch() {
+  const bundles = nintendo.bundles || [];
+  app.innerHTML = `
+    ${heroSlimHTML("Nintendo Switch")}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>Bundles Nintendo Switch</h2>
+        <p>Paquetes con varios juegos por un solo precio. ${bundles.length} ${bundles.length === 1 ? "bundle disponible" : "bundles disponibles"}.</p>
+        <a class="telegram-link" href="${escapeAttr(nintendo.telegramChannel || "#")}" target="_blank" rel="noopener">
+          Ver todos los bundles en Telegram &rarr;
+        </a>
+      </div>
+      ${bundles.length ? `
+        <div class="grid bundles">
+          ${bundles.map(bundleCardHTML).join("")}
+        </div>
+      ` : `
+        <div class="status">Aún no hay bundles publicados. Mientras tanto pasate por nuestro canal de Telegram.</div>
+      `}
+    </section>
+  `;
+}
+
+function bundleCardHTML(b) {
+  const cover = b.coverUrl
+    ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}" loading="lazy">`
+    : `<div class="placeholder">🎮</div>`;
+  const firstGame = b.games && b.games[0] ? b.games[0].name : "";
+  return `
+    <a class="card bundle-card" href="#/nintendo/${encodeURIComponent(b.id)}">
+      <div class="card-image">
+        ${cover}
+        <span class="badge-platform">Switch</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">Bundle ${escapeHtml(b.id)}</div>
+        <div class="bundle-meta">
+          <span>${b.games?.length || 0} juegos</span>
+          ${b.totalSize ? `<span>&middot; ${escapeHtml(b.totalSize)}</span>` : ""}
+        </div>
+        ${firstGame ? `<div class="bundle-first">Incluye: ${escapeHtml(firstGame)}…</div>` : ""}
+        <div class="price-rows">
+          <div class="price-row">
+            <span class="price-tag">Precio</span>
+            <span class="price-value">${formatCRC(b.priceCRC)}</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  `;
+}
+
+function renderBundle(id) {
+  if (!loaded) {
+    app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
+    return;
+  }
+  const b = (nintendo.bundles || []).find(x => String(x.id) === String(id));
+  if (!b) {
+    app.innerHTML = `
+      <section class="container empty-state">
+        <h2>Bundle no encontrado</h2>
+        <p>Ese bundle ya no está disponible o fue retirado.</p>
+        <a class="cta" href="#/plataforma/Switch">Ver bundles</a>
+      </section>
+    `;
+    return;
+  }
+  const cover = b.coverUrl
+    ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}">`
+    : `<div class="placeholder">🎮</div>`;
+  const waMsg = encodeURIComponent(`Hola, me interesa el BUNDLE ${b.id} (${b.games?.length || 0} juegos por ${formatCRC(b.priceCRC)}). ¿Sigue disponible?`);
+  app.innerHTML = `
+    <section class="container product-page">
+      <a class="back-link" href="#/plataforma/Switch">&larr; Volver a bundles</a>
+      <div class="product-grid">
+        <div class="product-image">${cover}</div>
+        <div class="product-info">
+          <span class="product-platform">Nintendo Switch</span>
+          <h1>Bundle ${escapeHtml(b.id)}</h1>
+          <p class="product-desc">Cuenta Nintendo Switch con los siguientes juegos preinstalados. Total: ${b.games?.length || 0} juegos${b.totalSize ? ` &middot; ${escapeHtml(b.totalSize)}` : ""}.</p>
+
+          <div class="bundle-price">
+            <span class="price-label">Precio del bundle</span>
+            <span class="price-amount">${formatCRC(b.priceCRC)}</span>
+          </div>
+
+          <div class="bundle-cta-row">
+            <a class="cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
+              Comprar por WhatsApp
+            </a>
+            <a class="cta-telegram" href="${escapeAttr(nintendo.telegramChannel || "#")}" target="_blank" rel="noopener">
+              Ver en Telegram
+            </a>
+          </div>
+
+          <div class="bundle-games">
+            <h3>Juegos incluidos</h3>
+            <ul>
+              ${(b.games || []).map(g => `
+                <li>
+                  <span class="g-name">${escapeHtml(g.name)}</span>
+                  ${g.size ? `<span class="g-size">${escapeHtml(g.size)}</span>` : ""}
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
 }
 
 function bindAddButtons(game) {

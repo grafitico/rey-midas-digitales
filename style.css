@@ -259,6 +259,117 @@ body {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ===================== NINTENDO BUNDLES ===================== */
+.telegram-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #229ED9;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.telegram-link:hover { text-decoration: underline; }
+
+.bundle-meta {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.bundle-first {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bundle-price {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 196, 81, 0.4);
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 1.2rem;
+}
+.bundle-price .price-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.bundle-price .price-amount {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--gold);
+  margin-top: 0.2rem;
+}
+
+.bundle-cta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-bottom: 2rem;
+}
+.cta-telegram {
+  display: block;
+  text-align: center;
+  background: linear-gradient(135deg, #229ED9, #1a7eb0);
+  color: white;
+  padding: 0.95rem 1rem;
+  border-radius: 999px;
+  font-weight: 800;
+  text-decoration: none;
+  font-size: 1rem;
+  box-shadow: 0 6px 24px rgba(34, 158, 217, 0.3);
+  transition: transform 0.15s;
+}
+.cta-telegram:hover { transform: translateY(-2px); }
+
+.bundle-games h3 {
+  font-size: 1.1rem;
+  color: var(--gold);
+  margin-bottom: 0.9rem;
+  letter-spacing: 0.5px;
+}
+.bundle-games ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+}
+.bundle-games li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.92rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  gap: 0.8rem;
+}
+.bundle-games li:last-child { border-bottom: none; }
+.bundle-games .g-name { color: var(--text); }
+.bundle-games .g-size {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  background: rgba(0, 229, 255, 0.08);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* ===================== RESPONSIVE — cart + bundles ===================== */
+@media (max-width: 600px) {
+  .bundle-cta-row { grid-template-columns: 1fr; }
+}
+
 /* ===================== RESPONSIVE — cart ===================== */
 @media (max-width: 600px) {
   .cart-item {

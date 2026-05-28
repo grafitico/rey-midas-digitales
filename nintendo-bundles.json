@@ -1,0 +1,28 @@
+{
+  "telegramChannel": "https://t.me/reymidasdigitales",
+  "bundles": [
+    {
+      "id": "23UQ62",
+      "priceCRC": 20000,
+      "coverUrl": "",
+      "totalSize": "31.4gb",
+      "games": [
+        { "name": "Little Nightmares III - Trial and Friend Pass", "size": "3.1 gb" },
+        { "name": "Airplane Flight Simulator DLC", "size": "5.0 gb" },
+        { "name": "Star Wars: Hunters", "size": "3.4 gb" },
+        { "name": "Quiz of the Capitals", "size": "" },
+        { "name": "UNO DLC", "size": "2.8 gb" },
+        { "name": "Horizon Chase Turbo DLC", "size": "2.7 gb" },
+        { "name": "Machinika Museum", "size": "1.6 gb" },
+        { "name": "Zaccaria Pinball", "size": "1.3 gb" },
+        { "name": "Minecraft Dungeons", "size": "5.2 gb" },
+        { "name": "Car Mechanic Simulator", "size": "6.3 gb" }
+      ]
+    }
+  ],
+  "_instructions": [
+    "Editá este archivo para agregar/quitar bundles.",
+    "Cada bundle necesita: id (del Telegram), priceCRC (en colones; si en Telegram dice '20 euros' poné 20000), coverUrl (opcional - URL de imagen, si está vacío se muestra placeholder), totalSize (texto libre), y games (array de {name, size}).",
+    "Para que la portada sea la del primer juego, podés pegar una URL de la carátula en coverUrl. Si no la tenés, dejalo vacío."
+  ]
+}
