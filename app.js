@@ -92,25 +92,15 @@ async function loadProfile() {
   currentProfile = data || null;
 }
 
-async function loginWithEmail(email) {
+async function loginWithPassword(email, password) {
   if (!sb) return { message: "Auth no configurado." };
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: location.origin,
-      shouldCreateUser: true,
-    },
-  });
+  const { error } = await sb.auth.signInWithPassword({ email, password });
   return error;
 }
 
-async function verifyEmailOtp(email, token) {
+async function changePassword(newPassword) {
   if (!sb) return { message: "Auth no configurado." };
-  const { error } = await sb.auth.verifyOtp({
-    email,
-    token,
-    type: "email",
-  });
+  const { error } = await sb.auth.updateUser({ password: newPassword });
   return error;
 }
 
@@ -1026,74 +1016,41 @@ function renderLogin() {
     <section class="container auth-page">
       <div class="auth-card">
         <h1>Iniciá sesión</h1>
-        <p>Ingresá tu email y te enviamos un código de 6 dígitos para entrar.</p>
+        <p>Ingresá el email y la contraseña que te dimos por WhatsApp.</p>
         <form id="loginForm" class="login-form">
-          <label>Tu email
+          <label>Email
             <input id="loginEmail" type="email" required placeholder="vos@ejemplo.com" autocomplete="email">
           </label>
-          <button type="submit" class="login-submit-btn">Enviar código</button>
-        </form>
-        <form id="otpForm" hidden class="login-form">
-          <div class="login-sent-icon">✉️</div>
-          <p class="otp-info">Te enviamos un código a <strong id="otpEmailLabel"></strong>.</p>
-          <label>Código de 6 dígitos
-            <input id="otpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" autocomplete="one-time-code">
+          <label>Contraseña
+            <input id="loginPassword" type="password" required placeholder="Tu contraseña" autocomplete="current-password">
           </label>
           <button type="submit" class="login-submit-btn">Entrar</button>
-          <button type="button" class="cta-secondary" id="otpBack">Usar otro email</button>
-          <p class="auth-note">El código tarda 1-2 minutos. Si no llega, chequeá spam.</p>
         </form>
-        <p class="auth-note">Solo usamos tu email para identificarte. Nada de spam.</p>
+        <p class="auth-note">¿No tenés cuenta o no te llega el acceso? Escribinos por WhatsApp y te creamos una al instante.</p>
+        <a class="cta-secondary" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito que me creen una cuenta para ver mis compras.")}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:0.6rem;">Pedir cuenta por WhatsApp</a>
       </div>
     </section>
   `;
-
-  let currentEmail = "";
 
   const form = document.getElementById("loginForm");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
     const btn = form.querySelector("button[type='submit']");
     btn.disabled = true;
-    btn.textContent = "Enviando...";
-    const error = await loginWithEmail(email);
-    if (error) {
-      btn.disabled = false;
-      btn.textContent = "Enviar código";
-      showToast(error.message || "Error al enviar. Intentá de nuevo.");
-      return;
-    }
-    currentEmail = email;
-    form.hidden = true;
-    const otpForm = document.getElementById("otpForm");
-    otpForm.hidden = false;
-    document.getElementById("otpEmailLabel").textContent = email;
-    document.getElementById("otpCode").focus();
-  });
-
-  document.getElementById("otpForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const code = document.getElementById("otpCode").value.trim();
-    const btn = e.target.querySelector("button[type='submit']");
-    btn.disabled = true;
-    btn.textContent = "Verificando...";
-    const error = await verifyEmailOtp(currentEmail, code);
+    btn.textContent = "Entrando...";
+    const error = await loginWithPassword(email, password);
     if (error) {
       btn.disabled = false;
       btn.textContent = "Entrar";
-      showToast(error.message || "Código inválido o expirado.");
+      const msg = /invalid login credentials/i.test(error.message || "")
+        ? "Email o contraseña incorrectos."
+        : (error.message || "No pudimos entrar. Intentá de nuevo.");
+      showToast(msg);
       return;
     }
-    // onAuthStateChange se encargará del resto
-  });
-
-  document.getElementById("otpBack").addEventListener("click", () => {
-    document.getElementById("loginForm").hidden = false;
-    document.getElementById("otpForm").hidden = true;
-    const btn = document.querySelector("#loginForm button[type='submit']");
-    btn.disabled = false;
-    btn.textContent = "Enviar código";
+    // onAuthStateChange se encarga de la redirección
   });
 }
 
@@ -1104,10 +1061,41 @@ async function renderMyAccount() {
       <div class="account-header">
         <h1>Mi cuenta</h1>
         <p>${escapeHtml(currentProfile?.full_name || currentUser.email)}</p>
+        <button class="cta-secondary small" id="changePwdBtn">Cambiar contraseña</button>
+      </div>
+      <div id="pwdBox" hidden class="pwd-change">
+        <h3>Cambiar contraseña</h3>
+        <label>Nueva contraseña
+          <input id="newPwd" type="password" minlength="6" required>
+        </label>
+        <div class="pwd-actions">
+          <button id="savePwdBtn" class="login-submit-btn">Guardar</button>
+          <button id="cancelPwdBtn" class="cta-secondary">Cancelar</button>
+        </div>
       </div>
       <div id="purchasesList">Cargando compras...</div>
     </section>
   `;
+  document.getElementById("changePwdBtn").addEventListener("click", () => {
+    const box = document.getElementById("pwdBox");
+    box.hidden = !box.hidden;
+    if (!box.hidden) document.getElementById("newPwd").focus();
+  });
+  document.getElementById("cancelPwdBtn").addEventListener("click", () => {
+    document.getElementById("pwdBox").hidden = true;
+  });
+  document.getElementById("savePwdBtn").addEventListener("click", async () => {
+    const newPwd = document.getElementById("newPwd").value;
+    if (!newPwd || newPwd.length < 6) {
+      showToast("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    const error = await changePassword(newPwd);
+    if (error) { showToast(error.message); return; }
+    showToast("Contraseña actualizada ✓");
+    document.getElementById("pwdBox").hidden = true;
+    document.getElementById("newPwd").value = "";
+  });
   const { data, error } = await sb
     .from("purchases")
     .select("*")
@@ -1177,6 +1165,24 @@ async function renderAdmin() {
   app.innerHTML = `
     <section class="container admin-page">
       <h1>Panel Admin</h1>
+
+      <form id="createClientForm" class="admin-form create-client">
+        <h2>Crear cliente nuevo</h2>
+        <div class="row">
+          <label>Email del cliente
+            <input name="email" type="email" required placeholder="cliente@ejemplo.com">
+          </label>
+          <label>Nombre completo (opcional)
+            <input name="full_name" type="text" placeholder="Juan Pérez">
+          </label>
+          <label>Contraseña inicial
+            <input name="password" type="text" required value="Midas2026" minlength="6">
+          </label>
+        </div>
+        <button type="submit">Crear cuenta</button>
+        <p id="createClientStatus" class="form-status"></p>
+      </form>
+
       <div class="admin-grid">
         <form id="purchaseForm" class="admin-form">
           <h2>Cargar nueva compra</h2>
@@ -1233,7 +1239,59 @@ async function renderAdmin() {
     </section>
   `;
   document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
+  document.getElementById("createClientForm").addEventListener("submit", handleCreateClient);
   loadAdminPurchases();
+}
+
+async function handleCreateClient(e) {
+  e.preventDefault();
+  const form = e.target;
+  const status = document.getElementById("createClientStatus");
+  const fd = new FormData(form);
+  const email = String(fd.get("email")).trim().toLowerCase();
+  const password = String(fd.get("password"));
+  const fullName = String(fd.get("full_name") || "").trim();
+
+  if (password.length < 6) {
+    status.textContent = "La contraseña debe tener al menos 6 caracteres.";
+    status.className = "form-status error";
+    return;
+  }
+
+  status.textContent = "Creando cuenta...";
+  status.className = "form-status";
+
+  const { data: { session } } = await sb.auth.getSession();
+  try {
+    const res = await fetch("/api/admin-create-client", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ email, password, full_name: fullName }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      status.textContent = `Error: ${data.error || res.statusText}`;
+      status.className = "form-status error";
+      return;
+    }
+    status.innerHTML = `
+      ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>.<br>
+      Mandale por WhatsApp:<br>
+      <code class="copy-able" data-copy="Tu acceso a reymidascr.com — Email: ${email} — Contraseña: ${password}">
+        Tu acceso a reymidascr.com — Email: ${email} — Contraseña: ${password}
+      </code>
+    `;
+    status.className = "form-status ok";
+    form.querySelector('input[name="email"]').value = "";
+    form.querySelector('input[name="full_name"]').value = "";
+    form.querySelector('input[name="password"]').value = "Midas2026";
+  } catch (err) {
+    status.textContent = `Error de red: ${err.message}`;
+    status.className = "form-status error";
+  }
 }
 
 async function loadAdminPurchases() {

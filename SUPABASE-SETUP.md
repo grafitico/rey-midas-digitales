@@ -1,6 +1,6 @@
 # Setup de Supabase para Rey Midas Digitales
 
-Pasos manuales que tenés que hacer **vos** una sola vez. Después me pasás los 2 datos al final y yo dejo todo conectado.
+Pasos manuales que tenés que hacer **vos** una sola vez. Después me pasás los datos al final y yo dejo todo conectado.
 
 ## 1. Crear el proyecto
 
@@ -19,42 +19,57 @@ Pasos manuales que tenés que hacer **vos** una sola vez. Después me pasás los
 3. Abrí el archivo `supabase-schema.sql` de este repo, copiá todo el contenido y pegalo en el editor.
 4. Click en **Run** (abajo a la derecha). Debería decir "Success. No rows returned".
 
-## 3. Configurar el email de autenticación
-
-El login es por **email mágico** — el cliente ingresa su correo y recibe un link para entrar, sin contraseña. Supabase lo tiene activado por defecto, no necesitás configurar nada extra.
-
-Lo único que debés hacer es poner la URL correcta del sitio:
-
-1. En la sidebar, **Authentication** → **URL Configuration**.
-2. **Site URL**: `https://reymidascr.com`
-3. **Redirect URLs** (agregá ambas):
-   - `https://reymidascr.com`
-   - `https://reymidascr.com/*`
-4. Guardá.
-
-## 4. Pasarme los datos de conexión
+## 3. Pasarme los datos de conexión
 
 1. En la sidebar, **Settings** (engranaje abajo) → **API**.
-2. Copiá dos cosas y pasámelas por chat:
-   - **Project URL** (algo como `https://abcdefghij.supabase.co`)
-   - **anon public** key (clave larga que empieza con `eyJ...`)
+2. Necesitamos tres cosas (todas se configuran en Vercel como env vars):
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL` (ej: `https://abcdef.supabase.co`)
+   - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY` (pública, va al navegador)
+   - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (**secreta**, solo server-side — habilita la API admin para crear clientes)
 
-> Esa clave es **pública por diseño** (Supabase la llama "anon key" justamente porque va en el JS del navegador). La seguridad real la garantiza el RLS que ya cargamos en el SQL.
+Si conectaste Supabase vía la integración de Vercel, las dos primeras ya están. La tercera tenés que agregarla a mano:
 
-## 5. Después del primer login
+1. En Vercel → tu proyecto → **Settings** → **Environment Variables**
+2. Add new:
+   - Name: `SUPABASE_SERVICE_ROLE_KEY`
+   - Value: la service_role key de Supabase
+   - Environment: **Production** (y Preview / Development si querés)
+3. Save y **redesplegá** el proyecto (Vercel → Deployments → ... → Redeploy).
 
-Cuando el código esté deployado y vos te logueés por primera vez en https://reymidascr.com:
+## 4. El primer admin (vos)
 
-1. Volvé a Supabase → SQL Editor → New query.
-2. Pegá y corré (con tu email):
+El sistema usa **email + contraseña** para todos los logins. No hay magic links ni códigos por email. Necesitás crearte tu cuenta admin a mano:
+
+1. Supabase → **Authentication** → **Users** → **Add user** → **Create new user**.
+2. Llená:
+   - Email: `grafiticopublicidad@gmail.com`
+   - Password: una contraseña fuerte tuya (guardala — es la que vas a usar para entrar al panel admin).
+   - **Auto Confirm User**: ACTIVADO (sino te pide verificación por email y no llega).
+3. Click **Create user**.
+4. Ahora hacete admin en la base de datos. SQL Editor → New query → pegar y correr:
    ```sql
    UPDATE public.profiles SET is_admin = TRUE
    WHERE email = 'grafiticopublicidad@gmail.com';
    ```
-3. Recargá la web y vas a tener acceso a la pestaña **Admin**.
+5. Andá a https://reymidascr.com/#/login, ingresá tu email + contraseña → ¡adentro! Vas a ver el menú **Admin** en tu perfil.
 
-## ¿Y después?
+## 5. Crear cuentas de clientes
 
-Una vez que estés admin podés:
-- Cargar compras de cualquier cliente desde el panel `/admin` del sitio.
-- Cada cliente que se loguee verá **sus** compras en `/mi-cuenta` (no las de otros — RLS lo bloquea a nivel base de datos).
+A partir de ahora **no usás más el dashboard de Supabase para esto**. Desde la web:
+
+1. Andá a `#/admin` en el sitio.
+2. Arriba de todo: **"Crear cliente nuevo"**.
+   - Email del cliente.
+   - Nombre (opcional).
+   - Contraseña inicial (por defecto: `Midas2026` — el cliente la puede cambiar después).
+3. Click **Crear cuenta**.
+4. Te aparece un mensaje listo para copiar y mandarle al cliente por WhatsApp.
+5. Después usá el formulario de abajo para **cargarle compras** a ese cliente.
+
+## 6. Cliente cambia contraseña
+
+Cuando el cliente entra a `#/mi-cuenta`, tiene un botón **"Cambiar contraseña"** para que la actualice cuando quiera.
+
+## ¿Y los emails?
+
+No usamos email para nada del login. Si en algún momento querés agregar recuperación de contraseña por email, lo conectamos con Resend después.
