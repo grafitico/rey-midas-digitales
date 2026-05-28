@@ -986,11 +986,11 @@ function renderAuthCallback() {
           <div class="login-sent-icon">${isExpired ? "⏱️" : "❌"}</div>
           <h1>${isExpired ? "Enlace expirado" : "Error de acceso"}</h1>
           <p>${isExpired
-            ? "El enlace de acceso ya expiró (tienen validez de 60 minutos). Pedí uno nuevo."
+            ? "El enlace de acceso ya expiró. Iniciá sesión con tu email y contraseña."
             : escapeHtml(decodeURIComponent(error.replace(/\+/g, " ")))
           }</p>
           <a class="login-submit-btn" href="#/login" style="display:block;text-align:center;text-decoration:none;padding:0.9rem 1.5rem;border-radius:999px;">
-            Pedir nuevo enlace
+            Ir a iniciar sesión
           </a>
         </div>
       </section>
@@ -998,16 +998,25 @@ function renderAuthCallback() {
     return;
   }
 
-  // Token válido — Supabase lo procesa solo vía onAuthStateChange
+  // Limpia la URL y redirige según si hay sesión activa o no
   app.innerHTML = `
     <section class="container auth-page">
       <div class="auth-card">
         <div class="login-sent-icon">⏳</div>
         <h1>Iniciando sesión...</h1>
-        <p>Espera un momento.</p>
+        <p>Esperá un momento.</p>
+        <a class="cta-secondary" href="#/login" style="display:block;text-align:center;margin-top:1rem;">Ir al login si no responde</a>
       </div>
     </section>
   `;
+
+  // Esperar a que onAuthStateChange procese el token. Si en 2.5s no hay sesión, mandar a login.
+  setTimeout(async () => {
+    if (!sb) { location.replace("#/login"); return; }
+    const { data: { session } } = await sb.auth.getSession();
+    history.replaceState(null, "", location.pathname + location.search);
+    location.hash = session ? "#/mi-cuenta" : "#/login";
+  }, 2500);
 }
 
 function renderLogin() {
