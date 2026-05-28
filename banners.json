@@ -1,0 +1,25 @@
+{
+  "banners": [
+    {
+      "image": "/assets/banner-1.jpg",
+      "title": "Ofertas exclusivas",
+      "subtitle": "Los mejores juegos al mejor precio del país",
+      "ctaText": "Ver ofertas",
+      "ctaHref": "#/ofertas"
+    },
+    {
+      "image": "/assets/banner-2.jpg",
+      "title": "Bundles Nintendo Switch",
+      "subtitle": "Hasta 30 juegos en una sola cuenta",
+      "ctaText": "Ver bundles Switch",
+      "ctaHref": "#/plataforma/Switch"
+    },
+    {
+      "image": "/assets/banner-3.jpg",
+      "title": "PS5 · PS4 · Xbox · Switch",
+      "subtitle": "Cuenta Principal y Secundaria — entrega inmediata",
+      "ctaText": "Explorar catálogo",
+      "ctaHref": "#/plataforma/PS5"
+    }
+  ]
+}

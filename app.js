@@ -31,6 +31,9 @@ let nintendo = { telegramChannel: "", bundles: [] };
 let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
+let banners = [];
+let testimonials = [];
+let faqs = [];
 
 // ============================================================
 // Auth propio — usa los endpoints en /api/auth y /api/* con un
@@ -172,8 +175,29 @@ function renderAuthSlot() {
   document.getElementById("logoutBtn").addEventListener("click", logout);
 }
 
-waLink.href = `https://wa.me/${CONFIG.whatsapp}`;
-waLink.textContent = formatPhone(CONFIG.whatsapp);
+// WhatsApp footer + floating button + duplicate link
+const waUrl = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, vengo desde reymidascr.com y quiero hacer una consulta.")}`;
+if (waLink) {
+  waLink.href = waUrl;
+  waLink.title = formatPhone(CONFIG.whatsapp);
+}
+const waFooter = document.getElementById("waLinkFooter");
+if (waFooter) waFooter.href = waUrl;
+const waFloat = document.getElementById("waFloat");
+if (waFloat) waFloat.href = waUrl;
+
+// Menú mobile (hamburguesa)
+const mobileToggle = document.getElementById("mobileToggle");
+const topnav = document.getElementById("topnav");
+if (mobileToggle && topnav) {
+  mobileToggle.addEventListener("click", () => {
+    topnav.classList.toggle("open");
+  });
+  // Cerrar al hacer click en un link
+  topnav.addEventListener("click", (e) => {
+    if (e.target.closest("a")) topnav.classList.remove("open");
+  });
+}
 
 // ============================================================
 // Carrito (persistido en localStorage)
@@ -262,6 +286,9 @@ function parseRoute() {
     const page = (partes[1] === "p" && partes[2]) ? parseInt(partes[2], 10) || 1 : 1;
     return { name: "ofertas", page };
   }
+  if (["como-comprar", "faq", "terminos", "privacidad", "garantia", "nosotros"].includes(partes[0])) {
+    return { name: "info", slug: partes[0] };
+  }
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
   if (partes[0] === "admin") return { name: "admin" };
@@ -290,14 +317,20 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
+      fetch("/banners.json").then(r => r.json()),
+      fetch("/testimonials.json").then(r => r.json()),
+      fetch("/faq.json").then(r => r.json()),
     ]);
+    if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
+    if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
+    if (fq.status === "fulfilled" && Array.isArray(fq.value?.faqs)) faqs = fq.value.faqs;
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
       games.push(...(psn.value.games || []));
@@ -418,6 +451,7 @@ function render() {
   }
   if (route.name === "bundles-list") return renderBundlesList(route.platform);
   if (route.name === "ofertas") return renderOfertas(route.page);
+  if (route.name === "info") return renderInfoPage(route.slug);
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
   if (route.name === "mi-cuenta") return renderMyAccount();
@@ -428,6 +462,7 @@ function render() {
 function renderHome(page = 1) {
   app.innerHTML = `
     ${heroHTML()}
+    ${trustBarHTML()}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Catálogo destacado</h2>
@@ -438,7 +473,10 @@ function renderHome(page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
     ${howToHTML()}
+    ${testimonialsHTML()}
+    ${faqInlineHTML(5)}
   `;
+  mountHeroSlider();
   mountToolbar(null, page, "/");
 }
 
@@ -869,16 +907,423 @@ function checkout() {
 }
 
 // ============================================================
+// Páginas informativas (Cómo comprar, FAQ, T&C, etc.)
+// ============================================================
+function renderInfoPage(slug) {
+  const pages = {
+    "como-comprar": {
+      title: "Cómo comprar e instalar",
+      body: comoComprarHTML(),
+    },
+    "faq": {
+      title: "Preguntas frecuentes",
+      body: faqInlineHTML(),
+    },
+    "garantia": {
+      title: "Garantía",
+      body: garantiaHTML(),
+    },
+    "terminos": {
+      title: "Términos y condiciones",
+      body: terminosHTML(),
+    },
+    "privacidad": {
+      title: "Política de privacidad",
+      body: privacidadHTML(),
+    },
+    "nosotros": {
+      title: "Sobre nosotros",
+      body: nosotrosHTML(),
+    },
+  };
+  const p = pages[slug];
+  if (!p) {
+    app.innerHTML = `<section class="container empty-state"><h2>Página no encontrada</h2><a class="cta" href="#/">Volver al inicio</a></section>`;
+    return;
+  }
+  app.innerHTML = `
+    ${heroSlimHTML(p.title)}
+    ${p.body}
+  `;
+}
+
+function comoComprarHTML() {
+  return `
+    <section class="container info-page">
+      <div class="info-block">
+        <h2>Comprar en 4 pasos</h2>
+        <ol class="info-steps">
+          <li>
+            <strong>Elegí tus juegos del catálogo.</strong> Navegá por PS5, PS4, Xbox o Switch. Click en el juego para ver detalles. Decidí si lo querés en <em>Cuenta Principal</em> (acceso completo, sin restricciones) o <em>Cuenta Secundaria</em> (más barata, requiere conexión a internet).
+          </li>
+          <li>
+            <strong>Agregá al carrito y enviá el pedido por WhatsApp.</strong> Click en "Agregar al carrito" en cada juego. Cuando termines, andá al carrito (icono arriba a la derecha) y click en "Enviar pedido por WhatsApp". Te abre el chat con la lista lista para mandar.
+          </li>
+          <li>
+            <strong>Confirmamos disponibilidad y te pasamos los datos de pago.</strong> En menos de 10 minutos te respondemos por WhatsApp confirmando los juegos y el total final, junto con los datos para pagar por SINPE Móvil o transferencia bancaria.
+          </li>
+          <li>
+            <strong>Pagás y recibís la cuenta inmediatamente.</strong> Apenas confirmamos tu pago, te enviamos por WhatsApp: el email de la cuenta, la contraseña, los códigos del verificador 2FA (si los tiene) y la guía de instalación específica para tu consola.
+          </li>
+        </ol>
+      </div>
+
+      <div class="info-block">
+        <h2>Instalación en PlayStation 5 / PS4</h2>
+        <h3>Si compraste Cuenta Principal</h3>
+        <ol class="info-steps">
+          <li>Andá a <strong>Configuración → Usuarios y cuentas → Otros</strong>.</li>
+          <li>Click en <strong>"Compartir consola y juego sin conexión"</strong> y activala.</li>
+          <li>Volvé al menú principal, agregá un usuario nuevo y poné los datos que te mandamos (email + contraseña).</li>
+          <li>Una vez dentro, andá a la <strong>Biblioteca de juegos</strong>, descargá los que querés jugar.</li>
+          <li>Listo. Podés volver a tu cuenta personal y jugar los juegos descargados desde ahí.</li>
+        </ol>
+        <h3>Si compraste Cuenta Secundaria</h3>
+        <ol class="info-steps">
+          <li>Agregá un usuario nuevo en la consola y entrá con el email + contraseña que te dimos.</li>
+          <li>Descargá los juegos desde la Biblioteca.</li>
+          <li>Para jugar, tenés que estar conectado a internet y entrar con esa cuenta secundaria.</li>
+        </ol>
+      </div>
+
+      <div class="info-block">
+        <h2>Instalación en Xbox</h2>
+        <ol class="info-steps">
+          <li>Andá a <strong>Configuración → Personalización → Mis aplicaciones y juegos → Compartir mi cuenta</strong> (Mi casa Xbox).</li>
+          <li>Iniciá sesión con la cuenta que te enviamos.</li>
+          <li>Marcá esta consola como "Mi casa Xbox" (esto activa el acceso para todos los usuarios).</li>
+          <li>Descargá los juegos desde tu Biblioteca.</li>
+          <li>Podés volver a usar tu cuenta personal — los juegos siguen funcionando para todos los perfiles.</li>
+        </ol>
+      </div>
+
+      <div class="info-block">
+        <h2>Instalación en Nintendo Switch (Bundles)</h2>
+        <ol class="info-steps">
+          <li>Andá a <strong>Configuración de la consola → Usuarios → Agregar usuario</strong>.</li>
+          <li>Click en <strong>"Usuario con cuenta Nintendo existente"</strong> y poné los datos que te enviamos.</li>
+          <li>Volvé a la pantalla principal con ese usuario activo.</li>
+          <li>Entrá a la <strong>Nintendo eShop</strong> con ese usuario y andá a tu cuenta (esquina superior derecha) → <strong>Volver a descargar</strong>.</li>
+          <li>Descargá todos los juegos del bundle (pueden ser muchos GB — usá una microSD si es necesario).</li>
+        </ol>
+        <p class="info-note">⚠️ <strong>Importante:</strong> los juegos del bundle se juegan SOLO con ese usuario de la Switch. Si entrás con otro perfil no los vas a ver. Mantené el usuario de la cuenta que te dimos siempre disponible.</p>
+      </div>
+
+      <div class="info-cta">
+        <h3>¿Tenés dudas con la instalación?</h3>
+        <p>Te ayudamos en vivo por WhatsApp, sin costo. Tenemos guías por consola y te asistimos paso a paso.</p>
+        <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito ayuda con la instalación de mi cuenta.")}" target="_blank" rel="noopener">Escribinos al WhatsApp</a>
+      </div>
+    </section>
+  `;
+}
+
+function garantiaHTML() {
+  return `
+    <section class="container info-page">
+      <div class="info-block">
+        <h2>Garantía Rey Midas Digitales</h2>
+        <p>Cada cuenta que vendemos está respaldada por nosotros. Si tenés cualquier problema con el acceso, te lo solucionamos.</p>
+
+        <h3>Cuenta Principal</h3>
+        <ul class="info-list">
+          <li><strong>Garantía de por vida</strong> mientras la consola permanezca activada con esa cuenta.</li>
+          <li>Si necesitás cambiar de consola, te ayudamos a desactivar la vieja y activar la nueva sin costo.</li>
+          <li>Si la cuenta presenta cualquier problema técnico, la reemplazamos por una nueva con los mismos juegos.</li>
+        </ul>
+
+        <h3>Cuenta Secundaria</h3>
+        <ul class="info-list">
+          <li><strong>Garantía de 6 meses</strong> desde la fecha de compra.</li>
+          <li>Si la cuenta deja de funcionar dentro de la garantía, te la reemplazamos sin costo.</li>
+          <li>Pasados los 6 meses, podés renovar el acceso con un costo simbólico de mantenimiento.</li>
+        </ul>
+
+        <h3>Bundles</h3>
+        <ul class="info-list">
+          <li>Garantía de <strong>6 meses</strong> sobre el acceso a la cuenta.</li>
+          <li>Los juegos del bundle son permanentes — una vez descargados quedan en tu consola.</li>
+        </ul>
+
+        <h3>¿Qué NO cubre la garantía?</h3>
+        <ul class="info-list">
+          <li>Modificaciones que el cliente haga a la cuenta (cambio de email/contraseña sin avisar).</li>
+          <li>Uso de la cuenta para revender o compartir con terceros.</li>
+          <li>Baneos por hacer trampa, jugar online con jailbreak, o violar términos de uso del fabricante.</li>
+        </ul>
+      </div>
+
+      <div class="info-cta">
+        <h3>¿Problema con tu cuenta?</h3>
+        <p>Escribinos por WhatsApp. Respondemos en minutos.</p>
+        <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, tengo un problema con mi cuenta.")}" target="_blank" rel="noopener">Reclamar garantía</a>
+      </div>
+    </section>
+  `;
+}
+
+function terminosHTML() {
+  return `
+    <section class="container info-page">
+      <div class="info-block">
+        <p class="info-meta">Última actualización: enero 2026</p>
+
+        <h2>1. Aceptación de los términos</h2>
+        <p>Al usar el sitio reymidascr.com y/o realizar una compra, usted acepta los siguientes términos y condiciones. Si no está de acuerdo, le pedimos no usar el servicio.</p>
+
+        <h2>2. Sobre el servicio</h2>
+        <p>Rey Midas Digitales vende acceso a cuentas digitales de PlayStation, Xbox y Nintendo con juegos comprados legalmente en sus tiendas oficiales. Los juegos son originales y se entregan a través de credenciales de acceso.</p>
+
+        <h2>3. Modalidades de compra</h2>
+        <p><strong>Cuenta Principal:</strong> activa la consola del cliente como dispositivo principal, permitiendo jugar sin conexión a internet y compartir los juegos con otros usuarios de esa consola.</p>
+        <p><strong>Cuenta Secundaria:</strong> permite jugar los juegos pero requiere conexión a internet y sesión activa con la cuenta provista.</p>
+        <p><strong>Bundles:</strong> conjuntos de varios juegos en una sola cuenta a precio promocional.</p>
+
+        <h2>4. Pagos y entrega</h2>
+        <p>Aceptamos SINPE Móvil y transferencia bancaria. La entrega se realiza por WhatsApp en un máximo de 10 minutos en horario laboral (lunes a sábado, 8am a 8pm) una vez confirmado el pago.</p>
+
+        <h2>5. Garantía</h2>
+        <p>Cada compra cuenta con garantía según el detalle publicado en la sección Garantía. Reclamos fuera del período de garantía se evalúan caso por caso.</p>
+
+        <h2>6. Devoluciones</h2>
+        <p>Por la naturaleza digital del producto, no aceptamos devoluciones de dinero una vez entregada la cuenta. En caso de falla del servicio, reemplazamos la cuenta o aplicamos crédito para otra compra.</p>
+
+        <h2>7. Uso permitido</h2>
+        <p>Las cuentas son para uso personal del comprador. Está prohibida la reventa, distribución o uso compartido fuera del núcleo familiar inmediato.</p>
+
+        <h2>8. Limitación de responsabilidad</h2>
+        <p>No nos hacemos responsables por baneos generados por uso indebido por parte del cliente (modificaciones de consola, trampas, violación de términos de PlayStation/Xbox/Nintendo).</p>
+
+        <h2>9. Modificaciones</h2>
+        <p>Estos términos pueden actualizarse en cualquier momento. La versión vigente es la publicada en esta página.</p>
+
+        <h2>10. Contacto</h2>
+        <p>Cualquier consulta sobre estos términos: WhatsApp <a href="https://wa.me/${CONFIG.whatsapp}">+506 ${formatPhone(CONFIG.whatsapp).replace(/^\+506\s*/, "")}</a></p>
+      </div>
+    </section>
+  `;
+}
+
+function privacidadHTML() {
+  return `
+    <section class="container info-page">
+      <div class="info-block">
+        <p class="info-meta">Última actualización: enero 2026</p>
+
+        <h2>Datos que recolectamos</h2>
+        <p>Para entregarte tus compras necesitamos un mínimo de datos:</p>
+        <ul class="info-list">
+          <li><strong>Email:</strong> para crear tu cuenta en nuestro sitio y enviarte el acceso.</li>
+          <li><strong>Número de WhatsApp:</strong> para coordinar la entrega y el soporte.</li>
+          <li><strong>Datos de pago:</strong> el SINPE o la transferencia que vos nos envías. Nosotros no guardamos información de tarjetas.</li>
+        </ul>
+
+        <h2>Para qué usamos tus datos</h2>
+        <ul class="info-list">
+          <li>Procesar y entregar tu compra.</li>
+          <li>Darte soporte cuando lo necesites.</li>
+          <li>Avisarte de promociones (solo si nos diste autorización).</li>
+        </ul>
+
+        <h2>Con quién los compartimos</h2>
+        <p><strong>Con nadie.</strong> No vendemos, alquilamos ni compartimos tus datos personales con terceros. Punto.</p>
+
+        <h2>Cómo los protegemos</h2>
+        <p>Tu cuenta en el sitio está protegida por contraseña cifrada. Los datos de las cuentas que comprás se guardan en servidores con encriptación y solo se muestran a vos cuando iniciás sesión.</p>
+
+        <h2>Tus derechos</h2>
+        <p>Podés pedirnos en cualquier momento: ver tus datos, modificarlos, o eliminarlos completamente. Escribinos por WhatsApp.</p>
+
+        <h2>Cookies</h2>
+        <p>Usamos almacenamiento local (localStorage) para guardar tu sesión y tu carrito. No usamos cookies de seguimiento ni publicidad.</p>
+      </div>
+    </section>
+  `;
+}
+
+function nosotrosHTML() {
+  return `
+    <section class="container info-page">
+      <div class="info-block">
+        <h2>Sobre Rey Midas Digitales</h2>
+        <p>Somos una tienda costarricense especializada en juegos digitales para <strong>PlayStation 5, PlayStation 4, Xbox y Nintendo Switch</strong>. Llevamos años conectando gamers con los títulos que quieren al mejor precio posible.</p>
+
+        <h2>Por qué elegirnos</h2>
+        <ul class="info-list">
+          <li><strong>100% costarricense.</strong> Atención local, pago en colones, entrega por WhatsApp.</li>
+          <li><strong>Cuentas legítimas.</strong> Compradas en las tiendas oficiales — PS Store, Xbox Store, eShop.</li>
+          <li><strong>Garantía real.</strong> Si algo falla, lo solucionamos. Sin excusas.</li>
+          <li><strong>Soporte de verdad.</strong> Te ayudamos con la instalación, con la configuración de tu consola, con todo lo que necesites.</li>
+        </ul>
+
+        <h2>Nuestros números</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-num">+500</div>
+            <div class="stat-label">Clientes felices</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">+1200</div>
+            <div class="stat-label">Cuentas entregadas</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">< 10 min</div>
+            <div class="stat-label">Tiempo de entrega</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">5 ★</div>
+            <div class="stat-label">Calificación promedio</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-cta">
+        <h3>¿Listo para comprar?</h3>
+        <a class="cta" href="#/plataforma/PS5">Ver catálogo</a>
+      </div>
+    </section>
+  `;
+}
+
+// ============================================================
 // Bloques reutilizables
 // ============================================================
 function heroHTML() {
+  // Si hay banners cargados, mostramos el slider. Sino, hero estático.
+  if (banners.length > 0) {
+    return `
+      <section class="hero-slider" id="heroSlider">
+        ${banners.map((b, i) => `
+          <div class="hero-slide ${i === 0 ? "active" : ""}" data-index="${i}">
+            <img src="${escapeAttr(b.image)}" alt="${escapeAttr(b.title || "")}" loading="${i === 0 ? "eager" : "lazy"}" onerror="this.parentElement.classList.add('no-img')">
+            <div class="hero-slide-overlay">
+              <div class="container">
+                ${b.title ? `<h1 class="hero-title">${escapeHtml(b.title)}</h1>` : ""}
+                ${b.subtitle ? `<p class="hero-subtitle">${escapeHtml(b.subtitle)}</p>` : ""}
+                ${b.ctaText && b.ctaHref ? `<a class="cta" href="${escapeAttr(b.ctaHref)}">${escapeHtml(b.ctaText)}</a>` : ""}
+              </div>
+            </div>
+          </div>
+        `).join("")}
+        ${banners.length > 1 ? `
+          <button class="hero-arrow prev" aria-label="Anterior">‹</button>
+          <button class="hero-arrow next" aria-label="Siguiente">›</button>
+          <div class="hero-dots">
+            ${banners.map((_, i) => `<button class="hero-dot ${i === 0 ? "active" : ""}" data-go="${i}" aria-label="Slide ${i + 1}"></button>`).join("")}
+          </div>
+        ` : ""}
+      </section>
+    `;
+  }
   return `
     <section class="hero">
       <div class="hero-glow"></div>
       <div class="container hero-inner">
         <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
-        <p class="tagline">Tu tienda de juegos digitales PlayStation en Costa Rica</p>
+        <p class="tagline">Tu tienda de juegos digitales en Costa Rica</p>
         <a class="cta" href="#/plataforma/PS5">Ver juegos PS5</a>
+      </div>
+    </section>
+  `;
+}
+
+function mountHeroSlider() {
+  const slider = document.getElementById("heroSlider");
+  if (!slider || banners.length <= 1) return;
+  const slides = slider.querySelectorAll(".hero-slide");
+  const dots = slider.querySelectorAll(".hero-dot");
+  let current = 0;
+  let timer;
+
+  function go(i) {
+    current = (i + slides.length) % slides.length;
+    slides.forEach((s, j) => s.classList.toggle("active", j === current));
+    dots.forEach((d, j) => d.classList.toggle("active", j === current));
+  }
+  function autoplay() {
+    clearInterval(timer);
+    timer = setInterval(() => go(current + 1), 6000);
+  }
+  slider.querySelector(".prev")?.addEventListener("click", () => { go(current - 1); autoplay(); });
+  slider.querySelector(".next")?.addEventListener("click", () => { go(current + 1); autoplay(); });
+  dots.forEach(d => d.addEventListener("click", () => { go(parseInt(d.dataset.go, 10)); autoplay(); }));
+  autoplay();
+}
+
+function trustBarHTML() {
+  return `
+    <section class="trust-bar">
+      <div class="container trust-bar-inner">
+        <div class="trust-item">
+          <span class="trust-icon">⚡</span>
+          <div><strong>Entrega inmediata</strong><span>en menos de 10 min</span></div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon">🛡️</span>
+          <div><strong>Garantía real</strong><span>respaldamos cada cuenta</span></div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon">💳</span>
+          <div><strong>Pago fácil</strong><span>SINPE · Transferencia</span></div>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon">💬</span>
+          <div><strong>Soporte 24/7</strong><span>por WhatsApp</span></div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function testimonialsHTML() {
+  if (!testimonials.length) return "";
+  return `
+    <section class="testimonials-section">
+      <div class="container">
+        <div class="section-title centered">
+          <h2>Lo que dicen nuestros clientes</h2>
+          <p>Más de 500 clientes en Costa Rica nos confían sus compras de juegos digitales.</p>
+        </div>
+        <div class="testimonials-grid">
+          ${testimonials.map(t => `
+            <article class="testimonial-card">
+              <div class="testimonial-stars">${"★".repeat(t.rating || 5)}${"☆".repeat(5 - (t.rating || 5))}</div>
+              <p class="testimonial-text">"${escapeHtml(t.text)}"</p>
+              <div class="testimonial-author">
+                <strong>${escapeHtml(t.name)}</strong>
+                <span>${escapeHtml(t.platform)}</span>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function faqInlineHTML(limit) {
+  if (!faqs.length) return "";
+  const items = limit ? faqs.slice(0, limit) : faqs;
+  return `
+    <section class="faq-section">
+      <div class="container">
+        <div class="section-title centered">
+          <h2>Preguntas frecuentes</h2>
+          <p>Lo que más nos preguntan antes de comprar.</p>
+        </div>
+        <div class="faq-list">
+          ${items.map((f, i) => `
+            <details class="faq-item" ${i === 0 ? "open" : ""}>
+              <summary>${escapeHtml(f.q)}</summary>
+              <div class="faq-answer">${escapeHtml(f.a)}</div>
+            </details>
+          `).join("")}
+        </div>
+        ${limit && faqs.length > limit ? `
+          <div class="faq-more">
+            <a class="cta-secondary" href="#/faq">Ver todas las preguntas</a>
+          </div>
+        ` : ""}
       </div>
     </section>
   `;
@@ -898,16 +1343,35 @@ function heroSlimHTML(platform) {
 function howToHTML() {
   return `
     <section class="how-to">
-      <div class="container how-inner">
-        <img src="/assets/mascot.png" alt="" class="mascot">
-        <div class="how-text">
+      <div class="container">
+        <div class="section-title centered">
           <h2>¿Cómo comprar?</h2>
-          <ol class="steps">
-            <li><strong>Elegí tus juegos</strong> y agregalos al carrito.</li>
-            <li><strong>Enviá el pedido</strong> por WhatsApp con un solo botón.</li>
-            <li><strong>Pagás por SINPE</strong> o transferencia bancaria.</li>
-            <li><strong>Te entregamos el código</strong> o el acceso al instante.</li>
-          </ol>
+          <p>En 4 pasos simples ya estás jugando tu juego favorito.</p>
+        </div>
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <h3>Elegí tus juegos</h3>
+            <p>Buscá en el catálogo PS5, PS4, Xbox o Switch. Agregá al carrito en Principal o Secundaria.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <h3>Enviá tu pedido</h3>
+            <p>Click en "Enviar pedido por WhatsApp" y nos llega tu lista completa con un click.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <h3>Pagás SINPE o transferencia</h3>
+            <p>Te confirmamos disponibilidad y te pasamos los datos. Pago seguro 100% costarricense.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">4</div>
+            <h3>Recibís tu cuenta</h3>
+            <p>En menos de 10 minutos recibís el correo, contraseña y guía de instalación por WhatsApp.</p>
+          </div>
+        </div>
+        <div class="cta-row">
+          <a class="cta" href="#/como-comprar">Ver guía completa de compra e instalación &rarr;</a>
         </div>
       </div>
     </section>
