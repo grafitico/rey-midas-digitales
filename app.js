@@ -38,18 +38,27 @@ let nintendo = { telegramChannel: "", bundles: [] };
 // ============================================================
 // Supabase (auth + database)
 // ============================================================
-const sb = (CONFIG.supabase.url && CONFIG.supabase.anonKey && window.supabase)
-  ? window.supabase.createClient(CONFIG.supabase.url, CONFIG.supabase.anonKey)
-  : null;
-
+let sb = null;
 let currentUser = null;
 let currentProfile = null;
 
 async function initAuth() {
-  if (!sb) {
+  // Cargamos las credenciales desde /api/config (las pone Vercel via env vars).
+  try {
+    const res = await fetch("/api/config");
+    const data = await res.json();
+    const url = data?.supabase?.url || CONFIG.supabase.url;
+    const key = data?.supabase?.anonKey || CONFIG.supabase.anonKey;
+    if (!url || !key || !window.supabase) {
+      renderAuthSlot();
+      return;
+    }
+    sb = window.supabase.createClient(url, key);
+  } catch {
     renderAuthSlot();
     return;
   }
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
