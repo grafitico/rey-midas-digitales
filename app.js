@@ -70,6 +70,13 @@ async function initAuth() {
     currentProfile = null;
     if (currentUser) await loadProfile();
     renderAuthSlot();
+    if (event === "SIGNED_IN") {
+      const r = parseRoute();
+      if (r.name === "login" || r.name === "auth-callback") {
+        location.hash = "#/mi-cuenta";
+        return;
+      }
+    }
     const r = parseRoute();
     if (["mi-cuenta", "admin", "login"].includes(r.name)) render();
   });
@@ -86,10 +93,23 @@ async function loadProfile() {
 }
 
 async function loginWithEmail(email) {
-  if (!sb) return alert("Auth no configurado.");
+  if (!sb) return { message: "Auth no configurado." };
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: location.origin },
+    options: {
+      emailRedirectTo: location.origin,
+      shouldCreateUser: true,
+    },
+  });
+  return error;
+}
+
+async function verifyEmailOtp(email, token) {
+  if (!sb) return { message: "Auth no configurado." };
+  const { error } = await sb.auth.verifyOtp({
+    email,
+    token,
+    type: "email",
   });
   return error;
 }
@@ -1006,24 +1026,30 @@ function renderLogin() {
     <section class="container auth-page">
       <div class="auth-card">
         <h1>Iniciá sesión</h1>
-        <p>Ingresá tu email y te enviamos un enlace mágico para entrar sin contraseña.</p>
+        <p>Ingresá tu email y te enviamos un código de 6 dígitos para entrar.</p>
         <form id="loginForm" class="login-form">
           <label>Tu email
             <input id="loginEmail" type="email" required placeholder="vos@ejemplo.com" autocomplete="email">
           </label>
-          <button type="submit" class="login-submit-btn">Enviar enlace de acceso</button>
+          <button type="submit" class="login-submit-btn">Enviar código</button>
         </form>
-        <div id="loginMsg" hidden class="login-msg">
+        <form id="otpForm" hidden class="login-form">
           <div class="login-sent-icon">✉️</div>
-          <p>Revisá tu bandeja de entrada.</p>
-          <p>Enviamos un enlace de acceso a <strong id="loginEmailSent"></strong>.</p>
-          <p class="auth-note">Si no lo ves en 1-2 minutos, chequeá spam o carpeta de promociones.</p>
-          <button class="cta-secondary" id="loginRetry">Usar otro email</button>
-        </div>
+          <p class="otp-info">Te enviamos un código a <strong id="otpEmailLabel"></strong>.</p>
+          <label>Código de 6 dígitos
+            <input id="otpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" autocomplete="one-time-code">
+          </label>
+          <button type="submit" class="login-submit-btn">Entrar</button>
+          <button type="button" class="cta-secondary" id="otpBack">Usar otro email</button>
+          <p class="auth-note">El código tarda 1-2 minutos. Si no llega, chequeá spam.</p>
+        </form>
         <p class="auth-note">Solo usamos tu email para identificarte. Nada de spam.</p>
       </div>
     </section>
   `;
+
+  let currentEmail = "";
+
   const form = document.getElementById("loginForm");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1034,18 +1060,40 @@ function renderLogin() {
     const error = await loginWithEmail(email);
     if (error) {
       btn.disabled = false;
-      btn.textContent = "Enviar enlace de acceso";
+      btn.textContent = "Enviar código";
       showToast(error.message || "Error al enviar. Intentá de nuevo.");
       return;
     }
+    currentEmail = email;
     form.hidden = true;
-    const msg = document.getElementById("loginMsg");
-    msg.hidden = false;
-    document.getElementById("loginEmailSent").textContent = email;
+    const otpForm = document.getElementById("otpForm");
+    otpForm.hidden = false;
+    document.getElementById("otpEmailLabel").textContent = email;
+    document.getElementById("otpCode").focus();
   });
-  document.getElementById("loginRetry").addEventListener("click", () => {
+
+  document.getElementById("otpForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const code = document.getElementById("otpCode").value.trim();
+    const btn = e.target.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.textContent = "Verificando...";
+    const error = await verifyEmailOtp(currentEmail, code);
+    if (error) {
+      btn.disabled = false;
+      btn.textContent = "Entrar";
+      showToast(error.message || "Código inválido o expirado.");
+      return;
+    }
+    // onAuthStateChange se encargará del resto
+  });
+
+  document.getElementById("otpBack").addEventListener("click", () => {
     document.getElementById("loginForm").hidden = false;
-    document.getElementById("loginMsg").hidden = true;
+    document.getElementById("otpForm").hidden = true;
+    const btn = document.querySelector("#loginForm button[type='submit']");
+    btn.disabled = false;
+    btn.textContent = "Enviar código";
   });
 }
 
