@@ -19,27 +19,52 @@ const STATIC_PAGES = [
   "/pages/latest",
 ];
 
-// Búsquedas por género — usamos el buscador de PSN como "discovery" de
-// géneros. Cada query trae ~24-48 juegos clasificados en ese género por
-// PSN. Después taggeamos cada juego del catálogo con sus géneros para
-// que cuando el usuario escriba "terror" en la búsqueda interna también
-// le aparezcan los juegos de terror, no solo los que tengan "terror" en
-// el título.
+// Categorías de género — cada género tiene su propio UUID en PSN, igual
+// que el catálogo principal. Las paginamos y taggeamos cada juego que
+// aparece con el género correspondiente. Esto es la fuente confiable de
+// tags: el `directGenres` del Product no viene poblado en es-cr (corrida
+// previa: 0 juegos taggeados directo de 3579), y la búsqueda /search/
+// solo devuelve ~24-48 resultados por query (28 taggeados de 3579, 0.8%).
 //
-// Los tags están normalizados (sin tilde, minúsculas) para matchear
-// fácil contra la búsqueda del cliente. La query usa español porque la
-// tienda es es-cr y devuelve resultados más relevantes.
+// UUIDs verificados en stores en-us/es-mx (clúster LATAM, mismos UUIDs
+// para es-cr). Si PSN cambia un UUID hay que actualizar acá.
+const GENRE_CATEGORIES = [
+  { tag: "accion",     uuid: "298b428c-0c39-4ec8-abd5-237484e5a2ea" }, // Action
+  { tag: "rpg",        uuid: "e0b1cde3-a7ea-4d7a-960a-fa5edbafae8f" }, // RPG
+  { tag: "shooter",    uuid: "64ee024b-7644-468a-92c6-370269075d5c" }, // Shooter
+  { tag: "deportes",   uuid: "b86f0f65-cf49-4f96-8cdd-3991ca17eadc" }, // Sports
+  { tag: "carreras",   uuid: "f45ce6b0-61ef-4b78-94c3-048d81b07f98" }, // Racing
+  { tag: "lucha",      uuid: "02e50754-377f-4546-9252-67cfebb2e5b0" }, // Fighting
+  { tag: "terror",     uuid: "6ec578f6-d6b7-423c-8b93-14e14a5a43f2" }, // Horror
+  { tag: "simulacion", uuid: "bb42a4e0-2d0e-40e5-9714-ae4e10320f24" }, // Simulation
+  { tag: "infantiles", uuid: "9d30a9d8-1a3c-462d-865d-0be3f208e6d2" }, // Kids & Family
+];
+
+// Búsquedas por género adicionales — fallback liviano que cubre tags que
+// no tienen categoría dedicada en PSN (aventura como tag separado,
+// estrategia). Si encuentra un juego ya taggeado por categoría, suma
+// el tag; no duplica.
 const GENRE_SEARCHES = [
-  { tag: "accion",     query: "acción" },
   { tag: "aventura",   query: "aventura" },
-  { tag: "terror",     query: "terror" },
-  { tag: "rpg",        query: "rpg" },
-  { tag: "deportes",   query: "deportes" },
-  { tag: "carreras",   query: "carreras" },
-  { tag: "shooter",    query: "shooter" },
-  { tag: "lucha",      query: "lucha" },
   { tag: "estrategia", query: "estrategia" },
-  { tag: "infantiles", query: "infantil" },
+];
+
+// Búsquedas semilla — el catálogo principal viene ordenado por release
+// date y entierra AAA clásicos (Crash, NFS, FIFA viejos, GTA, etc.)
+// más allá de las 150 páginas que paginamos. Cada query trae 24-48
+// resultados y los agrega al map principal aunque no estén en la
+// categoría principal. Sin tags forzados — si el juego tiene tags
+// vendrán de las categorías de género.
+const SEED_SEARCHES = [
+  "crash bandicoot", "need for speed", "fifa", "ea sports fc",
+  "gta", "grand theft auto", "call of duty", "assassin's creed",
+  "tomb raider", "spider-man", "uncharted", "god of war",
+  "resident evil", "battlefield", "minecraft", "rocket league",
+  "mortal kombat", "tekken", "street fighter", "the last of us",
+  "metal gear", "dark souls", "elden ring", "horizon",
+  "nba 2k", "madden", "wwe", "f1", "watch dogs", "far cry",
+  "borderlands", "dragon ball", "naruto", "one piece",
+  "lego", "ratchet", "gran turismo", "diablo",
 ];
 
 // Tope de páginas por categoría. 150 * ~24 productos = ~3600 por categoría.
@@ -51,6 +76,12 @@ const MAX_PAGES_PER_CATEGORY = 150;
 // (8 chunks * ~2.5s ≈ 20s).
 const PAGE_CHUNK = 20;
 
+// Topes para categorías de género — más bajos porque corren 9 en
+// paralelo con el catálogo principal. 20 páginas * ~24 = ~480 juegos
+// por género; cubre el grueso sin saturar a PSN ni desbordar timeout.
+const MAX_PAGES_PER_GENRE = 20;
+const GENRE_PAGE_CHUNK = 5;
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -59,18 +90,24 @@ export default async function handler(req, res) {
 
   try {
     const map = new Map();
-    const genreMap = new Map(); // gameId -> Set<genreTag>
+    const categoryGenreMap = new Map(); // gameId -> Set<genreTag> (de categorías UUID)
+    const searchGenreMap = new Map();   // gameId -> Set<genreTag> (de /search/)
     const stats = {
       categoriesScanned: CATEGORIES.length,
       pagesFetched: 0,
       pagesEmpty: 0,
       pagesFailed: 0,
-      genresFetched: 0,
-      genresFailed: 0,
+      genreCategoriesFetched: 0,
+      genreCategoriesFailed: 0,
+      genrePagesFetched: 0,
+      genreSearchesFetched: 0,
+      genreSearchesFailed: 0,
+      seedSearchesFetched: 0,
+      seedSearchesFailed: 0,
     };
 
     const categoryWork = CATEGORIES.map(async (catId) => {
-      const items = await fetchCategoryPaginated(catId, stats);
+      const items = await fetchCategoryPaginated(catId, stats, MAX_PAGES_PER_CATEGORY, PAGE_CHUNK);
       for (const g of items) {
         if (!map.has(g.id)) map.set(g.id, g);
       }
@@ -88,32 +125,80 @@ export default async function handler(req, res) {
       }
     });
 
-    const genreWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
+    // Opción C: paginar cada categoría de género de PSN y taggear.
+    // Estos juegos también se agregan al map principal por si no
+    // estaban en la categoría general.
+    const genreCategoryWork = GENRE_CATEGORIES.map(async ({ tag, uuid }) => {
       try {
-        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
-        stats.genresFetched++;
-        for (const g of games) {
-          if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
-          genreMap.get(g.id).add(tag);
+        const items = await fetchCategoryPaginated(
+          uuid,
+          { pagesFetched: 0, pagesEmpty: 0, pagesFailed: 0 }, // stats locales descartables
+          MAX_PAGES_PER_GENRE,
+          GENRE_PAGE_CHUNK,
+          stats, // para incrementar genrePagesFetched
+        );
+        stats.genreCategoriesFetched++;
+        for (const g of items) {
+          if (!map.has(g.id)) map.set(g.id, g);
+          if (!categoryGenreMap.has(g.id)) categoryGenreMap.set(g.id, new Set());
+          categoryGenreMap.get(g.id).add(tag);
         }
       } catch {
-        stats.genresFailed++;
+        stats.genreCategoriesFailed++;
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork, ...genreWork]);
+    const genreSearchWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
+      try {
+        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
+        stats.genreSearchesFetched++;
+        for (const g of games) {
+          if (!map.has(g.id)) map.set(g.id, g);
+          if (!searchGenreMap.has(g.id)) searchGenreMap.set(g.id, new Set());
+          searchGenreMap.get(g.id).add(tag);
+        }
+      } catch {
+        stats.genreSearchesFailed++;
+      }
+    });
+
+    // Búsquedas semilla — sólo expanden el catálogo, no taggean.
+    const seedWork = SEED_SEARCHES.map(async (query) => {
+      try {
+        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
+        stats.seedSearchesFetched++;
+        for (const g of games) {
+          if (!map.has(g.id)) map.set(g.id, g);
+        }
+      } catch {
+        stats.seedSearchesFailed++;
+      }
+    });
+
+    await Promise.all([
+      ...categoryWork,
+      ...staticWork,
+      ...genreCategoryWork,
+      ...genreSearchWork,
+      ...seedWork,
+    ]);
 
     let taggedDirect = 0;
+    let taggedCategory = 0;
     let taggedSearch = 0;
+    let taggedAny = 0;
     const sampleTagged = [];
 
     const games = Array.from(map.values())
       .map(g => {
         const direct = new Set(g.directGenres || []);
-        const search = genreMap.get(g.id) || new Set();
-        const merged = new Set([...direct, ...search]);
+        const fromCategory = categoryGenreMap.get(g.id) || new Set();
+        const fromSearch = searchGenreMap.get(g.id) || new Set();
+        const merged = new Set([...direct, ...fromCategory, ...fromSearch]);
         if (direct.size > 0) taggedDirect++;
-        if (search.size > 0) taggedSearch++;
+        if (fromCategory.size > 0) taggedCategory++;
+        if (fromSearch.size > 0) taggedSearch++;
+        if (merged.size > 0) taggedAny++;
         if (merged.size > 0 && sampleTagged.length < 5) {
           sampleTagged.push({ title: g.title, genres: Array.from(merged) });
         }
@@ -126,7 +211,9 @@ export default async function handler(req, res) {
       });
 
     stats.taggedDirect = taggedDirect;
+    stats.taggedCategory = taggedCategory;
     stats.taggedSearch = taggedSearch;
+    stats.taggedAny = taggedAny;
     stats.sampleTagged = sampleTagged;
 
     return res.status(200).json({
@@ -140,12 +227,12 @@ export default async function handler(req, res) {
   }
 }
 
-async function fetchCategoryPaginated(catId, stats) {
+async function fetchCategoryPaginated(catId, stats, maxPages, chunkSize, sharedStats) {
   const all = [];
   let pageStart = 1;
-  while (pageStart <= MAX_PAGES_PER_CATEGORY) {
+  while (pageStart <= maxPages) {
     const pageNums = [];
-    for (let i = 0; i < PAGE_CHUNK && pageStart + i <= MAX_PAGES_PER_CATEGORY; i++) {
+    for (let i = 0; i < chunkSize && pageStart + i <= maxPages; i++) {
       pageNums.push(pageStart + i);
     }
     const results = await Promise.allSettled(
@@ -157,6 +244,7 @@ async function fetchCategoryPaginated(catId, stats) {
         if (r.value.length > 0) {
           all.push(...r.value);
           stats.pagesFetched++;
+          if (sharedStats) sharedStats.genrePagesFetched++;
           chunkProduced = true;
         } else {
           stats.pagesEmpty++;
@@ -167,7 +255,7 @@ async function fetchCategoryPaginated(catId, stats) {
     }
     // Si todo el chunk vino vacío o falló, asumimos que ya pasamos del final.
     if (!chunkProduced) break;
-    pageStart += PAGE_CHUNK;
+    pageStart += chunkSize;
   }
   return all;
 }
