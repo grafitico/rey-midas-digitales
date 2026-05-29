@@ -1,55 +1,175 @@
-// Scraper directo de PlayStation Store (sin terceros).
-// Fetcha varias páginas del store en paralelo, extrae los juegos
-// del JSON embebido en __NEXT_DATA__, los normaliza y deduplica.
+// Scraper de PlayStation Store (es-cr) — v3 paginado.
+//
+// Recorre todas las páginas de la(s) categoría(s) principales de juegos
+// PS5/PS4 hasta encontrar un chunk vacío, en paralelo controlado. Más
+// las páginas estáticas de deals/latest. Antes traíamos ~200 juegos
+// fijos; ahora apuntamos a varios miles.
+//
+// Si PSN cambia el UUID de la categoría o el patrón /category/{id}/{n},
+// hay que actualizar CATEGORIES/STATIC_PAGES abajo.
 
-const DEFAULT_URLS = [
-  "https://store.playstation.com/es-cr/pages/deals",
-  "https://store.playstation.com/es-cr/pages/latest",
-  "https://store.playstation.com/es-cr/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/1",
-  "https://store.playstation.com/es-cr/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/2",
-  "https://store.playstation.com/es-cr/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/3",
+const PSN_BASE = "https://store.playstation.com/es-cr";
+
+const CATEGORIES = [
+  "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
 ];
+
+const STATIC_PAGES = [
+  "/pages/deals",
+  "/pages/latest",
+];
+
+// Búsquedas por género — usamos el buscador de PSN como "discovery" de
+// géneros. Cada query trae ~24-48 juegos clasificados en ese género por
+// PSN. Después taggeamos cada juego del catálogo con sus géneros para
+// que cuando el usuario escriba "terror" en la búsqueda interna también
+// le aparezcan los juegos de terror, no solo los que tengan "terror" en
+// el título.
+//
+// Los tags están normalizados (sin tilde, minúsculas) para matchear
+// fácil contra la búsqueda del cliente. La query usa español porque la
+// tienda es es-cr y devuelve resultados más relevantes.
+const GENRE_SEARCHES = [
+  { tag: "accion",     query: "acción" },
+  { tag: "aventura",   query: "aventura" },
+  { tag: "terror",     query: "terror" },
+  { tag: "rpg",        query: "rpg" },
+  { tag: "deportes",   query: "deportes" },
+  { tag: "carreras",   query: "carreras" },
+  { tag: "shooter",    query: "shooter" },
+  { tag: "lucha",      query: "lucha" },
+  { tag: "estrategia", query: "estrategia" },
+  { tag: "infantiles", query: "infantil" },
+];
+
+// Tope de páginas por categoría. 150 * ~24 productos = ~3600 por categoría.
+// La corrida anterior llegó a 50 sin ningún empty/fail, así que el catálogo
+// tiene bastante más profundidad que eso.
+const MAX_PAGES_PER_CATEGORY = 150;
+// Cuántas páginas pedimos en paralelo dentro de una misma categoría.
+// Subimos a 20 para que 150 páginas entren dentro del timeout de 30s
+// (8 chunks * ~2.5s ≈ 20s).
+const PAGE_CHUNK = 20;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
+  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const urls = req.query.urls
-    ? String(req.query.urls).split(",").map(s => s.trim()).filter(Boolean)
-    : DEFAULT_URLS;
-
   try {
-    const results = await Promise.allSettled(urls.map(fetchAndParse));
-    const errors = [];
     const map = new Map();
-    results.forEach((r, i) => {
-      if (r.status === "fulfilled") {
-        for (const g of r.value) {
-          if (!map.has(g.id)) map.set(g.id, g);
-        }
-      } else {
-        errors.push({ url: urls[i], error: r.reason?.message || String(r.reason) });
+    const genreMap = new Map(); // gameId -> Set<genreTag>
+    const stats = {
+      categoriesScanned: CATEGORIES.length,
+      pagesFetched: 0,
+      pagesEmpty: 0,
+      pagesFailed: 0,
+      genresFetched: 0,
+      genresFailed: 0,
+    };
+
+    const categoryWork = CATEGORIES.map(async (catId) => {
+      const items = await fetchCategoryPaginated(catId, stats);
+      for (const g of items) {
+        if (!map.has(g.id)) map.set(g.id, g);
       }
     });
 
-    const games = Array.from(map.values()).sort((a, b) => {
-      if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
-      return b.discount - a.discount;
+    const staticWork = STATIC_PAGES.map(async (path) => {
+      try {
+        const games = await fetchAndParse(`${PSN_BASE}${path}`);
+        stats.pagesFetched++;
+        for (const g of games) {
+          if (!map.has(g.id)) map.set(g.id, g);
+        }
+      } catch {
+        stats.pagesFailed++;
+      }
     });
+
+    const genreWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
+      try {
+        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
+        stats.genresFetched++;
+        for (const g of games) {
+          if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
+          genreMap.get(g.id).add(tag);
+        }
+      } catch {
+        stats.genresFailed++;
+      }
+    });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork]);
+
+    let taggedDirect = 0;
+    let taggedSearch = 0;
+    const sampleTagged = [];
+
+    const games = Array.from(map.values())
+      .map(g => {
+        const direct = new Set(g.directGenres || []);
+        const search = genreMap.get(g.id) || new Set();
+        const merged = new Set([...direct, ...search]);
+        if (direct.size > 0) taggedDirect++;
+        if (search.size > 0) taggedSearch++;
+        if (merged.size > 0 && sampleTagged.length < 5) {
+          sampleTagged.push({ title: g.title, genres: Array.from(merged) });
+        }
+        const { directGenres, ...rest } = g;
+        return { ...rest, genres: Array.from(merged) };
+      })
+      .sort((a, b) => {
+        if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
+        return b.discount - a.discount;
+      });
+
+    stats.taggedDirect = taggedDirect;
+    stats.taggedSearch = taggedSearch;
+    stats.sampleTagged = sampleTagged;
 
     return res.status(200).json({
       success: true,
       count: games.length,
-      sourcesOk: results.filter(r => r.status === "fulfilled").length,
-      sourcesTotal: urls.length,
-      errors: errors.length ? errors : undefined,
+      stats,
       games,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
+}
+
+async function fetchCategoryPaginated(catId, stats) {
+  const all = [];
+  let pageStart = 1;
+  while (pageStart <= MAX_PAGES_PER_CATEGORY) {
+    const pageNums = [];
+    for (let i = 0; i < PAGE_CHUNK && pageStart + i <= MAX_PAGES_PER_CATEGORY; i++) {
+      pageNums.push(pageStart + i);
+    }
+    const results = await Promise.allSettled(
+      pageNums.map(p => fetchAndParse(`${PSN_BASE}/category/${catId}/${p}`))
+    );
+    let chunkProduced = false;
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        if (r.value.length > 0) {
+          all.push(...r.value);
+          stats.pagesFetched++;
+          chunkProduced = true;
+        } else {
+          stats.pagesEmpty++;
+        }
+      } else {
+        stats.pagesFailed++;
+      }
+    }
+    // Si todo el chunk vino vacío o falló, asumimos que ya pasamos del final.
+    if (!chunkProduced) break;
+    pageStart += PAGE_CHUNK;
+  }
+  return all;
 }
 
 async function fetchAndParse(url) {
@@ -117,7 +237,33 @@ function normalize(p) {
     onSale,
     discount: onSale ? Math.round((1 - current / original) * 100) : 0,
     isBundle: /bundle|edition|collection|pack|trilogy|complete|deluxe|ultimate|gold|premium|definitive|remaster/i.test(p.name),
+    // Géneros desde el propio Product de PSN. Distintas páginas de PSN
+    // exponen el campo con nombres distintos, así que probamos varios.
+    // Lo que matchee se taggea con la versión normalizada (sin tildes,
+    // minúsculas) para que la búsqueda interna del cliente lo encuentre.
+    directGenres: extractDirectGenres(p),
   };
+}
+
+function extractDirectGenres(p) {
+  const out = new Set();
+  const fieldsToCheck = [p.genres, p.localizedGenres, p.genreList, p.localizedGenreNames];
+  for (const src of fieldsToCheck) {
+    if (!Array.isArray(src)) continue;
+    for (const g of src) {
+      const val = typeof g === "string" ? g : (g?.value || g?.name || g?.label);
+      if (val) out.add(normalizeGenreTag(val));
+    }
+  }
+  return Array.from(out);
+}
+
+function normalizeGenreTag(s) {
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function parsePrice(str) {

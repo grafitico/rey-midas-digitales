@@ -206,6 +206,22 @@ if (mobileToggle && topnav) {
   });
 }
 
+// Carrito (link del header) — fuerza navegación incluso si algo cancela
+// el default del anchor o si el browser no dispara hashchange porque ya
+// estamos en #/carrito
+const headerCartLink = document.querySelector(".topbar-actions .cart-link");
+if (headerCartLink) {
+  headerCartLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (location.hash === "#/carrito") {
+      render();
+      window.scrollTo(0, 0);
+    } else {
+      location.hash = "#/carrito";
+    }
+  });
+}
+
 // Dropdowns del topnav
 document.querySelectorAll(".dropdown-trigger").forEach(btn => {
   btn.addEventListener("click", (e) => {
@@ -822,9 +838,27 @@ function renderBundlesList(platform) {
   `;
 }
 
+// Normaliza un string para búsqueda: minúsculas + sin tildes.
+// Así "acción", "ACCIÓN" y "accion" matchean igual.
+function normalizeSearch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// Matchea un juego contra un texto: busca en título y en los géneros
+// que el scraper le asignó (acción, terror, shooter, etc).
+function gameMatchesQuery(g, q) {
+  if (!q) return true;
+  const nq = normalizeSearch(q);
+  if (normalizeSearch(g.title).includes(nq)) return true;
+  if (Array.isArray(g.genres) && g.genres.some(genre => normalizeSearch(genre).includes(nq))) return true;
+  return false;
+}
+
 function renderBusqueda(term, page = 1) {
-  const t = (term || "").toLowerCase();
-  const list = (allGames || []).filter(g => g.title.toLowerCase().includes(t));
+  const list = (allGames || []).filter(g => gameMatchesQuery(g, term));
   app.innerHTML = `
     ${heroSlimHTML(`Resultados para "${term}"`)}
     <section class="container catalog-section">
@@ -1947,8 +1981,7 @@ function applyFilters() {
   }
   if (localFilters.sale) list = list.filter(g => g.onSale);
   if (localFilters.q) {
-    const q = localFilters.q.toLowerCase();
-    list = list.filter(g => g.title.toLowerCase().includes(q));
+    list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
   renderGrid(list);
   renderPagination(list.length);
@@ -2533,6 +2566,15 @@ async function handleAdminSubmit(e) {
 // ============================================================
 // Boot
 // ============================================================
+// Estas claves de localStorage tienen que declararse antes de los
+// llamados a mountNewsletter() y startLiveActivity() porque están
+// en TDZ — si las dejamos abajo, mountNewsletter() lee POPUP_SEEN_KEY,
+// tira ReferenceError, aborta el script y DISCOUNT_KEY nunca llega
+// a inicializarse, lo que rompe renderCart() en cada click al carrito.
+const DISCOUNT_KEY = "rmd_discount_code";
+const POPUP_SEEN_KEY = "rmd_popup_seen";
+const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
+
 render();
 load();
 initAuth();
@@ -2545,8 +2587,6 @@ mountNewsletter();
 // ============================================================
 // Newsletter — footer form + popup de descuento
 // ============================================================
-const DISCOUNT_KEY = "rmd_discount_code";
-const POPUP_SEEN_KEY = "rmd_popup_seen";
 
 function mountNewsletter() {
   // Footer form
@@ -2651,8 +2691,6 @@ function getDiscountCode() {
 // ============================================================
 // Feed de actividad en tiempo real (prueba social)
 // ============================================================
-const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
-
 function startLiveActivity() {
   const el = document.getElementById("liveActivity");
   if (!el) return;

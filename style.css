@@ -95,8 +95,10 @@ body {
   padding: 0.5rem 0.7rem;
   border-radius: 8px;
   transition: all 0.15s;
+  cursor: pointer;
 }
 .cart-link:hover { color: var(--cyan); background: rgba(0, 229, 255, 0.08); }
+.cart-link svg { pointer-events: none; }
 .cart-badge {
   display: none;
   min-width: 1.3rem;
