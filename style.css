@@ -2001,3 +2001,102 @@ footer p + p { margin-top: 0.35rem; }
   .trust-icon svg { width: 18px; height: 18px; }
   .placeholder svg { width: 44px; height: 44px; }
 }
+
+/* ===================== CARDS — HOVER REFINADO ===================== */
+.card {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s, border-color 0.25s;
+}
+.card:hover {
+  transform: translateY(-8px);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(245, 196, 81, 0.4),
+    0 0 30px rgba(245, 196, 81, 0.12);
+  border-color: rgba(245, 196, 81, 0.3);
+}
+.card .card-image img { transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+.card:hover .card-image img { transform: scale(1.08); }
+
+.card-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.card:hover .card-image::after { opacity: 1; }
+
+.badge-sale {
+  animation: badge-pulse 2.4s ease-in-out infinite;
+  box-shadow: 0 4px 12px rgba(255,42,142,0.4);
+}
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4px 12px rgba(255,42,142,0.4); }
+  50% { transform: scale(1.07); box-shadow: 0 6px 20px rgba(255,42,142,0.6); }
+}
+
+/* Card titles más nítidos en hover */
+.card .card-title { transition: color 0.2s; }
+.card:hover .card-title { color: var(--gold); }
+
+/* ===================== SKELETON LOADERS ===================== */
+.card-skeleton {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.card-skeleton .skel-image {
+  aspect-ratio: 1 / 1;
+  background: var(--bg-elev);
+}
+.card-skeleton .skel-body {
+  padding: 0.85rem 0.95rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  flex: 1;
+}
+.skel-line {
+  background: var(--bg-elev);
+  border-radius: 6px;
+  height: 14px;
+}
+.skel-title { height: 18px; width: 85%; }
+.skel-line-2 { width: 60%; }
+.skel-price-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+.skel-price { height: 28px; border-radius: 7px; }
+
+/* Animación shimmer */
+.skel-image,
+.skel-line {
+  position: relative;
+  overflow: hidden;
+}
+.skel-image::after,
+.skel-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(245, 196, 81, 0.08) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}

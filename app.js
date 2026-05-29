@@ -1622,11 +1622,27 @@ function paginate(list) {
   return list.slice(start, start + CONFIG.perPage);
 }
 
+function skeletonCardHTML() {
+  return `
+    <div class="card-skeleton">
+      <div class="skel-image"></div>
+      <div class="skel-body">
+        <div class="skel-line skel-title"></div>
+        <div class="skel-line skel-line-2"></div>
+        <div class="skel-price-rows">
+          <div class="skel-line skel-price"></div>
+          <div class="skel-line skel-price"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderGrid(list) {
   const grid = document.getElementById("grid");
   if (!grid) return;
   if (!loaded) {
-    grid.innerHTML = `<div class="status">Cargando catálogo...</div>`;
+    grid.innerHTML = Array.from({ length: 12 }, () => skeletonCardHTML()).join("");
     return;
   }
   if (loadError) {
