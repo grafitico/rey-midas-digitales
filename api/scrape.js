@@ -103,15 +103,31 @@ export default async function handler(req, res) {
 
     await Promise.all([...categoryWork, ...staticWork, ...genreWork]);
 
+    let taggedDirect = 0;
+    let taggedSearch = 0;
+    const sampleTagged = [];
+
     const games = Array.from(map.values())
-      .map(g => ({
-        ...g,
-        genres: Array.from(genreMap.get(g.id) || []),
-      }))
+      .map(g => {
+        const direct = new Set(g.directGenres || []);
+        const search = genreMap.get(g.id) || new Set();
+        const merged = new Set([...direct, ...search]);
+        if (direct.size > 0) taggedDirect++;
+        if (search.size > 0) taggedSearch++;
+        if (merged.size > 0 && sampleTagged.length < 5) {
+          sampleTagged.push({ title: g.title, genres: Array.from(merged) });
+        }
+        const { directGenres, ...rest } = g;
+        return { ...rest, genres: Array.from(merged) };
+      })
       .sort((a, b) => {
         if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
         return b.discount - a.discount;
       });
+
+    stats.taggedDirect = taggedDirect;
+    stats.taggedSearch = taggedSearch;
+    stats.sampleTagged = sampleTagged;
 
     return res.status(200).json({
       success: true,
@@ -221,7 +237,33 @@ function normalize(p) {
     onSale,
     discount: onSale ? Math.round((1 - current / original) * 100) : 0,
     isBundle: /bundle|edition|collection|pack|trilogy|complete|deluxe|ultimate|gold|premium|definitive|remaster/i.test(p.name),
+    // Géneros desde el propio Product de PSN. Distintas páginas de PSN
+    // exponen el campo con nombres distintos, así que probamos varios.
+    // Lo que matchee se taggea con la versión normalizada (sin tildes,
+    // minúsculas) para que la búsqueda interna del cliente lo encuentre.
+    directGenres: extractDirectGenres(p),
   };
+}
+
+function extractDirectGenres(p) {
+  const out = new Set();
+  const fieldsToCheck = [p.genres, p.localizedGenres, p.genreList, p.localizedGenreNames];
+  for (const src of fieldsToCheck) {
+    if (!Array.isArray(src)) continue;
+    for (const g of src) {
+      const val = typeof g === "string" ? g : (g?.value || g?.name || g?.label);
+      if (val) out.add(normalizeGenreTag(val));
+    }
+  }
+  return Array.from(out);
+}
+
+function normalizeGenreTag(s) {
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function parsePrice(str) {
