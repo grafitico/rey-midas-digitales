@@ -206,6 +206,22 @@ if (mobileToggle && topnav) {
   });
 }
 
+// Carrito (link del header) — fuerza navegación incluso si algo cancela
+// el default del anchor o si el browser no dispara hashchange porque ya
+// estamos en #/carrito
+const headerCartLink = document.querySelector(".topbar-actions .cart-link");
+if (headerCartLink) {
+  headerCartLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (location.hash === "#/carrito") {
+      render();
+      window.scrollTo(0, 0);
+    } else {
+      location.hash = "#/carrito";
+    }
+  });
+}
+
 // Dropdowns del topnav
 document.querySelectorAll(".dropdown-trigger").forEach(btn => {
   btn.addEventListener("click", (e) => {
