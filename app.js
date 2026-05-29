@@ -280,17 +280,43 @@ function clearCart() { saveCart([]); }
 function updateCartBadge(bump = false) {
   const badge = document.getElementById("cartBadge");
   if (!badge) return;
-  const count = loadCart().length;
+  const items = loadCart();
+  const count = items.length;
   badge.textContent = count;
   badge.classList.toggle("show", count > 0);
   if (bump) {
     const cartLink = badge.closest(".cart-link");
     if (cartLink) {
       cartLink.classList.remove("bump");
-      void cartLink.offsetWidth; // forzar reflow para reiniciar animación
+      void cartLink.offsetWidth;
       cartLink.classList.add("bump");
       setTimeout(() => cartLink.classList.remove("bump"), 700);
     }
+  }
+  updateMiniCart(items, bump);
+}
+
+function updateMiniCart(items, bump = false) {
+  const mini = document.getElementById("miniCart");
+  if (!mini) return;
+  const route = parseRoute();
+  const hideOnRoutes = ["cart"];
+  const shouldShow = items.length > 0 && !hideOnRoutes.includes(route.name);
+  if (!shouldShow) {
+    mini.hidden = true;
+    return;
+  }
+  const total = items.reduce((s, i) => s + i.priceCRC, 0);
+  const countEl = document.getElementById("miniCartCount");
+  const totalEl = document.getElementById("miniCartTotal");
+  if (countEl) countEl.textContent = `${items.length} ${items.length === 1 ? "juego" : "juegos"}`;
+  if (totalEl) totalEl.textContent = formatCRC(total);
+  mini.hidden = false;
+  if (bump) {
+    mini.classList.remove("bump");
+    void mini.offsetWidth;
+    mini.classList.add("bump");
+    setTimeout(() => mini.classList.remove("bump"), 600);
   }
 }
 
@@ -502,6 +528,7 @@ function applyCoverUpdates(bundleIds) {
 function render() {
   navigateActive();
   updateCartBadge();
+  updateMiniCart(loadCart());
   const route = parseRoute();
   if (route.name === "product") return renderProduct(route.id);
   if (route.name === "bundle") return renderBundle(route.id, route.type || "nintendo");
@@ -590,9 +617,19 @@ function renderProduct(id) {
   }
   const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD);
   const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD);
+  const similars = (allGames || [])
+    .filter(x => x.platform === g.platform && String(x.id) !== String(g.id))
+    .slice(0, 4);
   app.innerHTML = `
     <section class="container product-page">
-      <a class="back-link" href="#/">&larr; Volver al catálogo</a>
+      <nav class="breadcrumb" aria-label="Migas de pan">
+        <a href="#/">Inicio</a>
+        <span class="breadcrumb-sep">›</span>
+        <a href="#/plataforma/${encodeURIComponent(g.platform)}">${escapeHtml(g.platform)}</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">${escapeHtml(g.title)}</span>
+      </nav>
+
       <div class="product-grid">
         <div class="product-image">
           ${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}">` : `${placeholderHTML()}`}
@@ -601,35 +638,103 @@ function renderProduct(id) {
         <div class="product-info">
           <span class="product-platform">${escapeHtml(g.platform)}</span>
           <h1>${escapeHtml(g.title)}</h1>
-          <p class="product-desc">Juego digital para ${escapeHtml(g.platform)}. Te entregamos el acceso por WhatsApp luego de confirmar el pago por SINPE Móvil o transferencia bancaria.</p>
+
+          <div class="product-tags">
+            <span class="tag tag-stock">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+              En stock
+            </span>
+            <span class="tag tag-delivery">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Entrega inmediata
+            </span>
+            <span class="tag tag-warranty">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Garantía
+            </span>
+          </div>
+
+          <p class="product-desc">Juego digital para <strong>${escapeHtml(g.platform)}</strong>. Te entregamos el acceso por WhatsApp en menos de 10 minutos luego de confirmar el pago por SINPE Móvil o transferencia bancaria. Sin esperas, sin envíos físicos.</p>
 
           <div class="price-options">
             ${principal != null ? `
               <div class="price-card principal">
                 <div class="price-label">Cuenta Principal</div>
                 <div class="price-amount">${formatCRC(principal)}</div>
-                <div class="price-note">Acceso completo, sin restricciones</div>
-                <button class="price-cta" data-add="principal" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
+                <div class="price-note">Acceso completo · juego offline · compartilo con tu familia en la misma consola</div>
+                <button class="price-cta" data-add="principal" data-id="${escapeAttr(g.id)}">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                  Agregar al carrito
+                </button>
               </div>
             ` : ""}
             ${secundaria != null ? `
               <div class="price-card secundaria">
                 <div class="price-label">Cuenta Secundaria</div>
                 <div class="price-amount">${formatCRC(secundaria)}</div>
-                <div class="price-note">Más económico, requiere estar conectado</div>
-                <button class="price-cta" data-add="secundaria" data-id="${escapeAttr(g.id)}">Agregar al carrito</button>
+                <div class="price-note">Más económico · necesitás estar conectado a internet para jugar</div>
+                <button class="price-cta" data-add="secundaria" data-id="${escapeAttr(g.id)}">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                  Agregar al carrito
+                </button>
               </div>
             ` : ""}
           </div>
 
-          <div class="product-meta">
-            <div><strong>Plataforma:</strong> ${escapeHtml(g.platform)}</div>
-            <div><strong>Disponibilidad:</strong> <span class="stock-ok">En stock</span></div>
-            <div><strong>Entrega:</strong> Inmediata vía WhatsApp</div>
-            <div><strong>Pago:</strong> SINPE Móvil o transferencia</div>
-          </div>
+          <a class="cta-wa product-wa-link" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, me interesa el juego " + g.title + " (" + g.platform + "). ¿Sigue disponible?")}" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.52 3.48A12 12 0 0 0 2.05 18.31L1 23l4.81-1.26A12 12 0 1 0 20.52 3.48zM12 21a9 9 0 0 1-4.59-1.26l-.33-.2-3.07.8.82-3-.21-.34A9 9 0 1 1 12 21zm5.07-6.74c-.28-.14-1.65-.81-1.9-.9s-.44-.14-.62.14-.71.9-.87 1.08-.32.21-.6.07a7.4 7.4 0 0 1-2.18-1.35 8.19 8.19 0 0 1-1.51-1.88c-.16-.28 0-.43.12-.57s.28-.32.42-.49a1.94 1.94 0 0 0 .28-.46.51.51 0 0 0 0-.49c-.07-.14-.62-1.51-.85-2.06s-.46-.46-.62-.47h-.53a1 1 0 0 0-.74.35 3.13 3.13 0 0 0-1 2.32 5.39 5.39 0 0 0 1.14 2.86 12.51 12.51 0 0 0 4.79 4.21 16.39 16.39 0 0 0 1.6.59 3.85 3.85 0 0 0 1.77.11 2.89 2.89 0 0 0 1.89-1.33 2.31 2.31 0 0 0 .17-1.33c-.07-.12-.26-.19-.54-.33z"/></svg>
+            Consultar por WhatsApp
+          </a>
         </div>
       </div>
+
+      <section class="product-section">
+        <h2 class="product-section-title">Sobre este juego</h2>
+        <p class="product-section-desc">
+          <strong>${escapeHtml(g.title)}</strong> es uno de los títulos más buscados para ${escapeHtml(g.platform)} en Costa Rica.
+          Conseguilo digital a una fracción del precio de la PSN/Xbox/eShop, con entrega inmediata y garantía
+          completa de Rey Midas Digitales. Te explicamos paso a paso cómo activarlo en tu consola.
+        </p>
+        <div class="product-features">
+          <div class="product-feature">
+            <span class="pf-icon">${ICONS.zap}</span>
+            <div>
+              <strong>Entrega inmediata</strong>
+              <span>Recibís los datos por WhatsApp en menos de 10 minutos.</span>
+            </div>
+          </div>
+          <div class="product-feature">
+            <span class="pf-icon">${ICONS.shield}</span>
+            <div>
+              <strong>Garantía real</strong>
+              <span>Si la cuenta falla, te la reemplazamos sin costo.</span>
+            </div>
+          </div>
+          <div class="product-feature">
+            <span class="pf-icon">${ICONS.card}</span>
+            <div>
+              <strong>Pago fácil</strong>
+              <span>SINPE Móvil o transferencia bancaria. Sin tarjeta extranjera.</span>
+            </div>
+          </div>
+          <div class="product-feature">
+            <span class="pf-icon">${ICONS.chat}</span>
+            <div>
+              <strong>Soporte personalizado</strong>
+              <span>Te ayudamos con la instalación por WhatsApp paso a paso.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      ${similars.length ? `
+        <section class="product-section">
+          <h2 class="product-section-title">Otros juegos de ${escapeHtml(g.platform)}</h2>
+          <div class="grid similars-grid">
+            ${similars.map(cardHTML).join("")}
+          </div>
+        </section>
+      ` : ""}
     </section>
   `;
   bindAddButtons(g);
