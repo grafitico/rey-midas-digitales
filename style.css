@@ -16,6 +16,11 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 
+/* Forzamos respeto al atributo HTML5 "hidden" — algunos selectores con
+   display:flex/grid lo sobrescriben sin querer y dejan elementos
+   invisibles capturando clicks sobre toda la página */
+[hidden] { display: none !important; }
+
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
