@@ -2549,6 +2549,15 @@ async function handleAdminSubmit(e) {
 // ============================================================
 // Boot
 // ============================================================
+// Estas claves de localStorage tienen que declararse antes de los
+// llamados a mountNewsletter() y startLiveActivity() porque están
+// en TDZ — si las dejamos abajo, mountNewsletter() lee POPUP_SEEN_KEY,
+// tira ReferenceError, aborta el script y DISCOUNT_KEY nunca llega
+// a inicializarse, lo que rompe renderCart() en cada click al carrito.
+const DISCOUNT_KEY = "rmd_discount_code";
+const POPUP_SEEN_KEY = "rmd_popup_seen";
+const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
+
 render();
 load();
 initAuth();
@@ -2561,8 +2570,6 @@ mountNewsletter();
 // ============================================================
 // Newsletter — footer form + popup de descuento
 // ============================================================
-const DISCOUNT_KEY = "rmd_discount_code";
-const POPUP_SEEN_KEY = "rmd_popup_seen";
 
 function mountNewsletter() {
   // Footer form
@@ -2667,8 +2674,6 @@ function getDiscountCode() {
 // ============================================================
 // Feed de actividad en tiempo real (prueba social)
 // ============================================================
-const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
-
 function startLiveActivity() {
   const el = document.getElementById("liveActivity");
   if (!el) return;
