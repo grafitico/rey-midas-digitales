@@ -2103,6 +2103,18 @@ footer p + p { margin-top: 0.35rem; }
 
 /* ===================== TOPNAV — DROPDOWNS + SEARCH ===================== */
 .dropdown { position: relative; display: inline-block; }
+/* Puente invisible que conecta el botón con el menú (cubre el gap del top)
+   para que el hover no se pierda al mover el mouse de uno al otro */
+.dropdown::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.6rem;
+  background: transparent;
+  pointer-events: auto;
+}
 .dropdown-trigger {
   background: transparent;
   border: none;
@@ -2231,6 +2243,7 @@ footer p + p { margin-top: 0.35rem; }
 /* Mobile: dropdowns y search */
 @media (max-width: 768px) {
   .dropdown { width: 100%; }
+  .dropdown::after { display: none; }
   .dropdown-trigger {
     width: 100%;
     justify-content: space-between;
