@@ -1,0 +1,73 @@
+{
+  "_comentario": "Planes de PlayStation Plus. Editá los precios y suscripciones acá. Si querés sacar un plan, borralo del array.",
+  "plans": [
+    {
+      "id": "psplus-essential-1m",
+      "tier": "Essential",
+      "duration": "1 mes",
+      "priceCRC": 6000,
+      "features": [
+        "Multijugador online en PS4/PS5",
+        "2-3 juegos mensuales gratis",
+        "Descuentos exclusivos en PSN Store",
+        "Almacenamiento en la nube"
+      ]
+    },
+    {
+      "id": "psplus-essential-3m",
+      "tier": "Essential",
+      "duration": "3 meses",
+      "priceCRC": 14000,
+      "features": [
+        "Todo lo del plan de 1 mes",
+        "Ahorrás vs comprar mes a mes"
+      ],
+      "popular": false
+    },
+    {
+      "id": "psplus-essential-12m",
+      "tier": "Essential",
+      "duration": "12 meses",
+      "priceCRC": 38000,
+      "features": [
+        "Todo lo del plan de 1 mes",
+        "El mejor precio por mes",
+        "1 año entero de online"
+      ],
+      "popular": true
+    },
+    {
+      "id": "psplus-extra-1m",
+      "tier": "Extra",
+      "duration": "1 mes",
+      "priceCRC": 10000,
+      "features": [
+        "Todo lo del plan Essential",
+        "Catálogo de +400 juegos PS4 y PS5",
+        "Juegos descargables incluidos"
+      ]
+    },
+    {
+      "id": "psplus-extra-12m",
+      "tier": "Extra",
+      "duration": "12 meses",
+      "priceCRC": 60000,
+      "features": [
+        "Todo lo del plan Extra",
+        "El mejor precio del año"
+      ],
+      "popular": true
+    },
+    {
+      "id": "psplus-deluxe-12m",
+      "tier": "Deluxe",
+      "duration": "12 meses",
+      "priceCRC": 75000,
+      "features": [
+        "Todo lo del plan Extra",
+        "Catálogo clásicos PS1/PS2/PSP",
+        "Demos exclusivos"
+      ]
+    }
+  ]
+}

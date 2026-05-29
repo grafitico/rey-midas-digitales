@@ -34,6 +34,9 @@ let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let banners = [];
 let testimonials = [];
 let faqs = [];
+let psPlusPlans = [];
+let gamePassPlans = [];
+let reservaciones = [];
 
 // ============================================================
 // Auth propio — usa los endpoints en /api/auth y /api/* con un
@@ -289,6 +292,9 @@ function parseRoute() {
   if (["como-comprar", "faq", "terminos", "privacidad", "garantia", "nosotros"].includes(partes[0])) {
     return { name: "info", slug: partes[0] };
   }
+  if (partes[0] === "playstation-plus") return { name: "subscriptions", service: "psplus" };
+  if (partes[0] === "game-pass") return { name: "subscriptions", service: "gamepass" };
+  if (partes[0] === "reservaciones") return { name: "reservaciones" };
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
   if (partes[0] === "admin") return { name: "admin" };
@@ -317,7 +323,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
@@ -327,10 +333,16 @@ async function load() {
       fetch("/banners.json").then(r => r.json()),
       fetch("/testimonials.json").then(r => r.json()),
       fetch("/faq.json").then(r => r.json()),
+      fetch("/playstation-plus.json").then(r => r.json()),
+      fetch("/game-pass.json").then(r => r.json()),
+      fetch("/reservaciones.json").then(r => r.json()),
     ]);
     if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
     if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
     if (fq.status === "fulfilled" && Array.isArray(fq.value?.faqs)) faqs = fq.value.faqs;
+    if (psp.status === "fulfilled" && Array.isArray(psp.value?.plans)) psPlusPlans = psp.value.plans;
+    if (gp.status === "fulfilled" && Array.isArray(gp.value?.plans)) gamePassPlans = gp.value.plans;
+    if (resv.status === "fulfilled" && Array.isArray(resv.value?.items)) reservaciones = resv.value.items;
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
       games.push(...(psn.value.games || []));
@@ -452,6 +464,8 @@ function render() {
   if (route.name === "bundles-list") return renderBundlesList(route.platform);
   if (route.name === "ofertas") return renderOfertas(route.page);
   if (route.name === "info") return renderInfoPage(route.slug);
+  if (route.name === "subscriptions") return renderSubscriptions(route.service);
+  if (route.name === "reservaciones") return renderReservaciones();
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
   if (route.name === "mi-cuenta") return renderMyAccount();
@@ -646,6 +660,149 @@ function renderOfertas(page = 1) {
     </section>
   `;
   mountToolbar(list, page, "/ofertas");
+}
+
+// ============================================================
+// Suscripciones (PS Plus / Game Pass)
+// ============================================================
+function renderSubscriptions(service) {
+  const cfg = {
+    psplus: {
+      plans: psPlusPlans,
+      title: "PlayStation Plus",
+      subtitle: "Multijugador online, juegos mensuales gratis y catálogo Extra/Deluxe para PS5 y PS4.",
+      brandClass: "brand-ps",
+      brandIcon: "🎮",
+      themeColor: "cyan",
+    },
+    gamepass: {
+      plans: gamePassPlans,
+      title: "Xbox Game Pass",
+      subtitle: "Acceso a +400 juegos en Xbox y PC, lanzamientos día 1 y multijugador online.",
+      brandClass: "brand-xbox",
+      brandIcon: "🟢",
+      themeColor: "green",
+    },
+  }[service];
+  if (!cfg) {
+    app.innerHTML = `<section class="container empty-state"><h2>Servicio no encontrado</h2><a class="cta" href="#/">Inicio</a></section>`;
+    return;
+  }
+  app.innerHTML = `
+    ${heroSlimHTML(cfg.title)}
+    <section class="container subscriptions-page">
+      <div class="section-title centered">
+        <h2>${escapeHtml(cfg.title)}</h2>
+        <p>${escapeHtml(cfg.subtitle)}</p>
+      </div>
+      ${cfg.plans.length ? `
+        <div class="plans-grid ${escapeAttr(cfg.brandClass)}">
+          ${cfg.plans.map(p => planCardHTML(p, cfg.title)).join("")}
+        </div>
+        <div class="subs-note">
+          <p><strong>¿Cómo funciona?</strong> Elegí el plan que necesitás, hacé click en "Comprar por WhatsApp" y te coordinamos el alta inmediata. Activamos el código en tu cuenta de PSN/Xbox sin necesidad de darnos tu contraseña.</p>
+          <p><strong>Métodos de pago:</strong> SINPE Móvil o transferencia bancaria.</p>
+        </div>
+      ` : `
+        <div class="empty-purchases">
+          <p>Próximamente tendrás los planes acá. Mientras tanto consultanos por WhatsApp.</p>
+          <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, me interesa una suscripción de " + cfg.title + ", ¿qué planes manejan?")}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function planCardHTML(p, serviceTitle) {
+  const waMsg = encodeURIComponent(`Hola, me interesa el plan ${serviceTitle} ${p.tier} (${p.duration}) por ${formatCRC(p.priceCRC)}. ¿Sigue disponible?`);
+  return `
+    <article class="plan-card ${p.popular ? "popular" : ""}">
+      ${p.popular ? `<span class="plan-badge">Más popular</span>` : ""}
+      <div class="plan-head">
+        <span class="plan-tier">${escapeHtml(p.tier)}</span>
+        <span class="plan-duration">${escapeHtml(p.duration)}</span>
+      </div>
+      <div class="plan-price">
+        <span class="plan-amount">${formatCRC(p.priceCRC)}</span>
+      </div>
+      <ul class="plan-features">
+        ${(p.features || []).map(f => `<li>${escapeHtml(f)}</li>`).join("")}
+      </ul>
+      <a class="cta cta-wa plan-cta" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
+        Comprar por WhatsApp
+      </a>
+    </article>
+  `;
+}
+
+// ============================================================
+// Reservaciones (pre-orders)
+// ============================================================
+function renderReservaciones() {
+  app.innerHTML = `
+    ${heroSlimHTML("Reservaciones")}
+    <section class="container catalog-section">
+      <div class="section-title centered">
+        <h2>Reservá tus juegos antes del lanzamiento</h2>
+        <p>Asegurate tu copia desde el día 1. Pagás una señal y completás cuando se lanza.</p>
+      </div>
+      ${reservaciones.length ? `
+        <div class="grid reservas-grid">
+          ${reservaciones.map(reservaCardHTML).join("")}
+        </div>
+      ` : `
+        <div class="empty-purchases">
+          <p>Por ahora no tenemos reservas abiertas. Pronto vamos a sumar los próximos lanzamientos.</p>
+          <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, quiero saber qué reservas tienen abiertas.")}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+        </div>
+      `}
+    </section>
+  `;
+}
+
+function reservaCardHTML(r) {
+  const release = r.releaseDate
+    ? new Date(r.releaseDate + "T00:00:00").toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" })
+    : "Por anunciar";
+  const img = r.imageUrl
+    ? `<img src="${escapeAttr(r.imageUrl)}" alt="${escapeAttr(r.title)}" loading="lazy">`
+    : `<div class="placeholder">🎮</div>`;
+  const waMsg = encodeURIComponent(`Hola, quiero reservar ${r.title} (${r.platform}). Confirmen disponibilidad y el monto de la señal, gracias.`);
+  return `
+    <article class="card reserva-card">
+      <div class="card-image">
+        ${img}
+        <span class="badge-platform">${escapeHtml(r.platform)}</span>
+        <span class="badge-reserva">Reserva</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(r.title)}</div>
+        <div class="reserva-meta">
+          <span>Lanzamiento</span>
+          <strong>${escapeHtml(release)}</strong>
+        </div>
+        ${r.description ? `<p class="reserva-desc">${escapeHtml(r.description)}</p>` : ""}
+        <div class="price-rows">
+          ${r.priceCRC_principal != null ? `
+            <div class="price-row">
+              <span class="price-tag">Principal</span>
+              <span class="price-value">${formatCRC(r.priceCRC_principal)}</span>
+            </div>
+          ` : ""}
+          ${r.priceCRC_secundaria != null ? `
+            <div class="price-row secundaria">
+              <span class="price-tag">Secundaria</span>
+              <span class="price-value">${formatCRC(r.priceCRC_secundaria)}</span>
+            </div>
+          ` : ""}
+        </div>
+        ${r.deposit ? `<div class="reserva-deposit">Señal desde <strong>${formatCRC(r.deposit)}</strong></div>` : ""}
+        <a class="cta cta-wa reserva-cta" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
+          Reservar por WhatsApp
+        </a>
+      </div>
+    </article>
+  `;
 }
 
 function bundleCardHTML(b, type = "nintendo") {
