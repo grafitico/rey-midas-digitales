@@ -1180,7 +1180,11 @@ function renderCart() {
     `;
     return;
   }
-  const total = items.reduce((s, i) => s + i.priceCRC, 0);
+  const subtotal = items.reduce((s, i) => s + i.priceCRC, 0);
+  const code = getDiscountCode();
+  const discountPct = code ? 0.10 : 0;
+  const discountAmount = Math.round(subtotal * discountPct);
+  const total = subtotal - discountAmount;
   app.innerHTML = `
     <section class="container cart-page">
       <a class="back-link" href="#/">&larr; Seguir comprando</a>
@@ -1189,6 +1193,29 @@ function renderCart() {
         ${items.map(cartItemHTML).join("")}
       </div>
       <div class="cart-summary">
+        ${code ? `
+          <div class="cart-row discount">
+            <span class="cart-discount-label">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/></svg>
+              Código <code>${escapeHtml(code)}</code> aplicado
+              <button id="removeCodeBtn" class="cart-remove-code" aria-label="Quitar código">×</button>
+            </span>
+            <span class="cart-discount-amount">−${formatCRC(discountAmount)}</span>
+          </div>
+          <div class="cart-row">
+            <span>Subtotal</span>
+            <span>${formatCRC(subtotal)}</span>
+          </div>
+        ` : `
+          <details class="cart-code-input">
+            <summary>¿Tenés un código de descuento?</summary>
+            <form id="applyCodeForm">
+              <input type="text" name="code" placeholder="BIENVENIDA-XXXX" autocomplete="off">
+              <button type="submit">Aplicar</button>
+            </form>
+            <p class="cart-code-hint">¿Aún no tenés código? <a href="#" id="openPopupFromCart">Suscribite y obtené 10% OFF</a></p>
+          </details>
+        `}
         <div class="cart-row total">
           <span>Total</span>
           <span class="cart-total">${formatCRC(total)}</span>
@@ -1237,12 +1264,34 @@ function bindCartActions() {
   });
   const checkoutBtn = document.getElementById("checkoutBtn");
   if (checkoutBtn) checkoutBtn.addEventListener("click", checkout);
+  const removeCodeBtn = document.getElementById("removeCodeBtn");
+  if (removeCodeBtn) removeCodeBtn.addEventListener("click", () => {
+    localStorage.removeItem(DISCOUNT_KEY);
+    renderCart();
+  });
+  const applyCodeForm = document.getElementById("applyCodeForm");
+  if (applyCodeForm) applyCodeForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const code = e.target.querySelector("input").value.trim().toUpperCase();
+    if (!code) return;
+    localStorage.setItem(DISCOUNT_KEY, code);
+    showToast(`Código ${code} aplicado ✓`, "success");
+    renderCart();
+  });
+  const openPopupBtn = document.getElementById("openPopupFromCart");
+  if (openPopupBtn) openPopupBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    openDiscountPopup();
+  });
 }
 
 function checkout() {
   const items = loadCart();
   if (!items.length) return;
-  const total = items.reduce((s, i) => s + i.priceCRC, 0);
+  const subtotal = items.reduce((s, i) => s + i.priceCRC, 0);
+  const code = getDiscountCode();
+  const discount = code ? Math.round(subtotal * 0.10) : 0;
+  const total = subtotal - discount;
   const lines = items.map((i, idx) =>
     `${idx + 1}. ${i.title} (${i.platform}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
   );
@@ -1251,7 +1300,9 @@ function checkout() {
     "",
     ...lines,
     "",
-    `Total: ${formatCRC(total)}`,
+    `Subtotal: ${formatCRC(subtotal)}`,
+    ...(code ? [`Código de descuento: ${code} (−${formatCRC(discount)})`] : []),
+    `*Total: ${formatCRC(total)}*`,
     "",
     "¿Me confirman disponibilidad y datos de pago? Gracias.",
   ].join("\n");
@@ -2487,6 +2538,115 @@ load();
 initAuth();
 // Iniciamos el feed de actividad después de un breve delay para que cargue el catálogo.
 setTimeout(() => startLiveActivity(), 4000);
+
+// Newsletter footer + popup
+mountNewsletter();
+
+// ============================================================
+// Newsletter — footer form + popup de descuento
+// ============================================================
+const DISCOUNT_KEY = "rmd_discount_code";
+const POPUP_SEEN_KEY = "rmd_popup_seen";
+
+function mountNewsletter() {
+  // Footer form
+  const footerForm = document.getElementById("footerNewsletter");
+  if (footerForm) {
+    footerForm.addEventListener("submit", (e) => handleNewsletterSubmit(e, footerForm, "footer"));
+  }
+
+  // Popup
+  const popup = document.getElementById("discountPopup");
+  if (!popup) return;
+
+  // Cerrar al click en backdrop o ×
+  popup.querySelectorAll("[data-close-popup]").forEach(el =>
+    el.addEventListener("click", closeDiscountPopup)
+  );
+  // ESC para cerrar
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !popup.hidden) closeDiscountPopup();
+  });
+
+  const popupForm = document.getElementById("popupForm");
+  popupForm.addEventListener("submit", (e) => handleNewsletterSubmit(e, popupForm, "popup"));
+
+  // Mostrar popup automáticamente si no se vio antes y no está suscrito
+  const seen = localStorage.getItem(POPUP_SEEN_KEY);
+  const hasCode = localStorage.getItem(DISCOUNT_KEY);
+  if (!seen && !hasCode) {
+    setTimeout(() => {
+      // No molestar si está en checkout/admin/login
+      const r = parseRoute();
+      if (["cart", "admin", "login", "mi-cuenta"].includes(r.name)) return;
+      openDiscountPopup();
+    }, 25000); // 25 segundos después de cargar
+  }
+}
+
+function openDiscountPopup() {
+  const popup = document.getElementById("discountPopup");
+  if (!popup) return;
+  popup.hidden = false;
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => popup.classList.add("show"));
+}
+
+function closeDiscountPopup() {
+  const popup = document.getElementById("discountPopup");
+  if (!popup) return;
+  popup.classList.remove("show");
+  document.body.style.overflow = "";
+  localStorage.setItem(POPUP_SEEN_KEY, String(Date.now()));
+  setTimeout(() => { popup.hidden = true; }, 300);
+}
+
+async function handleNewsletterSubmit(e, form, source) {
+  e.preventDefault();
+  const email = form.querySelector('input[name="email"]').value.trim();
+  if (!email) return;
+  const btn = form.querySelector('button[type="submit"]');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+  try {
+    const res = await fetch("/api/newsletter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "subscribe", email, source }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Error al suscribir");
+
+    // Guardar código localmente
+    if (data.code) localStorage.setItem(DISCOUNT_KEY, data.code);
+
+    if (source === "popup") {
+      // Mostrar pantalla de éxito en el popup
+      document.getElementById("popupForm").hidden = true;
+      document.getElementById("popupSuccess").hidden = false;
+      document.getElementById("popupCode").textContent = data.code || "BIENVENIDA10";
+      localStorage.setItem(POPUP_SEEN_KEY, String(Date.now()));
+    } else {
+      // Footer: toast con el código
+      showToast(`¡Listo! Tu código: ${data.code}`, "success");
+      btn.textContent = "✓ Suscrito";
+      form.querySelector('input[name="email"]').value = "";
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3000);
+      // Re-render cart si está abierto, para mostrar el código
+      if (parseRoute().name === "cart") render();
+      return;
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    showToast(err.message || "Error al suscribir. Intentá de nuevo.", "error");
+  }
+}
+
+function getDiscountCode() {
+  return localStorage.getItem(DISCOUNT_KEY) || "";
+}
 
 // ============================================================
 // Feed de actividad en tiempo real (prueba social)
