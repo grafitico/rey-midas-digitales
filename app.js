@@ -838,9 +838,27 @@ function renderBundlesList(platform) {
   `;
 }
 
+// Normaliza un string para búsqueda: minúsculas + sin tildes.
+// Así "acción", "ACCIÓN" y "accion" matchean igual.
+function normalizeSearch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// Matchea un juego contra un texto: busca en título y en los géneros
+// que el scraper le asignó (acción, terror, shooter, etc).
+function gameMatchesQuery(g, q) {
+  if (!q) return true;
+  const nq = normalizeSearch(q);
+  if (normalizeSearch(g.title).includes(nq)) return true;
+  if (Array.isArray(g.genres) && g.genres.some(genre => normalizeSearch(genre).includes(nq))) return true;
+  return false;
+}
+
 function renderBusqueda(term, page = 1) {
-  const t = (term || "").toLowerCase();
-  const list = (allGames || []).filter(g => g.title.toLowerCase().includes(t));
+  const list = (allGames || []).filter(g => gameMatchesQuery(g, term));
   app.innerHTML = `
     ${heroSlimHTML(`Resultados para "${term}"`)}
     <section class="container catalog-section">
@@ -1963,8 +1981,7 @@ function applyFilters() {
   }
   if (localFilters.sale) list = list.filter(g => g.onSale);
   if (localFilters.q) {
-    const q = localFilters.q.toLowerCase();
-    list = list.filter(g => g.title.toLowerCase().includes(q));
+    list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
   renderGrid(list);
   renderPagination(list.length);

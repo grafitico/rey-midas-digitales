@@ -19,6 +19,29 @@ const STATIC_PAGES = [
   "/pages/latest",
 ];
 
+// Búsquedas por género — usamos el buscador de PSN como "discovery" de
+// géneros. Cada query trae ~24-48 juegos clasificados en ese género por
+// PSN. Después taggeamos cada juego del catálogo con sus géneros para
+// que cuando el usuario escriba "terror" en la búsqueda interna también
+// le aparezcan los juegos de terror, no solo los que tengan "terror" en
+// el título.
+//
+// Los tags están normalizados (sin tilde, minúsculas) para matchear
+// fácil contra la búsqueda del cliente. La query usa español porque la
+// tienda es es-cr y devuelve resultados más relevantes.
+const GENRE_SEARCHES = [
+  { tag: "accion",     query: "acción" },
+  { tag: "aventura",   query: "aventura" },
+  { tag: "terror",     query: "terror" },
+  { tag: "rpg",        query: "rpg" },
+  { tag: "deportes",   query: "deportes" },
+  { tag: "carreras",   query: "carreras" },
+  { tag: "shooter",    query: "shooter" },
+  { tag: "lucha",      query: "lucha" },
+  { tag: "estrategia", query: "estrategia" },
+  { tag: "infantiles", query: "infantil" },
+];
+
 // Tope de páginas por categoría. 150 * ~24 productos = ~3600 por categoría.
 // La corrida anterior llegó a 50 sin ningún empty/fail, así que el catálogo
 // tiene bastante más profundidad que eso.
@@ -36,11 +59,14 @@ export default async function handler(req, res) {
 
   try {
     const map = new Map();
+    const genreMap = new Map(); // gameId -> Set<genreTag>
     const stats = {
       categoriesScanned: CATEGORIES.length,
       pagesFetched: 0,
       pagesEmpty: 0,
       pagesFailed: 0,
+      genresFetched: 0,
+      genresFailed: 0,
     };
 
     const categoryWork = CATEGORIES.map(async (catId) => {
@@ -62,12 +88,30 @@ export default async function handler(req, res) {
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork]);
-
-    const games = Array.from(map.values()).sort((a, b) => {
-      if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
-      return b.discount - a.discount;
+    const genreWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
+      try {
+        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
+        stats.genresFetched++;
+        for (const g of games) {
+          if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
+          genreMap.get(g.id).add(tag);
+        }
+      } catch {
+        stats.genresFailed++;
+      }
     });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork]);
+
+    const games = Array.from(map.values())
+      .map(g => ({
+        ...g,
+        genres: Array.from(genreMap.get(g.id) || []),
+      }))
+      .sort((a, b) => {
+        if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
+        return b.discount - a.discount;
+      });
 
     return res.status(200).json({
       success: true,
