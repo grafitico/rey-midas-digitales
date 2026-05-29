@@ -2273,3 +2273,111 @@ footer p + p { margin-top: 0.35rem; }
     padding: 0.5rem 1rem;
   }
 }
+
+/* ===================== MICROINTERACCIONES ===================== */
+
+/* Smooth scroll global */
+html { scroll-behavior: smooth; }
+
+/* Carrito que rebota cuando agregás algo */
+.cart-link.bump svg {
+  animation: cart-bump 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cart-link.bump .cart-badge {
+  animation: badge-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cart-bump {
+  0%   { transform: scale(1) rotate(0); }
+  20%  { transform: scale(1.25) rotate(-12deg); }
+  45%  { transform: scale(0.95) rotate(8deg); }
+  70%  { transform: scale(1.1) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes badge-pop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.5); box-shadow: 0 0 14px var(--magenta); }
+  100% { transform: scale(1); }
+}
+
+/* Toast mejorado con icono SVG */
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.3rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--cyan);
+  border-radius: 999px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0, 229, 255, 0.15);
+  transform: translateX(-50%) translateY(20px) scale(0.92);
+  transition: opacity 0.25s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+.toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.toast-icon svg { width: 18px; height: 18px; }
+.toast-text { font-weight: 600; }
+
+.toast.toast-success {
+  border-color: var(--green);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 28px rgba(0,217,126,0.25);
+}
+.toast.toast-success .toast-icon { color: var(--green); }
+
+.toast.toast-error {
+  border-color: var(--magenta);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 28px rgba(255,42,142,0.25);
+}
+.toast.toast-error .toast-icon { color: var(--magenta); }
+
+.toast.toast-info { border-color: var(--cyan); }
+.toast.toast-info .toast-icon { color: var(--cyan); }
+
+/* WhatsApp flotante con tooltip */
+.wa-float { position: relative; }
+.wa-float::after {
+  content: "Chateá con nosotros";
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(8px);
+  background: var(--bg-card);
+  border: 1px solid var(--green);
+  color: var(--text);
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, transform 0.18s;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+.wa-float:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+@media (max-width: 768px) {
+  .wa-float::after { display: none; }
+}
+
+/* Hero slider — cursor cambia mientras pausa */
+.hero-slider:hover { cursor: default; }
+
+/* Fade-in del hero al cargar */
+.hero-slide.active .hero-title { animation: hero-text-in 0.7s 0.15s both; }
+.hero-slide.active .hero-subtitle { animation: hero-text-in 0.7s 0.3s both; }
+.hero-slide.active .cta { animation: hero-text-in 0.7s 0.45s both; }
+@keyframes hero-text-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

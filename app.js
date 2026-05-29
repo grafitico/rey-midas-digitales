@@ -268,6 +268,7 @@ function addToCart(game, modality) {
     priceCRC: price,
   });
   saveCart(items);
+  updateCartBadge(true); // con bump
   return true;
 }
 function removeFromCart(id, modality) {
@@ -276,12 +277,21 @@ function removeFromCart(id, modality) {
 }
 function clearCart() { saveCart([]); }
 
-function updateCartBadge() {
+function updateCartBadge(bump = false) {
   const badge = document.getElementById("cartBadge");
   if (!badge) return;
   const count = loadCart().length;
   badge.textContent = count;
   badge.classList.toggle("show", count > 0);
+  if (bump) {
+    const cartLink = badge.closest(".cart-link");
+    if (cartLink) {
+      cartLink.classList.remove("bump");
+      void cartLink.offsetWidth; // forzar reflow para reiniciar animación
+      cartLink.classList.add("bump");
+      setTimeout(() => cartLink.classList.remove("bump"), 700);
+    }
+  }
 }
 
 // ============================================================
@@ -1458,9 +1468,17 @@ function mountHeroSlider() {
     clearInterval(timer);
     timer = setInterval(() => go(current + 1), 6000);
   }
+  function pause() { clearInterval(timer); }
   slider.querySelector(".prev")?.addEventListener("click", () => { go(current - 1); autoplay(); });
   slider.querySelector(".next")?.addEventListener("click", () => { go(current + 1); autoplay(); });
   dots.forEach(d => d.addEventListener("click", () => { go(parseInt(d.dataset.go, 10)); autoplay(); }));
+  // Pause on hover (desktop)
+  slider.addEventListener("mouseenter", pause);
+  slider.addEventListener("mouseleave", autoplay);
+  // Pause cuando la pestaña está oculta para no gastar batería
+  document.addEventListener("visibilitychange", () => {
+    document.hidden ? pause() : autoplay();
+  });
   autoplay();
 }
 
@@ -1800,7 +1818,7 @@ function cardHTML(g) {
 // ============================================================
 // Toast
 // ============================================================
-function showToast(text) {
+function showToast(text, type = "success") {
   let t = document.getElementById("toast");
   if (!t) {
     t = document.createElement("div");
@@ -1808,10 +1826,18 @@ function showToast(text) {
     t.className = "toast";
     document.body.appendChild(t);
   }
-  t.textContent = text;
+  const icons = {
+    success: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    error: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
+  };
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span class="toast-text">${escapeHtml(text)}</span>`;
+  // forzar reflow para reiniciar animación si ya estaba visible
+  void t.offsetWidth;
   t.classList.add("show");
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => t.classList.remove("show"), 2200);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 2600);
 }
 
 // ============================================================
