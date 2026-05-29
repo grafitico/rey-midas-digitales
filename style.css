@@ -2100,3 +2100,176 @@ footer p + p { margin-top: 0.35rem; }
 @keyframes shimmer {
   100% { transform: translateX(100%); }
 }
+
+/* ===================== TOPNAV — DROPDOWNS + SEARCH ===================== */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-trigger {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-weight: 700;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s;
+}
+.dropdown-trigger:hover,
+.dropdown.open .dropdown-trigger {
+  color: var(--cyan);
+  background: rgba(0, 229, 255, 0.08);
+}
+.dropdown-trigger svg { transition: transform 0.2s; }
+.dropdown.open .dropdown-trigger svg { transform: rotate(180deg); }
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 220px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(245, 196, 81, 0.15);
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0s linear 0.15s;
+  z-index: 60;
+}
+.dropdown:hover .dropdown-menu,
+.dropdown.open .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.dropdown-menu a {
+  display: block;
+  padding: 0.65rem 0.9rem;
+  border-radius: 7px;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.dropdown-menu a:hover {
+  background: linear-gradient(135deg, rgba(245, 196, 81, 0.12), rgba(0, 229, 255, 0.06));
+  color: var(--gold);
+  transform: translateX(3px);
+}
+
+/* Link "Ofertas" destacado */
+.topnav a.nav-highlight {
+  color: var(--magenta);
+  position: relative;
+}
+.topnav a.nav-highlight::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--magenta);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--magenta);
+  animation: highlight-pulse 1.5s infinite;
+}
+@keyframes highlight-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.topnav a.nav-highlight:hover {
+  color: var(--magenta);
+  background: rgba(255, 42, 142, 0.1);
+}
+
+/* Búsqueda en el topnav */
+.top-search {
+  display: flex;
+  align-items: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  gap: 0.5rem;
+  min-width: 220px;
+  transition: all 0.15s;
+}
+.top-search:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(245, 196, 81, 0.12);
+}
+.top-search svg {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.top-search:focus-within svg { color: var(--gold); }
+.top-search input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.88rem;
+  outline: none;
+  width: 100%;
+}
+.top-search input::placeholder { color: var(--text-dim); }
+.top-search input::-webkit-search-cancel-button { display: none; }
+
+/* Mobile: dropdowns y search */
+@media (max-width: 768px) {
+  .dropdown { width: 100%; }
+  .dropdown-trigger {
+    width: 100%;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-radius: 0;
+  }
+  .dropdown-menu {
+    position: static;
+    box-shadow: none;
+    background: var(--bg-elev);
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    transform: none;
+    max-height: 0;
+    opacity: 1;
+    visibility: visible;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+  }
+  .dropdown.open .dropdown-menu {
+    max-height: 500px;
+  }
+  .dropdown:hover .dropdown-menu {
+    /* En mobile no abrir por hover */
+    max-height: 0;
+  }
+  .dropdown.open .dropdown-menu { max-height: 500px; }
+  .dropdown-menu a {
+    padding: 0.7rem 1.8rem;
+    border-radius: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .top-search {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.4rem;
+    padding: 0.5rem 1rem;
+  }
+}

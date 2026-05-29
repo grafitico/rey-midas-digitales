@@ -196,9 +196,43 @@ if (mobileToggle && topnav) {
   mobileToggle.addEventListener("click", () => {
     topnav.classList.toggle("open");
   });
-  // Cerrar al hacer click en un link
+  // Cerrar al hacer click en un link real (no en triggers de dropdown)
   topnav.addEventListener("click", (e) => {
-    if (e.target.closest("a")) topnav.classList.remove("open");
+    const link = e.target.closest("a");
+    if (link && !e.target.closest(".dropdown-trigger")) {
+      topnav.classList.remove("open");
+    }
+  });
+}
+
+// Dropdowns del topnav
+document.querySelectorAll(".dropdown-trigger").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const dd = btn.closest(".dropdown");
+    // Cerrar los otros dropdowns abiertos
+    document.querySelectorAll(".dropdown.open").forEach(d => {
+      if (d !== dd) d.classList.remove("open");
+    });
+    dd.classList.toggle("open");
+  });
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".dropdown")) {
+    document.querySelectorAll(".dropdown.open").forEach(d => d.classList.remove("open"));
+  }
+});
+
+// Búsqueda del topnav
+const topSearch = document.getElementById("topSearch");
+if (topSearch) {
+  topSearch.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const q = topSearch.querySelector("input").value.trim();
+    if (q) {
+      location.hash = `#/buscar/${encodeURIComponent(q)}`;
+      topnav?.classList.remove("open");
+    }
   });
 }
 
@@ -295,6 +329,10 @@ function parseRoute() {
   if (partes[0] === "playstation-plus") return { name: "subscriptions", service: "psplus" };
   if (partes[0] === "game-pass") return { name: "subscriptions", service: "gamepass" };
   if (partes[0] === "reservaciones") return { name: "reservaciones" };
+  if (partes[0] === "buscar" && partes[1]) {
+    const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
+    return { name: "buscar", term: decodeURIComponent(partes[1]), page };
+  }
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
   if (partes[0] === "admin") return { name: "admin" };
@@ -466,6 +504,7 @@ function render() {
   if (route.name === "info") return renderInfoPage(route.slug);
   if (route.name === "subscriptions") return renderSubscriptions(route.service);
   if (route.name === "reservaciones") return renderReservaciones();
+  if (route.name === "buscar") return renderBusqueda(route.term, route.page);
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
   if (route.name === "mi-cuenta") return renderMyAccount();
@@ -643,6 +682,24 @@ function renderBundlesList(platform) {
       `}
     </section>
   `;
+}
+
+function renderBusqueda(term, page = 1) {
+  const t = (term || "").toLowerCase();
+  const list = (allGames || []).filter(g => g.title.toLowerCase().includes(t));
+  app.innerHTML = `
+    ${heroSlimHTML(`Resultados para "${term}"`)}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>${list.length} ${list.length === 1 ? "resultado" : "resultados"} para "${escapeHtml(term)}"</h2>
+        ${list.length === 0 ? `<p>Probá con otro nombre o consultanos por WhatsApp por ese título específico.</p>` : `<p>Tocá un juego para ver el detalle.</p>`}
+      </div>
+      ${toolbarHTML(false)}
+      <div id="grid" class="grid"></div>
+      <div id="pagination" class="pagination"></div>
+    </section>
+  `;
+  mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`);
 }
 
 function renderOfertas(page = 1) {
