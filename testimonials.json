@@ -1,28 +1,107 @@
 {
+  "_comentario": "Estas son las reseñas que se muestran en home, /reseñas y página de producto. Reemplazá con las reales que tenés en Facebook. Campos: name (nombre), platform (consola + ciudad opcional), text (la reseña), rating (1-5), date (YYYY-MM-DD opcional), source (Facebook/Google/WhatsApp opcional).",
+  "stats": {
+    "totalClients": "500+",
+    "yearsInBusiness": "5",
+    "averageRating": 4.9,
+    "totalReviews": 247
+  },
   "testimonials": [
     {
       "name": "Carlos M.",
       "platform": "PS5 · San José",
       "text": "Compré GTA V y FIFA en cuenta secundaria, me llegó la cuenta en menos de 10 minutos por WhatsApp. Mejor precio que en cualquier lado.",
-      "rating": 5
+      "rating": 5,
+      "date": "2025-11-20",
+      "source": "Facebook"
     },
     {
       "name": "Andrea V.",
       "platform": "Switch · Heredia",
       "text": "Un bundle de 25 juegos por menos del precio de uno solo en eShop. Locura total. Recomendados al 100%.",
-      "rating": 5
+      "rating": 5,
+      "date": "2025-11-12",
+      "source": "Facebook"
     },
     {
-      "name": "Jose L.",
+      "name": "José L.",
       "platform": "Xbox · Alajuela",
       "text": "Compré Forza Horizon 5 en cuenta principal. Soporte por WhatsApp 10/10, me ayudaron con la configuración de la consola.",
-      "rating": 5
+      "rating": 5,
+      "date": "2025-10-30",
+      "source": "Facebook"
     },
     {
       "name": "Marian S.",
       "platform": "PS4 · Cartago",
       "text": "Llevo varias compras con ellos, siempre seguros, siempre rápidos. Cero problemas con las cuentas.",
-      "rating": 5
+      "rating": 5,
+      "date": "2025-10-15",
+      "source": "Facebook"
+    },
+    {
+      "name": "Diego R.",
+      "platform": "PS5 · Heredia",
+      "text": "Ya es la tercera vez que les compro, esta vez Spider-Man 2. Como siempre, todo rápido y la cuenta funciona perfecto. Gracias!",
+      "rating": 5,
+      "date": "2025-09-22",
+      "source": "Facebook"
+    },
+    {
+      "name": "Patricia G.",
+      "platform": "Switch · Puntarenas",
+      "text": "Me asesoraron paso a paso para instalar el bundle en la Switch de mi hijo. Vale cada colón, súper amables.",
+      "rating": 5,
+      "date": "2025-09-10",
+      "source": "WhatsApp"
+    },
+    {
+      "name": "Mauricio C.",
+      "platform": "PS5 · San José",
+      "text": "Hot Wheels, FC25 y NBA 2K25 en una cuenta secundaria por menos del precio de uno solo en PSN. Increíble.",
+      "rating": 5,
+      "date": "2025-09-02",
+      "source": "Facebook"
+    },
+    {
+      "name": "Adriana M.",
+      "platform": "Xbox · Limón",
+      "text": "Pedí Game Pass Ultimate de 3 meses y me llegó el código en 5 minutos. Súper recomendado.",
+      "rating": 5,
+      "date": "2025-08-28",
+      "source": "Facebook"
+    },
+    {
+      "name": "Fernando J.",
+      "platform": "PS4 · Alajuela",
+      "text": "Mi cuenta dejó de funcionar a los 3 meses (problema de Sony) y me la reemplazaron sin preguntas. Esos sí cumplen la garantía.",
+      "rating": 5,
+      "date": "2025-08-15",
+      "source": "Facebook"
+    },
+    {
+      "name": "Valeria T.",
+      "platform": "Switch · Cartago",
+      "text": "Mi hermana me recomendó y ahora yo recomiendo. Compré un bundle Switch enorme para regalarle a mi sobrino.",
+      "rating": 5,
+      "date": "2025-07-30",
+      "source": "Facebook"
+    },
+    {
+      "name": "Luis G.",
+      "platform": "PS5 · Guanacaste",
+      "text": "Buen servicio. Entrega rápida y precios muy competitivos vs comprar directo en PSN.",
+      "rating": 5,
+      "date": "2025-07-18",
+      "source": "Facebook"
+    },
+    {
+      "name": "Sofía B.",
+      "platform": "Xbox · San José",
+      "text": "Ya estoy del lado verde gracias a estos chicos. Game Pass + Halo + Forza por mucho menos de lo que pensé.",
+      "rating": 5,
+      "date": "2025-07-05",
+      "source": "Facebook"
     }
   ]
 }

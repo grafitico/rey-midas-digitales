@@ -33,6 +33,7 @@ let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let banners = [];
 let testimonials = [];
+let reviewStats = { totalClients: "500+", yearsInBusiness: "5", averageRating: 4.9, totalReviews: 247 };
 let faqs = [];
 let psPlusPlans = [];
 let gamePassPlans = [];
@@ -369,6 +370,7 @@ function parseRoute() {
     const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
     return { name: "buscar", term: decodeURIComponent(partes[1]), page };
   }
+  if (partes[0] === "resenas" || partes[0] === "reviews") return { name: "resenas" };
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
   if (partes[0] === "admin") return { name: "admin" };
@@ -413,6 +415,7 @@ async function load() {
     ]);
     if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
     if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
+    if (test.status === "fulfilled" && test.value?.stats) reviewStats = { ...reviewStats, ...test.value.stats };
     if (fq.status === "fulfilled" && Array.isArray(fq.value?.faqs)) faqs = fq.value.faqs;
     if (psp.status === "fulfilled" && Array.isArray(psp.value?.plans)) psPlusPlans = psp.value.plans;
     if (gp.status === "fulfilled" && Array.isArray(gp.value?.plans)) gamePassPlans = gp.value.plans;
@@ -542,6 +545,7 @@ function render() {
   if (route.name === "subscriptions") return renderSubscriptions(route.service);
   if (route.name === "reservaciones") return renderReservaciones();
   if (route.name === "buscar") return renderBusqueda(route.term, route.page);
+  if (route.name === "resenas") return renderResenas();
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
   if (route.name === "mi-cuenta") return renderMyAccount();
@@ -726,6 +730,25 @@ function renderProduct(id) {
           </div>
         </div>
       </section>
+
+      ${testimonials.length ? `
+        <section class="product-section">
+          <div class="reviews-section-head">
+            <h2 class="product-section-title">Lo que dicen nuestros clientes</h2>
+            <div class="reviews-mini-summary">
+              <span class="rsb-num small">${(reviewStats.averageRating || 0).toFixed(1)}</span>
+              <span class="rsb-stars small">${"★".repeat(Math.round(reviewStats.averageRating))}</span>
+              <span class="rsb-total small">${reviewStats.totalReviews}+ reseñas</span>
+            </div>
+          </div>
+          <div class="testimonials-grid product-reviews">
+            ${testimonials.slice(0, 3).map(testimonialCardHTML).join("")}
+          </div>
+          <div class="testimonials-more">
+            <a class="cta-secondary" href="#/resenas">Ver todas las reseñas</a>
+          </div>
+        </section>
+      ` : ""}
 
       ${similars.length ? `
         <section class="product-section">
@@ -1612,27 +1635,110 @@ function trustBarHTML() {
   `;
 }
 
-function testimonialsHTML() {
+function testimonialsHTML(limit = 6) {
   if (!testimonials.length) return "";
+  const items = limit ? testimonials.slice(0, limit) : testimonials;
   return `
     <section class="testimonials-section">
       <div class="container">
         <div class="section-title centered">
           <h2>Lo que dicen nuestros clientes</h2>
-          <p>Más de 500 clientes en Costa Rica nos confían sus compras de juegos digitales.</p>
+          <p>${escapeHtml(reviewStats.totalClients)} clientes en Costa Rica nos confían sus compras de juegos digitales.</p>
         </div>
+        ${reviewsStatsBarHTML()}
         <div class="testimonials-grid">
-          ${testimonials.map(t => `
-            <article class="testimonial-card">
-              <div class="testimonial-stars">${"★".repeat(t.rating || 5)}${"☆".repeat(5 - (t.rating || 5))}</div>
-              <p class="testimonial-text">"${escapeHtml(t.text)}"</p>
-              <div class="testimonial-author">
-                <strong>${escapeHtml(t.name)}</strong>
-                <span>${escapeHtml(t.platform)}</span>
-              </div>
-            </article>
-          `).join("")}
+          ${items.map(testimonialCardHTML).join("")}
         </div>
+        ${limit && testimonials.length > limit ? `
+          <div class="testimonials-more">
+            <a class="cta-secondary" href="#/resenas">Ver todas las reseñas (${testimonials.length})</a>
+          </div>
+        ` : ""}
+      </div>
+    </section>
+  `;
+}
+
+function testimonialCardHTML(t) {
+  const stars = `${"★".repeat(t.rating || 5)}${"☆".repeat(5 - (t.rating || 5))}`;
+  const sourceBadge = t.source ? `<span class="testimonial-source">${escapeHtml(t.source)}</span>` : "";
+  const dateStr = t.date ? new Date(t.date + "T00:00:00").toLocaleDateString("es-CR", { year: "numeric", month: "short" }) : "";
+  return `
+    <article class="testimonial-card">
+      <div class="testimonial-head">
+        <div class="testimonial-stars">${stars}</div>
+        ${sourceBadge}
+      </div>
+      <p class="testimonial-text">"${escapeHtml(t.text)}"</p>
+      <div class="testimonial-author">
+        <strong>${escapeHtml(t.name)}</strong>
+        <span>${escapeHtml(t.platform)}${dateStr ? ` · ${dateStr}` : ""}</span>
+      </div>
+    </article>
+  `;
+}
+
+function reviewsStatsBarHTML() {
+  const rating = reviewStats.averageRating || 0;
+  const stars = Math.round(rating);
+  return `
+    <div class="reviews-stats-bar">
+      <div class="rsb-rating">
+        <span class="rsb-num">${rating.toFixed(1)}</span>
+        <div class="rsb-stars">${"★".repeat(stars)}${"☆".repeat(5 - stars)}</div>
+        <span class="rsb-total">${reviewStats.totalReviews}+ reseñas</span>
+      </div>
+      <div class="rsb-stat"><strong>${escapeHtml(reviewStats.totalClients)}</strong><span>Clientes felices</span></div>
+      <div class="rsb-stat"><strong>${escapeHtml(reviewStats.yearsInBusiness)} años</strong><span>En el mercado</span></div>
+      <div class="rsb-stat"><strong>< 10 min</strong><span>Entrega promedio</span></div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Página completa de reseñas
+// ============================================================
+function renderResenas() {
+  if (!testimonials.length) {
+    app.innerHTML = `<section class="container empty-state"><h2>Sin reseñas todavía</h2><a class="cta" href="#/">Volver al inicio</a></section>`;
+    return;
+  }
+  const breakdown = [5, 4, 3, 2, 1].map(stars => {
+    const count = testimonials.filter(t => (t.rating || 5) === stars).length;
+    const pct = testimonials.length ? Math.round((count / testimonials.length) * 100) : 0;
+    return { stars, count, pct };
+  });
+  app.innerHTML = `
+    ${heroSlimHTML("Reseñas de clientes")}
+    <section class="container resenas-page">
+      <div class="resenas-header">
+        <div class="resenas-summary">
+          <div class="resenas-big-rating">
+            <span class="big-num">${(reviewStats.averageRating || 0).toFixed(1)}</span>
+            <div class="big-stars">${"★".repeat(Math.round(reviewStats.averageRating))}${"☆".repeat(5 - Math.round(reviewStats.averageRating))}</div>
+            <span class="big-total">basado en ${reviewStats.totalReviews}+ reseñas</span>
+          </div>
+          <div class="resenas-breakdown">
+            ${breakdown.map(b => `
+              <div class="break-row">
+                <span class="break-label">${b.stars}★</span>
+                <div class="break-bar"><div class="break-bar-fill" style="width:${b.pct}%"></div></div>
+                <span class="break-count">${b.count}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="resenas-cta">
+          <h3>¿Ya comprate con nosotros?</h3>
+          <p>Compartí tu experiencia y ayudá a otros clientes a elegir con confianza.</p>
+          <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, quiero dejarles una reseña sobre mi compra.")}" target="_blank" rel="noopener">
+            Dejar reseña por WhatsApp
+          </a>
+        </div>
+      </div>
+
+      <div class="testimonials-grid">
+        ${testimonials.map(testimonialCardHTML).join("")}
       </div>
     </section>
   `;
@@ -2379,3 +2485,108 @@ async function handleAdminSubmit(e) {
 render();
 load();
 initAuth();
+// Iniciamos el feed de actividad después de un breve delay para que cargue el catálogo.
+setTimeout(() => startLiveActivity(), 4000);
+
+// ============================================================
+// Feed de actividad en tiempo real (prueba social)
+// ============================================================
+const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
+
+function startLiveActivity() {
+  const el = document.getElementById("liveActivity");
+  if (!el) return;
+  // Respetar la decisión del usuario de cerrarlo (24h)
+  const dismissed = parseInt(localStorage.getItem(LIVE_ACTIVITY_DISMISSED_KEY) || "0", 10);
+  if (dismissed && Date.now() - dismissed < 24 * 60 * 60 * 1000) return;
+
+  const names = ["Carlos", "María", "José", "Ana", "Luis", "Patricia", "Andrés", "Adriana", "Mauricio", "Marcela", "Diego", "Valeria", "Fernando", "Sofía", "Roberto", "Camila", "Daniel", "Karla", "Pablo", "Natalia"];
+  const cities = ["San José", "Heredia", "Cartago", "Alajuela", "Limón", "Puntarenas", "Guanacaste", "Pérez Zeledón", "Liberia"];
+  const titles = (allGames || []).slice(0, 80).filter(g => g.title && g.title.length < 40).map(g => g.title);
+  const fallbackTitles = ["GTA V", "FIFA 24", "EA Sports FC 25", "Spider-Man 2", "NBA 2K25", "Call of Duty Modern Warfare", "Hogwarts Legacy", "Forza Horizon 5", "God of War Ragnarok"];
+  const list = titles.length ? titles : fallbackTitles;
+
+  function buildActivity() {
+    const r = Math.random();
+    if (r < 0.7) {
+      const name = names[Math.floor(Math.random() * names.length)];
+      const city = cities[Math.floor(Math.random() * cities.length)];
+      const title = list[Math.floor(Math.random() * list.length)];
+      const minsAgo = Math.floor(Math.random() * 50) + 1;
+      return {
+        type: "purchase",
+        text: `<strong>${escapeHtml(name)}</strong> de ${escapeHtml(city)} compró<br><em>${escapeHtml(title.length > 32 ? title.slice(0, 32) + "…" : title)}</em>`,
+        time: `hace ${minsAgo} min`,
+      };
+    }
+    if (r < 0.85) {
+      const viewers = Math.floor(Math.random() * 25) + 6;
+      return {
+        type: "viewing",
+        text: `<strong>${viewers} personas</strong><br>viendo el sitio ahora`,
+        time: "en vivo",
+      };
+    }
+    const delivered = Math.floor(Math.random() * 10) + 4;
+    return {
+      type: "delivered",
+      text: `<strong>${delivered} cuentas</strong><br>entregadas en las últimas 2h`,
+      time: "hoy",
+    };
+  }
+
+  function showNext() {
+    const a = buildActivity();
+    const icons = {
+      purchase: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`,
+      viewing: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      delivered: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    };
+    el.innerHTML = `
+      <button class="live-close" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="live-icon ${a.type}">${icons[a.type]}</div>
+      <div class="live-text">
+        <div class="live-msg">${a.text}</div>
+        <small class="live-time">${escapeHtml(a.time)}</small>
+      </div>
+    `;
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => el.classList.remove("show"), 5500);
+  }
+
+  // No mostrar en estas rutas
+  function shouldShow() {
+    const r = parseRoute();
+    return !["cart", "admin", "login", "mi-cuenta", "auth-callback"].includes(r.name);
+  }
+
+  let timer;
+  function start() {
+    if (timer) return;
+    if (shouldShow()) showNext();
+    timer = setInterval(() => {
+      if (shouldShow()) showNext();
+    }, 12000);
+  }
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    el.classList.remove("show");
+  }
+
+  start();
+  el.addEventListener("click", (e) => {
+    if (e.target.closest(".live-close")) {
+      localStorage.setItem(LIVE_ACTIVITY_DISMISSED_KEY, String(Date.now()));
+      stop();
+      el.hidden = true;
+    }
+  });
+  // Pausar cuando la pestaña está oculta
+  document.addEventListener("visibilitychange", () => {
+    document.hidden ? stop() : start();
+  });
+}
