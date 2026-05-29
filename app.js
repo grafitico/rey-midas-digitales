@@ -546,7 +546,7 @@ function renderProduct(id) {
       <a class="back-link" href="#/">&larr; Volver al catálogo</a>
       <div class="product-grid">
         <div class="product-image">
-          ${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}">` : `<div class="placeholder">🎮</div>`}
+          ${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}">` : `${placeholderHTML()}`}
           ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
         </div>
         <div class="product-info">
@@ -766,7 +766,7 @@ function reservaCardHTML(r) {
     : "Por anunciar";
   const img = r.imageUrl
     ? `<img src="${escapeAttr(r.imageUrl)}" alt="${escapeAttr(r.title)}" loading="lazy">`
-    : `<div class="placeholder">🎮</div>`;
+    : `${placeholderHTML()}`;
   const waMsg = encodeURIComponent(`Hola, quiero reservar ${r.title} (${r.platform}). Confirmen disponibilidad y el monto de la señal, gracias.`);
   return `
     <article class="card reserva-card">
@@ -810,7 +810,7 @@ function bundleCardHTML(b, type = "nintendo") {
   const badges = { nintendo: "Switch", ps: "PlayStation", xbox: "Xbox" };
   const cover = b.coverUrl
     ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}" loading="lazy">`
-    : `<div class="placeholder">🎮</div>`;
+    : `${placeholderHTML()}`;
   const firstGame = b.games && b.games[0] ? b.games[0].name : "";
   const hasDual = b.priceCRC_principal !== undefined || b.priceCRC_secundaria !== undefined;
   const priceRows = hasDual ? `
@@ -877,7 +877,7 @@ function renderBundle(id, type = "nintendo") {
   }
   const cover = b.coverUrl
     ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}">`
-    : `<div class="placeholder">🎮</div>`;
+    : `${placeholderHTML()}`;
 
   // Bundles PS/Xbox tienen 2 precios (principal/secundaria), Nintendo tiene 1.
   const hasDual = b.priceCRC_principal !== undefined || b.priceCRC_secundaria !== undefined;
@@ -1010,7 +1010,7 @@ function renderCart() {
 function cartItemHTML(item) {
   const img = item.imageUrl
     ? `<img src="${escapeAttr(item.imageUrl)}" alt="${escapeAttr(item.title)}">`
-    : `<div class="placeholder">🎮</div>`;
+    : `${placeholderHTML()}`;
   const modLabel = item.modality === "principal" ? "Cuenta Principal" : "Cuenta Secundaria";
   const modClass = item.modality === "principal" ? "principal" : "secundaria";
   return `
@@ -1163,7 +1163,7 @@ function comoComprarHTML() {
           <li>Entrá a la <strong>Nintendo eShop</strong> con ese usuario y andá a tu cuenta (esquina superior derecha) → <strong>Volver a descargar</strong>.</li>
           <li>Descargá todos los juegos del bundle (pueden ser muchos GB — usá una microSD si es necesario).</li>
         </ol>
-        <p class="info-note">⚠️ <strong>Importante:</strong> los juegos del bundle se juegan SOLO con ese usuario de la Switch. Si entrás con otro perfil no los vas a ver. Mantené el usuario de la cuenta que te dimos siempre disponible.</p>
+        <p class="info-note"><span class="info-note-icon">${ICONS.warning}</span><strong>Importante:</strong> los juegos del bundle se juegan SOLO con ese usuario de la Switch. Si entrás con otro perfil no los vas a ver. Mantené el usuario de la cuenta que te dimos siempre disponible.</p>
       </div>
 
       <div class="info-cta">
@@ -1363,8 +1363,8 @@ function heroHTML() {
           </div>
         `).join("")}
         ${banners.length > 1 ? `
-          <button class="hero-arrow prev" aria-label="Anterior">‹</button>
-          <button class="hero-arrow next" aria-label="Siguiente">›</button>
+          <button class="hero-arrow prev" aria-label="Anterior">${ICONS.chevronLeft}</button>
+          <button class="hero-arrow next" aria-label="Siguiente">${ICONS.chevronRight}</button>
           <div class="hero-dots">
             ${banners.map((_, i) => `<button class="hero-dot ${i === 0 ? "active" : ""}" data-go="${i}" aria-label="Slide ${i + 1}"></button>`).join("")}
           </div>
@@ -1412,19 +1412,19 @@ function trustBarHTML() {
     <section class="trust-bar">
       <div class="container trust-bar-inner">
         <div class="trust-item">
-          <span class="trust-icon">⚡</span>
+          <span class="trust-icon">${ICONS.zap}</span>
           <div><strong>Entrega inmediata</strong><span>en menos de 10 min</span></div>
         </div>
         <div class="trust-item">
-          <span class="trust-icon">🛡️</span>
+          <span class="trust-icon">${ICONS.shield}</span>
           <div><strong>Garantía real</strong><span>respaldamos cada cuenta</span></div>
         </div>
         <div class="trust-item">
-          <span class="trust-icon">💳</span>
+          <span class="trust-icon">${ICONS.card}</span>
           <div><strong>Pago fácil</strong><span>SINPE · Transferencia</span></div>
         </div>
         <div class="trust-item">
-          <span class="trust-icon">💬</span>
+          <span class="trust-icon">${ICONS.chat}</span>
           <div><strong>Soporte 24/7</strong><span>por WhatsApp</span></div>
         </div>
       </div>
@@ -1695,7 +1695,7 @@ function cardHTML(g) {
   const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD);
   const img = g.imageUrl
     ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">`
-    : `<div class="placeholder">🎮</div>`;
+    : `${placeholderHTML()}`;
   return `
     <a class="card" href="#/producto/${encodeURIComponent(g.id)}">
       <div class="card-image">
@@ -1769,6 +1769,25 @@ function escapeHtml(s) {
   }[c]));
 }
 const escapeAttr = escapeHtml;
+
+// ============================================================
+// Iconos SVG — reemplazan emojis para look profesional
+// ============================================================
+const ICONS = {
+  controller: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258a4.019 4.019 0 0 0-.017-.152A4 4 0 0 0 17.32 5z"/></svg>`,
+  zap: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+  card: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
+  chat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  warning: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  chevronLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+  chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+};
+
+function placeholderHTML() {
+  return `<div class="placeholder">${ICONS.controller}</div>`;
+}
+
 
 // ============================================================
 // Login / Mi cuenta / Admin
