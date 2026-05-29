@@ -19,11 +19,14 @@ const STATIC_PAGES = [
   "/pages/latest",
 ];
 
-// Tope de páginas por categoría (50 * ~48 productos = ~2400 por categoría).
-const MAX_PAGES_PER_CATEGORY = 50;
+// Tope de páginas por categoría. 150 * ~24 productos = ~3600 por categoría.
+// La corrida anterior llegó a 50 sin ningún empty/fail, así que el catálogo
+// tiene bastante más profundidad que eso.
+const MAX_PAGES_PER_CATEGORY = 150;
 // Cuántas páginas pedimos en paralelo dentro de una misma categoría.
-// PSN tolera bien ~10 conexiones simultáneas por origen.
-const PAGE_CHUNK = 10;
+// Subimos a 20 para que 150 páginas entren dentro del timeout de 30s
+// (8 chunks * ~2.5s ≈ 20s).
+const PAGE_CHUNK = 20;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
