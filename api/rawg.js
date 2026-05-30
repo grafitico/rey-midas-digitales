@@ -72,10 +72,10 @@ export default async function handler(req, res) {
     const data = await rawg("/games", {
       page: req.query.page || "1",
       page_size: req.query.page_size || "40",
-      ordering: req.query.ordering || "-added",
+      ordering: req.query.ordering || "-metacritic",
       platforms: resolvePlatforms(req.query.platform || "ps5,ps4,xboxone,xboxseries"),
       dates: req.query.dates || undefined,
-      metacritic: req.query.metacritic || undefined,
+      metacritic: req.query.metacritic || "60,100",
     });
 
     return res.status(200).json({

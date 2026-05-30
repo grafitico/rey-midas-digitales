@@ -709,12 +709,13 @@ function renderPlatform(platform, page = 1) {
     return;
   }
   const list = allGames.filter(g => g.platform.includes(platform));
+  const aaaCount = list.filter(isAAA).length;
   app.innerHTML = `
     ${heroSlimHTML(platform)}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Juegos ${escapeHtml(platform)}</h2>
-        <p>${list.length} ${list.length === 1 ? "juego disponible" : "juegos disponibles"}</p>
+        <p id="platform-count">${aaaCount} ${aaaCount === 1 ? "juego disponible" : "juegos disponibles"}</p>
       </div>
       ${toolbarHTML(false)}
       ${categoryChipsHTML(list)}
@@ -841,11 +842,11 @@ function renderProduct(id) {
 
       <section class="product-section">
         <h2 class="product-section-title">Sobre este juego</h2>
-        <p class="product-section-desc">
-          <strong>${escapeHtml(g.title)}</strong> es uno de los títulos más buscados para ${escapeHtml(g.platform)} en Costa Rica.
-          Conseguilo digital a una fracción del precio de la PSN/Xbox/eShop, con entrega inmediata y garantía
-          completa de Rey Midas Digitales. Te explicamos paso a paso cómo activarlo en tu consola.
-        </p>
+        <div id="game-sobre-slot" data-title="${escapeAttr(g.title)}">
+          <p class="product-section-desc">
+            <strong>${escapeHtml(g.title)}</strong> — cargando información del juego…
+          </p>
+        </div>
         <div class="product-features">
           <div class="product-feature">
             <span class="pf-icon">${ICONS.zap}</span>
@@ -955,6 +956,24 @@ async function enrichWithRawg(game) {
   // Re-check por si el usuario ya navegó a otro juego durante el fetch
   if (slot.dataset.title !== game.title) return;
   slot.innerHTML = renderRawgSection(data);
+
+  // Actualizar "Sobre este juego" con descripción e info real del juego
+  const sobreSlot = document.getElementById("game-sobre-slot");
+  if (sobreSlot && sobreSlot.dataset.title === game.title) {
+    sobreSlot.innerHTML = renderSobreJuego(data);
+  }
+
+  // Actualizar imagen de portada si el juego no tenía imagen del scraper
+  if (data.imageUrl && !game.imageUrl) {
+    game.imageUrl = data.imageUrl;
+    const productImg = document.querySelector(".product-image img, .product-image .placeholder");
+    if (productImg && productImg.tagName !== "IMG") {
+      const img = new Image();
+      img.src = data.imageUrl;
+      img.alt = game.title;
+      productImg.replaceWith(img);
+    }
+  }
 }
 
 // Géneros que el scraper de PSN guarda normalizados (sin tilde, minúsculas).
@@ -1018,6 +1037,28 @@ function renderRawgSection(d) {
   `;
 }
 
+function renderSobreJuego(d) {
+  const desc = (d.description || "").trim();
+  const shortDesc = desc.length > 500 ? desc.slice(0, 500).replace(/\s+\S*$/, "") + "…" : desc;
+  const meta = d.metacritic;
+  const metaClass = meta >= 75 ? "meta-good" : meta >= 50 ? "meta-mid" : "meta-bad";
+  const devs = (d.developers || []).slice(0, 2).join(", ");
+  const pubs = (d.publishers || []).slice(0, 2).join(", ");
+  const genres = (d.genres || []).slice(0, 5).map(escapeHtml).join(" · ");
+
+  return `
+    ${shortDesc ? `<p class="rawg-desc">${escapeHtml(shortDesc)}</p>` : ""}
+    <ul class="rawg-meta" style="margin-bottom:0">
+      ${d.released ? `<li><span>Lanzamiento</span><strong>${escapeHtml(d.released)}</strong></li>` : ""}
+      ${devs ? `<li><span>Desarrollador</span><strong>${escapeHtml(devs)}</strong></li>` : ""}
+      ${pubs && pubs !== devs ? `<li><span>Distribuidora</span><strong>${escapeHtml(pubs)}</strong></li>` : ""}
+      ${genres ? `<li><span>Géneros</span><strong>${genres}</strong></li>` : ""}
+      ${d.esrb ? `<li><span>Clasificación ESRB</span><strong>${escapeHtml(d.esrb)}</strong></li>` : ""}
+      ${meta ? `<li><span>Metacritic</span><strong><span class="meta-badge ${metaClass}" style="display:inline-block;vertical-align:middle">${meta}</span></strong></li>` : ""}
+    </ul>
+  `;
+}
+
 function cleanTitleForRawg(t) {
   return String(t || "")
     .replace(/[™®©]/g, "")
@@ -1028,12 +1069,16 @@ function cleanTitleForRawg(t) {
     .trim();
 }
 
+const RAWG_MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 días para misses (se reintenta más rápido)
+
 function readRawgCache(key) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return undefined;
     const parsed = JSON.parse(raw);
-    if (parsed?._ts && Date.now() - parsed._ts > RAWG_CACHE_TTL_MS) {
+    if (!parsed?._ts) return undefined;
+    const ttl = parsed.data?.miss ? RAWG_MISS_TTL_MS : RAWG_CACHE_TTL_MS;
+    if (Date.now() - parsed._ts > ttl) {
       localStorage.removeItem(key);
       return undefined;
     }
@@ -1213,10 +1258,10 @@ function matchKey(t) {
 // usuario navega — los juegos visibles se enriquecen primero.
 // ============================================================
 const AAA_PRICE_USD = 15;
-const AAA_PRICE_ORIGINAL_USD = 25;
-const AAA_META_THRESHOLD = 70;
-const AAA_ENRICH_BATCH = 5;        // requests en paralelo
-const AAA_ENRICH_DELAY_MS = 250;   // pausa entre batches
+const AAA_PRICE_ORIGINAL_USD = 20;
+const AAA_META_THRESHOLD = 65;
+const AAA_ENRICH_BATCH = 8;        // requests en paralelo
+const AAA_ENRICH_DELAY_MS = 200;   // pausa entre batches
 
 function isAAA(g) {
   // Ofertas curadas a mano y catálogo curado de "más buscados" siempre se
@@ -1237,13 +1282,12 @@ function isAAA(g) {
   // < 70): es indie/relleno → se oculta.
   if (typeof meta === "number") return false;
 
-  // Barato y todavía SIN verificar con RAWG (meta === undefined o null, sin
-  // dato de Metacritic): lo mostramos. Antes lo ocultábamos por precio, lo
-  // que escondía clásicos AAA de PS4 hoy baratos (God of War, Spider-Man…)
-  // hasta que el enriquecimiento en background los alcanzara — y muchas veces
-  // nunca llegaba. Mejor mostrar y dejar que el loop reclasifique a la baja
-  // solo lo que RAWG confirme como no-AAA.
-  return true;
+  // Precio bajo y sin datos RAWG todavía: probable indie/desconocido.
+  // Se oculta hasta que el loop de enriquecimiento lo verifique con RAWG.
+  // Los títulos AAA baratos (clásicos rebajados) quedan cubiertos por la
+  // condición `original >= AAA_PRICE_ORIGINAL_USD` de arriba, o están en
+  // featured-games.json con _featured=true.
+  return false;
 }
 
 // Levanta el cache de Metacritic para todos los juegos cargados, así
@@ -1280,11 +1324,10 @@ function scheduleAAAEnrichForVisible(priorityList) {
 
   // 1) Lo que se ve ahora, al frente de la cola.
   if (Array.isArray(priorityList) && priorityList.length) {
-    enqueue(priorityList.slice(0, 120), true);
+    enqueue(priorityList.slice(0, 200), true);
   }
-  // 2) Relleno global con un tope conservador para no quemar el cupo de RAWG
-  //    (la ficha de producto también consume del mismo cupo gratuito).
-  enqueue(allGames.filter(g => g._rawgMeta === undefined).slice(0, 60), false);
+  // 2) Relleno global — procesamos más juegos para poblar el cache más rápido.
+  enqueue(allGames.filter(g => g._rawgMeta === undefined).slice(0, 150), false);
 
   if (!_enrichRunning) runEnrichLoop();
 }
