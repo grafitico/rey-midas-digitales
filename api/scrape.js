@@ -96,10 +96,16 @@ const FALLBACK_PAGE_CHUNK = 15;
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const debug = req.query?.debug === "1";
+  // En debug bypass total de cache (Vercel edge + browser) para que
+  // siempre se vea data fresca al diagnosticar.
+  if (debug) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  } else {
+    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
+  }
 
   try {
     const map = new Map();
@@ -307,20 +313,45 @@ function parseGames(html) {
   let data;
   try { data = JSON.parse(m[1]); } catch { return []; }
 
-  const cache = data?.props?.apolloState || {};
   const out = [];
   const seen = new Set();
-  for (const key of Object.keys(cache)) {
-    const obj = cache[key];
-    if (!obj || typeof obj !== "object") continue;
+
+  function consider(obj) {
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
     const looksLikeProduct =
       obj.__typename === "Product" ||
-      (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id));
-    if (!looksLikeProduct) continue;
-    const g = normalize(obj);
-    if (g && !seen.has(g.id)) {
-      seen.add(g.id);
-      out.push(g);
+      (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id) && typeof obj.name === "string");
+    if (looksLikeProduct) {
+      const g = normalize(obj);
+      if (g && !seen.has(g.id)) {
+        seen.add(g.id);
+        out.push(g);
+      }
+    }
+  }
+
+  // Camino rápido: apolloState (categorías paginadas usan esto).
+  const cache = data?.props?.apolloState;
+  if (cache && typeof cache === "object") {
+    for (const key of Object.keys(cache)) consider(cache[key]);
+  }
+
+  // Fallback: recorrer todo el __NEXT_DATA__ buscando Products en
+  // cualquier path. Las páginas de /search/ y algunas categorías
+  // nuevas no exponen apolloState al nivel raíz — los productos
+  // viven más adentro en props.pageProps o en GraphQL caches con
+  // claves distintas. Esto los pesca igual.
+  const stack = [data?.props];
+  let visited = 0;
+  while (stack.length && visited < 200000) {
+    const node = stack.pop();
+    visited++;
+    if (!node || typeof node !== "object") continue;
+    consider(node);
+    if (Array.isArray(node)) {
+      for (const v of node) stack.push(v);
+    } else {
+      for (const k of Object.keys(node)) stack.push(node[k]);
     }
   }
   return out;
