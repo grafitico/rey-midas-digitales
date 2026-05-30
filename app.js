@@ -708,6 +708,10 @@ function renderProduct(id) {
         </div>
       </div>
 
+      <section class="product-section rawg-section" id="rawg-info" data-title="${escapeAttr(g.title)}" data-platform="${escapeAttr(g.platform)}">
+        <!-- Relleno por enrichWithRawg() — placeholder vacío para no parpadear cuando no hay match. -->
+      </section>
+
       <section class="product-section">
         <h2 class="product-section-title">Sobre este juego</h2>
         <p class="product-section-desc">
@@ -777,6 +781,123 @@ function renderProduct(id) {
     </section>
   `;
   bindAddButtons(g);
+  enrichWithRawg(g);
+}
+
+// ============================================================
+// RAWG: enriquece la ficha del juego con metadatos reales
+// (descripción, Metacritic, dev, géneros, screenshots). Cacheado en
+// localStorage por 30 días para no quemar el cupo de 20k req/mes.
+// El match es por título limpiado (sin ™, sin "Edition", etc.).
+// ============================================================
+const RAWG_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+async function enrichWithRawg(game) {
+  const slot = document.getElementById("rawg-info");
+  if (!slot) return;
+  if (slot.dataset.title !== game.title) return; // navegó a otro juego mientras tanto
+
+  const cleaned = cleanTitleForRawg(game.title);
+  const cacheKey = `rawg:${cleaned.toLowerCase()}`;
+  let data = readRawgCache(cacheKey);
+
+  if (!data) {
+    try {
+      const r = await fetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleaned)}&page_size=1`);
+      const json = await r.json();
+      const hit = json?.games?.[0];
+      if (!hit) {
+        writeRawgCache(cacheKey, { miss: true });
+        return;
+      }
+      // El search trae info parcial. Pedimos el detail por slug para descripción larga.
+      const r2 = await fetch(`/api/rawg?mode=detail&id=${encodeURIComponent(hit.slug)}`);
+      const detailJson = await r2.json();
+      data = {
+        ...hit,
+        ...(detailJson?.game || {}),
+        // screenshots vienen del listItem (short_screenshots) — el detail no los trae
+        shortScreenshots: hit.shortScreenshots || [],
+      };
+      writeRawgCache(cacheKey, data);
+    } catch {
+      return;
+    }
+  }
+  if (data?.miss) return;
+  // Re-check por si el usuario ya navegó a otro juego durante el fetch
+  if (slot.dataset.title !== game.title) return;
+  slot.innerHTML = renderRawgSection(data);
+}
+
+function renderRawgSection(d) {
+  const desc = (d.description || "").trim();
+  const shortDesc = desc.length > 600 ? desc.slice(0, 600).replace(/\s+\S*$/, "") + "…" : desc;
+  const meta = d.metacritic;
+  const metaClass = meta >= 75 ? "meta-good" : meta >= 50 ? "meta-mid" : "meta-bad";
+  const devs = (d.developers || []).slice(0, 2).join(", ");
+  const pubs = (d.publishers || []).slice(0, 2).join(", ");
+  const genres = (d.genres || []).slice(0, 5);
+  const shots = (d.shortScreenshots || []).filter(Boolean).slice(0, 4);
+
+  return `
+    <div class="rawg-head">
+      <h2 class="product-section-title">Acerca de ${escapeHtml(d.title || "")}</h2>
+      ${meta ? `<span class="meta-badge ${metaClass}" title="Metacritic">${meta}</span>` : ""}
+    </div>
+    ${shortDesc ? `<p class="rawg-desc">${escapeHtml(shortDesc)}</p>` : ""}
+    <ul class="rawg-meta">
+      ${devs ? `<li><span>Desarrollador</span><strong>${escapeHtml(devs)}</strong></li>` : ""}
+      ${pubs && pubs !== devs ? `<li><span>Distribuidora</span><strong>${escapeHtml(pubs)}</strong></li>` : ""}
+      ${d.released ? `<li><span>Lanzamiento</span><strong>${escapeHtml(d.released)}</strong></li>` : ""}
+      ${d.esrb ? `<li><span>ESRB</span><strong>${escapeHtml(d.esrb)}</strong></li>` : ""}
+      ${genres.length ? `<li><span>Géneros</span><strong>${genres.map(escapeHtml).join(" · ")}</strong></li>` : ""}
+    </ul>
+    ${shots.length ? `
+      <div class="rawg-shots">
+        ${shots.map(s => `<img loading="lazy" src="${escapeAttr(s)}" alt="Captura de ${escapeAttr(d.title || "")}">`).join("")}
+      </div>
+    ` : ""}
+    <p class="rawg-credit">Información del juego cortesía de RAWG.io</p>
+  `;
+}
+
+function cleanTitleForRawg(t) {
+  return String(t || "")
+    .replace(/[™®©]/g, "")
+    .replace(/\s*\[(PS5|PS4|XBOX|Xbox|Series X\|S|Series X)\]/gi, "")
+    .replace(/\b(Standard|Deluxe|Ultimate|Gold|Premium|Definitive|Complete|GOTY|Game of the Year|Collector'?s)\s+Edition\b/gi, "")
+    .replace(/\b(Cross[- ]?Gen Bundle|Bundle|Pack)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function readRawgCache(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?._ts && Date.now() - parsed._ts > RAWG_CACHE_TTL_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return parsed.data;
+  } catch { return null; }
+}
+
+function writeRawgCache(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), data }));
+  } catch {
+    // localStorage lleno: liberá entradas viejas de rawg:
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("rawg:")) localStorage.removeItem(k);
+      }
+      localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), data }));
+    } catch { /* nada que hacer */ }
+  }
 }
 
 // ============================================================

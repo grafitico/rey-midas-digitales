@@ -2501,6 +2501,77 @@ html { scroll-behavior: smooth; }
 }
 .product-section-desc strong { color: var(--text); }
 
+/* RAWG: ficha enriquecida (descripción, Metacritic, dev, screenshots). */
+.rawg-section:empty { display: none; }
+.rawg-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+.rawg-head .product-section-title { margin: 0; }
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 0.6rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #0a0a0a;
+}
+.meta-badge.meta-good { background: #6cda66; }
+.meta-badge.meta-mid  { background: #fdc432; }
+.meta-badge.meta-bad  { background: #ff6c6c; }
+.rawg-desc {
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin: 0 0 1.5rem;
+  max-width: 800px;
+}
+.rawg-meta {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem 1.5rem;
+}
+.rawg-meta li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.92rem;
+}
+.rawg-meta li span {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.rawg-meta li strong { color: var(--text); font-weight: 600; }
+.rawg-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+.rawg-shots img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.rawg-credit {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  opacity: 0.6;
+  margin: 0;
+}
+
 .product-features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
