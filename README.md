@@ -3,5 +3,6 @@ tienda virtual de venta de video juegos digitales
 
 ## Integraciones
 
-- [Bot de Telegram para bundles Nintendo en tiempo real](./TELEGRAM-BOT-SETUP.md)
+- [Userbot de Telegram (real-time, recomendado)](./telegram-userbot/README.md)
+- [Webhook de Telegram (requiere bot admin del canal)](./TELEGRAM-BOT-SETUP.md)
 - [Setup de Supabase](./SUPABASE-SETUP.md)
