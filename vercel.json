@@ -1,4 +1,5 @@
 {
+  "buildCommand": "node build.js",
   "functions": {
     "api/scrape.js": {
       "maxDuration": 30
