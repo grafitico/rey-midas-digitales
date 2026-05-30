@@ -145,14 +145,14 @@ function logout() {
   clearToken();
   currentUser = null;
   renderAuthSlot();
-  location.hash = "#/";
+  navigate("/");
 }
 
 function renderAuthSlot() {
   const slot = document.getElementById("authSlot");
   if (!slot) return;
   if (!currentUser) {
-    slot.innerHTML = `<a href="#/login" data-route="login" class="auth-btn">Iniciar sesión</a>`;
+    slot.innerHTML = `<a href="/login" data-route="login" class="auth-btn">Iniciar sesión</a>`;
     return;
   }
   const name = currentUser.full_name || currentUser.email.split("@")[0];
@@ -164,8 +164,8 @@ function renderAuthSlot() {
         <span class="auth-name">${escapeHtml(name)}</span>
       </button>
       <div class="auth-dropdown" id="authDropdown" hidden>
-        <a href="#/mi-cuenta">Mi cuenta</a>
-        ${currentUser.is_admin ? `<a href="#/admin">Admin</a>` : ""}
+        <a href="/mi-cuenta">Mi cuenta</a>
+        ${currentUser.is_admin ? `<a href="/admin">Admin</a>` : ""}
         <button id="logoutBtn">Cerrar sesión</button>
       </div>
     </div>
@@ -207,19 +207,13 @@ if (mobileToggle && topnav) {
   });
 }
 
-// Carrito (link del header) — fuerza navegación incluso si algo cancela
-// el default del anchor o si el browser no dispara hashchange porque ya
-// estamos en #/carrito
+// Carrito (link del header) — fuerza navegación incluso si el interceptor
+// global ya procesó el click.
 const headerCartLink = document.querySelector(".topbar-actions .cart-link");
 if (headerCartLink) {
   headerCartLink.addEventListener("click", (e) => {
     e.preventDefault();
-    if (location.hash === "#/carrito") {
-      render();
-      window.scrollTo(0, 0);
-    } else {
-      location.hash = "#/carrito";
-    }
+    navigate("/carrito");
   });
 }
 
@@ -248,7 +242,7 @@ if (topSearch) {
     e.preventDefault();
     const q = topSearch.querySelector("input").value.trim();
     if (q) {
-      location.hash = `#/buscar/${encodeURIComponent(q)}`;
+      navigate(`/buscar/${encodeURIComponent(q)}`);
       topnav?.classList.remove("open");
     }
   });
@@ -339,15 +333,36 @@ function updateMiniCart(items, bump = false) {
 }
 
 // ============================================================
-// Routing por hash
+// Routing — History API (URLs reales, indexables por Google)
 // ============================================================
+
+// Navega a una ruta sin recargar la página.
+function navigate(path) {
+  if (location.pathname !== path) history.pushState(null, "", path);
+  render();
+  window.scrollTo(0, 0);
+}
+
+// Intercepta clicks en links internos para evitar recarga completa de página.
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[href]");
+  if (!a) return;
+  let url;
+  try { url = new URL(a.href, location.href); } catch { return; }
+  if (url.origin !== location.origin) return;       // link externo
+  if (a.download || a.target === "_blank") return;  // descarga / nueva pestaña
+  if (url.pathname === location.pathname && url.hash) return; // ancla in-page
+  e.preventDefault();
+  navigate(url.pathname);
+});
+
 function parseRoute() {
-  const h = location.hash.replace(/^#/, "") || "/";
+  const h = location.pathname || "/";
   if (h === "/" || h === "") return { name: "home", page: 1 };
 
-  // Hashes viejos de Supabase Auth — limpiarlos y mandar a inicio.
-  if (h.includes("error=") || h.includes("access_token=")) {
-    setTimeout(() => { history.replaceState(null, "", location.pathname); location.hash = "#/"; }, 0);
+  // Tokens de Supabase Auth llegan en el hash real de la URL — limpiarlos.
+  if (location.hash.includes("error=") || location.hash.includes("access_token=")) {
+    setTimeout(() => navigate("/"), 0);
     return { name: "home", page: 1 };
   }
 
@@ -423,7 +438,7 @@ function navigateActive() {
   });
 }
 
-window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
+window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 
 // ============================================================
 // Carga inicial desde /api/scrape
@@ -633,7 +648,7 @@ function applyCoverUpdates(bundleIds) {
       }
     });
     // Detalle (la URL actual termina en /nintendo/<id>)
-    if (location.hash.endsWith(`/nintendo/${encodeURIComponent(id)}`)) {
+    if (location.pathname.endsWith(`/nintendo/${encodeURIComponent(id)}`)) {
       const detail = document.querySelector(".product-image .placeholder");
       if (detail) {
         const img = new Image();
@@ -757,7 +772,7 @@ function renderProduct(id) {
       <section class="container empty-state">
         <h2>Juego no encontrado</h2>
         <p>El juego que buscás no está en nuestro catálogo activo.</p>
-        <a class="cta" href="#/">Volver al catálogo</a>
+        <a class="cta" href="/">Volver al catálogo</a>
       </section>
     `;
     return;
@@ -770,9 +785,9 @@ function renderProduct(id) {
   app.innerHTML = `
     <section class="container product-page">
       <nav class="breadcrumb" aria-label="Migas de pan">
-        <a href="#/">Inicio</a>
+        <a href="/">Inicio</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="#/plataforma/${encodeURIComponent(g.platform)}">${escapeHtml(g.platform)}</a>
+        <a href="/plataforma/${encodeURIComponent(g.platform)}">${escapeHtml(g.platform)}</a>
         <span class="breadcrumb-sep">›</span>
         <span class="breadcrumb-current">${escapeHtml(g.title)}</span>
       </nav>
@@ -892,7 +907,7 @@ function renderProduct(id) {
             ${testimonials.slice(0, 3).map(testimonialCardHTML).join("")}
           </div>
           <div class="testimonials-more">
-            <a class="cta-secondary" href="#/resenas">Ver todas las reseñas</a>
+            <a class="cta-secondary" href="/resenas">Ver todas las reseñas</a>
           </div>
         </section>
       ` : ""}
@@ -1479,7 +1494,7 @@ function renderBundlesList(platform) {
     Xbox: { source: xboxBundles, title: "Bundles Xbox", subtitle: "Bundles de Xbox con varios juegos por un solo precio.", type: "xbox" },
   }[platform];
   if (!cfg) {
-    app.innerHTML = `<section class="container empty-state"><h2>Plataforma no encontrada</h2><a class="cta" href="#/">Inicio</a></section>`;
+    app.innerHTML = `<section class="container empty-state"><h2>Plataforma no encontrada</h2><a class="cta" href="/">Inicio</a></section>`;
     return;
   }
   const bundles = cfg.source.bundles || [];
@@ -1582,7 +1597,7 @@ function renderSubscriptions(service) {
     },
   }[service];
   if (!cfg) {
-    app.innerHTML = `<section class="container empty-state"><h2>Servicio no encontrado</h2><a class="cta" href="#/">Inicio</a></section>`;
+    app.innerHTML = `<section class="container empty-state"><h2>Servicio no encontrado</h2><a class="cta" href="/">Inicio</a></section>`;
     return;
   }
   app.innerHTML = `
@@ -1730,7 +1745,7 @@ function bundleCardHTML(b, type = "nintendo") {
     </div>
   `;
   return `
-    <a class="card bundle-card" href="#/${routes[type]}/${encodeURIComponent(b.id)}">
+    <a class="card bundle-card" href="/${routes[type]}/${encodeURIComponent(b.id)}">
       <div class="card-image">
         ${cover}
         <span class="badge-platform">${badges[type]}</span>
@@ -1756,9 +1771,9 @@ function renderBundle(id, type = "nintendo") {
     return;
   }
   const sources = {
-    nintendo: { list: nintendo.bundles || [], platform: "Nintendo Switch", backHref: "#/plataforma/Switch", telegram: nintendo.telegramChannel },
-    ps: { list: psBundles.bundles || [], platform: "PlayStation", backHref: "#/bundles/PS", telegram: psBundles.telegramChannel },
-    xbox: { list: xboxBundles.bundles || [], platform: "Xbox", backHref: "#/bundles/Xbox", telegram: xboxBundles.telegramChannel },
+    nintendo: { list: nintendo.bundles || [], platform: "Nintendo Switch", backHref: "/plataforma/Switch", telegram: nintendo.telegramChannel },
+    ps: { list: psBundles.bundles || [], platform: "PlayStation", backHref: "/bundles/PS", telegram: psBundles.telegramChannel },
+    xbox: { list: xboxBundles.bundles || [], platform: "Xbox", backHref: "/bundles/Xbox", telegram: xboxBundles.telegramChannel },
   };
   const src = sources[type] || sources.nintendo;
   const b = src.list.find(x => String(x.id) === String(id));
@@ -1877,7 +1892,7 @@ function renderCart() {
       <section class="container empty-state">
         <h2>Tu carrito está vacío</h2>
         <p>Agregá juegos desde el catálogo y los pedís todos juntos por WhatsApp.</p>
-        <a class="cta" href="#/">Ir al catálogo</a>
+        <a class="cta" href="/">Ir al catálogo</a>
       </section>
     `;
     return;
@@ -1889,7 +1904,7 @@ function renderCart() {
   const total = subtotal - discountAmount;
   app.innerHTML = `
     <section class="container cart-page">
-      <a class="back-link" href="#/">&larr; Seguir comprando</a>
+      <a class="back-link" href="/">&larr; Seguir comprando</a>
       <h1 class="cart-title">Tu pedido</h1>
       <div class="cart-list">
         ${items.map(cartItemHTML).join("")}
@@ -2043,7 +2058,7 @@ function renderInfoPage(slug) {
   };
   const p = pages[slug];
   if (!p) {
-    app.innerHTML = `<section class="container empty-state"><h2>Página no encontrada</h2><a class="cta" href="#/">Volver al inicio</a></section>`;
+    app.innerHTML = `<section class="container empty-state"><h2>Página no encontrada</h2><a class="cta" href="/">Volver al inicio</a></section>`;
     return;
   }
   app.innerHTML = `
@@ -2284,7 +2299,7 @@ function nosotrosHTML() {
 
       <div class="info-cta">
         <h3>¿Listo para comprar?</h3>
-        <a class="cta" href="#/plataforma/PS5">Ver catálogo</a>
+        <a class="cta" href="/plataforma/PS5">Ver catálogo</a>
       </div>
     </section>
   `;
@@ -2326,7 +2341,7 @@ function heroHTML() {
       <div class="container hero-inner">
         <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
         <p class="tagline">Tu tienda de juegos digitales en Costa Rica</p>
-        <a class="cta" href="#/plataforma/PS5">Ver juegos PS5</a>
+        <a class="cta" href="/plataforma/PS5">Ver juegos PS5</a>
       </div>
     </section>
   `;
@@ -2404,7 +2419,7 @@ function testimonialsHTML(limit = 6) {
         </div>
         ${limit && testimonials.length > limit ? `
           <div class="testimonials-more">
-            <a class="cta-secondary" href="#/resenas">Ver todas las reseñas (${testimonials.length})</a>
+            <a class="cta-secondary" href="/resenas">Ver todas las reseñas (${testimonials.length})</a>
           </div>
         ` : ""}
       </div>
@@ -2453,7 +2468,7 @@ function reviewsStatsBarHTML() {
 // ============================================================
 function renderResenas() {
   if (!testimonials.length) {
-    app.innerHTML = `<section class="container empty-state"><h2>Sin reseñas todavía</h2><a class="cta" href="#/">Volver al inicio</a></section>`;
+    app.innerHTML = `<section class="container empty-state"><h2>Sin reseñas todavía</h2><a class="cta" href="/">Volver al inicio</a></section>`;
     return;
   }
   const breakdown = [5, 4, 3, 2, 1].map(stars => {
@@ -2517,7 +2532,7 @@ function faqInlineHTML(limit) {
         </div>
         ${limit && faqs.length > limit ? `
           <div class="faq-more">
-            <a class="cta-secondary" href="#/faq">Ver todas las preguntas</a>
+            <a class="cta-secondary" href="/faq">Ver todas las preguntas</a>
           </div>
         ` : ""}
       </div>
@@ -2567,7 +2582,7 @@ function howToHTML() {
           </div>
         </div>
         <div class="cta-row">
-          <a class="cta" href="#/como-comprar">Ver guía completa de compra e instalación &rarr;</a>
+          <a class="cta" href="/como-comprar">Ver guía completa de compra e instalación &rarr;</a>
         </div>
       </div>
     </section>
@@ -2678,7 +2693,7 @@ function applyFilters() {
   }
   // En páginas de plataforma: títulos prioritarios primero, luego AAA, indie al final.
   // En otras páginas (home, búsqueda): solo indie al final cuando se ven todos.
-  const onPlatformPage = /\/plataforma\//.test(window.location.hash);
+  const onPlatformPage = /\/plataforma\//.test(window.location.pathname);
   if (onPlatformPage) {
     list = list.slice().sort((a, b) => {
       const pa = priorityScore(a), pb = priorityScore(b);
@@ -2773,13 +2788,10 @@ function pageRange(current, total) {
 function goToPage(p) {
   currentPage = p;
   const base = currentRouteBase === "/" ? "" : currentRouteBase;
-  const newHash = p === 1 ? `#/${base.replace(/^\//, "")}` : `#${base}/p/${p}`;
-  if (location.hash !== newHash) {
-    location.hash = newHash;
-  } else {
-    applyFilters();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  const newPath = p === 1 ? (base || "/") : `${base}/p/${p}`;
+  if (location.pathname !== newPath) history.replaceState(null, "", newPath);
+  applyFilters();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function cardHTML(g) {
@@ -2789,7 +2801,7 @@ function cardHTML(g) {
     ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">`
     : `${placeholderHTML()}`;
   return `
-    <a class="card" href="#/producto/${encodeURIComponent(g.id)}">
+    <a class="card" href="/producto/${encodeURIComponent(g.id)}">
       <div class="card-image">
         ${img}
         ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
@@ -2893,7 +2905,7 @@ function placeholderHTML() {
 // Login / Mi cuenta / Admin
 // ============================================================
 function renderLogin() {
-  if (currentUser) { location.hash = "#/mi-cuenta"; return; }
+  if (currentUser) { navigate("/mi-cuenta"); return; }
 
   // Si NO existe ningún usuario todavía, mostramos el form de "Crear primer admin".
   if (!usersExist) {
@@ -2933,7 +2945,7 @@ function renderLogin() {
         return;
       }
       showToast("Cuenta creada ✓");
-      location.hash = "#/admin";
+      navigate("/admin");
     });
     return;
   }
@@ -2973,12 +2985,12 @@ function renderLogin() {
       showToast(error.message || "No pudimos entrar. Intentá de nuevo.");
       return;
     }
-    location.hash = currentUser.is_admin ? "#/admin" : "#/mi-cuenta";
+    navigate(currentUser.is_admin ? "/admin" : "/mi-cuenta");
   });
 }
 
 async function renderMyAccount() {
-  if (!currentUser) { location.hash = "#/login"; return; }
+  if (!currentUser) { navigate("/login"); return; }
   app.innerHTML = `
     <section class="container account-page">
       <div class="account-header">
@@ -3072,13 +3084,13 @@ document.addEventListener("click", (e) => {
 });
 
 async function renderAdmin() {
-  if (!currentUser) { location.hash = "#/login"; return; }
+  if (!currentUser) { navigate("/login"); return; }
   if (!currentUser.is_admin) {
     app.innerHTML = `
       <section class="container empty-state">
         <h2>Sin permisos</h2>
         <p>Tu cuenta no tiene acceso al panel de administración.</p>
-        <a class="cta" href="#/">Volver al inicio</a>
+        <a class="cta" href="/">Volver al inicio</a>
       </section>
     `;
     return;
