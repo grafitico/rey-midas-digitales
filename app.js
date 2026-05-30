@@ -723,7 +723,7 @@ function renderPlatform(platform, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/plataforma/${platform}`);
+  mountToolbar(list, page, `/plataforma/${platform}`, false);
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -1462,7 +1462,7 @@ function renderBusqueda(term, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`);
+  mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`, false);
 }
 
 function renderOfertas(page = 1) {
@@ -1479,7 +1479,7 @@ function renderOfertas(page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, "/ofertas");
+  mountToolbar(list, page, "/ofertas", false);
 }
 
 // ============================================================
@@ -2529,11 +2529,11 @@ let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
 
-function mountToolbar(baseList, page = 1, routeBase = "/") {
+function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";
-  localFilters.aaaOnly = true;
+  localFilters.aaaOnly = aaaDefault;
   localFilters.genre = null;
   localList = baseList || allGames;
   currentPage = page;
@@ -2578,6 +2578,11 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
       applyFilters();
     });
   });
+  const aaaBtn = document.querySelector(".filter[data-aaa]");
+  if (aaaBtn) {
+    aaaBtn.classList.toggle("active", localFilters.aaaOnly);
+    aaaBtn.textContent = localFilters.aaaOnly ? "Solo AAA" : "Ver todos";
+  }
   applyFilters();
   // Cuando llegan resultados de RAWG en background, re-render del grid.
   // Priorizamos la lista de esta vista (p. ej. todos los PS4) para que se
