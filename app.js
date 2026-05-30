@@ -1289,6 +1289,84 @@ function isAAA(g) {
   return false;
 }
 
+// Títulos destacados que siempre aparecen primeros en los catálogos de
+// plataforma, en el orden en que están definidos aquí.
+const PRIORITY_TITLES = [
+  "Grand Theft Auto V",
+  "Marvel's Spider-Man",
+  "Marvel's Spider-Man 2",
+  "God of War (2018)",
+  "God of War Ragnarök",
+  "Uncharted 4: A Thief's End",
+  "Horizon Zero Dawn",
+  "Horizon Forbidden West",
+  "The Last of Us Remastered",
+  "The Last of Us Part II",
+  "Red Dead Redemption 2",
+  "Ghost of Tsushima",
+  "Gran Turismo 7",
+  "Gran Turismo Sport",
+  "Elden Ring",
+  "The Witcher 3: Wild Hunt",
+  "Call of Duty: Black Ops III",
+  "Call of Duty: Modern Warfare",
+  "Call of Duty: Modern Warfare II",
+  "Call of Duty: Black Ops 6",
+  "EA Sports FC 25",
+  "EA Sports FC 26",
+  "Monster Hunter: World",
+  "Monster Hunter Wilds",
+  "Assassin's Creed Odyssey",
+  "Assassin's Creed Valhalla",
+  "Assassin's Creed Shadows",
+  "Resident Evil 4",
+  "Resident Evil Village",
+  "Resident Evil 2",
+  "Final Fantasy VII Remake",
+  "Final Fantasy VII Rebirth",
+  "Final Fantasy XV",
+  "Persona 5 Royal",
+  "Kingdom Hearts III",
+  "Dragon Ball FighterZ",
+  "Dragon Ball Z: Kakarot",
+  "Tekken 8",
+  "Mortal Kombat 11",
+  "Street Fighter 6",
+  "Death Stranding",
+  "Days Gone",
+  "Bloodborne",
+  "Ratchet & Clank: Rift Apart",
+  "Demon's Souls",
+  "Hogwarts Legacy",
+  "Cyberpunk 2077",
+  "Black Myth: Wukong",
+];
+
+function normTitleForPriority(t) {
+  return (t || "").normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const _priorityMap = new Map(PRIORITY_TITLES.map((t, i) => [normTitleForPriority(t), i]));
+
+// Devuelve la posición del juego en la lista de prioridad (menor = más arriba).
+// Si no está en la lista devuelve Infinity.
+function priorityScore(g) {
+  const n = normTitleForPriority(g.title);
+  if (_priorityMap.has(n)) return _priorityMap.get(n);
+  // Coincidencia parcial: uno contiene al otro (maneja variaciones de subtítulo).
+  // Se prefiere el overlap más largo para evitar falsos positivos.
+  let best = Infinity;
+  let bestLen = 0;
+  for (const [pt, idx] of _priorityMap) {
+    if (n.includes(pt) || pt.includes(n)) {
+      const len = Math.min(n.length, pt.length);
+      if (len > bestLen) { best = idx; bestLen = len; }
+    }
+  }
+  return best;
+}
+
 // Levanta el cache de Metacritic para todos los juegos cargados, así
 // las decisiones de isAAA() son consistentes desde el primer render.
 function hydrateRawgMetaFromCache(games) {
@@ -2598,9 +2676,16 @@ function applyFilters() {
   if (localFilters.q) {
     list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
-  // Cuando se muestran todos los juegos, los indie/baratos van al final.
-  // El orden relativo dentro de cada grupo se preserva (oferta → descuento).
-  if (!localFilters.aaaOnly) {
+  // En páginas de plataforma: títulos prioritarios primero, luego AAA, indie al final.
+  // En otras páginas (home, búsqueda): solo indie al final cuando se ven todos.
+  const onPlatformPage = /\/plataforma\//.test(window.location.hash);
+  if (onPlatformPage) {
+    list = list.slice().sort((a, b) => {
+      const pa = priorityScore(a), pb = priorityScore(b);
+      if (pa !== pb) return pa - pb;
+      return (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1);
+    });
+  } else if (!localFilters.aaaOnly) {
     list = list.slice().sort((a, b) => (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1));
   }
   renderGrid(list);
