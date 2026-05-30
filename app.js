@@ -722,7 +722,7 @@ function renderPlatform(platform, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/plataforma/${platform}`, false);
+  mountToolbar(list, page, `/plataforma/${platform}`, true);
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -1267,6 +1267,10 @@ function isAAA(g) {
   // muestran: son títulos elegidos por nosotros, no pasan por la heurística.
   if (g._manualPrices || g._featured) return true;
 
+  // Títulos de la lista de prioridad del negocio: siempre AAA sin importar
+  // precio ni datos de RAWG.
+  if (priorityScore(g) < Infinity) return true;
+
   const meta = g._rawgMeta;
   // Veredicto positivo de RAWG: Metacritic alto = AAA, sin importar el precio.
   if (meta != null && meta >= AAA_META_THRESHOLD) return true;
@@ -1277,16 +1281,12 @@ function isAAA(g) {
   if (current >= AAA_PRICE_USD) return true;
   if (original >= AAA_PRICE_ORIGINAL_USD) return true;
 
-  // Barato y RAWG YA confirmó que no llega al umbral (Metacritic numérico
-  // < 70): es indie/relleno → se oculta.
+  // Barato y RAWG YA confirmó que no llega al umbral: es indie/relleno.
   if (typeof meta === "number") return false;
 
-  // Precio bajo y sin datos RAWG todavía: probable indie/desconocido.
-  // Se oculta hasta que el loop de enriquecimiento lo verifique con RAWG.
-  // Los títulos AAA baratos (clásicos rebajados) quedan cubiertos por la
-  // condición `original >= AAA_PRICE_ORIGINAL_USD` de arriba, o están en
-  // featured-games.json con _featured=true.
-  return false;
+  // Sin datos RAWG todavía: beneficio de la duda — se muestra ahora y
+  // desaparece si el enriquecimiento en background lo confirma como indie.
+  return true;
 }
 
 // Títulos destacados que siempre aparecen primeros en los catálogos de
