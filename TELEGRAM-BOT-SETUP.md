@@ -1,6 +1,6 @@
 # Bot de Telegram — sincronización de bundles Nintendo en tiempo real
 
-Este flujo recibe los posts del canal `@bundlesnintendo` vía webhook de
+Este flujo recibe los posts del canal `@swichtaccount` vía webhook de
 Telegram, parsea cada mensaje en un objeto bundle y commitea el JSON
 actualizado a este mismo repo. Vercel detecta el push y redespliega
 automáticamente, dejando el frontend al día sin intervención manual.
@@ -20,16 +20,25 @@ Canal Telegram ──▶ Bot (admin del canal) ──▶ POST /api/telegram-webh
                                        Vercel auto-redeploy → frontend
 ```
 
+## Contexto
+
+- Canal fuente: **@swichtaccount** — ahí publica los bundles el proveedor.
+- Bot del proveedor: **@swaccountnube_bot** — es el bot que el proveedor
+  usa para consultar/extraer los bundles del canal. **No lo usamos
+  directamente**: la Bot API de Telegram prohíbe que un bot lea mensajes
+  enviados por otro bot. Nuestra integración apunta directo al canal.
+
 ## Requisito clave
 
 Un bot de Telegram **solo puede leer mensajes de un canal si está
-agregado como administrador de ese canal**. Como el canal pertenece al
-proveedor, el proveedor tiene que agregar nuestro bot como admin (basta
-con permiso "Post Messages" desactivado; solo necesitamos lectura). Sin
-ese paso, Telegram nunca nos enviará los `channel_post`.
+agregado como administrador de ese canal**. El dueño de @swichtaccount
+(el proveedor) tiene que agregar nuestro bot como admin (basta con todos
+los permisos desactivados; solo necesitamos lectura). Sin ese paso,
+Telegram nunca nos enviará los `channel_post`.
 
-Si el proveedor no puede agregarlo, la alternativa es scrapear
-`https://t.me/s/bundlesnintendo` con un cron (no es tiempo real).
+Si el proveedor no puede agregarlo como admin, la alternativa es
+scrapear el preview público `https://t.me/s/swichtaccount` con un cron
+(no es tiempo real, pero no requiere permisos).
 
 ## Setup paso a paso
 
