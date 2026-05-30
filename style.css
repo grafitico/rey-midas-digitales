@@ -2572,6 +2572,59 @@ html { scroll-behavior: smooth; }
   margin: 0;
 }
 
+/* Explorar AAA: filtros + tarjetas */
+.explorar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.explorar-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.explorar-chip:hover {
+  border-color: var(--gold);
+  color: var(--text);
+}
+.explorar-chip.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #0a0a0a;
+}
+.card-meta {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  min-width: 32px;
+  height: 32px;
+  font-size: 0.85rem;
+  z-index: 2;
+}
+.explorar-wa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+  background: #25d366;
+  color: #0a0a0a;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.explorar-wa:hover { background: #1faa55; color: #fff; }
+
 .product-features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
