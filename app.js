@@ -630,11 +630,33 @@ function renderPlatform(platform, page = 1) {
         <p>${list.length} ${list.length === 1 ? "juego disponible" : "juegos disponibles"}</p>
       </div>
       ${toolbarHTML(false)}
+      ${categoryChipsHTML(list)}
       <div id="grid" class="grid"></div>
       <div id="pagination" class="pagination"></div>
     </section>
   `;
   mountToolbar(list, page, `/plataforma/${platform}`);
+}
+
+// Chips de categoría (género) — replican la navegación por categorías de la
+// PlayStation Store. Solo mostramos las que realmente aparecen en la lista,
+// usando los géneros que el scraper de PSN ya taggeó en cada juego.
+function categoryChipsHTML(list) {
+  const present = new Set();
+  for (const g of list || []) {
+    for (const t of (g.genres || [])) {
+      if (GENRE_LABELS[t]) present.add(t);
+    }
+  }
+  if (present.size < 2) return ""; // sin variedad real, no vale la pena
+  const order = ["accion", "aventura", "rpg", "shooter", "terror", "lucha", "carreras", "deportes", "estrategia", "infantiles"];
+  const tags = order.filter(t => present.has(t));
+  return `
+    <div class="category-chips" id="categoryChips">
+      <button class="cat-chip active" data-genre="">Todas las categorías</button>
+      ${tags.map(t => `<button class="cat-chip" data-genre="${t}">${escapeHtml(GENRE_LABELS[t])}</button>`).join("")}
+    </div>
+  `;
 }
 
 function renderProduct(id) {
@@ -727,7 +749,7 @@ function renderProduct(id) {
       </div>
 
       <section class="product-section rawg-section" id="rawg-info" data-title="${escapeAttr(g.title)}" data-platform="${escapeAttr(g.platform)}">
-        <!-- Relleno por enrichWithRawg() — placeholder vacío para no parpadear cuando no hay match. -->
+        ${renderRawgFallback(g)}
       </section>
 
       <section class="product-section">
@@ -846,6 +868,35 @@ async function enrichWithRawg(game) {
   // Re-check por si el usuario ya navegó a otro juego durante el fetch
   if (slot.dataset.title !== game.title) return;
   slot.innerHTML = renderRawgSection(data);
+}
+
+// Géneros que el scraper de PSN guarda normalizados (sin tilde, minúsculas).
+// Acá los volvemos a una etiqueta presentable para la ficha.
+const GENRE_LABELS = {
+  accion: "Acción", aventura: "Aventura", terror: "Terror", rpg: "RPG",
+  deportes: "Deportes", carreras: "Carreras", shooter: "Shooter",
+  lucha: "Lucha", estrategia: "Estrategia", infantiles: "Infantil",
+};
+
+// Ficha mínima construida con lo que ya scrapeamos (plataforma, géneros,
+// oferta). Se muestra al instante para que la sección "información del juego"
+// nunca quede vacía; si RAWG matchea después, enrichWithRawg() la reemplaza
+// por la versión rica (descripción, Metacritic, screenshots).
+function renderRawgFallback(g) {
+  const genres = (g.genres || [])
+    .map(t => GENRE_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : ""))
+    .filter(Boolean);
+  return `
+    <div class="rawg-head">
+      <h2 class="product-section-title">Ficha del juego</h2>
+    </div>
+    <ul class="rawg-meta">
+      <li><span>Plataforma</span><strong>${escapeHtml(g.platform)}</strong></li>
+      ${genres.length ? `<li><span>Géneros</span><strong>${genres.map(escapeHtml).join(" · ")}</strong></li>` : ""}
+      <li><span>Formato</span><strong>Digital</strong></li>
+      ${g.onSale && g.discount ? `<li><span>Descuento</span><strong>-${g.discount}%</strong></li>` : ""}
+    </ul>
+  `;
 }
 
 function renderRawgSection(d) {
@@ -1081,15 +1132,31 @@ const AAA_ENRICH_BATCH = 5;        // requests en paralelo
 const AAA_ENRICH_DELAY_MS = 250;   // pausa entre batches
 
 function isAAA(g) {
-  // RAWG suma — nunca filtra. Un AAA caro con Metacritic mediocre sigue
-  // pasando por precio; lo único que RAWG hace es rescatar AAA "baratos"
-  // (clásicos, GOTYs viejos) que la heurística sola descartaría.
-  if (g._rawgMeta != null && g._rawgMeta >= AAA_META_THRESHOLD) return true;
+  // Ofertas curadas a mano siempre se muestran: son títulos elegidos por
+  // nosotros, no necesitan pasar por la heurística.
+  if (g._manualPrices) return true;
+
+  const meta = g._rawgMeta;
+  // Veredicto positivo de RAWG: Metacritic alto = AAA, sin importar el precio.
+  if (meta != null && meta >= AAA_META_THRESHOLD) return true;
+
   const current = Number(g.priceUSD) || 0;
   const original = Number(g.originalPriceUSD) || current;
+  // Señal de precio: caro hoy, o caro antes de la oferta, = AAA.
   if (current >= AAA_PRICE_USD) return true;
-  if (g.onSale && original >= AAA_PRICE_ORIGINAL_USD) return true;
-  return false;
+  if (original >= AAA_PRICE_ORIGINAL_USD) return true;
+
+  // Barato y RAWG YA confirmó que no llega al umbral (Metacritic numérico
+  // < 70): es indie/relleno → se oculta.
+  if (typeof meta === "number") return false;
+
+  // Barato y todavía SIN verificar con RAWG (meta === undefined o null, sin
+  // dato de Metacritic): lo mostramos. Antes lo ocultábamos por precio, lo
+  // que escondía clásicos AAA de PS4 hoy baratos (God of War, Spider-Man…)
+  // hasta que el enriquecimiento en background los alcanzara — y muchas veces
+  // nunca llegaba. Mejor mostrar y dejar que el loop reclasifique a la baja
+  // solo lo que RAWG confirme como no-AAA.
+  return true;
 }
 
 // Levanta el cache de Metacritic para todos los juegos cargados, así
@@ -1105,19 +1172,33 @@ function hydrateRawgMetaFromCache(games) {
 let _enrichQueue = [];
 let _enrichRunning = false;
 
-// Encola los juegos visibles ahora (página actual + algunos extra) para
-// que RAWG les asigne Metacritic y se decida bien si son AAA o indies.
-function scheduleAAAEnrichForVisible() {
+// Encola juegos para que RAWG les asigne Metacritic y se decida bien si son
+// AAA o indies. `priorityList` (lo que el usuario está viendo ahora, p. ej.
+// la página de PS4) se enriquece PRIMERO: antes mandábamos solo `allGames` en
+// orden global (por descuento), así que los juegos de la plataforma abierta
+// casi nunca se enriquecían dentro del tope y la página quedaba sin refinar.
+function scheduleAAAEnrichForVisible(priorityList) {
   if (!allGames?.length) return;
-  // Priorizamos lo que cumple la heurística por precio (probable AAA) +
-  // los borderline (precio bajo pero no descartado): así el toggle se
-  // limpia visualmente más rápido en ambos casos.
-  const candidates = allGames.filter(g => g._rawgMeta === undefined);
-  // Limitamos a ~120 candidatos por ronda para no quemar el cupo.
-  const slice = candidates.slice(0, 120);
-  for (const g of slice) {
-    if (!_enrichQueue.includes(g)) _enrichQueue.push(g);
+
+  const enqueue = (arr, toFront) => {
+    // Al meter al frente, recorremos en reversa para preservar el orden.
+    const items = toFront ? [...arr].reverse() : arr;
+    for (const g of items) {
+      if (!g || g._rawgMeta !== undefined) continue;
+      if (_enrichQueue.includes(g)) continue;
+      if (toFront) _enrichQueue.unshift(g);
+      else _enrichQueue.push(g);
+    }
+  };
+
+  // 1) Lo que se ve ahora, al frente de la cola.
+  if (Array.isArray(priorityList) && priorityList.length) {
+    enqueue(priorityList.slice(0, 120), true);
   }
+  // 2) Relleno global con un tope conservador para no quemar el cupo de RAWG
+  //    (la ficha de producto también consume del mismo cupo gratuito).
+  enqueue(allGames.filter(g => g._rawgMeta === undefined).slice(0, 60), false);
+
   if (!_enrichRunning) runEnrichLoop();
 }
 
@@ -2313,7 +2394,7 @@ function toolbarHTML(showPlatformFilters = true) {
 // ============================================================
 // Grid + filtros + paginación
 // ============================================================
-const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true };
+const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true, genre: null };
 let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
@@ -2323,6 +2404,7 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
   localFilters.sale = false;
   localFilters.q = "";
   localFilters.aaaOnly = true;
+  localFilters.genre = null;
   localList = baseList || allGames;
   currentPage = page;
   currentRouteBase = routeBase;
@@ -2358,9 +2440,19 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
       applyFilters();
     });
   });
+  document.querySelectorAll(".cat-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      localFilters.genre = chip.dataset.genre || null;
+      document.querySelectorAll(".cat-chip").forEach(c => c.classList.toggle("active", c === chip));
+      currentPage = 1;
+      applyFilters();
+    });
+  });
   applyFilters();
   // Cuando llegan resultados de RAWG en background, re-render del grid.
-  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible();
+  // Priorizamos la lista de esta vista (p. ej. todos los PS4) para que se
+  // refine rápido lo que el usuario realmente está mirando.
+  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible(localList);
 }
 
 function applyFilters() {
@@ -2369,13 +2461,16 @@ function applyFilters() {
     list = list.filter(g => g.platform.includes(localFilters.platform));
   }
   if (localFilters.sale) list = list.filter(g => g.onSale);
+  if (localFilters.genre) {
+    list = list.filter(g => Array.isArray(g.genres) && g.genres.includes(localFilters.genre));
+  }
   if (localFilters.aaaOnly) list = list.filter(isAAA);
   if (localFilters.q) {
     list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
   renderGrid(list);
   renderPagination(list.length);
-  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible();
+  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible(localList);
 }
 
 function paginate(list) {
