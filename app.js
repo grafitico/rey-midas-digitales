@@ -709,13 +709,12 @@ function renderPlatform(platform, page = 1) {
     return;
   }
   const list = allGames.filter(g => g.platform.includes(platform));
-  const aaaCount = list.filter(isAAA).length;
   app.innerHTML = `
     ${heroSlimHTML(platform)}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Juegos ${escapeHtml(platform)}</h2>
-        <p id="platform-count">${aaaCount} ${aaaCount === 1 ? "juego disponible" : "juegos disponibles"}</p>
+        <p id="platform-count">${list.length} ${list.length === 1 ? "juego disponible" : "juegos disponibles"}</p>
       </div>
       ${toolbarHTML(false)}
       ${categoryChipsHTML(list)}
@@ -2584,10 +2583,6 @@ function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
     aaaBtn.textContent = localFilters.aaaOnly ? "Solo AAA" : "Ver todos";
   }
   applyFilters();
-  // Cuando llegan resultados de RAWG en background, re-render del grid.
-  // Priorizamos la lista de esta vista (p. ej. todos los PS4) para que se
-  // refine rápido lo que el usuario realmente está mirando.
-  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible(localList);
 }
 
 function applyFilters() {
@@ -2603,9 +2598,14 @@ function applyFilters() {
   if (localFilters.q) {
     list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
+  // Cuando se muestran todos los juegos, los indie/baratos van al final.
+  // El orden relativo dentro de cada grupo se preserva (oferta → descuento).
+  if (!localFilters.aaaOnly) {
+    list = list.slice().sort((a, b) => (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1));
+  }
   renderGrid(list);
   renderPagination(list.length);
-  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible(localList);
+  scheduleAAAEnrichForVisible(localList);
 }
 
 function paginate(list) {
