@@ -19,6 +19,34 @@ const CONFIG = {
   perPage: 50,
 };
 
+// Franquicias AAA reconocibles por título. Sirve para subir los clásicos
+// (Crash, NFS, FIFA viejos, GTA, etc.) al frente del catálogo sin depender
+// de tags del scraper, que muchas veces vienen vacíos. Se aplica también
+// a Xbox y a las ofertas manuales.
+const AAA_FRANCHISE_REGEX = /\b(crash bandicoot|need for speed|fifa|ea sports fc|gta|grand theft auto|call of duty|assassin'?s creed|tomb raider|spider-?man|uncharted|god of war|resident evil|battlefield|minecraft|rocket league|mortal kombat|tekken|street fighter|the last of us|metal gear|dark souls|elden ring|horizon|nba 2k|madden|wwe ?2k|f1 [0-9]|watch dogs|far cry|borderlands|dragon ball|naruto|one piece|lego|ratchet|gran turismo|diablo|cyberpunk|hogwarts|red dead|fallout|skyrim|mass effect|halo|forza|gears of war|sea of thieves|starfield|overwatch|destiny|final fantasy|kingdom hearts|persona|monster hunter|nier|sonic|the witcher|hitman|dying light|metro exodus|bioshock|wolfenstein|doom eternal|rainbow six|the division|saints row|mafia|burnout|dirt [0-9]|mlb the show|tony hawk|ufc [0-9]|ace combat|the crew|forza horizon|forza motorsport|fortnite|apex legends|fall guys|silent hill|dead space|alien isolation|until dawn|the evil within|days gone|ghost of tsushima|sekiro|bloodborne|nioh|civilization|total war|portal [0-9]|left 4 dead|alan wake|returnal|deathloop|like a dragon|yakuza|judgment|tales of|bayonetta|devil may cry|ninja gaiden|hellblade|fable|max payne|hogwarts legacy|stray|it takes two|hades|hollow knight)\b/i;
+
+function isAAATitle(title) {
+  if (!title) return false;
+  return AAA_FRANCHISE_REGEX.test(title);
+}
+
+// Géneros disponibles para filtrar el catálogo. Los tags vienen del
+// scraper PSN (categorías UUID + búsquedas). Si un juego no tiene
+// género no aparece cuando un filtro está activo.
+const GENRE_FILTERS = [
+  { tag: "accion",     label: "Acción" },
+  { tag: "aventura",   label: "Aventura" },
+  { tag: "rpg",        label: "RPG" },
+  { tag: "shooter",    label: "Shooter" },
+  { tag: "deportes",   label: "Deportes" },
+  { tag: "carreras",   label: "Carreras" },
+  { tag: "lucha",      label: "Lucha" },
+  { tag: "terror",     label: "Terror" },
+  { tag: "simulacion", label: "Simulación" },
+  { tag: "estrategia", label: "Estrategia" },
+  { tag: "infantiles", label: "Infantil" },
+];
+
 // ============================================================
 // Estado global
 // ============================================================
@@ -467,7 +495,14 @@ async function load() {
     if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
+    // Marcamos AAA por título (los tags del scraper a veces vienen vacíos).
+    for (const g of games) {
+      g.isAAA = isAAATitle(g.title);
+    }
+    // Orden: AAA primero, después ofertas, después por mayor descuento.
+    // Los AAA en oferta quedan arriba del todo.
     allGames = games.sort((a, b) => {
+      if (a.isAAA !== b.isAAA) return a.isAAA ? -1 : 1;
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return (b.discount || 0) - (a.discount || 0);
     });
@@ -1907,6 +1942,9 @@ function howToHTML() {
 }
 
 function toolbarHTML(showPlatformFilters = true) {
+  const genreChips = GENRE_FILTERS.map(
+    g => `<button class="filter filter-genre" data-genre="${g.tag}">${g.label}</button>`
+  ).join("");
   return `
     <div class="toolbar">
       <input id="search" type="search" placeholder="Buscar juego..." autocomplete="off">
@@ -1925,13 +1963,17 @@ function toolbarHTML(showPlatformFilters = true) {
         </div>
       `}
     </div>
+    <div class="filters filters-genres">
+      <button class="filter filter-genre active" data-genre="all">Todos los géneros</button>
+      ${genreChips}
+    </div>
   `;
 }
 
 // ============================================================
 // Grid + filtros + paginación
 // ============================================================
-const localFilters = { platform: "all", sale: false, q: "" };
+const localFilters = { platform: "all", sale: false, q: "", genre: "all" };
 let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
@@ -1940,6 +1982,7 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";
+  localFilters.genre = "all";
   localList = baseList || allGames;
   currentPage = page;
   currentRouteBase = routeBase;
@@ -1966,6 +2009,11 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
         document.querySelectorAll(".filter[data-platform]").forEach(b =>
           b.classList.toggle("active", b === btn)
         );
+      } else if (btn.dataset.genre) {
+        localFilters.genre = btn.dataset.genre;
+        document.querySelectorAll(".filter[data-genre]").forEach(b =>
+          b.classList.toggle("active", b === btn)
+        );
       }
       currentPage = 1;
       applyFilters();
@@ -1980,6 +2028,9 @@ function applyFilters() {
     list = list.filter(g => g.platform.includes(localFilters.platform));
   }
   if (localFilters.sale) list = list.filter(g => g.onSale);
+  if (localFilters.genre && localFilters.genre !== "all") {
+    list = list.filter(g => Array.isArray(g.genres) && g.genres.includes(localFilters.genre));
+  }
   if (localFilters.q) {
     list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
