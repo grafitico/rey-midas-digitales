@@ -31,6 +31,7 @@ let nintendo = { telegramChannel: "", bundles: [] };
 let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
+let featuredGames = []; // catálogo curado de "más buscados" (featured-games.json)
 let banners = [];
 let testimonials = [];
 let reviewStats = { totalClients: "500+", yearsInBusiness: "5", averageRating: 4.9, totalReviews: 247 };
@@ -429,7 +430,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
@@ -442,6 +443,7 @@ async function load() {
       fetch("/playstation-plus.json").then(r => r.json()),
       fetch("/game-pass.json").then(r => r.json()),
       fetch("/reservaciones.json").then(r => r.json()),
+      fetch("/featured-games.json").then(r => r.json()),
     ]);
     if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
     if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
@@ -478,6 +480,30 @@ async function load() {
       // Las ofertas manuales se mergean al catálogo principal
       games.push(...manualOffers);
     }
+    // Catálogo curado de "más buscados": se muestra SIEMPRE, aunque el
+    // scraper de PSN falle o devuelva poco. Deduplicamos por título: si el
+    // scraper ya trajo ese juego (con precio real en vivo), preferimos ese y
+    // descartamos el curado para no mostrar la tarjeta dos veces.
+    if (feat.status === "fulfilled" && Array.isArray(feat.value?.games)) {
+      const seen = new Set(games.map(g => matchKey(g.title)));
+      featuredGames = feat.value.games
+        .filter(g => g && g.title && !seen.has(matchKey(g.title)))
+        .map(g => ({
+          id: g.id,
+          title: g.title,
+          platform: g.platform || "PS5/PS4",
+          imageUrl: "",
+          url: `https://wa.me/${CONFIG.whatsapp}`,
+          priceUSD: Number(g.priceUSD) || 0,
+          originalPriceUSD: Number(g.priceUSD) || 0,
+          onSale: false,
+          discount: 0,
+          isBundle: false,
+          genres: Array.isArray(g.genres) ? g.genres : [],
+          _featured: true,
+        }));
+      games.push(...featuredGames);
+    }
     if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
@@ -492,8 +518,69 @@ async function load() {
     loaded = true;
     render();
     enrichBundleCovers();
+    enrichFeaturedCovers();
     // Enriquecer en background: la primera vez tarda, después todo cacheado.
     scheduleAAAEnrichForVisible();
+  }
+}
+
+// Trae la carátula (y Metacritic) de cada juego del catálogo curado desde
+// RAWG por su título, y la inyecta en el DOM sin re-renderizar toda la vista.
+// Cacheado en localStorage 30 días para no repetir pedidos.
+async function enrichFeaturedCovers() {
+  if (!featuredGames.length) return;
+  for (const g of featuredGames) {
+    if (g.imageUrl) continue;
+    const key = `rawg-cover:${matchKey(g.title)}`;
+    let cover = readRawgCache(key);
+    if (cover === undefined) {
+      try {
+        const r = await fetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
+        const json = await r.json();
+        const hit = json?.games?.[0];
+        cover = hit?.imageUrl || "";
+        if (hit?.metacritic != null) {
+          g._rawgMeta = hit.metacritic;
+          writeRawgCache(`rawg-meta:${matchKey(g.title)}`, hit.metacritic);
+        }
+        writeRawgCache(key, cover);
+      } catch {
+        cover = "";
+      }
+    }
+    if (cover) {
+      g.imageUrl = cover;
+      applyGameCoverUpdate(g);
+    }
+    // Pausa corta para no saturar el cupo de RAWG.
+    await new Promise(res => setTimeout(res, 120));
+  }
+}
+
+// Reemplaza el placeholder por la imagen real en las tarjetas y/o en la ficha
+// del juego, sin re-renderizar (mantiene scroll y filtros activos).
+function applyGameCoverUpdate(g) {
+  const href = `#/producto/${encodeURIComponent(g.id)}`;
+  document.querySelectorAll(`a[href="${CSS.escape(href)}"] .card-image`).forEach(box => {
+    const ph = box.querySelector(".placeholder");
+    if (!ph) return;
+    const img = new Image();
+    img.src = g.imageUrl;
+    img.alt = g.title;
+    img.loading = "lazy";
+    ph.replaceWith(img);
+  });
+  // Ficha de producto abierta en este juego
+  const route = parseRoute();
+  if (route.name === "product" && String(route.id) === String(g.id)) {
+    const box = document.querySelector(".product-image");
+    const ph = box?.querySelector(".placeholder");
+    if (ph) {
+      const img = new Image();
+      img.src = g.imageUrl;
+      img.alt = g.title;
+      ph.replaceWith(img);
+    }
   }
 }
 
@@ -1132,9 +1219,9 @@ const AAA_ENRICH_BATCH = 5;        // requests en paralelo
 const AAA_ENRICH_DELAY_MS = 250;   // pausa entre batches
 
 function isAAA(g) {
-  // Ofertas curadas a mano siempre se muestran: son títulos elegidos por
-  // nosotros, no necesitan pasar por la heurística.
-  if (g._manualPrices) return true;
+  // Ofertas curadas a mano y catálogo curado de "más buscados" siempre se
+  // muestran: son títulos elegidos por nosotros, no pasan por la heurística.
+  if (g._manualPrices || g._featured) return true;
 
   const meta = g._rawgMeta;
   // Veredicto positivo de RAWG: Metacritic alto = AAA, sin importar el precio.
