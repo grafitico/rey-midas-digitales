@@ -376,6 +376,20 @@ function parseRoute() {
     const page = (partes[1] === "p" && partes[2]) ? parseInt(partes[2], 10) || 1 : 1;
     return { name: "ofertas", page };
   }
+  if (partes[0] === "explorar") {
+    // /explorar | /explorar/p/N | /explorar/<plat> | /explorar/<plat>/p/N
+    const plats = new Set(["ps5", "ps4", "xboxone", "xboxseries"]);
+    let platform = null;
+    let page = 1;
+    if (partes[1]) {
+      if (partes[1] === "p" && partes[2]) page = parseInt(partes[2], 10) || 1;
+      else if (plats.has(partes[1])) {
+        platform = partes[1];
+        if (partes[2] === "p" && partes[3]) page = parseInt(partes[3], 10) || 1;
+      }
+    }
+    return { name: "explorar", platform, page };
+  }
   if (["como-comprar", "faq", "terminos", "privacidad", "garantia", "nosotros"].includes(partes[0])) {
     return { name: "info", slug: partes[0] };
   }
@@ -557,6 +571,7 @@ function render() {
   }
   if (route.name === "bundles-list") return renderBundlesList(route.platform);
   if (route.name === "ofertas") return renderOfertas(route.page);
+  if (route.name === "explorar") return renderExplorar(route.platform, route.page);
   if (route.name === "info") return renderInfoPage(route.slug);
   if (route.name === "subscriptions") return renderSubscriptions(route.service);
   if (route.name === "reservaciones") return renderReservaciones();
@@ -898,6 +913,155 @@ function writeRawgCache(key, data) {
       localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), data }));
     } catch { /* nada que hacer */ }
   }
+}
+
+// ============================================================
+// Explorar AAA: catálogo general traído de RAWG. Cuando un juego
+// matchea con uno de nuestro catálogo scrapeado (por título limpio),
+// mostramos el precio y "Comprar"; si no, "Consultar por WhatsApp".
+// ============================================================
+const EXPLORAR_PLATFORMS = [
+  { key: null,          label: "Todos" },
+  { key: "ps5",         label: "PS5" },
+  { key: "ps4",         label: "PS4" },
+  { key: "xboxseries",  label: "Xbox Series" },
+  { key: "xboxone",     label: "Xbox One" },
+];
+
+async function renderExplorar(platform, page = 1) {
+  app.innerHTML = `
+    ${heroSlimHTML("Explorar AAA")}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>Explorar catálogo AAA</h2>
+        <p>Lo más jugado de PlayStation y Xbox. Si lo tenemos en oferta, el precio se muestra abajo. Si no, escribinos por WhatsApp y te lo conseguimos.</p>
+      </div>
+      <div class="explorar-filters" id="explorarFilters">
+        ${EXPLORAR_PLATFORMS.map(p => {
+          const href = p.key ? `#/explorar/${p.key}` : `#/explorar`;
+          const active = (p.key || null) === (platform || null);
+          return `<a class="explorar-chip ${active ? "active" : ""}" href="${href}">${escapeHtml(p.label)}</a>`;
+        }).join("")}
+      </div>
+      <div id="grid" class="grid">
+        ${Array.from({ length: 12 }, () => skeletonCardHTML()).join("")}
+      </div>
+      <div id="pagination" class="pagination"></div>
+    </section>
+  `;
+
+  const cacheKey = `rawg:list:${platform || "all"}:${page}`;
+  let payload = readRawgCache(cacheKey);
+
+  if (!payload) {
+    try {
+      const params = new URLSearchParams({
+        mode: "list",
+        page: String(page),
+        page_size: "24",
+        ordering: "-added",
+      });
+      if (platform) params.set("platform", platform);
+      const r = await fetch(`/api/rawg?${params.toString()}`);
+      payload = await r.json();
+      if (payload?.success) writeRawgCache(cacheKey, payload);
+    } catch (e) {
+      payload = { success: false, error: e.message };
+    }
+  }
+
+  const grid = document.getElementById("grid");
+  if (!grid) return;
+
+  if (!payload?.success) {
+    grid.innerHTML = `<div class="status error">No se pudo cargar el catálogo: ${escapeHtml(payload?.error || "error desconocido")}</div>`;
+    return;
+  }
+
+  const games = payload.games || [];
+  if (!games.length) {
+    grid.innerHTML = `<div class="status">No hay resultados.</div>`;
+    return;
+  }
+
+  const matcher = buildScrapedMatcher(allGames);
+  grid.innerHTML = games.map(g => explorarCardHTML(g, matcher.get(matchKey(g.title)))).join("");
+
+  // Paginación simple: siguiente/anterior, sin total exacto (RAWG da count pero
+  // queremos limitar a páginas razonables, ~24 por página).
+  const pagEl = document.getElementById("pagination");
+  if (pagEl) {
+    const base = platform ? `/explorar/${platform}` : `/explorar`;
+    const prev = page > 1 ? `<a class="page-btn" href="#${base}${page - 1 === 1 ? "" : "/p/" + (page - 1)}">‹ Anterior</a>` : `<span class="page-btn" aria-disabled="true">‹ Anterior</span>`;
+    const next = payload.next ? `<a class="page-btn" href="#${base}/p/${page + 1}">Siguiente ›</a>` : `<span class="page-btn" aria-disabled="true">Siguiente ›</span>`;
+    pagEl.innerHTML = `${prev}<span class="page-btn active">${page}</span>${next}`;
+  }
+}
+
+function explorarCardHTML(rawgGame, scrapedGame) {
+  const img = rawgGame.imageUrl
+    ? `<img src="${escapeAttr(rawgGame.imageUrl)}" alt="${escapeAttr(rawgGame.title)}" loading="lazy">`
+    : placeholderHTML();
+  const meta = rawgGame.metacritic;
+  const metaClass = meta >= 75 ? "meta-good" : meta >= 50 ? "meta-mid" : "meta-bad";
+  const plats = (rawgGame.platforms || []).join(" · ");
+
+  let priceBlock = "";
+  let href;
+  if (scrapedGame) {
+    const principal = scrapedGame._manualPrices ? scrapedGame.priceCRC_principal : principalCRC(scrapedGame.priceUSD);
+    const secundaria = scrapedGame._manualPrices ? scrapedGame.priceCRC_secundaria : secundariaCRC(scrapedGame.priceUSD);
+    priceBlock = `
+      <div class="price-rows">
+        ${principal != null ? `<div class="price-row"><span class="price-tag">Principal</span><span class="price-value">${formatCRC(principal)}</span></div>` : ""}
+        ${secundaria != null ? `<div class="price-row"><span class="price-tag secundaria">Secundaria</span><span class="price-value">${formatCRC(secundaria)}</span></div>` : ""}
+      </div>
+    `;
+    href = `#/producto/${encodeURIComponent(scrapedGame.id)}`;
+  } else {
+    const waMsg = `Hola, ¿tienen el juego ${rawgGame.title}? Lo vi en su sección Explorar.`;
+    priceBlock = `<a class="explorar-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Consultar por WhatsApp</a>`;
+    href = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(waMsg)}`;
+  }
+
+  const isExternal = !scrapedGame;
+  const linkAttrs = isExternal ? `target="_blank" rel="noopener"` : "";
+
+  return `
+    <a class="card explorar-card" href="${href}" ${linkAttrs}>
+      <div class="card-image">
+        ${img}
+        ${meta ? `<span class="meta-badge card-meta ${metaClass}" title="Metacritic">${meta}</span>` : ""}
+        ${plats ? `<span class="badge-platform">${escapeHtml(plats)}</span>` : ""}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(rawgGame.title)}</div>
+        ${priceBlock}
+      </div>
+    </a>
+  `;
+}
+
+// Index los juegos scrapeados por título normalizado para lookup O(1).
+// Algunos juegos vienen con varios títulos (PS5/PS4 con sufijo); guardamos
+// el mejor (con descuento si lo hay) bajo la misma clave.
+function buildScrapedMatcher(list) {
+  const map = new Map();
+  for (const g of (list || [])) {
+    const k = matchKey(g.title);
+    if (!k) continue;
+    const prev = map.get(k);
+    if (!prev || (g.onSale && !prev.onSale)) map.set(k, g);
+  }
+  return map;
+}
+
+function matchKey(t) {
+  return cleanTitleForRawg(t)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 // ============================================================
