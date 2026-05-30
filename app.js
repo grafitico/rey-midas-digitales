@@ -495,9 +495,10 @@ async function load() {
     if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
-    // Marcamos AAA por título (los tags del scraper a veces vienen vacíos).
+    // El scraper PSN ya marca isAAA y genres. Para Xbox y ofertas
+    // manuales aplicamos isAAA por título también.
     for (const g of games) {
-      g.isAAA = isAAATitle(g.title);
+      if (g.isAAA == null) g.isAAA = isAAATitle(g.title);
     }
     // Orden: AAA primero, después ofertas, después por mayor descuento.
     // Los AAA en oferta quedan arriba del todo.

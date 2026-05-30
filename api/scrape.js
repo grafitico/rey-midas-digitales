@@ -1,60 +1,58 @@
-// Scraper de PlayStation Store (es-cr) — v3 paginado.
+// Scraper de PlayStation Store (es-cr) — v4.
 //
-// Recorre todas las páginas de la(s) categoría(s) principales de juegos
-// PS5/PS4 hasta encontrar un chunk vacío, en paralelo controlado. Más
-// las páginas estáticas de deals/latest. Antes traíamos ~200 juegos
-// fijos; ahora apuntamos a varios miles.
+// Cambia el modelo de fuentes respecto a v3:
 //
-// Si PSN cambia el UUID de la categoría o el patrón /category/{id}/{n},
-// hay que actualizar CATEGORIES/STATIC_PAGES abajo.
+// - Antes traíamos ~3600 juegos de UNA sola categoría genérica
+//   (44d8bb20…), ordenada por release date desc por PSN. El resultado
+//   era 3000+ indies/F2P/demos recientes y casi cero AAA visibles en
+//   las primeras páginas.
+//
+// - Ahora la fuente primaria son las categorías de género (Action,
+//   Shooter, Sports, RPG…). Estas concentran AAA por su naturaleza:
+//   Action tiene GTA, COD, Spider-Man, God of War; Sports tiene FIFA,
+//   NBA2K; Racing tiene Gran Turismo, NFS, Forza; etc.
+//
+// - La categoría genérica se mantiene como secundaria con cap chico
+//   (30 páginas) solo para completar lo que las de género no traen.
+//
+// - Marcamos `isAAA` por título contra una regex de franquicias
+//   conocidas. Después filtramos indies (precio < $5 y no AAA, o
+//   demos/trials no AAA) y ordenamos AAA primero.
+//
+// - Si llamás con ?debug=1, devolvemos muestras por fuente para ver
+//   exactamente qué trajo cada query y dónde está fallando.
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
 
-const CATEGORIES = [
-  "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
-];
-
-const STATIC_PAGES = [
-  "/pages/deals",
-  "/pages/latest",
-];
-
-// Categorías de género — cada género tiene su propio UUID en PSN, igual
-// que el catálogo principal. Las paginamos y taggeamos cada juego que
-// aparece con el género correspondiente. Esto es la fuente confiable de
-// tags: el `directGenres` del Product no viene poblado en es-cr (corrida
-// previa: 0 juegos taggeados directo de 3579), y la búsqueda /search/
-// solo devuelve ~24-48 resultados por query (28 taggeados de 3579, 0.8%).
-//
-// UUIDs verificados en stores en-us/es-mx (clúster LATAM, mismos UUIDs
-// para es-cr). Si PSN cambia un UUID hay que actualizar acá.
+// Fuente primaria: categorías de género. Cada una concentra AAA del
+// género y sus tags se cuelgan a cada juego que aparece adentro.
 const GENRE_CATEGORIES = [
-  { tag: "accion",     uuid: "298b428c-0c39-4ec8-abd5-237484e5a2ea" }, // Action
-  { tag: "rpg",        uuid: "e0b1cde3-a7ea-4d7a-960a-fa5edbafae8f" }, // RPG
-  { tag: "shooter",    uuid: "64ee024b-7644-468a-92c6-370269075d5c" }, // Shooter
-  { tag: "deportes",   uuid: "b86f0f65-cf49-4f96-8cdd-3991ca17eadc" }, // Sports
-  { tag: "carreras",   uuid: "f45ce6b0-61ef-4b78-94c3-048d81b07f98" }, // Racing
-  { tag: "lucha",      uuid: "02e50754-377f-4546-9252-67cfebb2e5b0" }, // Fighting
-  { tag: "terror",     uuid: "6ec578f6-d6b7-423c-8b93-14e14a5a43f2" }, // Horror
-  { tag: "simulacion", uuid: "bb42a4e0-2d0e-40e5-9714-ae4e10320f24" }, // Simulation
-  { tag: "infantiles", uuid: "9d30a9d8-1a3c-462d-865d-0be3f208e6d2" }, // Kids & Family
+  { tag: "accion",     uuid: "298b428c-0c39-4ec8-abd5-237484e5a2ea", maxPages: 40 },
+  { tag: "shooter",    uuid: "64ee024b-7644-468a-92c6-370269075d5c", maxPages: 30 },
+  { tag: "rpg",        uuid: "e0b1cde3-a7ea-4d7a-960a-fa5edbafae8f", maxPages: 30 },
+  { tag: "deportes",   uuid: "b86f0f65-cf49-4f96-8cdd-3991ca17eadc", maxPages: 25 },
+  { tag: "carreras",   uuid: "f45ce6b0-61ef-4b78-94c3-048d81b07f98", maxPages: 20 },
+  { tag: "lucha",      uuid: "02e50754-377f-4546-9252-67cfebb2e5b0", maxPages: 15 },
+  { tag: "terror",     uuid: "6ec578f6-d6b7-423c-8b93-14e14a5a43f2", maxPages: 15 },
+  { tag: "simulacion", uuid: "bb42a4e0-2d0e-40e5-9714-ae4e10320f24", maxPages: 15 },
+  { tag: "infantiles", uuid: "9d30a9d8-1a3c-462d-865d-0be3f208e6d2", maxPages: 15 },
 ];
 
-// Búsquedas por género adicionales — fallback liviano que cubre tags que
-// no tienen categoría dedicada en PSN (aventura como tag separado,
-// estrategia). Si encuentra un juego ya taggeado por categoría, suma
-// el tag; no duplica.
+// Categoría genérica — fallback, cap bajo. Sirve para sumar juegos
+// que no caen en ningún género específico.
+const FALLBACK_CATEGORY = {
+  uuid: "44d8bb20-653e-431e-8ad0-c0a365f68d2f",
+  maxPages: 30,
+};
+
+// Búsquedas de género adicionales (tags sin categoría dedicada).
 const GENRE_SEARCHES = [
   { tag: "aventura",   query: "aventura" },
   { tag: "estrategia", query: "estrategia" },
 ];
 
-// Búsquedas semilla — el catálogo principal viene ordenado por release
-// date y entierra AAA clásicos (Crash, NFS, FIFA viejos, GTA, etc.)
-// más allá de las 150 páginas que paginamos. Cada query trae 24-48
-// resultados y los agrega al map principal aunque no estén en la
-// categoría principal. Sin tags forzados — si el juego tiene tags
-// vendrán de las categorías de género.
+// Búsquedas semilla — fuerzan que franquicias AAA específicas estén
+// en el catálogo aunque queden enterradas en otras fuentes.
 const SEED_SEARCHES = [
   "crash bandicoot", "need for speed", "fifa", "ea sports fc",
   "gta", "grand theft auto", "call of duty", "assassin's creed",
@@ -65,22 +63,35 @@ const SEED_SEARCHES = [
   "nba 2k", "madden", "wwe", "f1", "watch dogs", "far cry",
   "borderlands", "dragon ball", "naruto", "one piece",
   "lego", "ratchet", "gran turismo", "diablo",
+  "cyberpunk", "hogwarts", "red dead", "fallout",
+  "skyrim", "mass effect", "halo", "forza",
+  "starfield", "overwatch", "destiny", "final fantasy",
+  "kingdom hearts", "persona", "monster hunter", "nier",
+  "sonic", "witcher", "hitman", "dying light",
+  "bioshock", "wolfenstein", "doom", "rainbow six",
+  "the division", "saints row", "mafia", "burnout",
+  "tony hawk", "ace combat", "fortnite", "apex",
+  "silent hill", "dead space", "until dawn",
+  "ghost of tsushima", "sekiro", "bloodborne", "nioh",
+  "civilization", "alan wake", "returnal", "yakuza",
+  "tales of", "bayonetta", "devil may cry", "ninja gaiden",
+  "hellblade", "max payne", "stray", "it takes two",
+  "hades", "hollow knight",
 ];
 
-// Tope de páginas por categoría. 150 * ~24 productos = ~3600 por categoría.
-// La corrida anterior llegó a 50 sin ningún empty/fail, así que el catálogo
-// tiene bastante más profundidad que eso.
-const MAX_PAGES_PER_CATEGORY = 150;
-// Cuántas páginas pedimos en paralelo dentro de una misma categoría.
-// Subimos a 20 para que 150 páginas entren dentro del timeout de 30s
-// (8 chunks * ~2.5s ≈ 20s).
-const PAGE_CHUNK = 20;
+// Franquicias AAA por título — usado para marcar isAAA y para
+// proteger del filtro anti-indie. Misma lista que app.js para que
+// front y back coincidan.
+const AAA_FRANCHISE_REGEX = /\b(crash bandicoot|need for speed|fifa|ea sports fc|gta|grand theft auto|call of duty|assassin'?s creed|tomb raider|spider-?man|uncharted|god of war|resident evil|battlefield|minecraft|rocket league|mortal kombat|tekken|street fighter|the last of us|metal gear|dark souls|elden ring|horizon|nba 2k|madden|wwe ?2k|f1 [0-9]|watch dogs|far cry|borderlands|dragon ball|naruto|one piece|lego|ratchet|gran turismo|diablo|cyberpunk|hogwarts|red dead|fallout|skyrim|mass effect|halo|forza|gears of war|sea of thieves|starfield|overwatch|destiny|final fantasy|kingdom hearts|persona|monster hunter|nier|sonic|the witcher|hitman|dying light|metro exodus|bioshock|wolfenstein|doom eternal|rainbow six|the division|saints row|mafia|burnout|dirt [0-9]|mlb the show|tony hawk|ufc [0-9]|ace combat|the crew|forza horizon|forza motorsport|fortnite|apex legends|fall guys|silent hill|dead space|alien isolation|until dawn|the evil within|days gone|ghost of tsushima|sekiro|bloodborne|nioh|civilization|total war|portal [0-9]|left 4 dead|alan wake|returnal|deathloop|like a dragon|yakuza|judgment|tales of|bayonetta|devil may cry|ninja gaiden|hellblade|fable|max payne|hogwarts legacy|stray|it takes two|hades|hollow knight)\b/i;
 
-// Topes para categorías de género — más bajos porque corren 9 en
-// paralelo con el catálogo principal. 20 páginas * ~24 = ~480 juegos
-// por género; cubre el grueso sin saturar a PSN ni desbordar timeout.
-const MAX_PAGES_PER_GENRE = 20;
-const GENRE_PAGE_CHUNK = 5;
+// Patrones de basura — drop si matchea Y no es AAA.
+const JUNK_TITLE_REGEX = /\b(demo|trial|beta|prologue|teaser|test|preview|early access|free version|free trial|temporary entitlement|avatar|theme|wallpaper|soundtrack|ost|in-game currency|pack de monedas|paquete de monedas|moneda virtual|virtual currency|v-?bucks|cr coins|fc points|fifa points)\b/i;
+
+// Precio piso para no-AAA. Indies de menos de $5 son ruido para el catálogo.
+const MIN_PRICE_NON_AAA = 5;
+
+const PAGE_CHUNK = 10;
+const FALLBACK_PAGE_CHUNK = 15;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -88,133 +99,151 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  const debug = req.query?.debug === "1";
+
   try {
     const map = new Map();
-    const categoryGenreMap = new Map(); // gameId -> Set<genreTag> (de categorías UUID)
-    const searchGenreMap = new Map();   // gameId -> Set<genreTag> (de /search/)
+    const genreMap = new Map(); // gameId -> Set<genreTag>
+    const sourceCounts = {}; // sourceName -> { fetched, items, samples: [...] }
     const stats = {
-      categoriesScanned: CATEGORIES.length,
+      sourcesScanned: 0,
       pagesFetched: 0,
       pagesEmpty: 0,
       pagesFailed: 0,
-      genreCategoriesFetched: 0,
-      genreCategoriesFailed: 0,
-      genrePagesFetched: 0,
-      genreSearchesFetched: 0,
-      genreSearchesFailed: 0,
-      seedSearchesFetched: 0,
-      seedSearchesFailed: 0,
     };
 
-    const categoryWork = CATEGORIES.map(async (catId) => {
-      const items = await fetchCategoryPaginated(catId, stats, MAX_PAGES_PER_CATEGORY, PAGE_CHUNK);
-      for (const g of items) {
+    function trackSource(name) {
+      if (!sourceCounts[name]) sourceCounts[name] = { items: 0, samples: [] };
+      return sourceCounts[name];
+    }
+
+    function addGames(games, sourceName, tag) {
+      const src = trackSource(sourceName);
+      for (const g of games) {
         if (!map.has(g.id)) map.set(g.id, g);
-      }
-    });
-
-    const staticWork = STATIC_PAGES.map(async (path) => {
-      try {
-        const games = await fetchAndParse(`${PSN_BASE}${path}`);
-        stats.pagesFetched++;
-        for (const g of games) {
-          if (!map.has(g.id)) map.set(g.id, g);
+        src.items++;
+        if (src.samples.length < 3) src.samples.push(g.title);
+        if (tag) {
+          if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
+          genreMap.get(g.id).add(tag);
         }
-      } catch {
-        stats.pagesFailed++;
+      }
+    }
+
+    // Categorías de género (fuente primaria).
+    const genreWork = GENRE_CATEGORIES.map(async ({ tag, uuid, maxPages }) => {
+      const sourceName = `genre:${tag}`;
+      stats.sourcesScanned++;
+      try {
+        const items = await fetchCategoryPaginated(uuid, stats, maxPages, PAGE_CHUNK);
+        addGames(items, sourceName, tag);
+      } catch (e) {
+        trackSource(sourceName).error = e.message;
       }
     });
 
-    // Opción C: paginar cada categoría de género de PSN y taggear.
-    // Estos juegos también se agregan al map principal por si no
-    // estaban en la categoría general.
-    const genreCategoryWork = GENRE_CATEGORIES.map(async ({ tag, uuid }) => {
+    // Categoría genérica (fallback secundario).
+    const fallbackWork = (async () => {
+      const sourceName = `fallback:catalog`;
+      stats.sourcesScanned++;
       try {
         const items = await fetchCategoryPaginated(
-          uuid,
-          { pagesFetched: 0, pagesEmpty: 0, pagesFailed: 0 }, // stats locales descartables
-          MAX_PAGES_PER_GENRE,
-          GENRE_PAGE_CHUNK,
-          stats, // para incrementar genrePagesFetched
+          FALLBACK_CATEGORY.uuid, stats, FALLBACK_CATEGORY.maxPages, FALLBACK_PAGE_CHUNK
         );
-        stats.genreCategoriesFetched++;
-        for (const g of items) {
-          if (!map.has(g.id)) map.set(g.id, g);
-          if (!categoryGenreMap.has(g.id)) categoryGenreMap.set(g.id, new Set());
-          categoryGenreMap.get(g.id).add(tag);
-        }
-      } catch {
-        stats.genreCategoriesFailed++;
+        addGames(items, sourceName, null);
+      } catch (e) {
+        trackSource(sourceName).error = e.message;
       }
-    });
+    })();
 
+    // Búsquedas de género adicionales.
     const genreSearchWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
+      const sourceName = `genre-search:${tag}`;
+      stats.sourcesScanned++;
       try {
         const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
-        stats.genreSearchesFetched++;
-        for (const g of games) {
-          if (!map.has(g.id)) map.set(g.id, g);
-          if (!searchGenreMap.has(g.id)) searchGenreMap.set(g.id, new Set());
-          searchGenreMap.get(g.id).add(tag);
-        }
-      } catch {
-        stats.genreSearchesFailed++;
+        addGames(games, sourceName, tag);
+      } catch (e) {
+        trackSource(sourceName).error = e.message;
       }
     });
 
-    // Búsquedas semilla — sólo expanden el catálogo, no taggean.
+    // Seed searches — franquicias AAA explícitas.
     const seedWork = SEED_SEARCHES.map(async (query) => {
+      const sourceName = `seed:${query}`;
+      stats.sourcesScanned++;
       try {
         const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
-        stats.seedSearchesFetched++;
-        for (const g of games) {
-          if (!map.has(g.id)) map.set(g.id, g);
-        }
-      } catch {
-        stats.seedSearchesFailed++;
+        addGames(games, sourceName, null);
+      } catch (e) {
+        trackSource(sourceName).error = e.message;
       }
     });
 
     await Promise.all([
-      ...categoryWork,
-      ...staticWork,
-      ...genreCategoryWork,
+      ...genreWork,
+      fallbackWork,
       ...genreSearchWork,
       ...seedWork,
     ]);
 
-    let taggedDirect = 0;
-    let taggedCategory = 0;
-    let taggedSearch = 0;
-    let taggedAny = 0;
-    const sampleTagged = [];
+    // Post-procesamiento: tag AAA + filtro anti-indie.
+    const beforeFilter = map.size;
+    let droppedJunk = 0;
+    let droppedCheap = 0;
+    let keptAAA = 0;
 
-    const games = Array.from(map.values())
-      .map(g => {
-        const direct = new Set(g.directGenres || []);
-        const fromCategory = categoryGenreMap.get(g.id) || new Set();
-        const fromSearch = searchGenreMap.get(g.id) || new Set();
-        const merged = new Set([...direct, ...fromCategory, ...fromSearch]);
-        if (direct.size > 0) taggedDirect++;
-        if (fromCategory.size > 0) taggedCategory++;
-        if (fromSearch.size > 0) taggedSearch++;
-        if (merged.size > 0) taggedAny++;
-        if (merged.size > 0 && sampleTagged.length < 5) {
-          sampleTagged.push({ title: g.title, genres: Array.from(merged) });
-        }
-        const { directGenres, ...rest } = g;
-        return { ...rest, genres: Array.from(merged) };
-      })
-      .sort((a, b) => {
-        if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
-        return b.discount - a.discount;
+    const games = [];
+    for (const g of map.values()) {
+      const isAAA = AAA_FRANCHISE_REGEX.test(g.title);
+      g.isAAA = isAAA;
+      g.genres = Array.from(genreMap.get(g.id) || []);
+
+      if (!isAAA && JUNK_TITLE_REGEX.test(g.title)) { droppedJunk++; continue; }
+      if (!isAAA && g.originalPriceUSD < MIN_PRICE_NON_AAA) { droppedCheap++; continue; }
+      if (isAAA) keptAAA++;
+      games.push(g);
+    }
+
+    // Orden: AAA primero, después por precio original descendente (los
+    // AAA suelen ser $40-70, los premium quedan arriba), después por
+    // descuento descendente.
+    games.sort((a, b) => {
+      if (a.isAAA !== b.isAAA) return a.isAAA ? -1 : 1;
+      if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
+      if (b.originalPriceUSD !== a.originalPriceUSD) return b.originalPriceUSD - a.originalPriceUSD;
+      return b.discount - a.discount;
+    });
+
+    stats.gamesBeforeFilter = beforeFilter;
+    stats.gamesAfterFilter = games.length;
+    stats.droppedJunk = droppedJunk;
+    stats.droppedCheap = droppedCheap;
+    stats.gamesAAA = keptAAA;
+    stats.gamesTagged = games.filter(g => g.genres.length > 0).length;
+
+    if (debug) {
+      const sourcesSummary = {};
+      for (const [name, info] of Object.entries(sourceCounts)) {
+        sourcesSummary[name] = {
+          items: info.items,
+          samples: info.samples,
+          ...(info.error ? { error: info.error } : {}),
+        };
+      }
+      const aaaSample = games.filter(g => g.isAAA).slice(0, 30).map(g => g.title);
+      return res.status(200).json({
+        success: true,
+        count: games.length,
+        stats,
+        sources: sourcesSummary,
+        aaaSample,
+        firstPageSample: games.slice(0, 20).map(g => ({
+          title: g.title, priceUSD: g.priceUSD, originalPriceUSD: g.originalPriceUSD,
+          isAAA: g.isAAA, genres: g.genres, onSale: g.onSale,
+        })),
       });
-
-    stats.taggedDirect = taggedDirect;
-    stats.taggedCategory = taggedCategory;
-    stats.taggedSearch = taggedSearch;
-    stats.taggedAny = taggedAny;
-    stats.sampleTagged = sampleTagged;
+    }
 
     return res.status(200).json({
       success: true,
@@ -227,7 +256,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function fetchCategoryPaginated(catId, stats, maxPages, chunkSize, sharedStats) {
+async function fetchCategoryPaginated(catId, stats, maxPages, chunkSize) {
   const all = [];
   let pageStart = 1;
   while (pageStart <= maxPages) {
@@ -244,7 +273,6 @@ async function fetchCategoryPaginated(catId, stats, maxPages, chunkSize, sharedS
         if (r.value.length > 0) {
           all.push(...r.value);
           stats.pagesFetched++;
-          if (sharedStats) sharedStats.genrePagesFetched++;
           chunkProduced = true;
         } else {
           stats.pagesEmpty++;
@@ -253,7 +281,6 @@ async function fetchCategoryPaginated(catId, stats, maxPages, chunkSize, sharedS
         stats.pagesFailed++;
       }
     }
-    // Si todo el chunk vino vacío o falló, asumimos que ya pasamos del final.
     if (!chunkProduced) break;
     pageStart += chunkSize;
   }
@@ -282,12 +309,18 @@ function parseGames(html) {
 
   const cache = data?.props?.apolloState || {};
   const out = [];
+  const seen = new Set();
   for (const key of Object.keys(cache)) {
     const obj = cache[key];
     if (!obj || typeof obj !== "object") continue;
-    if (obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) {
-      const g = normalize(obj);
-      if (g) out.push(g);
+    const looksLikeProduct =
+      obj.__typename === "Product" ||
+      (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id));
+    if (!looksLikeProduct) continue;
+    const g = normalize(obj);
+    if (g && !seen.has(g.id)) {
+      seen.add(g.id);
+      out.push(g);
     }
   }
   return out;
@@ -325,33 +358,7 @@ function normalize(p) {
     onSale,
     discount: onSale ? Math.round((1 - current / original) * 100) : 0,
     isBundle: /bundle|edition|collection|pack|trilogy|complete|deluxe|ultimate|gold|premium|definitive|remaster/i.test(p.name),
-    // Géneros desde el propio Product de PSN. Distintas páginas de PSN
-    // exponen el campo con nombres distintos, así que probamos varios.
-    // Lo que matchee se taggea con la versión normalizada (sin tildes,
-    // minúsculas) para que la búsqueda interna del cliente lo encuentre.
-    directGenres: extractDirectGenres(p),
   };
-}
-
-function extractDirectGenres(p) {
-  const out = new Set();
-  const fieldsToCheck = [p.genres, p.localizedGenres, p.genreList, p.localizedGenreNames];
-  for (const src of fieldsToCheck) {
-    if (!Array.isArray(src)) continue;
-    for (const g of src) {
-      const val = typeof g === "string" ? g : (g?.value || g?.name || g?.label);
-      if (val) out.add(normalizeGenreTag(val));
-    }
-  }
-  return Array.from(out);
-}
-
-function normalizeGenreTag(s) {
-  return String(s)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "");
 }
 
 function parsePrice(str) {
