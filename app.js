@@ -485,12 +485,15 @@ async function load() {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return (b.discount || 0) - (a.discount || 0);
     });
+    hydrateRawgMetaFromCache(allGames);
   } catch (err) {
     loadError = err.message;
   } finally {
     loaded = true;
     render();
     enrichBundleCovers();
+    // Enriquecer en background: la primera vez tarda, después todo cacheado.
+    scheduleAAAEnrichForVisible();
   }
 }
 
@@ -890,14 +893,14 @@ function cleanTitleForRawg(t) {
 function readRawgCache(key) {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return null;
+    if (!raw) return undefined;
     const parsed = JSON.parse(raw);
     if (parsed?._ts && Date.now() - parsed._ts > RAWG_CACHE_TTL_MS) {
       localStorage.removeItem(key);
-      return null;
+      return undefined;
     }
-    return parsed.data;
-  } catch { return null; }
+    return parsed.data; // puede ser null (consulta hecha, sin resultado)
+  } catch { return undefined; }
 }
 
 function writeRawgCache(key, data) {
@@ -1062,6 +1065,98 @@ function matchKey(t) {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+// ============================================================
+// Filtro AAA: heurística por precio + Metacritic cacheado de RAWG.
+//   - Si tenemos veredicto de RAWG (g._rawgMeta), lo respetamos: >=70 es AAA.
+//   - Si no, fallback por precio: $15+ base, o $25+ original si está en oferta.
+// El veredicto de RAWG se va llenando en background a medida que el
+// usuario navega — los juegos visibles se enriquecen primero.
+// ============================================================
+const AAA_PRICE_USD = 15;
+const AAA_PRICE_ORIGINAL_USD = 25;
+const AAA_META_THRESHOLD = 70;
+const AAA_ENRICH_BATCH = 5;        // requests en paralelo
+const AAA_ENRICH_DELAY_MS = 250;   // pausa entre batches
+
+function isAAA(g) {
+  // RAWG suma — nunca filtra. Un AAA caro con Metacritic mediocre sigue
+  // pasando por precio; lo único que RAWG hace es rescatar AAA "baratos"
+  // (clásicos, GOTYs viejos) que la heurística sola descartaría.
+  if (g._rawgMeta != null && g._rawgMeta >= AAA_META_THRESHOLD) return true;
+  const current = Number(g.priceUSD) || 0;
+  const original = Number(g.originalPriceUSD) || current;
+  if (current >= AAA_PRICE_USD) return true;
+  if (g.onSale && original >= AAA_PRICE_ORIGINAL_USD) return true;
+  return false;
+}
+
+// Levanta el cache de Metacritic para todos los juegos cargados, así
+// las decisiones de isAAA() son consistentes desde el primer render.
+function hydrateRawgMetaFromCache(games) {
+  for (const g of games || []) {
+    if (g._rawgMeta !== undefined) continue;
+    const cached = readRawgCache(`rawg-meta:${matchKey(g.title)}`);
+    if (cached !== undefined) g._rawgMeta = cached; // puede quedar null = "no AAA según RAWG"
+  }
+}
+
+let _enrichQueue = [];
+let _enrichRunning = false;
+
+// Encola los juegos visibles ahora (página actual + algunos extra) para
+// que RAWG les asigne Metacritic y se decida bien si son AAA o indies.
+function scheduleAAAEnrichForVisible() {
+  if (!allGames?.length) return;
+  // Priorizamos lo que cumple la heurística por precio (probable AAA) +
+  // los borderline (precio bajo pero no descartado): así el toggle se
+  // limpia visualmente más rápido en ambos casos.
+  const candidates = allGames.filter(g => g._rawgMeta === undefined);
+  // Limitamos a ~120 candidatos por ronda para no quemar el cupo.
+  const slice = candidates.slice(0, 120);
+  for (const g of slice) {
+    if (!_enrichQueue.includes(g)) _enrichQueue.push(g);
+  }
+  if (!_enrichRunning) runEnrichLoop();
+}
+
+async function runEnrichLoop() {
+  _enrichRunning = true;
+  let changedSinceLastRender = false;
+  while (_enrichQueue.length) {
+    const batch = _enrichQueue.splice(0, AAA_ENRICH_BATCH);
+    await Promise.all(batch.map(async (g) => {
+      const key = matchKey(g.title);
+      if (!key) { g._rawgMeta = null; return; }
+      const cacheKey = `rawg-meta:${key}`;
+      const cached = readRawgCache(cacheKey);
+      if (cached !== undefined) {
+        g._rawgMeta = cached;
+        return;
+      }
+      try {
+        const r = await fetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
+        const json = await r.json();
+        const hit = json?.games?.[0];
+        const meta = hit?.metacritic ?? null;
+        g._rawgMeta = meta;
+        writeRawgCache(cacheKey, meta);
+      } catch {
+        g._rawgMeta = null;
+      }
+    }));
+    changedSinceLastRender = true;
+    // Re-renderizar el grid si el usuario está en una vista filtrada
+    // por AAA — sin esto, los borderline siguen tachados hasta que
+    // navegue. applyFilters() es barato, mantiene scroll.
+    if (changedSinceLastRender && localFilters.aaaOnly && document.getElementById("grid")) {
+      applyFilters();
+      changedSinceLastRender = false;
+    }
+    if (_enrichQueue.length) await new Promise(r => setTimeout(r, AAA_ENRICH_DELAY_MS));
+  }
+  _enrichRunning = false;
 }
 
 // ============================================================
@@ -2202,11 +2297,13 @@ function toolbarHTML(showPlatformFilters = true) {
           <button class="filter" data-platform="PS4">PS4</button>
           <button class="filter" data-platform="Xbox">Xbox</button>
           <button class="filter" data-sale="true">En oferta</button>
+          <button class="filter active" data-aaa="true" title="Filtrar indies y juegos baratos">Solo AAA</button>
         </div>
       ` : `
         <div class="filters">
           <button class="filter active" data-platform="all">Todos</button>
           <button class="filter" data-sale="true">En oferta</button>
+          <button class="filter active" data-aaa="true" title="Filtrar indies y juegos baratos">Solo AAA</button>
         </div>
       `}
     </div>
@@ -2216,7 +2313,7 @@ function toolbarHTML(showPlatformFilters = true) {
 // ============================================================
 // Grid + filtros + paginación
 // ============================================================
-const localFilters = { platform: "all", sale: false, q: "" };
+const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true };
 let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
@@ -2225,6 +2322,7 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";
+  localFilters.aaaOnly = true;
   localList = baseList || allGames;
   currentPage = page;
   currentRouteBase = routeBase;
@@ -2246,6 +2344,10 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
       if (btn.dataset.sale) {
         localFilters.sale = !localFilters.sale;
         btn.classList.toggle("active");
+      } else if (btn.dataset.aaa) {
+        localFilters.aaaOnly = !localFilters.aaaOnly;
+        btn.classList.toggle("active", localFilters.aaaOnly);
+        btn.textContent = localFilters.aaaOnly ? "Solo AAA" : "Ver todos";
       } else if (btn.dataset.platform) {
         localFilters.platform = btn.dataset.platform;
         document.querySelectorAll(".filter[data-platform]").forEach(b =>
@@ -2257,6 +2359,8 @@ function mountToolbar(baseList, page = 1, routeBase = "/") {
     });
   });
   applyFilters();
+  // Cuando llegan resultados de RAWG en background, re-render del grid.
+  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible();
 }
 
 function applyFilters() {
@@ -2265,11 +2369,13 @@ function applyFilters() {
     list = list.filter(g => g.platform.includes(localFilters.platform));
   }
   if (localFilters.sale) list = list.filter(g => g.onSale);
+  if (localFilters.aaaOnly) list = list.filter(isAAA);
   if (localFilters.q) {
     list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
   renderGrid(list);
   renderPagination(list.length);
+  if (localFilters.aaaOnly) scheduleAAAEnrichForVisible();
 }
 
 function paginate(list) {
