@@ -36,7 +36,81 @@ npm start
 Si aparece "Escuchando mensajes nuevos..." y el siguiente post en el
 canal aparece en los logs como bundle parseado, funciona.
 
-## Modo recomendado: cron diario (one-shot)
+## Modo más simple: GitHub Actions (sin servidor, desde la tablet)
+
+Si no tenés acceso a una compu con SSH ahora, este es el camino. Todo
+se hace desde el navegador de la tablet:
+
+### 1) Sacar `TG_API_ID` y `TG_API_HASH`
+
+Browser → https://my.telegram.org → log in con tu número → "API
+development tools" → creá una app (cualquier nombre). Guardá los dos
+valores.
+
+### 2) Generar la `TG_SESSION` con GitHub Codespaces
+
+Necesitamos correr `node login.js` una sola vez para generar la string
+de sesión. Como es interactivo (pide código que llega por Telegram),
+usamos Codespaces como compu temporal en el browser.
+
+1. GitHub → este repo → botón verde **Code** → pestaña **Codespaces** →
+   "Create codespace on `claude/busy-lamport-jP8JF`" (o `main` si ya se
+   mergeó).
+2. En el terminal del codespace:
+   ```bash
+   cd telegram-userbot
+   npm install
+   TG_API_ID=<id> TG_API_HASH=<hash> node login.js
+   ```
+3. Te pide número de teléfono → escribilo con código de país (ej
+   `+50688887777`).
+4. Telegram te manda un código a tu app de Telegram en la misma tablet
+   → copialo y pegalo en el terminal del codespace.
+5. Si tenés 2FA, te pide la contraseña.
+6. Imprime una **session string** larga. Copiala completa (es como una
+   contraseña — no la subas a ningún lado público).
+7. Cerrá el codespace (Settings → Codespaces → delete). El free tier de
+   GitHub te da 60h/mes, pero igual no necesitamos dejarlo prendido.
+
+### 3) Cargar los secrets en el repo
+
+GitHub → repo → **Settings → Secrets and variables → Actions** →
+botón **New repository secret**, agregá tres:
+
+| Nombre        | Valor                                       |
+|---------------|---------------------------------------------|
+| `TG_API_ID`   | el ID numérico del paso 1                   |
+| `TG_API_HASH` | el hash del paso 1                          |
+| `TG_SESSION`  | la string larga generada en el paso 2       |
+
+No hace falta `GITHUB_TOKEN` — el workflow usa el token built-in del
+runner con permiso `contents: write` (ya está configurado).
+
+### 4) Activar el workflow
+
+Si este branch ya está pusheado, el workflow `Sync bundles from
+Telegram` aparece en la pestaña **Actions** del repo. Por defecto corre
+todos los días a las 3 AM hora CR.
+
+Probalo manualmente:
+- Actions → "Sync bundles from Telegram" → **Run workflow** → Run.
+- En segundos aparece el log. Si parseó bundles, vas a ver un commit
+  nuevo en el repo y nintendo-bundles.json actualizado.
+
+### Cambiar el horario
+
+Editá `.github/workflows/sync-bundles.yml`, línea `cron: "0 9 * * *"`.
+El cron es en UTC:
+- `0 9 * * *` → 3:00 AM hora CR (diario)
+- `0 */6 * * *` → cada 6 horas
+- `0 * * * *` → cada hora
+
+GitHub Actions tarda hasta 15 min en disparar crons frecuentes, no es
+para real-time. Para diario/horario es perfecto.
+
+---
+
+## Modo alternativo: cron diario en Banahosting (one-shot)
 
 Si **no necesitás real-time** (un sync por día/horas alcanza), es muchísimo
 más simple que el modo always-on. No hay proceso persistente, no hay

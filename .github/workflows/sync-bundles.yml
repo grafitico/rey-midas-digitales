@@ -1,0 +1,51 @@
+name: Sync bundles from Telegram
+
+# Corre el userbot en modo one-shot para leer los últimos N mensajes
+# del canal @swichtaccount y commitear los bundles nuevos/actualizados
+# a nintendo-bundles.json en este mismo repo.
+#
+# Schedule en UTC. "0 9 * * *" = 9:00 UTC = 3:00 AM hora de Costa Rica
+# (UTC-6). Ajustar al gusto.
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      sync_limit:
+        description: "Cantidad de mensajes recientes a barrer"
+        required: false
+        default: "50"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: telegram-userbot/package.json
+
+      - name: Install deps
+        working-directory: telegram-userbot
+        run: npm install --no-audit --no-fund
+
+      - name: Run sync-once
+        working-directory: telegram-userbot
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION: ${{ secrets.TG_SESSION }}
+          TG_CHANNEL: ${{ vars.TG_CHANNEL || 'swichtaccount' }}
+          SYNC_LIMIT: ${{ inputs.sync_limit || '50' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+        run: node sync-once.js
