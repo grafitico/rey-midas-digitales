@@ -1,79 +1,155 @@
 // Scraper del preview público de un canal de Telegram.
 //
 // Telegram expone los mensajes de cualquier canal PÚBLICO en
-// https://t.me/s/<channel>. Es HTML estático, no requiere login,
-// bot, ni session — lo único que necesitamos es que el canal esté
-// configurado como público.
+// https://t.me/s/<channel>. Es HTML estático, no requiere login, bot ni
+// session. Para traer mensajes viejos paginamos con ?before=<id>, que
+// devuelve los ~20 mensajes inmediatamente más viejos que ese id.
 //
-// Este script corre desde GitHub Actions una vez por día (o el horario
-// que tenga el workflow), parsea los últimos mensajes del canal y
-// commitea cada bundle nuevo/actualizado a nintendo-bundles.json
-// usando el GITHUB_TOKEN built-in del runner.
+// Este script corre desde GitHub Actions, pagina hacia atrás hasta
+// llegar a SINCE_DATE (default 2026-05-25), parsea cada mensaje en uno
+// o varios bundles, y commitea todo de una sola pasada al JSON
+// nintendo-bundles.json usando el GITHUB_TOKEN built-in del runner.
 
 const CHANNEL = process.env.TG_CHANNEL || "swichtaccount";
-const TG_URL = `https://t.me/s/${CHANNEL}`;
+const TG_BASE = `https://t.me/s/${CHANNEL}`;
 const FILE = "nintendo-bundles.json";
 const GITHUB_API = "https://api.github.com";
 
-async function main() {
-  console.log(`[scrape] Fetching ${TG_URL}…`);
-  const r = await fetch(TG_URL, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml",
-      "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
-    },
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status} al leer ${TG_URL}`);
-  const html = await r.text();
+const SINCE_DATE = new Date(process.env.SINCE_DATE || "2026-05-25T00:00:00Z");
+const MAX_PAGES = parseInt(process.env.MAX_PAGES || "100", 10);
 
-  const messages = extractMessages(html);
-  console.log(`[scrape] Mensajes detectados en HTML: ${messages.length}`);
+async function main() {
+  console.log(`[scrape] Canal: @${CHANNEL}`);
+  console.log(`[scrape] Fecha de corte: ${SINCE_DATE.toISOString()} (todo lo posterior se incluye)`);
+
+  const allMessages = await fetchAllMessages();
+  console.log(`[scrape] Total de mensajes recolectados desde el corte: ${allMessages.length}`);
 
   const bundles = [];
-  for (const text of messages) {
-    // Un mismo mensaje puede contener varios bundles consecutivos.
-    // Cada bundle empieza con "NINTENDO SWITCH ACCOUNT". Si el mensaje no
-    // tiene ese header (formato distinto), el split devuelve un solo
-    // bloque y parseBundle igual lo procesa entero.
-    const blocks = text.split(/(?=NINTENDO SWITCH ACCOUNT)/i);
+  for (const msg of allMessages) {
+    const blocks = msg.text.split(/(?=NINTENDO SWITCH ACCOUNT)/i);
     for (const block of blocks) {
       const b = parseBundle(block);
-      if (b) bundles.push(b);
+      if (b) {
+        b._postedAt = msg.date;  // transient, para ordenar; no se commitea
+        bundles.push(b);
+      }
     }
   }
-  console.log(`[scrape] Bundles parseados: ${bundles.length}`);
 
-  if (bundles.length === 0) {
+  // Deduplicar por id quedándonos con la versión más reciente
+  // (si el proveedor reposteó el mismo id con cambios).
+  const byId = new Map();
+  for (const b of bundles) {
+    const prev = byId.get(b.id);
+    if (!prev || (b._postedAt && prev._postedAt && b._postedAt > prev._postedAt)) {
+      byId.set(b.id, b);
+    }
+  }
+  const deduped = Array.from(byId.values())
+    .sort((a, b) => (b._postedAt || 0) - (a._postedAt || 0));  // newest first
+
+  console.log(`[scrape] Bundles únicos parseados: ${deduped.length}`);
+  if (deduped.length === 0) {
     console.log("[scrape] Nada para commitear. Saliendo.");
     return;
   }
 
-  const stats = { added: 0, updated: 0, unchanged: 0, failed: 0 };
-  for (const b of bundles) {
-    try {
-      const result = await upsertBundle(b);
-      stats[result.action] = (stats[result.action] || 0) + 1;
-      console.log(`[scrape]   ${result.action} ${b.id} (₡${b.priceCRC}, ${b.games.length} juegos)`);
-    } catch (e) {
-      stats.failed++;
-      console.error(`[scrape]   FAIL ${b.id}: ${e.message}`);
-    }
-  }
+  const stats = await batchUpsert(deduped);
   console.log(`[scrape] Resumen: ${JSON.stringify(stats)}`);
+}
+
+// ===== Paginación =====
+async function fetchAllMessages() {
+  const all = [];
+  let beforeId = null;
+  let page = 0;
+  let crossedCutoff = false;
+
+  while (page < MAX_PAGES && !crossedCutoff) {
+    const url = beforeId ? `${TG_BASE}?before=${beforeId}` : TG_BASE;
+    console.log(`[scrape] Page ${page + 1}: GET ${url}`);
+
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+      },
+    });
+    if (!r.ok) {
+      console.error(`[scrape] HTTP ${r.status} en ${url} — corto la paginación.`);
+      break;
+    }
+    const html = await r.text();
+    const messages = extractMessages(html);
+    if (messages.length === 0) {
+      console.log(`[scrape] Page sin mensajes, fin de la paginación.`);
+      break;
+    }
+
+    let kept = 0;
+    let oldestThisPage = Infinity;
+    for (const msg of messages) {
+      if (msg.id < oldestThisPage) oldestThisPage = msg.id;
+      if (msg.date && msg.date < SINCE_DATE) {
+        crossedCutoff = true;
+        continue;
+      }
+      all.push(msg);
+      kept++;
+    }
+    console.log(`[scrape]   ${messages.length} mensajes en la página, ${kept} dentro del rango`);
+
+    if (crossedCutoff) {
+      console.log(`[scrape] Llegamos a la fecha de corte. Fin.`);
+      break;
+    }
+    if (oldestThisPage === Infinity || oldestThisPage === beforeId) {
+      console.log(`[scrape] Sin progreso en paginación, corto.`);
+      break;
+    }
+    beforeId = oldestThisPage;
+    page++;
+  }
+
+  if (page >= MAX_PAGES) {
+    console.warn(`[scrape] Alcanzado MAX_PAGES=${MAX_PAGES}, puede haber mensajes más viejos sin scrapear.`);
+  }
+  return all;
 }
 
 // ===== HTML scraping =====
 function extractMessages(html) {
-  // El preview de t.me/s/<channel> mete cada mensaje en un div con
-  // class "tgme_widget_message_text" (a veces con sufijos). Sacamos
-  // el contenido y lo limpiamos a texto plano.
-  const out = [];
-  const re = /<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
+  // Cada mensaje tiene data-post="channel/<id>". Localizamos esas marcas
+  // y para cada una sacamos el slice de HTML hasta la siguiente. Dentro
+  // de cada slice buscamos el <time datetime="..."> y el div con la
+  // clase tgme_widget_message_text para el contenido.
+  const idRe = /data-post="[^"\/]+\/(\d+)"/g;
+  const positions = [];
   let m;
-  while ((m = re.exec(html)) !== null) {
-    const text = htmlToText(m[1]);
-    if (text) out.push(text);
+  while ((m = idRe.exec(html)) !== null) {
+    positions.push({ id: parseInt(m[1], 10), start: m.index });
+  }
+
+  const out = [];
+  for (let i = 0; i < positions.length; i++) {
+    const start = positions[i].start;
+    const end = i + 1 < positions.length ? positions[i + 1].start : html.length;
+    const slice = html.slice(start, end);
+
+    const dateMatch = slice.match(/<time[^>]*datetime="([^"]+)"/);
+    const textMatch = slice.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/);
+    if (!textMatch) continue;
+
+    const text = htmlToText(textMatch[1]);
+    if (!text) continue;
+
+    out.push({
+      id: positions[i].id,
+      date: dateMatch ? new Date(dateMatch[1]) : null,
+      text,
+    });
   }
   return out;
 }
@@ -145,14 +221,10 @@ function matchOne(text, patterns) {
 }
 
 // Devuelve { crc, eur } — eur puede ser null si la fuente ya estaba en
-// colones. El "€" del proveedor NO es una moneda real ni una tasa de
-// cambio: es la tabla de precios del negocio donde 1€ del post = ₡1.000
-// (45€ → ₡45.000). El multiplicador es configurable vía PRICE_MULTIPLIER
-// por si en algún momento se cambia el modelo.
+// colones. El "€" del proveedor NO es una moneda real: es la tabla de
+// precios del negocio donde 1€ del post = ₡1.000 (45€ → ₡45.000).
+// Configurable vía PRICE_MULTIPLIER.
 function parsePrice(text) {
-  // OJO con \b después de € — € no es char de palabra, así que el
-  // word-boundary nunca matchea contra newline/end. Usamos lookahead
-  // explícito en su lugar.
   const eurMatch = text.match(/([\d.,]+)\s*€/)
     || text.match(/€\s*([\d.,]+)/)
     || text.match(/([\d.,]+)\s*EUR(?![A-Z])/)
@@ -172,25 +244,15 @@ function parsePrice(text) {
   return { eur: null, crc: 0 };
 }
 
-// Parser numérico tolerante con formato europeo/CR:
-//   "14"        -> 14
-//   "20.000"    -> 20000   (punto como separador de miles)
-//   "14,50"     -> 14.5    (coma como decimal)
-//   "1.234,56"  -> 1234.56
 function parseLocalNumber(s) {
   if (!s) return 0;
   const cleaned = String(s).trim();
   const hasComma = cleaned.includes(",");
   const hasDot = cleaned.includes(".");
   let normalized;
-  if (hasComma && hasDot) {
-    normalized = cleaned.replace(/\./g, "").replace(",", ".");
-  } else if (hasComma) {
-    normalized = cleaned.replace(",", ".");
-  } else {
-    // Solo puntos: tratar como separador de miles (caso CRC y EUR enteros).
-    normalized = cleaned.replace(/\./g, "");
-  }
+  if (hasComma && hasDot) normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  else if (hasComma) normalized = cleaned.replace(",", ".");
+  else normalized = cleaned.replace(/\./g, "");
   const n = parseFloat(normalized);
   return Number.isFinite(n) ? n : 0;
 }
@@ -199,12 +261,13 @@ function parseGames(text) {
   const lines = text.split(/\r?\n/);
   const out = [];
   for (const raw of lines) {
-    // Stripeamos selectores de variación y zero-width joiners que suelen
-    // venir pegados al emoji del bullet (ej "▫" + U+FE0F).
     const cleaned = raw.replace(/[︀-️‍]/g, "");
     const line = cleaned.trim();
     if (!/^[-*•·▪►▫◾◽■□●○◦‣⁃]/.test(line)) continue;
     const content = line.replace(/^[-*•·▪►▫◾◽■□●○◦‣⁃]\s*/, "");
+    // Filtramos líneas de metadata (precio, tamaño, id, etc.) que en
+    // ciertas formaciones del HTML quedan pegadas al bloque de juegos.
+    if (/^(precio|tama[ñn]o|total|id|c[oó]digo|para\s+compras|tg[\s:]|tel[eé]fono)\b/i.test(content)) continue;
     const sizeMatch = content.match(/[\(\[]?\s*([\d.,]+\s*[gmGM][bB])\s*[\)\]]?\s*$/);
     let name = content;
     let size = "";
@@ -217,7 +280,7 @@ function parseGames(text) {
   return out;
 }
 
-// ===== GitHub commit (Contents API) =====
+// ===== GitHub commit (batch — un solo PUT) =====
 function ghHeaders() {
   const token = process.env.GITHUB_TOKEN;
   if (!token) throw new Error("Falta GITHUB_TOKEN en el entorno");
@@ -227,13 +290,11 @@ function ghHeaders() {
     "User-Agent": "rey-midas-scraper",
   };
 }
-
 function ghRepo() {
   const r = process.env.GITHUB_REPO;
   if (!r) throw new Error("Falta GITHUB_REPO en el entorno");
   return r;
 }
-
 function ghBranch() {
   return process.env.GITHUB_BRANCH || "main";
 }
@@ -248,48 +309,75 @@ async function getFile() {
 }
 
 function bundlesEqual(a, b) {
-  return JSON.stringify({ ...a, coverUrl: "" }) === JSON.stringify({ ...b, coverUrl: "" });
+  // Comparación ignorando coverUrl (que se preserva manual) y _postedAt
+  // (transient, no se commitea).
+  const norm = b => {
+    const { coverUrl, _postedAt, ...rest } = b;
+    return rest;
+  };
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 }
 
-async function upsertBundle(bundle) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const { sha, content } = await getFile();
-    const bundles = Array.isArray(content.bundles) ? content.bundles : [];
-    const idx = bundles.findIndex(b => b.id === bundle.id);
+async function batchUpsert(scrapedBundles) {
+  const stats = { added: 0, updated: 0, unchanged: 0, kept: 0 };
 
-    let action;
-    if (idx >= 0) {
-      if (bundlesEqual(bundles[idx], bundle)) {
-        return { action: "unchanged" };
+  const { sha, content } = await getFile();
+  const existing = Array.isArray(content.bundles) ? content.bundles : [];
+  const existingById = new Map(existing.map(b => [b.id, b]));
+
+  // Construimos la lista final: primero los bundles scrapeados (en orden
+  // newest-first), después los existentes que no estén en el scrape
+  // (para no perder histórico si el proveedor borra cosas del canal).
+  const finalList = [];
+  const seen = new Set();
+
+  for (const scraped of scrapedBundles) {
+    const { _postedAt, ...clean } = scraped;
+    const prev = existingById.get(scraped.id);
+    if (prev) {
+      if (bundlesEqual(prev, clean)) {
+        finalList.push(prev);  // preservar tal cual
+        stats.unchanged++;
+      } else {
+        finalList.push({ ...clean, coverUrl: prev.coverUrl || clean.coverUrl });
+        stats.updated++;
       }
-      bundles[idx] = { ...bundle, coverUrl: bundles[idx].coverUrl || bundle.coverUrl };
-      action = "updated";
     } else {
-      bundles.unshift(bundle);
-      action = "added";
+      finalList.push(clean);
+      stats.added++;
     }
-    content.bundles = bundles;
-
-    const body = {
-      message: `chore(bundles): ${action} ${bundle.id} via telegram scraper`,
-      content: Buffer.from(JSON.stringify(content, null, 2) + "\n", "utf8").toString("base64"),
-      sha,
-      branch: ghBranch(),
-    };
-    const url = `${GITHUB_API}/repos/${ghRepo()}/contents/${FILE}`;
-    const r = await fetch(url, {
-      method: "PUT",
-      headers: { ...ghHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (r.ok) return { action };
-    if (r.status === 409 || r.status === 422) {
-      // SHA stale (otro commit en el medio). Releer y reintentar.
-      continue;
-    }
-    throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    seen.add(scraped.id);
   }
-  throw new Error("Conflicto de SHA persistente tras 3 intentos");
+
+  for (const old of existing) {
+    if (!seen.has(old.id)) {
+      finalList.push(old);
+      stats.kept++;
+    }
+  }
+
+  // Si no hay cambios reales, no commiteamos nada.
+  if (stats.added === 0 && stats.updated === 0) {
+    console.log(`[scrape] Sin cambios respecto al JSON actual. No commit.`);
+    return stats;
+  }
+
+  content.bundles = finalList;
+  const body = {
+    message: `chore(bundles): sync ${stats.added} new, ${stats.updated} updated (${stats.unchanged} unchanged, ${stats.kept} kept) via telegram scraper`,
+    content: Buffer.from(JSON.stringify(content, null, 2) + "\n", "utf8").toString("base64"),
+    sha,
+    branch: ghBranch(),
+  };
+  const url = `${GITHUB_API}/repos/${ghRepo()}/contents/${FILE}`;
+  const r = await fetch(url, {
+    method: "PUT",
+    headers: { ...ghHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+
+  return stats;
 }
 
 main().catch(err => {
