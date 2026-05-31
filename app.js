@@ -1326,8 +1326,78 @@ async function runEnrichLoop() {
 // ============================================================
 // Switch / bundles Nintendo
 // ============================================================
+
+// Convierte "59.2gb" / "1.2 tb" / "850mb" a número en GB para ordenar.
+function parseSizeGB(s) {
+  if (!s) return 0;
+  const m = String(s).toLowerCase().replace(/\s+/g, "").match(/([\d.,]+)\s*(tb|gb|mb|kb)?/);
+  if (!m) return 0;
+  const n = parseFloat(m[1].replace(",", "."));
+  if (!isFinite(n)) return 0;
+  const unit = m[2] || "gb";
+  if (unit === "tb") return n * 1024;
+  if (unit === "mb") return n / 1024;
+  if (unit === "kb") return n / (1024 * 1024);
+  return n;
+}
+
+const nintendoFilters = { q: "", sort: "recent", limit: 60 };
+const NINTENDO_PAGE_SIZE = 60;
+
+function applyNintendoBundleFilters(allBundles) {
+  const q = normalizeSearch(nintendoFilters.q);
+  let list = allBundles;
+  if (q) {
+    list = list.filter(b => {
+      if (normalizeSearch(b.id).includes(q)) return true;
+      return (b.games || []).some(g => normalizeSearch(g.name || g.title).includes(q));
+    });
+  }
+  const sorted = [...list];
+  switch (nintendoFilters.sort) {
+    case "price-asc":  sorted.sort((a, b) => (a.priceCRC || 0) - (b.priceCRC || 0)); break;
+    case "price-desc": sorted.sort((a, b) => (b.priceCRC || 0) - (a.priceCRC || 0)); break;
+    case "size-asc":   sorted.sort((a, b) => parseSizeGB(a.totalSize) - parseSizeGB(b.totalSize)); break;
+    case "size-desc":  sorted.sort((a, b) => parseSizeGB(b.totalSize) - parseSizeGB(a.totalSize)); break;
+    case "oldest":     sorted.sort((a, b) => (a.date || "").localeCompare(b.date || "")); break;
+    case "recent":
+    default:
+      // Si tienen date la usamos; si no, respetamos el orden del array
+      // (el scraper ya guarda newest-first al frente).
+      sorted.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      break;
+  }
+  return sorted;
+}
+
+function renderNintendoBundleGrid() {
+  const all = nintendo.bundles || [];
+  const filtered = applyNintendoBundleFilters(all);
+  const visible = filtered.slice(0, nintendoFilters.limit);
+  const grid = document.getElementById("nin-bundles-grid");
+  const meta = document.getElementById("nin-bundles-meta");
+  const moreWrap = document.getElementById("nin-bundles-more-wrap");
+  if (!grid) return;
+  if (!visible.length) {
+    grid.innerHTML = `<div class="status">No se encontraron bundles con ese criterio.</div>`;
+  } else {
+    grid.innerHTML = visible.map(b => bundleCardHTML(b, "nintendo")).join("");
+  }
+  if (meta) {
+    meta.textContent = filtered.length === all.length
+      ? `Mostrando ${visible.length} de ${all.length} bundles.`
+      : `Mostrando ${visible.length} de ${filtered.length} resultados (${all.length} totales).`;
+  }
+  if (moreWrap) {
+    moreWrap.style.display = visible.length < filtered.length ? "" : "none";
+  }
+}
+
 function renderSwitch() {
   const bundles = nintendo.bundles || [];
+  nintendoFilters.q = "";
+  nintendoFilters.sort = "recent";
+  nintendoFilters.limit = NINTENDO_PAGE_SIZE;
   app.innerHTML = `
     ${heroSlimHTML("Nintendo Switch")}
     <section class="container catalog-section">
@@ -1339,14 +1409,49 @@ function renderSwitch() {
         </a>
       </div>
       ${bundles.length ? `
-        <div class="grid bundles">
-          ${bundles.map(b => bundleCardHTML(b, "nintendo")).join("")}
+        <div class="bundles-toolbar">
+          <input id="nin-search" type="search" placeholder="Buscar por juego o ID..." autocomplete="off">
+          <select id="nin-sort">
+            <option value="recent">Más recientes</option>
+            <option value="oldest">Más antiguos</option>
+            <option value="price-asc">Precio: menor a mayor</option>
+            <option value="price-desc">Precio: mayor a menor</option>
+            <option value="size-asc">Tamaño: menor a mayor</option>
+            <option value="size-desc">Tamaño: mayor a menor</option>
+          </select>
+        </div>
+        <div id="nin-bundles-meta" class="bundles-meta"></div>
+        <div id="nin-bundles-grid" class="grid bundles"></div>
+        <div id="nin-bundles-more-wrap" class="bundles-more-wrap" style="display:none">
+          <button id="nin-bundles-more" type="button" class="cta">Cargar más</button>
         </div>
       ` : `
         <div class="status">Aún no hay bundles publicados. Mientras tanto pasate por nuestro canal de Telegram.</div>
       `}
     </section>
   `;
+  if (!bundles.length) return;
+
+  const search = document.getElementById("nin-search");
+  let debounce;
+  search.addEventListener("input", (e) => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      nintendoFilters.q = e.target.value.trim();
+      nintendoFilters.limit = NINTENDO_PAGE_SIZE;
+      renderNintendoBundleGrid();
+    }, 150);
+  });
+  document.getElementById("nin-sort").addEventListener("change", (e) => {
+    nintendoFilters.sort = e.target.value;
+    nintendoFilters.limit = NINTENDO_PAGE_SIZE;
+    renderNintendoBundleGrid();
+  });
+  document.getElementById("nin-bundles-more").addEventListener("click", () => {
+    nintendoFilters.limit += NINTENDO_PAGE_SIZE;
+    renderNintendoBundleGrid();
+  });
+  renderNintendoBundleGrid();
 }
 
 function renderBundlesList(platform) {

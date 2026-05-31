@@ -32,6 +32,9 @@ async function main() {
       const b = parseBundle(block);
       if (b) {
         b._postedAt = msg.date;  // transient, para ordenar; no se commitea
+        if (msg.date instanceof Date && !isNaN(msg.date)) {
+          b.date = msg.date.toISOString();
+        }
         bundles.push(b);
       }
     }
@@ -309,17 +312,18 @@ async function getFile() {
 }
 
 function bundlesEqual(a, b) {
-  // Comparación ignorando coverUrl (que se preserva manual) y _postedAt
-  // (transient, no se commitea).
+  // Comparación ignorando coverUrl (que se preserva manual), _postedAt
+  // (transient, no se commitea) y date (no queremos retriggerear update
+  // solo porque el bundle viejo no tiene date guardada todavía).
   const norm = b => {
-    const { coverUrl, _postedAt, ...rest } = b;
+    const { coverUrl, _postedAt, date, ...rest } = b;
     return rest;
   };
   return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 }
 
 async function batchUpsert(scrapedBundles) {
-  const stats = { added: 0, updated: 0, unchanged: 0, kept: 0 };
+  const stats = { added: 0, updated: 0, unchanged: 0, kept: 0, dateBackfilled: 0 };
 
   const { sha, content } = await getFile();
   const existing = Array.isArray(content.bundles) ? content.bundles : [];
@@ -336,10 +340,21 @@ async function batchUpsert(scrapedBundles) {
     const prev = existingById.get(scraped.id);
     if (prev) {
       if (bundlesEqual(prev, clean)) {
-        finalList.push(prev);  // preservar tal cual
-        stats.unchanged++;
+        // Si el viejo no tiene date pero el scrape sí, la inyectamos
+        // sin contar como "update" (no es un cambio de contenido).
+        if (!prev.date && clean.date) {
+          finalList.push({ ...prev, date: clean.date });
+          stats.dateBackfilled++;
+        } else {
+          finalList.push(prev);
+          stats.unchanged++;
+        }
       } else {
-        finalList.push({ ...clean, coverUrl: prev.coverUrl || clean.coverUrl });
+        finalList.push({
+          ...clean,
+          coverUrl: prev.coverUrl || clean.coverUrl,
+          date: clean.date || prev.date,
+        });
         stats.updated++;
       }
     } else {
@@ -357,14 +372,17 @@ async function batchUpsert(scrapedBundles) {
   }
 
   // Si no hay cambios reales, no commiteamos nada.
-  if (stats.added === 0 && stats.updated === 0) {
+  if (stats.added === 0 && stats.updated === 0 && stats.dateBackfilled === 0) {
     console.log(`[scrape] Sin cambios respecto al JSON actual. No commit.`);
     return stats;
   }
 
   content.bundles = finalList;
+  const message = stats.added || stats.updated
+    ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated (${stats.unchanged} unchanged, ${stats.kept} kept) via telegram scraper`
+    : `chore(bundles): backfill date en ${stats.dateBackfilled} bundles via telegram scraper`;
   const body = {
-    message: `chore(bundles): sync ${stats.added} new, ${stats.updated} updated (${stats.unchanged} unchanged, ${stats.kept} kept) via telegram scraper`,
+    message,
     content: Buffer.from(JSON.stringify(content, null, 2) + "\n", "utf8").toString("base64"),
     sha,
     branch: ghBranch(),
