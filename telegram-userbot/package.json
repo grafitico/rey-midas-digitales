@@ -1,0 +1,20 @@
+{
+  "name": "rey-midas-telegram-userbot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Userbot MTProto que escucha @swichtaccount y commitea bundles a GitHub",
+  "scripts": {
+    "login": "node login.js",
+    "start": "node index.js",
+    "sync": "node sync-once.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "input": "^1.0.1",
+    "telegram": "^2.26.16"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

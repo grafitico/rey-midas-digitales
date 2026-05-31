@@ -1,0 +1,40 @@
+name: Sync bundles from Telegram
+
+# Scrapea el preview público del canal en https://t.me/s/<TG_CHANNEL>,
+# parsea los mensajes recientes, y commitea cada bundle nuevo/actualizado
+# a nintendo-bundles.json. Usa el GITHUB_TOKEN built-in del runner — no
+# requiere secrets ni tokens externos.
+#
+# Schedule en UTC. "0 9 * * *" = 9:00 UTC = 3:00 AM hora CR (UTC-6).
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Username del canal de Telegram (sin @)"
+        required: false
+        default: "swichtaccount"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Scrape canal y commitear bundles
+        env:
+          TG_CHANNEL: ${{ inputs.channel || 'swichtaccount' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+        run: node scripts/scrape-telegram.js
