@@ -28,6 +28,22 @@ let allGames = [];
 let loaded = false;
 let loadError = null;
 let nintendo = { telegramChannel: "", bundles: [] };
+// El catálogo de bundles de Nintendo (~2 MB) se carga bajo demanda, no en el
+// arranque, para no penalizar la primera carga de quienes no entran a Switch.
+let nintendoLoaded = false;
+let nintendoPromise = null;
+function ensureNintendo() {
+  if (nintendoLoaded) return Promise.resolve();
+  if (nintendoPromise) return nintendoPromise;
+  nintendoPromise = fetch("/nintendo-bundles.json")
+    .then(r => r.json())
+    .then(data => {
+      if (data && Array.isArray(data.bundles)) nintendo = data;
+    })
+    .catch(() => { /* sin bundles: se muestra el estado vacío con el link de Telegram */ })
+    .finally(() => { nintendoLoaded = true; enrichBundleCovers(); });
+  return nintendoPromise;
+}
 let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
@@ -432,10 +448,9 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat] = await Promise.allSettled([
+    const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
-      fetch("/nintendo-bundles.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -460,9 +475,6 @@ async function load() {
     }
     if (xbox.status === "fulfilled" && xbox.value.success) {
       games.push(...(xbox.value.games || []).filter(g => !g._placeholder));
-    }
-    if (nin.status === "fulfilled" && nin.value && Array.isArray(nin.value.bundles)) {
-      nintendo = nin.value;
     }
     if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
       psBundles = psB.value;
@@ -506,7 +518,7 @@ async function load() {
         }));
       games.push(...featuredGames);
     }
-    if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
+    if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
     allGames = games.sort((a, b) => {
@@ -519,7 +531,6 @@ async function load() {
   } finally {
     loaded = true;
     render();
-    enrichBundleCovers();
     enrichFeaturedCovers();
     // Enriquecer en background: la primera vez tarda, después todo cacheado.
     scheduleAAAEnrichForVisible();
@@ -1394,6 +1405,18 @@ function renderNintendoBundleGrid() {
 }
 
 function renderSwitch() {
+  if (!nintendoLoaded) {
+    app.innerHTML = `
+      ${heroSlimHTML("Nintendo Switch")}
+      <section class="container catalog-section">
+        <div class="status">Cargando bundles de Nintendo Switch...</div>
+      </section>`;
+    ensureNintendo().then(() => {
+      const r = parseRoute();
+      if (r.name === "platform" && r.platform === "Switch") renderSwitch();
+    });
+    return;
+  }
   const bundles = nintendo.bundles || [];
   nintendoFilters.q = "";
   nintendoFilters.sort = "recent";
@@ -1734,6 +1757,13 @@ function bundleCardHTML(b, type = "nintendo") {
 function renderBundle(id, type = "nintendo") {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
+    return;
+  }
+  if (type === "nintendo" && !nintendoLoaded) {
+    app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
+    ensureNintendo().then(() => {
+      if (parseRoute().name === "bundle") renderBundle(id, type);
+    });
     return;
   }
   const sources = {
@@ -2305,7 +2335,7 @@ function heroHTML() {
     <section class="hero">
       <div class="hero-glow"></div>
       <div class="container hero-inner">
-        <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
+        <img src="/assets/logo.webp" alt="Rey Midas Digitales" class="logo" width="420" height="236">
         <p class="tagline">Tu tienda de juegos digitales en Costa Rica</p>
         <a class="cta" href="/plataforma/PS5">Ver juegos PS5</a>
       </div>

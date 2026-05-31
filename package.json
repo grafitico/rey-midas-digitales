@@ -2,5 +2,11 @@
   "name": "rey-midas-digitales",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "optimize:images": "node scripts/optimize-images.js"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  }
 }
