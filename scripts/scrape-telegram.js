@@ -32,8 +32,15 @@ async function main() {
 
   const bundles = [];
   for (const text of messages) {
-    const b = parseBundle(text);
-    if (b) bundles.push(b);
+    // Un mismo mensaje puede contener varios bundles consecutivos.
+    // Cada bundle empieza con "NINTENDO SWITCH ACCOUNT". Si el mensaje no
+    // tiene ese header (formato distinto), el split devuelve un solo
+    // bloque y parseBundle igual lo procesa entero.
+    const blocks = text.split(/(?=NINTENDO SWITCH ACCOUNT)/i);
+    for (const block of blocks) {
+      const b = parseBundle(block);
+      if (b) bundles.push(b);
+    }
   }
   console.log(`[scrape] Bundles parseados: ${bundles.length}`);
 
@@ -89,33 +96,44 @@ function htmlToText(s) {
     .trim();
 }
 
-// ===== Parser de bundles (espejo del que vive en api/telegram-webhook.js) =====
+// ===== Parser de bundles =====
+// Formato del proveedor (@swichtaccount):
+//   NINTENDO SWITCH ACCOUNT 🎮
+//   📝 ID: 896632
+//   🎯 Juegos incluidos:
+//   ▫️ LEGO Marvel Super Heroes 2 (10.9 gb)
+//   ...
+//   💰 Precio: 14€
+//   📦 Tamaño total: 12.4gb
 function parseBundle(text) {
   if (!text || typeof text !== "string") return null;
 
   const id = matchOne(text, [
-    /ID[:\s#]*([A-Z0-9]{4,8})/i,
-    /C[oó]digo[:\s#]*([A-Z0-9]{4,8})/i,
+    /ID[:\s#]*([A-Z0-9]{4,12})/i,
+    /C[oó]digo[:\s#]*([A-Z0-9]{4,12})/i,
+    /\b([0-9]{6,10})\b/,
     /\b([A-Z0-9]{6})\b/,
   ]);
   if (!id) return null;
 
-  const priceCRC = parsePrice(text);
+  const price = parsePrice(text);
   const totalSize = matchOne(text, [
-    /Tama[ñn]o[:\s]+([\d.,]+\s*[gmGM][bB])/,
-    /Total[:\s]+([\d.,]+\s*[gmGM][bB])/,
+    /Tama[ñn]o(?:\s+total)?[:\s]+([\d.,]+\s*[gmGM][bB])/i,
+    /Total[:\s]+([\d.,]+\s*[gmGM][bB])/i,
   ]) || "";
 
   const games = parseGames(text);
   if (!games.length) return null;
 
-  return {
-    id: id.toUpperCase(),
-    priceCRC: priceCRC || 0,
+  const bundle = {
+    id: String(id).toUpperCase(),
+    priceCRC: price.crc,
     coverUrl: "",
     totalSize: totalSize.toLowerCase().replace(/\s+/g, ""),
     games,
   };
+  if (price.eur != null) bundle.priceEUR = price.eur;
+  return bundle;
 }
 
 function matchOne(text, patterns) {
@@ -126,21 +144,64 @@ function matchOne(text, patterns) {
   return null;
 }
 
+// Devuelve { crc, eur } — eur puede ser null si la fuente ya estaba en
+// colones. Para euros se convierte usando EUR_TO_CRC_RATE (default 620).
 function parsePrice(text) {
-  const m = text.match(/(?:₡|colones?|crc)[\s:]*([\d.,]+)/i)
+  // OJO con \b después de € — € no es char de palabra, así que el
+  // word-boundary nunca matchea contra newline/end. Usamos lookahead
+  // explícito en su lugar.
+  const eurMatch = text.match(/([\d.,]+)\s*€/)
+    || text.match(/€\s*([\d.,]+)/)
+    || text.match(/([\d.,]+)\s*EUR(?![A-Z])/)
+    || text.match(/([\d.,]+)\s*euros?(?![a-z])/i);
+  if (eurMatch) {
+    const eur = parseLocalNumber(eurMatch[1]);
+    const rate = parseFloat(process.env.EUR_TO_CRC_RATE || "620");
+    return { eur, crc: Math.round(eur * rate) };
+  }
+
+  const crcMatch = text.match(/(?:₡|colones?|crc)[\s:]*([\d.,]+)/i)
     || text.match(/precio[:\s]+([\d.,]+)/i);
-  if (!m) return 0;
-  const digits = m[1].replace(/[.,\s]/g, "");
-  return parseInt(digits, 10) || 0;
+  if (crcMatch) {
+    return { eur: null, crc: Math.round(parseLocalNumber(crcMatch[1])) };
+  }
+
+  return { eur: null, crc: 0 };
+}
+
+// Parser numérico tolerante con formato europeo/CR:
+//   "14"        -> 14
+//   "20.000"    -> 20000   (punto como separador de miles)
+//   "14,50"     -> 14.5    (coma como decimal)
+//   "1.234,56"  -> 1234.56
+function parseLocalNumber(s) {
+  if (!s) return 0;
+  const cleaned = String(s).trim();
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized;
+  if (hasComma && hasDot) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else {
+    // Solo puntos: tratar como separador de miles (caso CRC y EUR enteros).
+    normalized = cleaned.replace(/\./g, "");
+  }
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function parseGames(text) {
   const lines = text.split(/\r?\n/);
   const out = [];
   for (const raw of lines) {
-    const line = raw.trim();
-    if (!/^[-*•·▪►]/.test(line)) continue;
-    const content = line.replace(/^[-*•·▪►]\s*/, "");
+    // Stripeamos selectores de variación y zero-width joiners que suelen
+    // venir pegados al emoji del bullet (ej "▫" + U+FE0F).
+    const cleaned = raw.replace(/[︀-️‍]/g, "");
+    const line = cleaned.trim();
+    if (!/^[-*•·▪►▫◾◽■□●○◦‣⁃]/.test(line)) continue;
+    const content = line.replace(/^[-*•·▪►▫◾◽■□●○◦‣⁃]\s*/, "");
     const sizeMatch = content.match(/[\(\[]?\s*([\d.,]+\s*[gmGM][bB])\s*[\)\]]?\s*$/);
     let name = content;
     let size = "";
