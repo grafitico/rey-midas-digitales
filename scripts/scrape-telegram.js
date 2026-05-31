@@ -307,7 +307,22 @@ async function getFile() {
   const r = await fetch(url, { headers: ghHeaders() });
   if (!r.ok) throw new Error(`GitHub GET ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const meta = await r.json();
-  const content = JSON.parse(Buffer.from(meta.content, "base64").toString("utf8"));
+
+  // La Contents API solo devuelve `content` (base64) si el archivo pesa
+  // <1 MB. Para archivos más grandes viene vacío y hay que bajarlo
+  // del download_url crudo.
+  let rawText;
+  if (meta.content && meta.encoding === "base64") {
+    rawText = Buffer.from(meta.content, "base64").toString("utf8");
+  } else if (meta.download_url) {
+    const rr = await fetch(meta.download_url, { headers: ghHeaders() });
+    if (!rr.ok) throw new Error(`GitHub raw GET ${rr.status}: ${(await rr.text()).slice(0, 200)}`);
+    rawText = await rr.text();
+  } else {
+    throw new Error(`Contents API no devolvió content ni download_url para ${FILE}`);
+  }
+
+  const content = JSON.parse(rawText);
   return { sha: meta.sha, content };
 }
 
