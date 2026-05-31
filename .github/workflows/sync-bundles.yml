@@ -5,11 +5,13 @@ name: Sync bundles from Telegram
 # a nintendo-bundles.json. Usa el GITHUB_TOKEN built-in del runner — no
 # requiere secrets ni tokens externos.
 #
-# Schedule en UTC. "0 9 * * *" = 9:00 UTC = 3:00 AM hora CR (UTC-6).
+# Schedule en UTC. "5 21 * * *" = 21:05 UTC = 3:05 PM hora CR (UTC-6).
+# Nota: GitHub Actions puede demorar hasta ~15 min en disparar un cron
+# programado; si necesitás corrida exacta, usá Run workflow manual.
 
 on:
   schedule:
-    - cron: "0 9 * * *"
+    - cron: "5 21 * * *"
   workflow_dispatch:
     inputs:
       channel:
