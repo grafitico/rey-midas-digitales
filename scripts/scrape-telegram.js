@@ -145,7 +145,10 @@ function matchOne(text, patterns) {
 }
 
 // Devuelve { crc, eur } — eur puede ser null si la fuente ya estaba en
-// colones. Para euros se convierte usando EUR_TO_CRC_RATE (default 620).
+// colones. El "€" del proveedor NO es una moneda real ni una tasa de
+// cambio: es la tabla de precios del negocio donde 1€ del post = ₡1.000
+// (45€ → ₡45.000). El multiplicador es configurable vía PRICE_MULTIPLIER
+// por si en algún momento se cambia el modelo.
 function parsePrice(text) {
   // OJO con \b después de € — € no es char de palabra, así que el
   // word-boundary nunca matchea contra newline/end. Usamos lookahead
@@ -156,8 +159,8 @@ function parsePrice(text) {
     || text.match(/([\d.,]+)\s*euros?(?![a-z])/i);
   if (eurMatch) {
     const eur = parseLocalNumber(eurMatch[1]);
-    const rate = parseFloat(process.env.EUR_TO_CRC_RATE || "620");
-    return { eur, crc: Math.round(eur * rate) };
+    const mult = parseFloat(process.env.PRICE_MULTIPLIER || "1000");
+    return { eur, crc: Math.round(eur * mult) };
   }
 
   const crcMatch = text.match(/(?:₡|colones?|crc)[\s:]*([\d.,]+)/i)
