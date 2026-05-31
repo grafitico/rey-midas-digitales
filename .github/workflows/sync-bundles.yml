@@ -1,24 +1,24 @@
 name: Sync bundles from Telegram
 
-# Corre el userbot en modo one-shot para leer los últimos N mensajes
-# del canal @swichtaccount y commitear los bundles nuevos/actualizados
-# a nintendo-bundles.json en este mismo repo.
+# Scrapea el preview público del canal en https://t.me/s/<TG_CHANNEL>,
+# parsea los mensajes recientes, y commitea cada bundle nuevo/actualizado
+# a nintendo-bundles.json. Usa el GITHUB_TOKEN built-in del runner — no
+# requiere secrets ni tokens externos.
 #
-# Schedule en UTC. "0 9 * * *" = 9:00 UTC = 3:00 AM hora de Costa Rica
-# (UTC-6). Ajustar al gusto.
+# Schedule en UTC. "0 9 * * *" = 9:00 UTC = 3:00 AM hora CR (UTC-6).
 
 on:
   schedule:
     - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
-      sync_limit:
-        description: "Cantidad de mensajes recientes a barrer"
+      channel:
+        description: "Username del canal de Telegram (sin @)"
         required: false
-        default: "50"
+        default: "swichtaccount"
 
 jobs:
-  sync:
+  scrape:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,22 +30,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: telegram-userbot/package.json
 
-      - name: Install deps
-        working-directory: telegram-userbot
-        run: npm install --no-audit --no-fund
-
-      - name: Run sync-once
-        working-directory: telegram-userbot
+      - name: Scrape canal y commitear bundles
         env:
-          TG_API_ID: ${{ secrets.TG_API_ID }}
-          TG_API_HASH: ${{ secrets.TG_API_HASH }}
-          TG_SESSION: ${{ secrets.TG_SESSION }}
-          TG_CHANNEL: ${{ vars.TG_CHANNEL || 'swichtaccount' }}
-          SYNC_LIMIT: ${{ inputs.sync_limit || '50' }}
+          TG_CHANNEL: ${{ inputs.channel || 'swichtaccount' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
-        run: node sync-once.js
+        run: node scripts/scrape-telegram.js
