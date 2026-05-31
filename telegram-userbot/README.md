@@ -36,7 +36,64 @@ npm start
 Si aparece "Escuchando mensajes nuevos..." y el siguiente post en el
 canal aparece en los logs como bundle parseado, funciona.
 
-## Deploy en Banahosting (SSH)
+## Modo recomendado: cron diario (one-shot)
+
+Si **no necesitás real-time** (un sync por día/horas alcanza), es muchísimo
+más simple que el modo always-on. No hay proceso persistente, no hay
+tmux, no hay watchdog, no hay chance de que Banahosting flaguee la
+cuenta.
+
+`sync-once.js` conecta, lee los últimos N mensajes del canal (default
+50, configurable con `SYNC_LIMIT`), parsea cada uno, commitea los
+nuevos/actualizados a GitHub, y se cierra. Tarda unos segundos.
+
+### Setup en Banahosting
+
+```bash
+ssh usuario@tu-host.banahosting.com
+cd ~
+git clone https://github.com/grafitico/rey-midas-digitales.git
+cd rey-midas-digitales/telegram-userbot
+npm install
+cp .env.example .env
+nano .env          # TG_API_ID, TG_API_HASH, GITHUB_TOKEN, GITHUB_REPO
+node login.js      # genera la TG_SESSION (UNA vez, interactivo)
+nano .env          # pegá la TG_SESSION
+npm run sync       # probá que ande
+```
+
+### Agendar el cron
+
+En cPanel → **Cron Jobs**, agregá:
+
+```cron
+0 3 * * * cd $HOME/rey-midas-digitales/telegram-userbot && /usr/bin/node sync-once.js >> $HOME/userbot.log 2>&1
+```
+
+Eso corre todos los días a las 3am. Cambialo a `0 */6 * * *` para cada
+6 horas, `0 * * * *` para cada hora, etc.
+
+Verificá el path real de Node con `which node` por SSH y reemplazalo si
+no es `/usr/bin/node` (en Banahosting suele ser algo tipo
+`/opt/cpanel/ea-nodejs18/bin/node`).
+
+### Revisar que funcione
+
+```bash
+tail -f ~/userbot.log
+```
+
+Cada corrida imprime las estadísticas (`fetched`, `parsed`, `added`,
+`updated`, `failed`).
+
+---
+
+## Modo alternativo: always-on (real-time)
+
+Solo si necesitás que los bundles aparezcan **en segundos** y no podés
+esperar al próximo cron. Es más fragil en hosting compartido.
+
+### Deploy en Banahosting (SSH)
 
 Asume que ya tenés acceso SSH habilitado en cPanel y Node.js disponible.
 Si no hay Node, usá la sección "Setup Node.js App" del cPanel para que
