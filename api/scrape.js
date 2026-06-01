@@ -193,12 +193,15 @@ function parseGames(html) {
   try { data = JSON.parse(m[1]); } catch { return []; }
 
   const cache = data?.props?.apolloState || {};
+  const deref = (val) =>
+    val && typeof val === "object" && val.__ref ? (cache[val.__ref] ?? val) : val;
+
   const out = [];
   for (const key of Object.keys(cache)) {
     const obj = cache[key];
     if (!obj || typeof obj !== "object") continue;
     if (obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) {
-      const g = normalize(obj);
+      const g = normalize({ ...obj, price: deref(obj.price) });
       if (g) out.push(g);
     }
   }
