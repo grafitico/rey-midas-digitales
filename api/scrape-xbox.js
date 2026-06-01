@@ -2,9 +2,19 @@
 // 1. catalog.gamepass.com/sigls/v2 → lista de IDs de juegos
 // 2. displaycatalog.mp.microsoft.com/v7.0/products → datos completos por ID
 // Tanto los SIGL como displaycatalog son endpoints públicos sin auth.
+//
+// Usamos market=TR (Turquía) porque los juegos de Xbox se adquieren vía
+// la tienda turca. Los precios vienen en TRY y se convierten a USD con
+// TRY_USD_RATE antes de entrar a la tabla de precios de app.js.
+// Actualizá TRY_USD_RATE si el tipo de cambio cambia significativamente.
+
+const MARKET = "TR";
+const LANGUAGE = "tr-TR";
+// 1 TRY en USD — ajustar según tipo de cambio actual
+const TRY_USD_RATE = 0.028;
 
 const SIGL_URL =
-  "https://catalog.gamepass.com/sigls/v2?id=fdd9e2a7-0fee-49f6-ad69-4354098401ff&language=en-US&market=US";
+  `https://catalog.gamepass.com/sigls/v2?id=fdd9e2a7-0fee-49f6-ad69-4354098401ff&language=${LANGUAGE}&market=${MARKET}`;
 const CATALOG_URL = "https://displaycatalog.mp.microsoft.com/v7.0/products";
 const BATCH_SIZE = 20;
 const MAX_GAMES = 80;
@@ -77,7 +87,7 @@ async function fetchSigl() {
 }
 
 async function fetchCatalogBatch(ids) {
-  const url = `${CATALOG_URL}?bigIds=${ids.join(",")}&market=US&languages=en-US&fieldsTemplate=Details`;
+  const url = `${CATALOG_URL}?bigIds=${ids.join(",")}&market=${MARKET}&languages=${LANGUAGE}&fieldsTemplate=Details`;
   const r = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)",
@@ -113,6 +123,7 @@ function normalize(p) {
   // Availabilities. Muchas son de Game Pass/licencia/trial con ListPrice=0 y son
   // ruido. Lo que queremos es el menor ListPrice > 0 de una SKU "full" cuya
   // Availability tenga acción "Purchase".
+  // Los precios de market=TR vienen en TRY; los convertimos a USD con TRY_USD_RATE.
   const candidates = [];
   for (const sku of (p.DisplaySkuAvailabilities || [])) {
     if (sku.Sku?.SkuType && sku.Sku.SkuType !== "full") continue;
@@ -123,9 +134,11 @@ function normalize(p) {
       if (!price) continue;
       const list = Number(price.ListPrice);
       if (!list || list <= 0) continue;
+      const isTRY = (price.CurrencyCode || "").toUpperCase() === "TRY";
+      const toUSD = (amt) => isTRY ? Math.round(amt * TRY_USD_RATE * 100) / 100 : amt;
       candidates.push({
-        list,
-        msrp: Number(price.MSRP) || list,
+        list: toUSD(list),
+        msrp: toUSD(Number(price.MSRP) || list),
       });
     }
   }
