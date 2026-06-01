@@ -1,5 +1,5 @@
 {
-  "_comment": "Catálogo curado de los juegos más buscados/vendidos. Se muestra SIEMPRE en las secciones PS4/PS5, sin depender del scraper en vivo de la PSN. Editá 'priceUSD' para ajustar el precio: el precio final = priceUSD * 530 * 0.55 (principal) o * 0.30 (secundaria). 'platform' puede ser 'PS5/PS4' (sale en ambas secciones), 'PS4' o 'PS5'.",
+  "_comment": "Catálogo curado de los juegos más buscados/vendidos. Se muestra SIEMPRE en las secciones PS4/PS5, sin depender del scraper en vivo de la PSN. Editá 'priceUSD' para ajustar el precio: el precio final se calcula con la tabla de precios en CONFIG.pricing.table según plataforma (PS vs Xbox). 'platform' puede ser 'PS5/PS4' (sale en ambas secciones), 'PS4' o 'PS5'.",
   "games": [
     { "id": "feat-ea-fc-25", "title": "EA Sports FC 25", "platform": "PS5/PS4", "priceUSD": 45, "genres": ["deportes"] },
     { "id": "feat-ea-fc-26", "title": "EA Sports FC 26", "platform": "PS5/PS4", "priceUSD": 60, "genres": ["deportes"] },
