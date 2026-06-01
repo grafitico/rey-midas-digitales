@@ -646,13 +646,67 @@ body {
   font-size: 1rem;
 }
 .admin-del:hover { color: var(--magenta); border-color: var(--magenta); }
+.admin-edit {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.admin-edit:hover { color: var(--cyan); border-color: var(--cyan); }
 .admin-account {
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 0.8rem;
   color: var(--text-dim);
   word-break: break-all;
 }
+.admin-game-name {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+}
 .empty-state-small { color: var(--text-dim); padding: 1rem; text-align: center; }
+
+/* Edit purchase modal */
+.edit-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  width: min(640px, 95vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  color: var(--text);
+}
+.edit-modal::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+.edit-modal h3 {
+  color: var(--gold);
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+}
+.edit-modal-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  align-items: center;
+}
+.admin-modal-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+}
+.admin-modal-cancel:hover { border-color: var(--text-dim); color: var(--text); }
 
 /* ===================== NINTENDO BUNDLES ===================== */
 .telegram-link {

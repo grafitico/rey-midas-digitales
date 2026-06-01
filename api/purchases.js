@@ -12,6 +12,7 @@ export default async function handler(req, res) {
     if (body.action === "list-all") return await listAll(req, res);
     if (body.action === "create") return await create(req, res, body);
     if (body.action === "delete") return await del(req, res, body);
+    if (body.action === "update") return await update(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -49,6 +50,7 @@ async function create(req, res, body) {
       account_password: body.account_password,
       verifier_codes: body.verifier_codes || null,
       games: body.games || null,
+      game_name: body.game_name || null,
       notes: body.notes || null,
     }),
   });
@@ -60,5 +62,24 @@ async function del(req, res, body) {
   const id = String(body.id || "");
   if (!id) return res.status(400).json({ error: "ID requerido" });
   await sb(`purchases?id=eq.${id}`, { method: "DELETE" });
+  res.status(200).json({ ok: true });
+}
+
+async function update(req, res, body) {
+  await requireAdmin(req);
+  const id = String(body.id || "");
+  if (!id) return res.status(400).json({ error: "ID requerido" });
+  const patch = {
+    purchase_date: body.purchase_date,
+    platform: body.platform,
+    modality: body.modality || null,
+    account_email: body.account_email,
+    account_password: body.account_password,
+    verifier_codes: body.verifier_codes || null,
+    games: body.games || null,
+    game_name: body.game_name || null,
+    notes: body.notes || null,
+  };
+  await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
   res.status(200).json({ ok: true });
 }

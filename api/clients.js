@@ -11,6 +11,7 @@ export default async function handler(req, res) {
     const body = await readJson(req);
     if (body.action === "create") return await create(req, res, body);
     if (body.action === "find") return await find(req, res, body);
+    if (body.action === "list") return await list(req, res);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -46,4 +47,9 @@ async function find(req, res, body) {
   if (!email) return res.status(400).json({ error: "Email requerido" });
   const users = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id,email,full_name`);
   res.status(200).json({ user: users[0] || null });
+}
+
+async function list(req, res) {
+  const clients = await sb(`app_users?is_admin=eq.false&select=id,email,full_name&order=email.asc`);
+  res.status(200).json({ clients });
 }

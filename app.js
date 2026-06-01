@@ -3132,8 +3132,10 @@ async function renderAdmin() {
       <div class="admin-grid">
         <form id="purchaseForm" class="admin-form">
           <h2>Cargar nueva compra</h2>
-          <label>Email del cliente
-            <input name="client_email" type="email" required placeholder="cliente@email.com">
+          <label>ID de cliente
+            <select name="client_email" id="clientSelect" required>
+              <option value="">— Seleccionar cliente —</option>
+            </select>
           </label>
           <div class="row">
             <label>Fecha de compra
@@ -3164,11 +3166,14 @@ async function renderAdmin() {
           <label>Contraseña de la cuenta
             <input name="account_password" type="text" required>
           </label>
+          <label>Nombre del juego titular
+            <input name="game_name" type="text" placeholder="Ej: God of War Ragnarök">
+          </label>
+          <label>Juegos incluidos en la cuenta
+            <textarea name="games" rows="4" placeholder="Uno por línea"></textarea>
+          </label>
           <label>Códigos del verificador (2FA)
             <textarea name="verifier_codes" rows="3" placeholder="Uno por línea"></textarea>
-          </label>
-          <label>Juegos en la cuenta
-            <textarea name="games" rows="4" placeholder="Uno por línea"></textarea>
           </label>
           <label>Notas (opcional)
             <textarea name="notes" rows="2"></textarea>
@@ -3187,6 +3192,7 @@ async function renderAdmin() {
   document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
   document.getElementById("createClientForm").addEventListener("submit", handleCreateClient);
   loadAdminPurchases();
+  loadClientsDropdown();
 }
 
 async function handleCreateClient(e) {
@@ -3219,10 +3225,28 @@ async function handleCreateClient(e) {
     form.querySelector('input[name="email"]').value = "";
     form.querySelector('input[name="full_name"]').value = "";
     form.querySelector('input[name="password"]').value = "Midas2026";
+    loadClientsDropdown();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
     status.className = "form-status error";
   }
+}
+
+async function loadClientsDropdown() {
+  const sel = document.getElementById("clientSelect");
+  if (!sel) return;
+  try {
+    const { clients } = await apiPost("/api/clients", { action: "list" });
+    const prev = sel.value;
+    sel.innerHTML = `<option value="">— Seleccionar cliente —</option>`;
+    (clients || []).forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.email;
+      opt.textContent = c.full_name ? `${c.email} — ${c.full_name}` : c.email;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+  } catch (_) {}
 }
 
 async function loadAdminPurchases() {
@@ -3240,9 +3264,11 @@ async function loadAdminPurchases() {
           <strong>${escapeHtml(p.app_users?.email || "?")}</strong>
           <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
           <time>${escapeHtml(p.purchase_date)}</time>
-          <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar">×</button>
+          <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
+          <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
         </header>
         <p class="admin-account">${escapeHtml(p.account_email)} / ${escapeHtml(p.account_password)}</p>
+        ${p.game_name ? `<p class="admin-game-name">🎮 ${escapeHtml(p.game_name)}</p>` : ""}
       </div>
     `).join("");
     box.querySelectorAll("[data-del]").forEach(btn => {
@@ -3256,9 +3282,98 @@ async function loadAdminPurchases() {
         }
       });
     });
+    box.querySelectorAll("[data-edit-id]").forEach(btn => {
+      const p = purchases.find(x => x.id === btn.dataset.editId);
+      btn.addEventListener("click", () => openEditModal(p));
+    });
   } catch (err) {
     box.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
   }
+}
+
+function openEditModal(p) {
+  let modal = document.getElementById("editPurchaseModal");
+  if (!modal) {
+    modal = document.createElement("dialog");
+    modal.id = "editPurchaseModal";
+    modal.className = "edit-modal admin-form";
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <h3>Editar compra — ${escapeHtml(p.app_users?.email || p.id)}</h3>
+    <div class="row">
+      <label>Fecha de compra
+        <input name="purchase_date" type="date" value="${escapeAttr(p.purchase_date)}">
+      </label>
+      <label>Plataforma
+        <select name="platform">
+          ${["PS5","PS4","PS3","Xbox","Switch"].map(pl =>
+            `<option value="${escapeAttr(pl)}"${p.platform === pl ? " selected" : ""}>${escapeHtml(pl)}</option>`
+          ).join("")}
+        </select>
+      </label>
+      <label>Modalidad
+        <select name="modality">
+          <option value="">—</option>
+          ${[["principal","Principal"],["secundaria","Secundaria"],["bundle","Bundle"],["individual","Individual"]].map(([v,l]) =>
+            `<option value="${escapeAttr(v)}"${p.modality === v ? " selected" : ""}>${escapeHtml(l)}</option>`
+          ).join("")}
+        </select>
+      </label>
+    </div>
+    <label>Email de la cuenta vendida
+      <input name="account_email" type="text" value="${escapeAttr(p.account_email)}">
+    </label>
+    <label>Contraseña de la cuenta
+      <input name="account_password" type="text" value="${escapeAttr(p.account_password)}">
+    </label>
+    <label>Nombre del juego titular
+      <input name="game_name" type="text" value="${escapeAttr(p.game_name || "")}" placeholder="Ej: God of War Ragnarök">
+    </label>
+    <label>Juegos incluidos en la cuenta
+      <textarea name="games" rows="4" placeholder="Uno por línea">${escapeHtml(p.games || "")}</textarea>
+    </label>
+    <label>Códigos del verificador (2FA)
+      <textarea name="verifier_codes" rows="3" placeholder="Uno por línea">${escapeHtml(p.verifier_codes || "")}</textarea>
+    </label>
+    <label>Notas
+      <textarea name="notes" rows="2">${escapeHtml(p.notes || "")}</textarea>
+    </label>
+    <div class="edit-modal-actions">
+      <button id="editSaveBtn" type="button">Guardar cambios</button>
+      <button id="editCancelBtn" type="button" class="admin-modal-cancel">Cancelar</button>
+    </div>
+    <p id="editModalStatus" class="form-status"></p>
+  `;
+  modal.showModal();
+  modal.querySelector("#editCancelBtn").addEventListener("click", () => modal.close());
+  modal.addEventListener("click", e => { if (e.target === modal) modal.close(); });
+  modal.querySelector("#editSaveBtn").addEventListener("click", async () => {
+    const status = modal.querySelector("#editModalStatus");
+    status.textContent = "Guardando...";
+    status.className = "form-status";
+    try {
+      await apiPost("/api/purchases", {
+        action: "update",
+        id: p.id,
+        purchase_date: modal.querySelector('[name="purchase_date"]').value,
+        platform: modal.querySelector('[name="platform"]').value,
+        modality: modal.querySelector('[name="modality"]').value || null,
+        account_email: modal.querySelector('[name="account_email"]').value,
+        account_password: modal.querySelector('[name="account_password"]').value,
+        game_name: modal.querySelector('[name="game_name"]').value || null,
+        games: modal.querySelector('[name="games"]').value || null,
+        verifier_codes: modal.querySelector('[name="verifier_codes"]').value || null,
+        notes: modal.querySelector('[name="notes"]').value || null,
+      });
+      status.textContent = "✓ Guardado";
+      status.className = "form-status ok";
+      setTimeout(() => { modal.close(); loadAdminPurchases(); }, 700);
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = "form-status error";
+    }
+  });
 }
 
 async function handleAdminSubmit(e) {
@@ -3281,6 +3396,7 @@ async function handleAdminSubmit(e) {
       account_password: fd.get("account_password"),
       verifier_codes: fd.get("verifier_codes") || null,
       games: fd.get("games") || null,
+      game_name: fd.get("game_name") || null,
       notes: fd.get("notes") || null,
     });
     status.textContent = "✓ Compra cargada";
