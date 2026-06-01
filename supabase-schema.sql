@@ -39,11 +39,17 @@ CREATE TABLE public.purchases (
   account_password TEXT NOT NULL,
   verifier_codes TEXT,
   games TEXT,
+  game_name TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_purchases_user_id ON public.purchases(user_id);
 CREATE INDEX idx_purchases_date ON public.purchases(purchase_date DESC);
+
+-- =============================================================
+-- Migración incremental (si la tabla ya existe, correr solo esto):
+-- ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS game_name TEXT;
+-- =============================================================
 
 -- =============================================================
 -- 3. RLS desactivado a propósito
