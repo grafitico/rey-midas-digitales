@@ -1,29 +1,31 @@
 // Resolución de precios EN VIVO para el catálogo curado (featured-games.json).
 //
-// Problema que resuelve: los juegos "destacados" tienen un priceUSD fijo a
-// mano y no reflejan las ofertas reales de PS Store. El scraper general
-// (/api/scrape) recorre una categoría + deals + latest, pero no garantiza
-// traer títulos AAA puntuales como "The Last of Us Part I". Acá, para cada
-// título destacado, buscamos directo en el buscador de PSN es-cr y traemos
-// su precio/oferta real (en USD, igual que el resto del catálogo).
+// Problema raíz: las páginas de búsqueda de PSN (/search/{q}) no incluyen
+// el campo "discountedValue" en su apolloState — solo "basePrice". Por eso
+// la primera versión de este endpoint devolvía el precio COMPLETO ($69.99)
+// en vez del precio en oferta ($29.39).
 //
-// El cliente mergea estos precios sobre los destacados, así una tarjeta como
-// feat-tlou1 pasa de mostrar $50 fijo a mostrar el precio en oferta del día.
-//
-// Devuelve { prices: { [featuredId]: { priceUSD, originalPriceUSD, onSale,
-// discount, url, psnId, platform } } }. Lo que no se pueda resolver se omite
-// (el cliente conserva el precio fijo como fallback).
+// Solución: en vez de buscar por título, descargamos las mismas páginas que
+// usa api/scrape.js (deals, latest, primeras páginas de categoría). Esas sí
+// tienen el precio con descuento correcto. Mapeamos por matchKey y devolvemos
+// las coincidencias. Para featured titles sin oferta activa, el cliente
+// conserva el priceUSD fijo de featured-games.json como fallback.
 
 import { readFileSync } from "fs";
 import { join } from "path";
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
-// Cuántas búsquedas a PSN en paralelo. Con ~175 títulos y un budget de ~25s,
-// 12 en paralelo da margen (175/12 ≈ 15 rondas * ~1.5s ≈ 22s).
-const CONCURRENCY = 12;
-// Corte de tiempo defensivo: si nos acercamos al maxDuration devolvemos lo
-// que tengamos resuelto en vez de que la función muera por timeout.
-const TIME_BUDGET_MS = 25000;
+
+// Páginas a scrapear. deals y latest ya tienen precios con descuento.
+// Agregamos las primeras páginas del catálogo principal para mayor cobertura.
+const SOURCE_PAGES = [
+  "/pages/deals",
+  "/pages/latest",
+  "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/1",
+  "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/2",
+  "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/3",
+  "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/4",
+];
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -31,85 +33,58 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const started = Date.now();
   try {
     const featured = loadFeatured();
-    const prices = {};
-    const stats = { total: featured.length, resolved: 0, missed: 0, errors: 0 };
 
-    let idx = 0;
-    async function worker() {
-      while (idx < featured.length) {
-        if (Date.now() - started > TIME_BUDGET_MS) return;
-        const game = featured[idx++];
-        try {
-          const live = await resolveLivePrice(game);
-          if (live) {
-            prices[game.id] = live;
-            stats.resolved++;
-          } else {
-            stats.missed++;
-          }
-        } catch {
-          stats.errors++;
-        }
+    // Descargar todas las páginas fuente en paralelo
+    const fetched = await Promise.allSettled(
+      SOURCE_PAGES.map(path => fetchAndParse(`${PSN_BASE}${path}`))
+    );
+
+    // Construir mapa: matchKey(título) → mejor precio (el más bajo si aparece
+    // en más de una página)
+    const liveMap = new Map();
+    for (const r of fetched) {
+      if (r.status !== "fulfilled") continue;
+      for (const g of r.value) {
+        const key = matchKey(g.name);
+        const prev = liveMap.get(key);
+        if (!prev || g.priceUSD < prev.priceUSD) liveMap.set(key, g);
       }
     }
 
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, featured.length) }, worker)
-    );
+    // Resolver cada featured title contra el mapa
+    const prices = {};
+    let resolved = 0;
+    for (const game of featured) {
+      const live = liveMap.get(matchKey(game.title));
+      if (!live) continue;
+      prices[game.id] = {
+        priceUSD: live.priceUSD,
+        originalPriceUSD: live.originalPriceUSD,
+        onSale: live.onSale,
+        discount: live.discount,
+        url: live.url,
+        psnId: live.id,
+        platform: live.platform,
+      };
+      resolved++;
+    }
 
-    return res.status(200).json({ success: true, stats, prices });
+    return res.status(200).json({
+      success: true,
+      stats: { sourcePages: SOURCE_PAGES.length, liveProducts: liveMap.size, resolved },
+      prices,
+    });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
 }
 
 function loadFeatured() {
-  // featured-games.json vive en la raíz del repo. En Vercel se incluye en el
-  // bundle de la función vía "includeFiles" en vercel.json.
   const raw = readFileSync(join(process.cwd(), "featured-games.json"), "utf8");
   const data = JSON.parse(raw);
   return Array.isArray(data.games) ? data.games.filter(g => g && g.title) : [];
-}
-
-async function resolveLivePrice(game) {
-  const url = `${PSN_BASE}/search/${encodeURIComponent(game.title)}`;
-  const products = await fetchAndParse(url);
-  if (!products.length) return null;
-
-  const target = matchKey(game.title);
-  // Solo aceptamos coincidencias exactas de título normalizado para no agarrar
-  // un DLC, una edición rara o un juego distinto que comparta palabras.
-  const exact = products.filter(p => matchKey(p.name) === target);
-  const pool = exact.length ? exact : [];
-  if (!pool.length) return null;
-
-  // Si el destacado es de una plataforma puntual, preferimos el producto que
-  // la incluya. Entre los candidatos, elegimos el de menor precio actual
-  // (la edición base / mejor oferta, no un bundle deluxe).
-  const wantsPS5 = /PS5/i.test(game.platform || "");
-  const wantsPS4 = /PS4/i.test(game.platform || "");
-  let candidates = pool;
-  if (wantsPS5 && !wantsPS4) {
-    const f = pool.filter(p => p.platforms.includes("PS5"));
-    if (f.length) candidates = f;
-  } else if (wantsPS4 && !wantsPS5) {
-    const f = pool.filter(p => p.platforms.includes("PS4"));
-    if (f.length) candidates = f;
-  }
-
-  const best = candidates.reduce((a, b) => (a.priceUSD <= b.priceUSD ? a : b));
-  return {
-    priceUSD: best.priceUSD,
-    originalPriceUSD: best.originalPriceUSD,
-    onSale: best.onSale,
-    discount: best.discount,
-    url: best.url,
-    psnId: best.id,
-    platform: best.platform,
-  };
 }
 
 async function fetchAndParse(url) {
@@ -164,7 +139,6 @@ function normalize(p) {
     id: p.id,
     name: p.name,
     platform,
-    platforms: plats,
     url: `https://store.playstation.com/es-cr/product/${p.id}`,
     priceUSD: current,
     originalPriceUSD: original,
@@ -173,8 +147,7 @@ function normalize(p) {
   };
 }
 
-// Misma normalización que matchKey() en el cliente, para que el match
-// servidor↔cliente sea consistente (sin ™/®, sin "Edition", sin tildes).
+// Normalización idéntica a matchKey() en el cliente (app.js)
 function matchKey(t) {
   return String(t || "")
     .replace(/[™®©]/g, "")
