@@ -195,12 +195,20 @@ function parseGames(html) {
   try { data = JSON.parse(m[1]); } catch { return []; }
 
   const cache = data?.props?.apolloState || {};
+  // Apollo normaliza su caché usando refs ({ __ref: "Type:id" }) en vez de
+  // datos inline. Esto ocurre en páginas de producto individual y en algunas
+  // de búsqueda: p.price es { __ref: "Price:UP9000-..." } y sin resolver el
+  // ref el precio aparece vacío → se toma el basePrice = precio completo sin
+  // descuento. La función deref resuelve el puntero al objeto real del caché.
+  const deref = (val) =>
+    val && typeof val === "object" && val.__ref ? (cache[val.__ref] ?? val) : val;
+
   const out = [];
   for (const key of Object.keys(cache)) {
     const obj = cache[key];
     if (!obj || typeof obj !== "object") continue;
     if (obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) {
-      const g = normalize(obj);
+      const g = normalize({ ...obj, price: deref(obj.price) });
       if (g) out.push(g);
     }
   }
