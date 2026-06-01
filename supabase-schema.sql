@@ -22,8 +22,11 @@ CREATE TABLE public.app_users (
   full_name TEXT,
   password_hash TEXT NOT NULL,
   is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  customer_number INTEGER,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE SEQUENCE IF NOT EXISTS app_users_customer_number_seq START 1;
+ALTER TABLE public.app_users ALTER COLUMN customer_number SET DEFAULT nextval('app_users_customer_number_seq');
 CREATE INDEX idx_app_users_email ON public.app_users(email);
 
 -- =============================================================
@@ -47,8 +50,18 @@ CREATE INDEX idx_purchases_user_id ON public.purchases(user_id);
 CREATE INDEX idx_purchases_date ON public.purchases(purchase_date DESC);
 
 -- =============================================================
--- Migración incremental (si la tabla ya existe, correr solo esto):
+-- Migraciones incrementales (si las tablas ya existen, correr solo esto):
 -- ALTER TABLE public.purchases ADD COLUMN IF NOT EXISTS game_name TEXT;
+--
+-- ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS customer_number INTEGER;
+-- CREATE SEQUENCE IF NOT EXISTS app_users_customer_number_seq;
+-- ALTER TABLE public.app_users ALTER COLUMN customer_number SET DEFAULT nextval('app_users_customer_number_seq');
+-- WITH ranked AS (
+--   SELECT id, ROW_NUMBER() OVER (ORDER BY created_at ASC) AS rn
+--   FROM public.app_users WHERE customer_number IS NULL
+-- )
+-- UPDATE public.app_users a SET customer_number = r.rn FROM ranked r WHERE a.id = r.id;
+-- SELECT setval('app_users_customer_number_seq', COALESCE((SELECT MAX(customer_number) FROM public.app_users), 0) + 1, false);
 -- =============================================================
 
 -- =============================================================

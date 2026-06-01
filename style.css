@@ -670,6 +670,123 @@ body {
 }
 .empty-state-small { color: var(--text-dim); padding: 1rem; text-align: center; }
 
+/* Admin search bar */
+.admin-search-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  align-items: center;
+}
+.admin-search-bar input {
+  flex: 1;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.52rem 0.8rem;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+  min-width: 0;
+}
+.admin-search-bar input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.15);
+}
+.admin-search-bar button {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.52rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.admin-search-bar button:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* Client profile card */
+.client-profile-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.85rem;
+}
+.cp-header {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+.cp-id {
+  background: var(--gold);
+  color: #1a0e02;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+.cp-email { color: var(--text); font-weight: 600; font-size: 0.88rem; }
+.cp-name { color: var(--text-dim); font-size: 0.82rem; }
+.cp-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+.cp-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+}
+.cp-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.cp-form {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.cp-form label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-bottom: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.cp-form input {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.52rem 0.8rem;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+}
+.cp-form input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.15);
+}
+.cp-form button[type="submit"] {
+  background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+  color: #1a0e02;
+  font-weight: 800;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
 /* Edit purchase modal */
 .edit-modal {
   background: var(--bg-card);

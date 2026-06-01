@@ -13,6 +13,7 @@ export default async function handler(req, res) {
     if (body.action === "create") return await create(req, res, body);
     if (body.action === "delete") return await del(req, res, body);
     if (body.action === "update") return await update(req, res, body);
+    if (body.action === "by-client") return await byClient(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -27,7 +28,7 @@ async function mine(req, res) {
 
 async function listAll(req, res) {
   await requireAdmin(req);
-  const data = await sb(`purchases?select=*,app_users(email,full_name)&order=created_at.desc&limit=20`);
+  const data = await sb(`purchases?select=*,app_users(email,full_name,customer_number)&order=created_at.desc&limit=20`);
   res.status(200).json({ purchases: data });
 }
 
@@ -82,4 +83,22 @@ async function update(req, res, body) {
   };
   await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
   res.status(200).json({ ok: true });
+}
+
+async function byClient(req, res, body) {
+  await requireAdmin(req);
+  let userQuery;
+  if (body.customer_number) {
+    userQuery = `app_users?customer_number=eq.${parseInt(body.customer_number)}&select=id,email,full_name,customer_number`;
+  } else if (body.client_email) {
+    const email = String(body.client_email).trim().toLowerCase();
+    userQuery = `app_users?email=eq.${encodeURIComponent(email)}&select=id,email,full_name,customer_number`;
+  } else {
+    return res.status(400).json({ error: "customer_number o client_email requerido" });
+  }
+  const users = await sb(userQuery);
+  if (!users.length) return res.status(404).json({ error: "Cliente no encontrado" });
+  const client = users[0];
+  const data = await sb(`purchases?user_id=eq.${client.id}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.desc`);
+  res.status(200).json({ purchases: data, client });
 }

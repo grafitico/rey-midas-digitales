@@ -2895,6 +2895,10 @@ function escapeHtml(s) {
 }
 const escapeAttr = escapeHtml;
 
+function fmtClientId(n) {
+  return n ? `RM-${String(n).padStart(4, "0")}` : "";
+}
+
 // ============================================================
 // Iconos SVG — reemplazan emojis para look profesional
 // ============================================================
@@ -3183,7 +3187,13 @@ async function renderAdmin() {
         </form>
 
         <div class="admin-list">
-          <h2>Últimas compras cargadas</h2>
+          <h2>Compras</h2>
+          <div class="admin-search-bar">
+            <input id="clientSearch" type="text" placeholder="Email o RM-0001…">
+            <button id="clientSearchBtn" type="button">Buscar</button>
+            <button id="clientSearchClear" type="button" hidden>✕ Limpiar</button>
+          </div>
+          <div id="clientProfileCard" class="client-profile-card" hidden></div>
           <div id="adminPurchases">Cargando...</div>
         </div>
       </div>
@@ -3191,6 +3201,9 @@ async function renderAdmin() {
   `;
   document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
   document.getElementById("createClientForm").addEventListener("submit", handleCreateClient);
+  document.getElementById("clientSearchBtn").addEventListener("click", doClientSearch);
+  document.getElementById("clientSearch").addEventListener("keydown", e => { if (e.key === "Enter") doClientSearch(); });
+  document.getElementById("clientSearchClear").addEventListener("click", clearClientSearch);
   loadAdminPurchases();
   loadClientsDropdown();
 }
@@ -3213,9 +3226,10 @@ async function handleCreateClient(e) {
   status.textContent = "Creando cuenta...";
   status.className = "form-status";
   try {
-    await apiPost("/api/clients", { action: "create", email, password, full_name: fullName });
+    const newClient = await apiPost("/api/clients", { action: "create", email, password, full_name: fullName });
+    const clientIdLabel = newClient.customer_number ? ` (${fmtClientId(newClient.customer_number)})` : "";
     status.innerHTML = `
-      ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>.<br>
+      ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>${escapeHtml(clientIdLabel)}.<br>
       Mandale por WhatsApp:<br>
       <code class="copy-able" data-copy="Tu acceso a reymidascr.com — Email: ${email} — Contraseña: ${password}">
         Tu acceso a reymidascr.com — Email: ${email} — Contraseña: ${password}
@@ -3242,11 +3256,47 @@ async function loadClientsDropdown() {
     (clients || []).forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.email;
-      opt.textContent = c.full_name ? `${c.email} — ${c.full_name}` : c.email;
+      const id = fmtClientId(c.customer_number);
+      opt.textContent = [id, c.email, c.full_name].filter(Boolean).join(" — ");
       sel.appendChild(opt);
     });
     if (prev) sel.value = prev;
   } catch (_) {}
+}
+
+function renderPurchaseCards(purchases, box, onDelete) {
+  if (!purchases?.length) {
+    box.innerHTML = `<p class="empty-state-small">No hay compras para mostrar.</p>`;
+    return;
+  }
+  box.innerHTML = purchases.map(p => `
+    <div class="admin-purchase">
+      <header>
+        <strong>${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || "?")}</strong>
+        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
+        <time>${escapeHtml(p.purchase_date)}</time>
+        <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
+        <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
+      </header>
+      <p class="admin-account">${escapeHtml(p.account_email)} / ${escapeHtml(p.account_password)}</p>
+      ${p.game_name ? `<p class="admin-game-name">🎮 ${escapeHtml(p.game_name)}</p>` : ""}
+    </div>
+  `).join("");
+  box.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Eliminar esta compra?")) return;
+      try {
+        await apiPost("/api/purchases", { action: "delete", id: btn.dataset.del });
+        onDelete();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+  });
+  box.querySelectorAll("[data-edit-id]").forEach(btn => {
+    const p = purchases.find(x => x.id === btn.dataset.editId);
+    btn.addEventListener("click", () => openEditModal(p));
+  });
 }
 
 async function loadAdminPurchases() {
@@ -3254,41 +3304,137 @@ async function loadAdminPurchases() {
   if (!box) return;
   try {
     const { purchases } = await apiPost("/api/purchases", { action: "list-all" });
-    if (!purchases?.length) {
-      box.innerHTML = `<p class="empty-state-small">Todavía no hay compras cargadas.</p>`;
-      return;
-    }
-    box.innerHTML = purchases.map(p => `
-      <div class="admin-purchase">
-        <header>
-          <strong>${escapeHtml(p.app_users?.email || "?")}</strong>
-          <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
-          <time>${escapeHtml(p.purchase_date)}</time>
-          <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
-          <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
-        </header>
-        <p class="admin-account">${escapeHtml(p.account_email)} / ${escapeHtml(p.account_password)}</p>
-        ${p.game_name ? `<p class="admin-game-name">🎮 ${escapeHtml(p.game_name)}</p>` : ""}
-      </div>
-    `).join("");
-    box.querySelectorAll("[data-del]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        if (!confirm("¿Eliminar esta compra?")) return;
-        try {
-          await apiPost("/api/purchases", { action: "delete", id: btn.dataset.del });
-          loadAdminPurchases();
-        } catch (err) {
-          showToast(err.message);
-        }
-      });
-    });
-    box.querySelectorAll("[data-edit-id]").forEach(btn => {
-      const p = purchases.find(x => x.id === btn.dataset.editId);
-      btn.addEventListener("click", () => openEditModal(p));
-    });
+    renderPurchaseCards(purchases, box, loadAdminPurchases);
   } catch (err) {
     box.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
   }
+}
+
+async function doClientSearch() {
+  const q = document.getElementById("clientSearch")?.value.trim();
+  if (!q) return;
+  const box = document.getElementById("adminPurchases");
+  box.innerHTML = "Buscando...";
+  try {
+    const body = { action: "by-client" };
+    const rmMatch = q.match(/^RM-?(\d+)$/i);
+    if (rmMatch) {
+      body.customer_number = parseInt(rmMatch[1], 10);
+    } else {
+      body.client_email = q.toLowerCase();
+    }
+    const { purchases, client } = await apiPost("/api/purchases", body);
+    document.getElementById("clientSearchClear").hidden = false;
+    if (client) showClientProfile(client);
+    renderPurchaseCards(purchases, box, () => doClientSearch());
+  } catch (err) {
+    box.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function clearClientSearch() {
+  const input = document.getElementById("clientSearch");
+  if (input) input.value = "";
+  document.getElementById("clientSearchClear").hidden = true;
+  document.getElementById("clientProfileCard").hidden = true;
+  loadAdminPurchases();
+}
+
+function showClientProfile(client) {
+  const card = document.getElementById("clientProfileCard");
+  card.hidden = false;
+  card.innerHTML = `
+    <div class="cp-header">
+      ${client.customer_number ? `<span class="cp-id">${escapeHtml(fmtClientId(client.customer_number))}</span>` : ""}
+      <span class="cp-email">${escapeHtml(client.email)}</span>
+      ${client.full_name ? `<span class="cp-name">${escapeHtml(client.full_name)}</span>` : ""}
+    </div>
+    <div class="cp-actions">
+      <button id="cpEditToggle" class="cp-btn">✎ Editar datos</button>
+      <button id="cpResetPassToggle" class="cp-btn">🔑 Cambiar contraseña</button>
+    </div>
+    <form id="cpEditForm" class="cp-form" hidden>
+      <label>Nombre completo
+        <input name="full_name" type="text" value="${escapeAttr(client.full_name || "")}">
+      </label>
+      <label>Email
+        <input name="email" type="email" required value="${escapeAttr(client.email)}">
+      </label>
+      <div class="edit-modal-actions">
+        <button type="submit">Guardar</button>
+        <button type="button" id="cpEditCancel" class="admin-modal-cancel">Cancelar</button>
+      </div>
+      <p id="cpEditStatus" class="form-status"></p>
+    </form>
+    <form id="cpResetPassForm" class="cp-form" hidden>
+      <label>Nueva contraseña
+        <input name="password" type="text" required minlength="6" placeholder="Mínimo 6 caracteres">
+      </label>
+      <div class="edit-modal-actions">
+        <button type="submit">Cambiar contraseña</button>
+        <button type="button" id="cpResetCancel" class="admin-modal-cancel">Cancelar</button>
+      </div>
+      <p id="cpResetStatus" class="form-status"></p>
+    </form>
+  `;
+  card.querySelector("#cpEditToggle").addEventListener("click", () => {
+    card.querySelector("#cpEditForm").hidden = !card.querySelector("#cpEditForm").hidden;
+    card.querySelector("#cpResetPassForm").hidden = true;
+  });
+  card.querySelector("#cpEditCancel").addEventListener("click", () => {
+    card.querySelector("#cpEditForm").hidden = true;
+  });
+  card.querySelector("#cpResetPassToggle").addEventListener("click", () => {
+    card.querySelector("#cpResetPassForm").hidden = !card.querySelector("#cpResetPassForm").hidden;
+    card.querySelector("#cpEditForm").hidden = true;
+  });
+  card.querySelector("#cpResetCancel").addEventListener("click", () => {
+    card.querySelector("#cpResetPassForm").hidden = true;
+  });
+  card.querySelector("#cpEditForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const status = card.querySelector("#cpEditStatus");
+    status.textContent = "Guardando...";
+    status.className = "form-status";
+    try {
+      await apiPost("/api/clients", {
+        action: "update",
+        id: client.id,
+        email: String(fd.get("email")).trim().toLowerCase(),
+        full_name: fd.get("full_name") || null,
+      });
+      client.email = String(fd.get("email")).trim().toLowerCase();
+      client.full_name = fd.get("full_name") || null;
+      card.querySelector(".cp-email").textContent = client.email;
+      const nameEl = card.querySelector(".cp-name");
+      if (nameEl) nameEl.textContent = client.full_name || "";
+      status.textContent = "✓ Datos actualizados";
+      status.className = "form-status ok";
+      loadClientsDropdown();
+      setTimeout(() => { card.querySelector("#cpEditForm").hidden = true; }, 900);
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = "form-status error";
+    }
+  });
+  card.querySelector("#cpResetPassForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const password = String(fd.get("password"));
+    const status = card.querySelector("#cpResetStatus");
+    status.textContent = "Cambiando...";
+    status.className = "form-status";
+    try {
+      await apiPost("/api/clients", { action: "reset-password", id: client.id, password });
+      status.innerHTML = `✓ Contraseña cambiada: <code>${escapeHtml(password)}</code>`;
+      status.className = "form-status ok";
+      e.target.reset();
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = "form-status error";
+    }
+  });
 }
 
 function openEditModal(p) {
@@ -3300,7 +3446,7 @@ function openEditModal(p) {
     document.body.appendChild(modal);
   }
   modal.innerHTML = `
-    <h3>Editar compra — ${escapeHtml(p.app_users?.email || p.id)}</h3>
+    <h3>Editar compra — ${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || p.id)}</h3>
     <div class="row">
       <label>Fecha de compra
         <input name="purchase_date" type="date" value="${escapeAttr(p.purchase_date)}">
