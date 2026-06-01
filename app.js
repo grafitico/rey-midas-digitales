@@ -4,11 +4,23 @@
 const CONFIG = {
   whatsapp: "50661468733",
 
-  // Precio final = USD * exchangeRate * markup
+  // Precios finales via tabla de referencia con interpolación lineal.
+  // PS y Xbox comparten la misma tabla (Xbox se compra via PS Turkey region).
+  // Columns: [usd, principal, secundaria]
   pricing: {
     exchangeRate: 530,
-    principalMarkup: 0.55,    // ~55% del USD → cuenta principal
-    secundariaMarkup: 0.30,   // ~30% del USD → cuenta secundaria
+    principalMarkup: 0.75,    // fallback para Switch/otras plataformas
+    secundariaMarkup: 0.35,   // fallback para Switch/otras plataformas
+    table: [
+      [10, 4000,  2500],
+      [20, 6000,  3000],
+      [30, 11000, 5500],
+      [40, 17000, 7000],
+      [50, 21000, 9000],
+      [60, 26000, 13000],
+      [70, 28500, 15000],
+      [80, 36000, 14000],
+    ],
   },
 
   // Plataformas con catálogo activo. PS3 queda visible
@@ -267,7 +279,7 @@ function addToCart(game, modality) {
   if (game._manualPrices) {
     price = modality === "principal" ? game.priceCRC_principal : game.priceCRC_secundaria;
   } else {
-    price = modality === "principal" ? principalCRC(game.priceUSD) : secundariaCRC(game.priceUSD);
+    price = modality === "principal" ? principalCRC(game.priceUSD, game.platform) : secundariaCRC(game.priceUSD, game.platform);
   }
   const exists = items.find(i => i.id === game.id && i.modality === modality);
   if (exists) return false;
@@ -764,8 +776,8 @@ function renderProduct(id) {
     `;
     return;
   }
-  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD);
-  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD);
+  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
+  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
   const similars = (allGames || [])
     .filter(x => x.platform === g.platform && String(x.id) !== String(g.id))
     .slice(0, 4);
@@ -2761,8 +2773,8 @@ function goToPage(p) {
 }
 
 function cardHTML(g) {
-  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD);
-  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD);
+  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
+  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
   const img = g.imageUrl
     ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">`
     : `${placeholderHTML()}`;
@@ -2822,10 +2834,33 @@ function showToast(text, type = "success") {
 // ============================================================
 // Helpers
 // ============================================================
-function principalCRC(usd) {
+function interpolateCRC(usd, colIdx) {
+  const tbl = CONFIG.pricing.table;
+  if (!usd || usd <= 0) return 0;
+  const col = (row) => row[colIdx + 1]; // row[0]=usd, then 4 price columns
+  if (usd <= tbl[0][0]) {
+    const t = (usd - tbl[0][0]) / (tbl[1][0] - tbl[0][0]);
+    return Math.max(0, Math.round(col(tbl[0]) + t * (col(tbl[1]) - col(tbl[0]))));
+  }
+  const last = tbl.length - 1;
+  if (usd >= tbl[last][0]) {
+    const t = (usd - tbl[last - 1][0]) / (tbl[last][0] - tbl[last - 1][0]);
+    return Math.round(col(tbl[last - 1]) + t * (col(tbl[last]) - col(tbl[last - 1])));
+  }
+  for (let i = 0; i < tbl.length - 1; i++) {
+    if (usd >= tbl[i][0] && usd <= tbl[i + 1][0]) {
+      const t = (usd - tbl[i][0]) / (tbl[i + 1][0] - tbl[i][0]);
+      return Math.round(col(tbl[i]) + t * (col(tbl[i + 1]) - col(tbl[i])));
+    }
+  }
+  return 0;
+}
+function principalCRC(usd, platform = "") {
+  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
   return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
 }
-function secundariaCRC(usd) {
+function secundariaCRC(usd, platform = "") {
+  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 1);
   return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
 }
 function formatCRC(amount) {
