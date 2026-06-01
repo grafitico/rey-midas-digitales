@@ -1,21 +1,19 @@
 // Resolución de precios EN VIVO para el catálogo curado (featured-games.json).
 //
-// Estrategia en dos fases:
+// Estrategia:
 //
-// Fase 1 — páginas rápidas (deals, latest, primeras de catálogo):
-//   Se descargan en paralelo. Tienen discountedValue correcto. Si el título
-//   aparece acá, se resuelve instantáneamente sin coste extra.
+// Fase 1 — páginas de deals/latest/catálogo en paralelo (~2s):
+//   Resuelve los juegos que están en oferta y aparecen en esas páginas.
+//   Rápido y con precio correcto (discountedPrice presente en apolloState).
 //
-// Fase 2 — búsqueda + página de producto:
-//   Para los títulos no resueltos en la fase 1, buscamos en PSN para obtener
-//   el product ID real, y luego descargamos la página del producto individual
-//   (que siempre tiene discountedValue correcto). Limitado a los primeros
-//   SEARCH_LIMIT títulos del archivo (los más populares) para no superar el
-//   tiempo máximo de la función.
+// Fase 2 — búsqueda PSN para los no resueltos:
+//   Cada resultado de búsqueda de PSN incluye el campo "discountedPrice" en
+//   el objeto SkuPrice (confirmado via debug). Un solo request por juego es
+//   suficiente — no se necesita ir a la página de producto.
+//   Se procesan TODOS los títulos del catálogo curado (no solo 50).
 //
-// La búsqueda (/search/) sola no sirve porque PSN no incluye discountedValue
-// en esas páginas — devuelve solo basePrice y nunca muestra ofertas.
-// La página de producto (/product/{id}) sí tiene siempre el precio real.
+// Para títulos no encontrados en ninguna fase, el cliente usa el priceUSD
+// fijo de featured-games.json como fallback.
 
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -33,12 +31,11 @@ const SOURCE_PAGES = [
   "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/6",
 ];
 
-// Máximo de títulos que van por búsqueda+producto (los N más importantes del
-// featured-games.json). Cada uno cuesta ~2 requests; con CONCURRENCY=8 y
-// ~1.5s/req da ≈ (SEARCH_LIMIT/8)×3s ≤ presupuesto restante de ~23s.
-const SEARCH_LIMIT = 50;
-const SEARCH_CONCURRENCY = 8;
-const TIME_BUDGET_MS = 26000;
+// Procesar TODOS los títulos del catálogo curado via búsqueda (1 request cada
+// uno). Con CONCURRENCY=20 y ~1.5s por búsqueda, 150 títulos pendientes tras
+// Phase 1 = 150/20 × 1.5s = ~11s. Bien dentro del budget de 28s.
+const SEARCH_CONCURRENCY = 20;
+const TIME_BUDGET_MS = 27000;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -74,12 +71,10 @@ export default async function handler(req, res) {
       phase1Resolved.add(game.id);
     }
 
-    // ── FASE 2: búsqueda + página de producto para no resueltos ────────────
-    // Tomamos los primeros SEARCH_LIMIT no resueltos (orden = popularidad en
-    // featured-games.json, los más buscados van primero).
-    const toSearch = featured
-      .filter(g => !phase1Resolved.has(g.id))
-      .slice(0, SEARCH_LIMIT);
+    // ── FASE 2: búsqueda directa para TODOS los no resueltos ───────────────
+    // El resultado de búsqueda PSN ya incluye discountedPrice correcto
+    // (confirmado con debug). Un solo request por juego es suficiente.
+    const toSearch = featured.filter(g => !phase1Resolved.has(g.id));
 
     let idx = 0;
     async function worker() {
@@ -87,7 +82,7 @@ export default async function handler(req, res) {
         if (Date.now() - started > TIME_BUDGET_MS) return;
         const game = toSearch[idx++];
         try {
-          const live = await resolveViaProductPage(game, started);
+          const live = await resolveViaSearch(game);
           if (live) prices[game.id] = live;
         } catch { /* skip */ }
       }
@@ -104,7 +99,7 @@ export default async function handler(req, res) {
         sourcePages: SOURCE_PAGES.length,
         liveMapSize: liveMap.size,
         phase1: phase1Resolved.size,
-        phase2Candidates: toSearch.length,
+        phase2Total: toSearch.length,
         resolved: Object.keys(prices).length,
         elapsedMs: Date.now() - started,
       },
@@ -115,44 +110,32 @@ export default async function handler(req, res) {
   }
 }
 
-// Busca el título en PSN para obtener el product ID real, luego descarga la
-// página del producto individual donde discountedValue siempre está presente.
-async function resolveViaProductPage(game, started) {
-  if (Date.now() - started > TIME_BUDGET_MS) return null;
-
-  // Paso A: búsqueda para obtener product ID
+// Búsqueda directa en PSN. La página de búsqueda incluye el objeto SkuPrice
+// con discountedPrice correcto (igual que categoría/deals). Un solo request
+// es suficiente — no hace falta ir a la página de producto.
+async function resolveViaSearch(game) {
   const searchUrl = `${PSN_BASE}/search/${encodeURIComponent(game.title)}`;
-  const searchResults = await fetchAndParse(searchUrl);
+  const results = await fetchAndParse(searchUrl);
   const target = matchKey(game.title);
-  const exact = searchResults.filter(p => matchKey(p.name) === target);
+  const exact = results.filter(p => matchKey(p.name) === target);
   if (!exact.length) return null;
 
-  // Elegir candidato por plataforma y menor precio
-  const wantsPS5 = /PS5/i.test(game.platform || "");
-  const wantsPS4 = /PS4/i.test(game.platform || "");
+  // Filtrar por plataforma si el destacado tiene una específica
+  const wantsPS5 = /PS5/i.test(game.platform || "") && !/PS4/i.test(game.platform || "");
+  const wantsPS4 = /PS4/i.test(game.platform || "") && !/PS5/i.test(game.platform || "");
   let candidates = exact;
-  if (wantsPS5 && !wantsPS4) {
+  if (wantsPS5) {
     const f = exact.filter(p => (p.platforms || []).includes("PS5"));
     if (f.length) candidates = f;
-  } else if (wantsPS4 && !wantsPS5) {
+  } else if (wantsPS4) {
     const f = exact.filter(p => (p.platforms || []).includes("PS4"));
     if (f.length) candidates = f;
   }
+
+  // Elegir la opción más barata (edición base / mejor oferta)
   candidates.sort((a, b) => a.priceUSD - b.priceUSD);
   const chosen = candidates[0];
-
-  if (Date.now() - started > TIME_BUDGET_MS) return null;
-
-  // Paso B: página del producto para leer discountedValue real
-  const productUrl = `${PSN_BASE}/product/${chosen.id}`;
-  const productResults = await fetchAndParse(productUrl);
-  // La página del producto incluye el producto principal y quizás algunos
-  // relacionados; buscamos el que tenga el mismo ID.
-  const product = productResults.find(p => p.id === chosen.id) || productResults[0];
-
-  if (product && product.priceUSD > 0) return toPriceEntry(product);
-
-  // Fallback: devolver lo de la búsqueda (puede ser precio base, mejor que nada)
+  if (!chosen || chosen.priceUSD <= 0) return null;
   return toPriceEntry(chosen);
 }
 
@@ -195,11 +178,6 @@ function parseGames(html) {
   try { data = JSON.parse(m[1]); } catch { return []; }
 
   const cache = data?.props?.apolloState || {};
-  // Apollo normaliza su caché usando refs ({ __ref: "Type:id" }) en vez de
-  // datos inline. Esto ocurre en páginas de producto individual y en algunas
-  // de búsqueda: p.price es { __ref: "Price:UP9000-..." } y sin resolver el
-  // ref el precio aparece vacío → se toma el basePrice = precio completo sin
-  // descuento. La función deref resuelve el puntero al objeto real del caché.
   const deref = (val) =>
     val && typeof val === "object" && val.__ref ? (cache[val.__ref] ?? val) : val;
 
@@ -218,9 +196,8 @@ function parseGames(html) {
 function normalize(p) {
   if (!p.id || !p.name) return null;
   const priceInfo = p.price || {};
-  // PSN expone el precio de oferta como "discountedPrice" (objetos SkuPrice de
-  // las páginas de búsqueda/catálogo). Versiones más viejas/otras vistas usan
-  // "discountedValue". Probamos ambos y caemos a basePrice si no hay oferta.
+  // discountedPrice = campo real de PSN (SkuPrice). discountedValue = alias
+  // de vistas más antiguas. Caemos a basePrice si no hay oferta.
   const current = parsePrice(priceInfo.discountedPrice ?? priceInfo.discountedValue ?? priceInfo.basePrice);
   const original = parsePrice(priceInfo.basePrice) || current;
   if (!current) return null;
