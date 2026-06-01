@@ -27,7 +27,7 @@ async function mine(req, res) {
 
 async function listAll(req, res) {
   await requireAdmin(req);
-  const data = await sb(`purchases?select=*,app_users(email,full_name)&order=created_at.desc&limit=20`);
+  const data = await sb(`purchases?select=*,app_users(email,full_name,customer_number)&order=created_at.desc&limit=20`);
   res.status(200).json({ purchases: data });
 }
 

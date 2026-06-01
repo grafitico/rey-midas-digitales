@@ -39,17 +39,17 @@ async function create(req, res, body) {
       full_name: fullName,
     }),
   });
-  res.status(200).json({ id: inserted[0].id, email: inserted[0].email });
+  res.status(200).json({ id: inserted[0].id, email: inserted[0].email, customer_number: inserted[0].customer_number });
 }
 
 async function find(req, res, body) {
   const email = String(body.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ error: "Email requerido" });
-  const users = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id,email,full_name`);
+  const users = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id,email,full_name,customer_number`);
   res.status(200).json({ user: users[0] || null });
 }
 
 async function list(req, res) {
-  const clients = await sb(`app_users?is_admin=eq.false&select=id,email,full_name&order=email.asc`);
+  const clients = await sb(`app_users?is_admin=eq.false&select=id,email,full_name,customer_number&order=customer_number.asc`);
   res.status(200).json({ clients });
 }

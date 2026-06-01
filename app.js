@@ -2895,6 +2895,10 @@ function escapeHtml(s) {
 }
 const escapeAttr = escapeHtml;
 
+function fmtClientId(n) {
+  return n ? `RM-${String(n).padStart(4, "0")}` : "";
+}
+
 // ============================================================
 // Iconos SVG — reemplazan emojis para look profesional
 // ============================================================
@@ -3213,9 +3217,10 @@ async function handleCreateClient(e) {
   status.textContent = "Creando cuenta...";
   status.className = "form-status";
   try {
-    await apiPost("/api/clients", { action: "create", email, password, full_name: fullName });
+    const newClient = await apiPost("/api/clients", { action: "create", email, password, full_name: fullName });
+    const clientIdLabel = newClient.customer_number ? ` (${fmtClientId(newClient.customer_number)})` : "";
     status.innerHTML = `
-      ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>.<br>
+      ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>${escapeHtml(clientIdLabel)}.<br>
       Mandale por WhatsApp:<br>
       <code class="copy-able" data-copy="Tu acceso a reymidascr.com — Email: ${email} — Contraseña: ${password}">
         Tu acceso a reymidascr.com — Email: ${email} — Contraseña: ${password}
@@ -3242,7 +3247,8 @@ async function loadClientsDropdown() {
     (clients || []).forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.email;
-      opt.textContent = c.full_name ? `${c.email} — ${c.full_name}` : c.email;
+      const id = fmtClientId(c.customer_number);
+      opt.textContent = [id, c.email, c.full_name].filter(Boolean).join(" — ");
       sel.appendChild(opt);
     });
     if (prev) sel.value = prev;
@@ -3261,7 +3267,7 @@ async function loadAdminPurchases() {
     box.innerHTML = purchases.map(p => `
       <div class="admin-purchase">
         <header>
-          <strong>${escapeHtml(p.app_users?.email || "?")}</strong>
+          <strong>${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || "?")}</strong>
           <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
           <time>${escapeHtml(p.purchase_date)}</time>
           <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
@@ -3300,7 +3306,7 @@ function openEditModal(p) {
     document.body.appendChild(modal);
   }
   modal.innerHTML = `
-    <h3>Editar compra — ${escapeHtml(p.app_users?.email || p.id)}</h3>
+    <h3>Editar compra — ${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || p.id)}</h3>
     <div class="row">
       <label>Fecha de compra
         <input name="purchase_date" type="date" value="${escapeAttr(p.purchase_date)}">
