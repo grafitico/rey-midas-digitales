@@ -4,21 +4,22 @@
 const CONFIG = {
   whatsapp: "50661468733",
 
-  // Precios finales por plataforma via tabla de referencia con interpolación lineal.
-  // Columns: [usd, psPrincipal, psSecundaria, xboxHome, xboxSecundaria]
+  // Precios finales via tabla de referencia con interpolación lineal.
+  // PS y Xbox comparten la misma tabla (Xbox se compra via PS Turkey region).
+  // Columns: [usd, principal, secundaria]
   pricing: {
     exchangeRate: 530,
     principalMarkup: 0.75,    // fallback para Switch/otras plataformas
     secundariaMarkup: 0.35,   // fallback para Switch/otras plataformas
     table: [
-      [10, 4000,  2500,  4500,  2500],
-      [20, 6000,  3000,  8000,  4000],
-      [30, 11000, 5500,  11500, 5500],
-      [40, 17000, 7000,  15000, 7000],
-      [50, 21000, 9000,  18500, 9000],
-      [60, 26000, 13000, 23000, 11000],
-      [70, 28500, 15000, 26500, 13000],
-      [80, 36000, 14000, 30000, 15000],
+      [10, 4000,  2500],
+      [20, 6000,  3000],
+      [30, 11000, 5500],
+      [40, 17000, 7000],
+      [50, 21000, 9000],
+      [60, 26000, 13000],
+      [70, 28500, 15000],
+      [80, 36000, 14000],
     ],
   },
 
@@ -2855,13 +2856,11 @@ function interpolateCRC(usd, colIdx) {
   return 0;
 }
 function principalCRC(usd, platform = "") {
-  if (/PS/i.test(platform)) return interpolateCRC(usd, 0);
-  if (/Xbox/i.test(platform)) return interpolateCRC(usd, 2);
+  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
   return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
 }
 function secundariaCRC(usd, platform = "") {
-  if (/PS/i.test(platform)) return interpolateCRC(usd, 1);
-  if (/Xbox/i.test(platform)) return interpolateCRC(usd, 3);
+  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 1);
   return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
 }
 function formatCRC(amount) {
