@@ -6,6 +6,10 @@
     "api/scrape-xbox.js": {
       "maxDuration": 30
     },
+    "api/featured-prices.js": {
+      "maxDuration": 30,
+      "includeFiles": "featured-games.json"
+    },
     "api/cover.js": {
       "maxDuration": 15
     },

@@ -444,7 +444,7 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
@@ -458,6 +458,7 @@ async function load() {
       fetch("/game-pass.json").then(r => r.json()),
       fetch("/reservaciones.json").then(r => r.json()),
       fetch("/featured-games.json").then(r => r.json()),
+      fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
     ]);
     if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
     if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
@@ -499,23 +500,34 @@ async function load() {
     // scraper ya trajo ese juego (con precio real en vivo), preferimos ese y
     // descartamos el curado para no mostrar la tarjeta dos veces.
     if (feat.status === "fulfilled" && Array.isArray(feat.value?.games)) {
+      // Precios en vivo resueltos por /api/featured-prices (mapa featuredId →
+      // { priceUSD, originalPriceUSD, onSale, discount, url, psnId }). Si el
+      // título se pudo resolver contra PSN, usamos su precio/oferta real; si
+      // no, caemos al priceUSD fijo de featured-games.json.
+      const livePrices = (featPrices.status === "fulfilled" && featPrices.value?.prices) || {};
       const seen = new Set(games.map(g => matchKey(g.title)));
       featuredGames = feat.value.games
         .filter(g => g && g.title && !seen.has(matchKey(g.title)))
-        .map(g => ({
-          id: g.id,
-          title: g.title,
-          platform: g.platform || "PS5/PS4",
-          imageUrl: "",
-          url: `https://wa.me/${CONFIG.whatsapp}`,
-          priceUSD: Number(g.priceUSD) || 0,
-          originalPriceUSD: Number(g.priceUSD) || 0,
-          onSale: false,
-          discount: 0,
-          isBundle: false,
-          genres: Array.isArray(g.genres) ? g.genres : [],
-          _featured: true,
-        }));
+        .map(g => {
+          const live = livePrices[g.id];
+          const fixedUSD = Number(g.priceUSD) || 0;
+          return {
+            id: g.id,
+            title: g.title,
+            platform: g.platform || "PS5/PS4",
+            imageUrl: "",
+            url: live?.url || `https://wa.me/${CONFIG.whatsapp}`,
+            priceUSD: live ? live.priceUSD : fixedUSD,
+            originalPriceUSD: live ? live.originalPriceUSD : fixedUSD,
+            onSale: live ? !!live.onSale : false,
+            discount: live ? (live.discount || 0) : 0,
+            isBundle: false,
+            genres: Array.isArray(g.genres) ? g.genres : [],
+            psnId: live?.psnId,
+            _featured: true,
+            _livePrice: !!live,
+          };
+        });
       games.push(...featuredGames);
     }
     if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
