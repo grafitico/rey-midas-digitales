@@ -43,9 +43,24 @@ const TIME_BUDGET_MS = 26000;
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // ── MODO DEBUG ──────────────────────────────────────────────────────────
+  // /api/featured-prices?debug=<título> devuelve la estructura cruda del
+  // precio tal cual la entrega PSN, para diagnosticar de qué campo sale el
+  // precio descontado. Sin caché para ver siempre lo último.
+  const debugTitle = (req.query?.debug || "").toString().trim();
+  if (debugTitle) {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const out = await debugProduct(debugTitle);
+      return res.status(200).json(out);
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   const started = Date.now();
   try {
     const featured = loadFeatured();
@@ -172,6 +187,79 @@ function loadFeatured() {
   const raw = readFileSync(join(process.cwd(), "featured-games.json"), "utf8");
   const data = JSON.parse(raw);
   return Array.isArray(data.games) ? data.games.filter(g => g && g.title) : [];
+}
+
+// Diagnóstico: busca un título, agarra el primer match exacto, descarga su
+// página de producto y devuelve TODOS los objetos del apolloState cuyo
+// __typename sea "Price" (o cuya clave empiece con "Price"), más el objeto
+// Product crudo. Así vemos exactamente de qué campo sale el descuento.
+async function debugProduct(title) {
+  const searchUrl = `${PSN_BASE}/search/${encodeURIComponent(title)}`;
+  const searchHtml = await fetchHtml(searchUrl);
+  const searchCache = extractCache(searchHtml);
+  const target = matchKey(title);
+
+  // Encontrar el Product que matchea exacto en la búsqueda
+  let productKey = null;
+  for (const [k, obj] of Object.entries(searchCache)) {
+    if (obj && typeof obj === "object" && obj.name && matchKey(obj.name) === target) {
+      productKey = k;
+      break;
+    }
+  }
+  const searchProduct = productKey ? searchCache[productKey] : null;
+  const productId = searchProduct?.id;
+
+  let productCache = {};
+  if (productId) {
+    const productHtml = await fetchHtml(`${PSN_BASE}/product/${productId}`);
+    productCache = extractCache(productHtml);
+  }
+
+  // Recolectar entradas de precio de ambos caches
+  const collectPrices = (cache) => {
+    const out = {};
+    for (const [k, v] of Object.entries(cache)) {
+      if (k.startsWith("Price") || (v && v.__typename === "Price") ||
+          (v && (v.basePrice != null || v.discountedValue != null || v.discountedPrice != null))) {
+        out[k] = v;
+      }
+    }
+    return out;
+  };
+
+  // El objeto Product de la página de producto
+  let productPageProduct = null;
+  for (const [k, obj] of Object.entries(productCache)) {
+    if (obj && obj.id && obj.id === productId) { productPageProduct = obj; break; }
+  }
+
+  return {
+    title,
+    productId,
+    searchProduct_priceField: searchProduct?.price ?? null,
+    productPageProduct_priceField: productPageProduct?.price ?? null,
+    searchPriceEntries: collectPrices(searchCache),
+    productPriceEntries: collectPrices(productCache),
+  };
+}
+
+function extractCache(html) {
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  if (!m) return {};
+  try { return JSON.parse(m[1])?.props?.apolloState || {}; } catch { return {}; }
+}
+
+async function fetchHtml(url) {
+  const r = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+    },
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status} en ${url}`);
+  return r.text();
 }
 
 async function fetchAndParse(url) {
