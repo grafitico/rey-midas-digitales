@@ -211,7 +211,9 @@ function parseGames(html) {
 function normalize(p) {
   if (!p.id || !p.name) return null;
   const priceInfo = p.price || {};
-  const current = parsePrice(priceInfo.discountedValue ?? priceInfo.basePrice);
+  // PSN expone el precio de oferta como "discountedPrice" (SkuPrice). Algunas
+  // vistas usan "discountedValue". Probamos ambos y caemos a basePrice.
+  const current = parsePrice(priceInfo.discountedPrice ?? priceInfo.discountedValue ?? priceInfo.basePrice);
   const original = parsePrice(priceInfo.basePrice) || current;
   if (!current) return null;
 
