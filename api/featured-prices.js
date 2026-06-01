@@ -1,23 +1,27 @@
 // Resolución de precios EN VIVO para el catálogo curado (featured-games.json).
 //
-// Problema raíz: las páginas de búsqueda de PSN (/search/{q}) no incluyen
-// el campo "discountedValue" en su apolloState — solo "basePrice". Por eso
-// la primera versión de este endpoint devolvía el precio COMPLETO ($69.99)
-// en vez del precio en oferta ($29.39).
+// Estrategia en dos fases:
 //
-// Solución: en vez de buscar por título, descargamos las mismas páginas que
-// usa api/scrape.js (deals, latest, primeras páginas de categoría). Esas sí
-// tienen el precio con descuento correcto. Mapeamos por matchKey y devolvemos
-// las coincidencias. Para featured titles sin oferta activa, el cliente
-// conserva el priceUSD fijo de featured-games.json como fallback.
+// Fase 1 — páginas rápidas (deals, latest, primeras de catálogo):
+//   Se descargan en paralelo. Tienen discountedValue correcto. Si el título
+//   aparece acá, se resuelve instantáneamente sin coste extra.
+//
+// Fase 2 — búsqueda + página de producto:
+//   Para los títulos no resueltos en la fase 1, buscamos en PSN para obtener
+//   el product ID real, y luego descargamos la página del producto individual
+//   (que siempre tiene discountedValue correcto). Limitado a los primeros
+//   SEARCH_LIMIT títulos del archivo (los más populares) para no superar el
+//   tiempo máximo de la función.
+//
+// La búsqueda (/search/) sola no sirve porque PSN no incluye discountedValue
+// en esas páginas — devuelve solo basePrice y nunca muestra ofertas.
+// La página de producto (/product/{id}) sí tiene siempre el precio real.
 
 import { readFileSync } from "fs";
 import { join } from "path";
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
 
-// Páginas a scrapear. deals y latest ya tienen precios con descuento.
-// Agregamos las primeras páginas del catálogo principal para mayor cobertura.
 const SOURCE_PAGES = [
   "/pages/deals",
   "/pages/latest",
@@ -25,7 +29,16 @@ const SOURCE_PAGES = [
   "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/2",
   "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/3",
   "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/4",
+  "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/5",
+  "/category/44d8bb20-653e-431e-8ad0-c0a365f68d2f/6",
 ];
+
+// Máximo de títulos que van por búsqueda+producto (los N más importantes del
+// featured-games.json). Cada uno cuesta ~2 requests; con CONCURRENCY=8 y
+// ~1.5s/req da ≈ (SEARCH_LIMIT/8)×3s ≤ presupuesto restante de ~23s.
+const SEARCH_LIMIT = 50;
+const SEARCH_CONCURRENCY = 8;
+const TIME_BUDGET_MS = 26000;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -33,16 +46,15 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  const started = Date.now();
   try {
     const featured = loadFeatured();
 
-    // Descargar todas las páginas fuente en paralelo
+    // ── FASE 1: páginas de catálogo/deals en paralelo ──────────────────────
     const fetched = await Promise.allSettled(
       SOURCE_PAGES.map(path => fetchAndParse(`${PSN_BASE}${path}`))
     );
 
-    // Construir mapa: matchKey(título) → mejor precio (el más bajo si aparece
-    // en más de una página)
     const liveMap = new Map();
     for (const r of fetched) {
       if (r.status !== "fulfilled") continue;
@@ -53,32 +65,107 @@ export default async function handler(req, res) {
       }
     }
 
-    // Resolver cada featured title contra el mapa
     const prices = {};
-    let resolved = 0;
+    const phase1Resolved = new Set();
     for (const game of featured) {
       const live = liveMap.get(matchKey(game.title));
       if (!live) continue;
-      prices[game.id] = {
-        priceUSD: live.priceUSD,
-        originalPriceUSD: live.originalPriceUSD,
-        onSale: live.onSale,
-        discount: live.discount,
-        url: live.url,
-        psnId: live.id,
-        platform: live.platform,
-      };
-      resolved++;
+      prices[game.id] = toPriceEntry(live);
+      phase1Resolved.add(game.id);
+    }
+
+    // ── FASE 2: búsqueda + página de producto para no resueltos ────────────
+    // Tomamos los primeros SEARCH_LIMIT no resueltos (orden = popularidad en
+    // featured-games.json, los más buscados van primero).
+    const toSearch = featured
+      .filter(g => !phase1Resolved.has(g.id))
+      .slice(0, SEARCH_LIMIT);
+
+    let idx = 0;
+    async function worker() {
+      while (idx < toSearch.length) {
+        if (Date.now() - started > TIME_BUDGET_MS) return;
+        const game = toSearch[idx++];
+        try {
+          const live = await resolveViaProductPage(game, started);
+          if (live) prices[game.id] = live;
+        } catch { /* skip */ }
+      }
+    }
+    if (toSearch.length > 0) {
+      await Promise.all(
+        Array.from({ length: Math.min(SEARCH_CONCURRENCY, toSearch.length) }, worker)
+      );
     }
 
     return res.status(200).json({
       success: true,
-      stats: { sourcePages: SOURCE_PAGES.length, liveProducts: liveMap.size, resolved },
+      stats: {
+        sourcePages: SOURCE_PAGES.length,
+        liveMapSize: liveMap.size,
+        phase1: phase1Resolved.size,
+        phase2Candidates: toSearch.length,
+        resolved: Object.keys(prices).length,
+        elapsedMs: Date.now() - started,
+      },
       prices,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
   }
+}
+
+// Busca el título en PSN para obtener el product ID real, luego descarga la
+// página del producto individual donde discountedValue siempre está presente.
+async function resolveViaProductPage(game, started) {
+  if (Date.now() - started > TIME_BUDGET_MS) return null;
+
+  // Paso A: búsqueda para obtener product ID
+  const searchUrl = `${PSN_BASE}/search/${encodeURIComponent(game.title)}`;
+  const searchResults = await fetchAndParse(searchUrl);
+  const target = matchKey(game.title);
+  const exact = searchResults.filter(p => matchKey(p.name) === target);
+  if (!exact.length) return null;
+
+  // Elegir candidato por plataforma y menor precio
+  const wantsPS5 = /PS5/i.test(game.platform || "");
+  const wantsPS4 = /PS4/i.test(game.platform || "");
+  let candidates = exact;
+  if (wantsPS5 && !wantsPS4) {
+    const f = exact.filter(p => (p.platforms || []).includes("PS5"));
+    if (f.length) candidates = f;
+  } else if (wantsPS4 && !wantsPS5) {
+    const f = exact.filter(p => (p.platforms || []).includes("PS4"));
+    if (f.length) candidates = f;
+  }
+  candidates.sort((a, b) => a.priceUSD - b.priceUSD);
+  const chosen = candidates[0];
+
+  if (Date.now() - started > TIME_BUDGET_MS) return null;
+
+  // Paso B: página del producto para leer discountedValue real
+  const productUrl = `${PSN_BASE}/product/${chosen.id}`;
+  const productResults = await fetchAndParse(productUrl);
+  // La página del producto incluye el producto principal y quizás algunos
+  // relacionados; buscamos el que tenga el mismo ID.
+  const product = productResults.find(p => p.id === chosen.id) || productResults[0];
+
+  if (product && product.priceUSD > 0) return toPriceEntry(product);
+
+  // Fallback: devolver lo de la búsqueda (puede ser precio base, mejor que nada)
+  return toPriceEntry(chosen);
+}
+
+function toPriceEntry(g) {
+  return {
+    priceUSD: g.priceUSD,
+    originalPriceUSD: g.originalPriceUSD,
+    onSale: g.onSale,
+    discount: g.discount,
+    url: g.url,
+    psnId: g.id,
+    platform: g.platform,
+  };
 }
 
 function loadFeatured() {
@@ -139,6 +226,7 @@ function normalize(p) {
     id: p.id,
     name: p.name,
     platform,
+    platforms: plats,
     url: `https://store.playstation.com/es-cr/product/${p.id}`,
     priceUSD: current,
     originalPriceUSD: original,
@@ -147,7 +235,6 @@ function normalize(p) {
   };
 }
 
-// Normalización idéntica a matchKey() en el cliente (app.js)
 function matchKey(t) {
   return String(t || "")
     .replace(/[™®©]/g, "")
