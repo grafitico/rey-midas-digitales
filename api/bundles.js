@@ -50,16 +50,20 @@ function ghHeaders() {
   };
 }
 function ghRepo() {
-  const r = process.env.GITHUB_REPO;
-  if (!r) {
-    const e = new Error("Falta GITHUB_REPO en el servidor.");
-    e.status = 500;
-    throw e;
-  }
-  return r;
+  // GITHUB_REPO explícito, o lo derivamos de las variables que Vercel expone
+  // solo en proyectos conectados a git (no requieren configuración manual).
+  const explicit = process.env.GITHUB_REPO;
+  if (explicit) return explicit;
+  const owner = process.env.VERCEL_GIT_REPO_OWNER;
+  const slug = process.env.VERCEL_GIT_REPO_SLUG;
+  if (owner && slug) return `${owner}/${slug}`;
+  const e = new Error("Falta GITHUB_REPO en el servidor (y no se pudo derivar de Vercel).");
+  e.status = 500;
+  throw e;
 }
 function ghBranch() {
-  return process.env.GITHUB_BRANCH || "main";
+  // Rama destino: explícita, o la rama del deploy actual (en producción = main).
+  return process.env.GITHUB_BRANCH || process.env.VERCEL_GIT_COMMIT_REF || "main";
 }
 
 // Devuelve { sha, content(base64 string) } o null si el archivo no existe (404).
