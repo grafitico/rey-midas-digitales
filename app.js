@@ -1067,14 +1067,10 @@ function categoryCardsHTML() {
     <section class="container category-nav-section">
       <div class="section-title">
         <h2>Explorá por categoría</h2>
-        <p>Encontrá tu próximo juego por género.</p>
       </div>
-      <div class="category-nav-grid">
+      <div class="category-nav-row">
         ${HOME_CATEGORIES.map(c => `
-          <a class="cat-card cat-card--${c.tag}" href="/categoria/${c.tag}">
-            <span class="cat-card-icon" aria-hidden="true">${c.icon}</span>
-            <span class="cat-card-label">${escapeHtml(GENRE_LABELS[c.tag] || c.tag)}</span>
-          </a>
+          <a class="cat-pill cat-card--${c.tag}" href="/categoria/${c.tag}">${escapeHtml(GENRE_LABELS[c.tag] || c.tag)}</a>
         `).join("")}
       </div>
     </section>
