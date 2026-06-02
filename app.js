@@ -569,6 +569,9 @@ async function enrichFeaturedCovers() {
           g._rawgMeta = hit.metacritic;
           writeRawgCache(`rawg-meta:${matchKey(g.title)}`, hit.metacritic);
         }
+        if (hit) {
+          writeRawgCache(`rawg-indie:${matchKey(g.title)}`, rawgHitIsIndie(hit));
+        }
         writeRawgCache(key, cover);
       } catch {
         cover = "";
@@ -1151,6 +1154,9 @@ function matchKey(t) {
 
 // ============================================================
 // Filtro AAA: heurística por precio + Metacritic cacheado de RAWG.
+//   - Si RAWG marca el juego como "Indie" (g._rawgIndie), se oculta SIEMPRE
+//     del catálogo curado, sin importar precio ni Metacritic. Es la señal
+//     autoritativa que pidió el negocio para no mostrar juegos indie.
 //   - Si tenemos veredicto de RAWG (g._rawgMeta), lo respetamos: >=70 es AAA.
 //   - Si no, fallback por precio: $15+ base, o $25+ original si está en oferta.
 // El veredicto de RAWG se va llenando en background a medida que el
@@ -1162,6 +1168,16 @@ const AAA_META_THRESHOLD = 65;
 const AAA_ENRICH_BATCH = 8;        // requests en paralelo
 const AAA_ENRICH_DELAY_MS = 200;   // pausa entre batches
 
+// ¿RAWG clasifica este resultado como Indie? RAWG expone "Indie" tanto en
+// `genres` como en `tags`; con que aparezca en cualquiera ya lo tratamos como
+// indie. Nombres normalizados a minúscula para comparar sin sorpresas.
+function rawgHitIsIndie(hit) {
+  if (!hit) return false;
+  const names = [...(hit.genres || []), ...(hit.tags || [])]
+    .map(s => String(s).toLowerCase().trim());
+  return names.includes("indie");
+}
+
 function isAAA(g) {
   // Ofertas curadas a mano y catálogo curado de "más buscados" siempre se
   // muestran: son títulos elegidos por nosotros, no pasan por la heurística.
@@ -1170,6 +1186,10 @@ function isAAA(g) {
   // Títulos de la lista de prioridad del negocio: siempre AAA sin importar
   // precio ni datos de RAWG.
   if (priorityScore(g) < Infinity) return true;
+
+  // RAWG marcó el juego explícitamente como Indie: lo ocultamos del catálogo
+  // "Solo AAA" aunque tenga buen Metacritic o precio alto. Señal autoritativa.
+  if (g._rawgIndie === true) return false;
 
   const meta = g._rawgMeta;
   // Veredicto positivo de RAWG: Metacritic alto = AAA, sin importar el precio.
@@ -1271,9 +1291,15 @@ function priorityScore(g) {
 // las decisiones de isAAA() son consistentes desde el primer render.
 function hydrateRawgMetaFromCache(games) {
   for (const g of games || []) {
-    if (g._rawgMeta !== undefined) continue;
-    const cached = readRawgCache(`rawg-meta:${matchKey(g.title)}`);
-    if (cached !== undefined) g._rawgMeta = cached; // puede quedar null = "no AAA según RAWG"
+    const key = matchKey(g.title);
+    if (g._rawgMeta === undefined) {
+      const cached = readRawgCache(`rawg-meta:${key}`);
+      if (cached !== undefined) g._rawgMeta = cached; // puede quedar null = "no AAA según RAWG"
+    }
+    if (g._rawgIndie === undefined) {
+      const cachedIndie = readRawgCache(`rawg-indie:${key}`);
+      if (cachedIndie !== undefined) g._rawgIndie = cachedIndie;
+    }
   }
 }
 
@@ -1318,9 +1344,15 @@ async function runEnrichLoop() {
       const key = matchKey(g.title);
       if (!key) { g._rawgMeta = null; return; }
       const cacheKey = `rawg-meta:${key}`;
+      const indieCacheKey = `rawg-indie:${key}`;
       const cached = readRawgCache(cacheKey);
-      if (cached !== undefined) {
+      const cachedIndie = readRawgCache(indieCacheKey);
+      // Solo saltamos el fetch si YA tenemos ambas señales cacheadas. Si el
+      // Metacritic venía de una corrida vieja (sin flag indie), refrescamos
+      // para poblar también el indie — se auto-cura sin invalidar el cache.
+      if (cached !== undefined && cachedIndie !== undefined) {
         g._rawgMeta = cached;
+        g._rawgIndie = cachedIndie;
         return;
       }
       try {
@@ -1328,8 +1360,11 @@ async function runEnrichLoop() {
         const json = await r.json();
         const hit = json?.games?.[0];
         const meta = hit?.metacritic ?? null;
+        const indie = rawgHitIsIndie(hit);
         g._rawgMeta = meta;
+        g._rawgIndie = indie;
         writeRawgCache(cacheKey, meta);
+        writeRawgCache(indieCacheKey, indie);
       } catch {
         g._rawgMeta = null;
       }
