@@ -54,25 +54,26 @@ let gamePassPlans = [];
 let reservaciones = [];
 
 // ============================================================
-// Auth propio — usa los endpoints en /api/auth y /api/* con un
-// token HMAC guardado en localStorage. Sin Supabase Auth.
+// Auth propio — usa los endpoints en /api/auth y /api/*. La sesión vive en
+// una cookie HttpOnly que pone el servidor: el JS no la puede leer, así que
+// un XSS no puede robarla. Acá solo guardamos una "pista" booleana (no el
+// token) para saber si vale la pena preguntar por la sesión al cargar.
 // ============================================================
-const TOKEN_KEY = "rmd_token_v1";
+const SESSION_HINT_KEY = "rmd_has_session";
 let currentUser = null;
 let usersExist = true; // se actualiza en initAuth(); controla el botón "Crear primer admin"
 
-function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
-function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
-function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+function hasSessionHint() { return localStorage.getItem(SESSION_HINT_KEY) === "1"; }
+function setSessionHint() { localStorage.setItem(SESSION_HINT_KEY, "1"); }
+function clearSessionHint() { localStorage.removeItem(SESSION_HINT_KEY); }
 
-// Wrapper para todos los fetches a la API: agrega el token y parsea errores.
+// Wrapper para todos los fetches a la API. La cookie de sesión viaja sola en
+// las peticiones del mismo origen; solo parseamos errores.
 async function apiPost(path, body) {
-  const headers = { "Content-Type": "application/json" };
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(path, {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", // asegura que la cookie de sesión se envíe
     body: JSON.stringify(body),
   });
   let data = {};
@@ -86,14 +87,15 @@ async function apiPost(path, body) {
 }
 
 async function initAuth() {
-  const token = getToken();
-  if (token) {
+  // Limpieza del esquema viejo (token en localStorage) por si quedó de antes.
+  localStorage.removeItem("rmd_token_v1");
+  if (hasSessionHint()) {
     try {
       const { user } = await apiPost("/api/auth", { action: "me" });
       currentUser = user;
     } catch (err) {
-      // Token inválido / expirado: limpiar
-      if (err.status === 401) clearToken();
+      // Cookie inválida / expirada: olvidamos la pista
+      if (err.status === 401) clearSessionHint();
       currentUser = null;
     }
   }
@@ -119,8 +121,8 @@ async function initAuth() {
 
 async function loginWithPassword(email, password) {
   try {
-    const { token, user } = await apiPost("/api/auth", { action: "login", email, password });
-    setToken(token);
+    const { user } = await apiPost("/api/auth", { action: "login", email, password });
+    setSessionHint();
     currentUser = user;
     usersExist = true;
     renderAuthSlot();
@@ -132,10 +134,10 @@ async function loginWithPassword(email, password) {
 
 async function bootstrapAdmin(email, password, fullName) {
   try {
-    const { token, user } = await apiPost("/api/auth", {
+    const { user } = await apiPost("/api/auth", {
       action: "bootstrap", email, password, full_name: fullName || null,
     });
-    setToken(token);
+    setSessionHint();
     currentUser = user;
     usersExist = true;
     renderAuthSlot();
@@ -155,8 +157,11 @@ async function changePassword(newPassword) {
 }
 
 function logout() {
-  clearToken();
+  clearSessionHint();
   currentUser = null;
+  // Le pedimos al servidor que borre la cookie HttpOnly (no podemos hacerlo
+  // desde JS). No bloqueamos la navegación esperando la respuesta.
+  apiPost("/api/auth", { action: "logout" }).catch(() => {});
   renderAuthSlot();
   navigate("/");
 }
