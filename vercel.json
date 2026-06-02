@@ -13,6 +13,9 @@
     "api/cover.js": {
       "maxDuration": 15
     },
+    "api/bundles.js": {
+      "maxDuration": 15
+    },
     "api/telegram-webhook.js": {
       "maxDuration": 15
     },

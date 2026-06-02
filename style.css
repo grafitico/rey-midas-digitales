@@ -3668,3 +3668,117 @@ html { scroll-behavior: smooth; }
 }
 .cart-code-hint a { color: var(--gold); text-decoration: none; font-weight: 700; }
 .cart-code-hint a:hover { text-decoration: underline; }
+
+/* ============================================================
+   Bundles: badge de oferta / descuento
+   ============================================================ */
+.badge-discount {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  background: linear-gradient(135deg, var(--magenta), #c41872);
+  color: #fff;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(255, 42, 142, 0.45);
+  z-index: 2;
+}
+.badge-discount-lg {
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 10px;
+}
+.card-offer {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  color: var(--magenta);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.2px;
+}
+.bundle-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.4rem 0 1.1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 42, 142, 0.14), rgba(255, 42, 142, 0.04));
+  border: 1px solid rgba(255, 42, 142, 0.35);
+}
+.bundle-offer-pct {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--magenta);
+}
+.bundle-offer-note {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.product-image { position: relative; }
+
+/* ============================================================
+   Admin: gestor de bundles PS / Xbox
+   ============================================================ */
+.admin-bundles { margin-top: 2rem; }
+.field-hint {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.field-hint code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+}
+.bundle-form-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.bundle-cover-preview {
+  margin: 0.2rem 0 0.6rem;
+}
+.bundle-cover-preview img {
+  max-width: 160px;
+  max-height: 160px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  object-fit: cover;
+}
+.form-status.success { color: var(--green); }
+.admin-bundle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.abr-thumb {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.abr-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.abr-noimg { font-size: 0.6rem; color: var(--text-dim); text-align: center; }
+.abr-info { flex: 1; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.abr-info strong { font-size: 0.92rem; }
+.abr-meta { font-size: 0.76rem; color: var(--text-dim); }
+.abr-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }

@@ -1867,9 +1867,11 @@ function bundleCardHTML(b, type = "nintendo") {
       <div class="card-image">
         ${cover}
         <span class="badge-platform">${badges[type]}</span>
+        ${b.discountPct ? `<span class="badge-discount">−${b.discountPct}%</span>` : ""}
       </div>
       <div class="card-body">
-        <div class="card-title">Bundle ${escapeHtml(b.id)}</div>
+        <div class="card-title">${b.title ? escapeHtml(b.title) : `Bundle ${escapeHtml(b.id)}`}</div>
+        ${b.discountPct ? `<div class="card-offer">Ahorra un ${b.discountPct}%</div>` : ""}
         <div class="bundle-meta">
           <span>${b.games?.length || 0} juegos</span>
           ${b.totalSize ? `<span>&middot; ${escapeHtml(b.totalSize)}</span>` : ""}
@@ -1944,11 +1946,21 @@ function renderBundle(id, type = "nintendo") {
     <section class="container product-page">
       <a class="back-link" href="${src.backHref}">&larr; Volver a bundles</a>
       <div class="product-grid">
-        <div class="product-image">${cover}</div>
+        <div class="product-image">
+          ${cover}
+          ${b.discountPct ? `<span class="badge-discount badge-discount-lg">−${b.discountPct}%</span>` : ""}
+        </div>
         <div class="product-info">
           <span class="product-platform">${escapeHtml(src.platform)}</span>
-          <h1>Bundle ${escapeHtml(b.id)}</h1>
+          <h1>${b.title ? escapeHtml(b.title) : `Bundle ${escapeHtml(b.id)}`}</h1>
           <p class="product-desc">Cuenta ${escapeHtml(src.platform)} con los siguientes juegos preinstalados. Total: ${b.games?.length || 0} juegos${b.totalSize ? ` &middot; ${escapeHtml(b.totalSize)}` : ""}.</p>
+
+          ${b.discountPct ? `
+            <div class="bundle-offer">
+              <span class="bundle-offer-pct">🔥 Ahorra un ${b.discountPct}%</span>
+              <span class="bundle-offer-note">Oferta por tiempo limitado y única</span>
+            </div>
+          ` : ""}
 
           ${priceBlock}
 
@@ -3325,6 +3337,64 @@ async function renderAdmin() {
           <div id="adminPurchases">Cargando...</div>
         </div>
       </div>
+
+      <div class="admin-grid admin-bundles">
+        <form id="bundleForm" class="admin-form">
+          <h2 id="bundleFormTitle">Cargar bundle PS / Xbox</h2>
+          <input type="hidden" name="id" id="bundleId">
+          <div class="row">
+            <label>Plataforma
+              <select name="platform" id="bundlePlatform" required>
+                <option value="ps">PlayStation</option>
+                <option value="xbox">Xbox</option>
+              </select>
+            </label>
+            <label>Precio (₡)
+              <input name="priceCRC" id="bundlePrice" type="number" min="1" step="1" required placeholder="25000">
+            </label>
+          </div>
+          <div class="row">
+            <label>Título (opcional)
+              <input name="title" id="bundleTitle" type="text" placeholder="Ej: Mega Bundle PS5 Acción">
+            </label>
+            <label>Peso total (opcional)
+              <input name="totalSize" id="bundleSize" type="text" placeholder="Ej: 180 GB">
+            </label>
+          </div>
+          <label>Descuento (%) — opcional
+            <input name="discountPct" id="bundleDiscount" type="number" min="1" max="99" step="1" list="discountPresets" placeholder="Ej: 70">
+            <datalist id="discountPresets">
+              <option value="50"></option><option value="60"></option>
+              <option value="70"></option><option value="80"></option><option value="90"></option>
+            </datalist>
+            <small class="field-hint">Si lo llenás, aparece automáticamente “Ahorra un X%” + “Oferta por tiempo limitado y única”. Dejalo vacío para no mostrar oferta.</small>
+          </label>
+          <label>Portada — subí una imagen
+            <input name="coverFile" id="bundleCoverFile" type="file" accept="image/*">
+          </label>
+          <label>…o pegá un enlace de imagen
+            <input name="coverUrl" id="bundleCoverUrl" type="text" placeholder="https://…/portada.jpg">
+          </label>
+          <div id="bundleCoverPreviewWrap" class="bundle-cover-preview" hidden>
+            <img id="bundleCoverPreview" alt="Vista previa portada">
+          </div>
+          <label>Juegos incluidos
+            <textarea name="games" id="bundleGames" rows="8" required placeholder="Uno por línea. Opcional el peso después de una barra:&#10;God of War Ragnarök | 90 gb&#10;Spider-Man 2&#10;Hogwarts Legacy | 75 gb"></textarea>
+            <small class="field-hint">Un juego por línea. Si querés, agregá el peso después de “ | ” (ej: <code>God of War | 90 gb</code>).</small>
+          </label>
+          <div class="bundle-form-actions">
+            <button type="submit" id="bundleSubmitBtn">Guardar bundle</button>
+            <button type="button" id="bundleCancelBtn" class="cta-secondary" hidden>Cancelar edición</button>
+          </div>
+          <p id="bundleFormStatus" class="form-status"></p>
+        </form>
+
+        <div class="admin-list">
+          <h2>Bundles publicados</h2>
+          <p class="field-hint">Los cambios aparecen en la web pública en ~1 minuto (cuando Vercel redespliega).</p>
+          <div id="adminBundlesList">Cargando...</div>
+        </div>
+      </div>
     </section>
   `;
   document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
@@ -3332,8 +3402,189 @@ async function renderAdmin() {
   document.getElementById("clientSearchBtn").addEventListener("click", doClientSearch);
   document.getElementById("clientSearch").addEventListener("keydown", e => { if (e.key === "Enter") doClientSearch(); });
   document.getElementById("clientSearchClear").addEventListener("click", clearClientSearch);
+  document.getElementById("bundleForm").addEventListener("submit", handleBundleSubmit);
+  document.getElementById("bundleCancelBtn").addEventListener("click", resetBundleForm);
+  document.getElementById("bundleCoverFile").addEventListener("change", previewBundleCover);
+  document.getElementById("bundleCoverUrl").addEventListener("input", previewBundleCover);
   loadAdminPurchases();
   loadClientsDropdown();
+  loadAdminBundles();
+}
+
+// ===== Bundles PS / Xbox (admin) =====
+let adminBundlesCache = { ps: [], xbox: [] };
+
+async function loadAdminBundles() {
+  const box = document.getElementById("adminBundlesList");
+  if (!box) return;
+  try {
+    const data = await apiPost("/api/bundles", { action: "list" });
+    adminBundlesCache = { ps: data.ps || [], xbox: data.xbox || [] };
+    renderAdminBundles();
+  } catch (err) {
+    box.innerHTML = `<p class="form-status error">No se pudieron cargar los bundles: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderAdminBundles() {
+  const box = document.getElementById("adminBundlesList");
+  if (!box) return;
+  const rows = [];
+  for (const platform of ["ps", "xbox"]) {
+    for (const b of adminBundlesCache[platform]) {
+      rows.push(`
+        <div class="admin-bundle-row">
+          <div class="abr-thumb">${b.coverUrl ? `<img src="${escapeAttr(b.coverUrl)}" alt="" loading="lazy">` : `<span class="abr-noimg">sin portada</span>`}</div>
+          <div class="abr-info">
+            <strong>${b.title ? escapeHtml(b.title) : `Bundle ${escapeHtml(b.id)}`}</strong>
+            <span class="abr-meta">${platform === "ps" ? "PlayStation" : "Xbox"} · ${b.games?.length || 0} juegos · ${formatCRC(b.priceCRC)}${b.discountPct ? ` · −${b.discountPct}%` : ""}</span>
+          </div>
+          <div class="abr-actions">
+            <button type="button" class="admin-edit" data-edit-bundle="${escapeAttr(platform)}:${escapeAttr(b.id)}" title="Editar">✎</button>
+            <button type="button" class="admin-del" data-del-bundle="${escapeAttr(platform)}:${escapeAttr(b.id)}" title="Eliminar">×</button>
+          </div>
+        </div>
+      `);
+    }
+  }
+  box.innerHTML = rows.length ? rows.join("") : `<p class="field-hint">Todavía no cargaste ningún bundle.</p>`;
+  box.querySelectorAll("[data-edit-bundle]").forEach(btn => {
+    btn.addEventListener("click", () => editBundle(...btn.dataset.editBundle.split(":")));
+  });
+  box.querySelectorAll("[data-del-bundle]").forEach(btn => {
+    btn.addEventListener("click", () => deleteBundle(...btn.dataset.delBundle.split(":")));
+  });
+}
+
+function gamesToText(games) {
+  return (games || []).map(g => g.size ? `${g.name} | ${g.size}` : g.name).join("\n");
+}
+
+function parseGamesText(text) {
+  return String(text || "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const i = line.indexOf("|");
+      if (i === -1) return { name: line, size: "" };
+      return { name: line.slice(0, i).trim(), size: line.slice(i + 1).trim() };
+    })
+    .filter(g => g.name);
+}
+
+function editBundle(platform, id) {
+  const b = (adminBundlesCache[platform] || []).find(x => String(x.id) === String(id));
+  if (!b) return;
+  document.getElementById("bundleId").value = b.id;
+  document.getElementById("bundlePlatform").value = platform;
+  document.getElementById("bundlePrice").value = b.priceCRC || "";
+  document.getElementById("bundleTitle").value = b.title || "";
+  document.getElementById("bundleSize").value = b.totalSize || "";
+  document.getElementById("bundleDiscount").value = b.discountPct || "";
+  document.getElementById("bundleCoverUrl").value = b.coverUrl || "";
+  document.getElementById("bundleCoverFile").value = "";
+  document.getElementById("bundleGames").value = gamesToText(b.games);
+  document.getElementById("bundleFormTitle").textContent = `Editar bundle ${b.id}`;
+  document.getElementById("bundleSubmitBtn").textContent = "Guardar cambios";
+  document.getElementById("bundleCancelBtn").hidden = false;
+  previewBundleCover();
+  document.getElementById("bundleForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetBundleForm() {
+  const form = document.getElementById("bundleForm");
+  if (form) form.reset();
+  document.getElementById("bundleId").value = "";
+  document.getElementById("bundleFormTitle").textContent = "Cargar bundle PS / Xbox";
+  document.getElementById("bundleSubmitBtn").textContent = "Guardar bundle";
+  document.getElementById("bundleCancelBtn").hidden = true;
+  document.getElementById("bundleFormStatus").textContent = "";
+  previewBundleCover();
+}
+
+function previewBundleCover() {
+  const wrap = document.getElementById("bundleCoverPreviewWrap");
+  const img = document.getElementById("bundleCoverPreview");
+  if (!wrap || !img) return;
+  const file = document.getElementById("bundleCoverFile").files[0];
+  const url = document.getElementById("bundleCoverUrl").value.trim();
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; wrap.hidden = false; };
+    reader.readAsDataURL(file);
+  } else if (url) {
+    img.src = url; wrap.hidden = false;
+  } else {
+    img.removeAttribute("src"); wrap.hidden = true;
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result);
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleBundleSubmit(e) {
+  e.preventDefault();
+  const status = document.getElementById("bundleFormStatus");
+  const btn = document.getElementById("bundleSubmitBtn");
+  status.className = "form-status";
+  status.textContent = "Guardando…";
+  btn.disabled = true;
+  try {
+    const platform = document.getElementById("bundlePlatform").value;
+    const games = parseGamesText(document.getElementById("bundleGames").value);
+    if (!games.length) throw new Error("Agregá al menos un juego.");
+    const bundle = {
+      id: document.getElementById("bundleId").value.trim(),
+      priceCRC: document.getElementById("bundlePrice").value,
+      title: document.getElementById("bundleTitle").value.trim(),
+      totalSize: document.getElementById("bundleSize").value.trim(),
+      discountPct: document.getElementById("bundleDiscount").value.trim(),
+      coverUrl: document.getElementById("bundleCoverUrl").value.trim(),
+      games,
+    };
+    const payload = { action: "save", platform, bundle };
+    const file = document.getElementById("bundleCoverFile").files[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) throw new Error("La imagen es muy pesada (máx ~3 MB). Reducila e intentá de nuevo.");
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      payload.coverFile = { dataBase64: await readFileAsBase64(file), ext };
+    }
+    const data = await apiPost("/api/bundles", payload);
+    adminBundlesCache[platform] = data.bundles || [];
+    renderAdminBundles();
+    resetBundleForm();
+    status.className = "form-status success";
+    status.textContent = "✓ Bundle guardado. Se publica en la web en ~1 minuto.";
+  } catch (err) {
+    status.className = "form-status error";
+    status.textContent = err.message || "No se pudo guardar.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteBundle(platform, id) {
+  const b = (adminBundlesCache[platform] || []).find(x => String(x.id) === String(id));
+  const label = b && b.title ? b.title : `Bundle ${id}`;
+  if (!confirm(`¿Eliminar “${label}”? Esta acción quita el bundle de la web.`)) return;
+  try {
+    const data = await apiPost("/api/bundles", { action: "delete", platform, id });
+    adminBundlesCache[platform] = data.bundles || [];
+    renderAdminBundles();
+  } catch (err) {
+    alert("No se pudo eliminar: " + err.message);
+  }
 }
 
 async function handleCreateClient(e) {
