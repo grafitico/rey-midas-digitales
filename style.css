@@ -2886,16 +2886,16 @@ html { scroll-behavior: smooth; }
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 /* Colores por género */
-.cat-card--accion     { background: linear-gradient(135deg, #c0392b, #e8590c); }
-.cat-card--aventura   { background: linear-gradient(135deg, #0b8457, #16a085); }
-.cat-card--rpg        { background: linear-gradient(135deg, #6c2bd9, #9b59b6); }
-.cat-card--shooter    { background: linear-gradient(135deg, #34495e, #2c6fa3); }
-.cat-card--terror     { background: linear-gradient(135deg, #4a0e0e, #7b1313); }
-.cat-card--deportes   { background: linear-gradient(135deg, #1e7e34, #2ecc71); }
-.cat-card--carreras   { background: linear-gradient(135deg, #d68910, #f5b041); }
-.cat-card--lucha      { background: linear-gradient(135deg, #a01a3c, #e0245e); }
-.cat-card--estrategia { background: linear-gradient(135deg, #1f4e79, #2980b9); }
-.cat-card--infantiles { background: linear-gradient(135deg, #d63384, #00b8d4); }
+.cat-card--accion     { background: linear-gradient(135deg, #1d4ed8, #3b82f6); } /* azul */
+.cat-card--terror     { background: linear-gradient(135deg, #991b1b, #dc2626); } /* rojo */
+.cat-card--carreras   { background: linear-gradient(135deg, #c2410c, #f97316); } /* naranja */
+.cat-card--aventura   { background: linear-gradient(135deg, #0d9488, #14b8a6); } /* turquesa */
+.cat-card--rpg        { background: linear-gradient(135deg, #6d28d9, #a855f7); } /* morado */
+.cat-card--shooter    { background: linear-gradient(135deg, #334155, #64748b); } /* gris acero */
+.cat-card--deportes   { background: linear-gradient(135deg, #15803d, #22c55e); } /* verde */
+.cat-card--lucha      { background: linear-gradient(135deg, #9d174d, #db2777); } /* carmesí */
+.cat-card--estrategia { background: linear-gradient(135deg, #1e3a8a, #4338ca); } /* índigo */
+.cat-card--infantiles { background: linear-gradient(135deg, #ec4899, #38bdf8); } /* rosa/celeste */
 @media (max-width: 560px) {
   .category-nav-grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 0.6rem; }
   .cat-card { min-height: 80px; padding: 0.7rem 0.8rem; }
