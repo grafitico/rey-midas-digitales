@@ -44,6 +44,7 @@ let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let featuredGames = []; // catálogo curado de "más buscados" (featured-games.json)
+let hiddenGames = { ids: new Set(), titles: new Set() }; // exclusión manual (hidden-games.json)
 let banners = [];
 let testimonials = [];
 let reviewStats = { totalClients: "500+", yearsInBusiness: "5", averageRating: 4.9, totalReviews: 247 };
@@ -444,7 +445,7 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
@@ -459,7 +460,21 @@ async function load() {
       fetch("/reservaciones.json").then(r => r.json()),
       fetch("/featured-games.json").then(r => r.json()),
       fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
+      fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
     ]);
+    // Lista manual de exclusión: títulos/IDs que el negocio decide esconder
+    // a mano, pase lo que pase con la heurística. Se arma un set por ID de PSN
+    // y otro por título normalizado (matchKey) para matchear sin tildes/espacios.
+    if (hidden.status === "fulfilled" && hidden.value && Array.isArray(hidden.value.hidden)) {
+      for (const entry of hidden.value.hidden) {
+        if (entry == null) continue;
+        const val = String(entry).trim();
+        if (!val) continue;
+        // Un ID de PSN se ve tipo "EP9000-CUSA00000_00-...": empieza con 2 letras + dígitos.
+        if (/^(EP|UP|HP|JP)\d/i.test(val)) hiddenGames.ids.add(val);
+        else hiddenGames.titles.add(matchKey(val));
+      }
+    }
     if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
     if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
     if (test.status === "fulfilled" && test.value?.stats) reviewStats = { ...reviewStats, ...test.value.stats };
@@ -533,7 +548,13 @@ async function load() {
     if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
-    allGames = games.sort((a, b) => {
+    // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
+    // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
+    // búsqueda, relacionados), no solo del filtro AAA.
+    const filteredGames = (hiddenGames.ids.size || hiddenGames.titles.size)
+      ? games.filter(g => !isHiddenGame(g))
+      : games;
+    allGames = filteredGames.sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return (b.discount || 0) - (a.discount || 0);
     });
@@ -1176,6 +1197,15 @@ function rawgHitIsIndie(hit) {
   const names = [...(hit.genres || []), ...(hit.tags || [])]
     .map(s => String(s).toLowerCase().trim());
   return names.includes("indie");
+}
+
+// ¿Está este juego en la lista manual de exclusión (hidden-games.json)?
+// Matchea por ID de PSN exacto o por título normalizado.
+function isHiddenGame(g) {
+  if (!g) return false;
+  if (g.id && hiddenGames.ids.has(String(g.id))) return true;
+  if (g.title && hiddenGames.titles.has(matchKey(g.title))) return true;
+  return false;
 }
 
 function isAAA(g) {

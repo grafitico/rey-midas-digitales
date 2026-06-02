@@ -1,0 +1,8 @@
+{
+  "_help": "Lista manual de exclusión. Los juegos listados en 'hidden' NO aparecen en ninguna vista (catálogo PS5/PS4, búsqueda, relacionados), sin importar precio ni etiquetas de RAWG. Podés poner el TÍTULO exacto del juego (ej: 'Stardew Valley') o el ID de PSN (ej: 'EP9000-CUSA00000_00-...', empieza con EP/UP/HP/JP). El título se compara sin tildes ni mayúsculas, así que no hay que ser exacto con esos detalles.",
+  "_ejemplos": [
+    "Stardew Valley",
+    "EP4040-CUSA12345_00-EXAMPLE000000000"
+  ],
+  "hidden": []
+}
