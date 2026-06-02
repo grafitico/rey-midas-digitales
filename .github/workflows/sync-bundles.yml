@@ -1,23 +1,27 @@
 name: Sync bundles from Telegram
 
 # Scrapea el preview público del canal en https://t.me/s/<TG_CHANNEL>,
-# parsea los mensajes recientes, y commitea cada bundle nuevo/actualizado
-# a nintendo-bundles.json. Usa el GITHUB_TOKEN built-in del runner — no
-# requiere secrets ni tokens externos.
+# parsea los mensajes recientes, commitea cada bundle nuevo/actualizado y
+# BORRA los que ya no están en el canal a nintendo-bundles.json. Usa el
+# GITHUB_TOKEN built-in del runner — no requiere secrets ni tokens externos.
 #
-# Schedule en UTC. "5 21 * * *" = 21:05 UTC = 3:05 PM hora CR (UTC-6).
-# Nota: GitHub Actions puede demorar hasta ~15 min en disparar un cron
-# programado; si necesitás corrida exacta, usá Run workflow manual.
+# Schedule en UTC. "5 */8 * * *" = corre cada 8 horas (21:05, 05:05 y
+# 13:05 UTC). Nota: GitHub Actions puede demorar hasta ~15 min en disparar
+# un cron programado; si necesitás corrida exacta, usá Run workflow manual.
 
 on:
   schedule:
-    - cron: "5 21 * * *"
+    - cron: "5 */8 * * *"
   workflow_dispatch:
     inputs:
       channel:
         description: "Username del canal de Telegram (sin @)"
         required: false
         default: "swichtaccount"
+      prune:
+        description: "Borrar bundles que ya no están en el canal (1 = sí, 0 = no)"
+        required: false
+        default: "1"
 
 jobs:
   scrape:
@@ -36,6 +40,7 @@ jobs:
       - name: Scrape canal y commitear bundles
         env:
           TG_CHANNEL: ${{ inputs.channel || 'swichtaccount' }}
+          PRUNE: ${{ inputs.prune || '1' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}

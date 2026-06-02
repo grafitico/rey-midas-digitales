@@ -22,8 +22,9 @@ async function main() {
   console.log(`[scrape] Canal: @${CHANNEL}`);
   console.log(`[scrape] Fecha de corte: ${SINCE_DATE.toISOString()} (todo lo posterior se incluye)`);
 
-  const allMessages = await fetchAllMessages();
+  const { messages: allMessages, complete } = await fetchAllMessages();
   console.log(`[scrape] Total de mensajes recolectados desde el corte: ${allMessages.length}`);
+  console.log(`[scrape] Escaneo ${complete ? "COMPLETO" : "PARCIAL"} (complete=${complete}) — el prune solo corre si está completo.`);
 
   const bundles = [];
   for (const msg of allMessages) {
@@ -58,16 +59,23 @@ async function main() {
     return;
   }
 
-  const stats = await batchUpsert(deduped);
+  const stats = await batchUpsert(deduped, complete);
   console.log(`[scrape] Resumen: ${JSON.stringify(stats)}`);
 }
 
 // ===== Paginación =====
+// Devuelve { messages, complete }. `complete` es true SOLO si recorrimos
+// limpiamente toda la ventana (llegamos a SINCE_DATE, o se acabaron los
+// mensajes del canal después de al menos una página válida). Cualquier
+// corte por error HTTP, falta de progreso o MAX_PAGES deja complete=false,
+// porque en ese caso NO tenemos una vista confiable del canal y borrar
+// bundles sería peligroso (podríamos eliminar cosas que sí siguen vivas).
 async function fetchAllMessages() {
   const all = [];
   let beforeId = null;
   let page = 0;
   let crossedCutoff = false;
+  let complete = false;
 
   while (page < MAX_PAGES && !crossedCutoff) {
     const url = beforeId ? `${TG_BASE}?before=${beforeId}` : TG_BASE;
@@ -81,13 +89,20 @@ async function fetchAllMessages() {
       },
     });
     if (!r.ok) {
-      console.error(`[scrape] HTTP ${r.status} en ${url} — corto la paginación.`);
+      console.error(`[scrape] HTTP ${r.status} en ${url} — corto la paginación (escaneo PARCIAL).`);
       break;
     }
     const html = await r.text();
     const messages = extractMessages(html);
     if (messages.length === 0) {
-      console.log(`[scrape] Page sin mensajes, fin de la paginación.`);
+      // Página vacía después de haber traído mensajes = se acabó el canal,
+      // recorrimos todo. Página vacía en el primer intento = algo falló.
+      if (page > 0) {
+        complete = true;
+        console.log(`[scrape] Page sin mensajes, llegamos al final del canal. Escaneo COMPLETO.`);
+      } else {
+        console.error(`[scrape] Primera página sin mensajes — el preview no cargó (escaneo PARCIAL).`);
+      }
       break;
     }
 
@@ -105,11 +120,12 @@ async function fetchAllMessages() {
     console.log(`[scrape]   ${messages.length} mensajes en la página, ${kept} dentro del rango`);
 
     if (crossedCutoff) {
-      console.log(`[scrape] Llegamos a la fecha de corte. Fin.`);
+      complete = true;
+      console.log(`[scrape] Llegamos a la fecha de corte. Escaneo COMPLETO.`);
       break;
     }
     if (oldestThisPage === Infinity || oldestThisPage === beforeId) {
-      console.log(`[scrape] Sin progreso en paginación, corto.`);
+      console.log(`[scrape] Sin progreso en paginación, corto (escaneo PARCIAL).`);
       break;
     }
     beforeId = oldestThisPage;
@@ -117,9 +133,9 @@ async function fetchAllMessages() {
   }
 
   if (page >= MAX_PAGES) {
-    console.warn(`[scrape] Alcanzado MAX_PAGES=${MAX_PAGES}, puede haber mensajes más viejos sin scrapear.`);
+    console.warn(`[scrape] Alcanzado MAX_PAGES=${MAX_PAGES}, puede haber mensajes más viejos sin scrapear (escaneo PARCIAL).`);
   }
-  return all;
+  return { messages: all, complete };
 }
 
 // ===== HTML scraping =====
@@ -337,16 +353,28 @@ function bundlesEqual(a, b) {
   return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 }
 
-async function batchUpsert(scrapedBundles) {
-  const stats = { added: 0, updated: 0, unchanged: 0, kept: 0, dateBackfilled: 0 };
+async function batchUpsert(scrapedBundles, scanComplete) {
+  const stats = { added: 0, updated: 0, unchanged: 0, kept: 0, removed: 0, dateBackfilled: 0 };
+
+  // PRUNE: borrar bundles que ya no están en el canal. Activado por defecto.
+  // Ponelo en "0" para volver al comportamiento histórico (nunca borrar).
+  const pruneEnabled = (process.env.PRUNE || "1") !== "0";
+  // Tope de seguridad: si el prune intentara borrar más de este % de los
+  // bundles que están dentro de la ventana, se aborta el borrado y solo se
+  // hace upsert. Protege contra un preview de Telegram caído/recortado que
+  // pasó los chequeos pero igual nos devolvió pocos mensajes.
+  const pruneMaxRatio = parseFloat(process.env.PRUNE_MAX_RATIO || "0.5");
 
   const { sha, content } = await getFile();
   const existing = Array.isArray(content.bundles) ? content.bundles : [];
   const existingById = new Map(existing.map(b => [b.id, b]));
 
-  // Construimos la lista final: primero los bundles scrapeados (en orden
-  // newest-first), después los existentes que no estén en el scrape
-  // (para no perder histórico si el proveedor borra cosas del canal).
+  // Un bundle está "dentro de la ventana" escaneada si tiene fecha y esa
+  // fecha es >= SINCE_DATE. Solo esos son candidatos a prune: de los más
+  // viejos (o sin fecha) no tenemos información en este scrape, así que se
+  // conservan siempre.
+  const inWindow = b => b && b.date && new Date(b.date) >= SINCE_DATE;
+
   const finalList = [];
   const seen = new Set();
 
@@ -379,22 +407,40 @@ async function batchUpsert(scrapedBundles) {
     seen.add(scraped.id);
   }
 
-  for (const old of existing) {
-    if (!seen.has(old.id)) {
+  // Bundles existentes que NO aparecieron en el scrape de esta corrida.
+  const missing = existing.filter(old => !seen.has(old.id));
+  // Candidatos a borrar: solo los que caen dentro de la ventana escaneada.
+  const prunable = missing.filter(inWindow);
+  const inWindowExisting = existing.filter(inWindow).length;
+
+  // ¿El prune es seguro? Requiere: feature activado, escaneo COMPLETO y que
+  // no estemos borrando una fracción sospechosamente grande de la ventana.
+  let doPrune = pruneEnabled && scanComplete && prunable.length > 0;
+  if (doPrune && inWindowExisting > 0 && prunable.length / inWindowExisting > pruneMaxRatio) {
+    doPrune = false;
+    console.warn(`[scrape] PRUNE ABORTADO por seguridad: intentaría borrar ${prunable.length}/${inWindowExisting} bundles de la ventana (> ${pruneMaxRatio * 100}%). Se conservan.`);
+  }
+
+  const prunableIds = new Set(prunable.map(b => b.id));
+  for (const old of missing) {
+    if (doPrune && prunableIds.has(old.id)) {
+      stats.removed++;
+      console.log(`[scrape]   removed ${old.id} (ya no está en el canal)`);
+    } else {
       finalList.push(old);
       stats.kept++;
     }
   }
 
   // Si no hay cambios reales, no commiteamos nada.
-  if (stats.added === 0 && stats.updated === 0 && stats.dateBackfilled === 0) {
+  if (stats.added === 0 && stats.updated === 0 && stats.removed === 0 && stats.dateBackfilled === 0) {
     console.log(`[scrape] Sin cambios respecto al JSON actual. No commit.`);
     return stats;
   }
 
   content.bundles = finalList;
-  const message = stats.added || stats.updated
-    ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated (${stats.unchanged} unchanged, ${stats.kept} kept) via telegram scraper`
+  const message = (stats.added || stats.updated || stats.removed)
+    ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated, ${stats.removed} removed (${stats.unchanged} unchanged, ${stats.kept} kept) via telegram scraper`
     : `chore(bundles): backfill date en ${stats.dateBackfilled} bundles via telegram scraper`;
   const body = {
     message,
