@@ -6,9 +6,11 @@
 // screenshots, géneros, rating de Metacritic, desarrollador, publisher)
 // y como fuente de catálogo "general" cuando un juego no está en oferta.
 //
-// La key queda hardcoded acá a pedido del cliente. Si RAWG la revoca por
-// detectarla en GitHub, moverla a process.env.RAWG_API_KEY en Vercel.
-const RAWG_KEY = "b41cb9a3a89543b8a33e2fda7a62fc13";
+// La key vive en la variable de entorno RAWG_API_KEY (configurada en Vercel),
+// NO en el código: una key hardcoded en GitHub la escanean bots y la queman
+// (que es justo lo que pasó con la anterior). Si falta, el endpoint responde
+// con quota:true para que el cliente no insista y la web use su ficha fallback.
+const RAWG_KEY = process.env.RAWG_API_KEY || "";
 const RAWG_BASE = "https://api.rawg.io/api";
 
 // IDs de plataformas en RAWG (https://api.rawg.io/api/platforms)
@@ -31,6 +33,12 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const mode = (req.query.mode || "list").toString();
+
+  // Sin key configurada no podemos consultar RAWG. Devolvemos quota:true para
+  // que el circuit breaker del cliente deje de pedir y muestre la ficha fallback.
+  if (!RAWG_KEY) {
+    return res.status(200).json({ success: false, quota: true, error: "RAWG_API_KEY no configurada en el servidor" });
+  }
 
   try {
     if (mode === "detail") {
@@ -86,6 +94,13 @@ export default async function handler(req, res) {
       games: (data.results || []).map(normalizeListItem),
     });
   } catch (e) {
+    // Cupo de RAWG agotado (401 monthly limit) o rate-limit (429): no es un
+    // error del servidor. Respondemos 200 con quota:true para que el cliente
+    // active su circuit breaker y deje de pedir, sin ensuciar la consola con
+    // un mar de 500s en rojo.
+    if (e.status === 401 || e.status === 429) {
+      return res.status(200).json({ success: false, quota: true, error: e.message });
+    }
     return res.status(500).json({ success: false, error: e.message });
   }
 }
@@ -112,7 +127,9 @@ async function rawg(path, params = {}) {
   });
   if (!r.ok) {
     const body = await r.text().catch(() => "");
-    throw new Error(`RAWG HTTP ${r.status} en ${path}: ${body.slice(0, 200)}`);
+    const err = new Error(`RAWG HTTP ${r.status} en ${path}: ${body.slice(0, 200)}`);
+    err.status = r.status; // 401 = cupo mensual agotado, 429 = rate limit
+    throw err;
   }
   return r.json();
 }

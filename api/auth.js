@@ -6,6 +6,7 @@
 import {
   sb, hashPassword, verifyPassword, makeSessionToken,
   requireAuth, handleError, readJson, checkConfig,
+  setSessionCookie, clearSessionCookie,
 } from "./_lib.js";
 
 export default async function handler(req, res) {
@@ -20,6 +21,7 @@ export default async function handler(req, res) {
     if (action === "me") return await me(req, res);
     if (action === "change-password") return await changePassword(req, res, body);
     if (action === "bootstrap") return await bootstrap(req, res, body);
+    if (action === "logout") return logout(req, res);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -38,8 +40,8 @@ async function login(req, res, body) {
     return res.status(401).json({ error: "Email o contraseña incorrectos" });
   }
   const token = makeSessionToken(user.id);
+  setSessionCookie(res, token); // sesión en cookie HttpOnly, no en localStorage
   res.status(200).json({
-    token,
     user: {
       id: user.id,
       email: user.email,
@@ -52,6 +54,11 @@ async function login(req, res, body) {
 async function me(req, res) {
   const user = await requireAuth(req);
   res.status(200).json({ user });
+}
+
+function logout(req, res) {
+  clearSessionCookie(res);
+  res.status(200).json({ ok: true });
 }
 
 async function changePassword(req, res, body) {
@@ -91,8 +98,8 @@ async function bootstrap(req, res, body) {
   });
   const user = inserted[0];
   const token = makeSessionToken(user.id);
+  setSessionCookie(res, token); // sesión en cookie HttpOnly, no en localStorage
   res.status(200).json({
-    token,
     user: { id: user.id, email: user.email, full_name: user.full_name, is_admin: true },
   });
 }

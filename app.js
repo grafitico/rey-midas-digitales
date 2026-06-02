@@ -54,25 +54,26 @@ let gamePassPlans = [];
 let reservaciones = [];
 
 // ============================================================
-// Auth propio — usa los endpoints en /api/auth y /api/* con un
-// token HMAC guardado en localStorage. Sin Supabase Auth.
+// Auth propio — usa los endpoints en /api/auth y /api/*. La sesión vive en
+// una cookie HttpOnly que pone el servidor: el JS no la puede leer, así que
+// un XSS no puede robarla. Acá solo guardamos una "pista" booleana (no el
+// token) para saber si vale la pena preguntar por la sesión al cargar.
 // ============================================================
-const TOKEN_KEY = "rmd_token_v1";
+const SESSION_HINT_KEY = "rmd_has_session";
 let currentUser = null;
 let usersExist = true; // se actualiza en initAuth(); controla el botón "Crear primer admin"
 
-function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
-function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
-function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+function hasSessionHint() { return localStorage.getItem(SESSION_HINT_KEY) === "1"; }
+function setSessionHint() { localStorage.setItem(SESSION_HINT_KEY, "1"); }
+function clearSessionHint() { localStorage.removeItem(SESSION_HINT_KEY); }
 
-// Wrapper para todos los fetches a la API: agrega el token y parsea errores.
+// Wrapper para todos los fetches a la API. La cookie de sesión viaja sola en
+// las peticiones del mismo origen; solo parseamos errores.
 async function apiPost(path, body) {
-  const headers = { "Content-Type": "application/json" };
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(path, {
     method: "POST",
-    headers,
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin", // asegura que la cookie de sesión se envíe
     body: JSON.stringify(body),
   });
   let data = {};
@@ -86,14 +87,15 @@ async function apiPost(path, body) {
 }
 
 async function initAuth() {
-  const token = getToken();
-  if (token) {
+  // Limpieza del esquema viejo (token en localStorage) por si quedó de antes.
+  localStorage.removeItem("rmd_token_v1");
+  if (hasSessionHint()) {
     try {
       const { user } = await apiPost("/api/auth", { action: "me" });
       currentUser = user;
     } catch (err) {
-      // Token inválido / expirado: limpiar
-      if (err.status === 401) clearToken();
+      // Cookie inválida / expirada: olvidamos la pista
+      if (err.status === 401) clearSessionHint();
       currentUser = null;
     }
   }
@@ -119,8 +121,8 @@ async function initAuth() {
 
 async function loginWithPassword(email, password) {
   try {
-    const { token, user } = await apiPost("/api/auth", { action: "login", email, password });
-    setToken(token);
+    const { user } = await apiPost("/api/auth", { action: "login", email, password });
+    setSessionHint();
     currentUser = user;
     usersExist = true;
     renderAuthSlot();
@@ -132,10 +134,10 @@ async function loginWithPassword(email, password) {
 
 async function bootstrapAdmin(email, password, fullName) {
   try {
-    const { token, user } = await apiPost("/api/auth", {
+    const { user } = await apiPost("/api/auth", {
       action: "bootstrap", email, password, full_name: fullName || null,
     });
-    setToken(token);
+    setSessionHint();
     currentUser = user;
     usersExist = true;
     renderAuthSlot();
@@ -155,8 +157,11 @@ async function changePassword(newPassword) {
 }
 
 function logout() {
-  clearToken();
+  clearSessionHint();
   currentUser = null;
+  // Le pedimos al servidor que borre la cookie HttpOnly (no podemos hacerlo
+  // desde JS). No bloqueamos la navegación esperando la respuesta.
+  apiPost("/api/auth", { action: "logout" }).catch(() => {});
   renderAuthSlot();
   navigate("/");
 }
@@ -582,25 +587,22 @@ async function enrichFeaturedCovers() {
   if (!featuredGames.length) return;
   for (const g of featuredGames) {
     if (g.imageUrl) continue;
+    if (rawgQuotaExhausted()) break; // cupo agotado: no insistir
     const key = `rawg-cover:${matchKey(g.title)}`;
     let cover = readRawgCache(key);
     if (cover === undefined) {
-      try {
-        const r = await fetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
-        const json = await r.json();
-        const hit = json?.games?.[0];
-        cover = hit?.imageUrl || "";
-        if (hit?.metacritic != null) {
-          g._rawgMeta = hit.metacritic;
-          writeRawgCache(`rawg-meta:${matchKey(g.title)}`, hit.metacritic);
-        }
-        if (hit) {
-          writeRawgCache(`rawg-indie:${matchKey(g.title)}`, rawgHitIsIndie(hit));
-        }
-        writeRawgCache(key, cover);
-      } catch {
-        cover = "";
+      const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
+      if (json === null) { if (rawgQuotaExhausted()) break; continue; } // sin datos: no cachear, reintentar luego
+      const hit = json?.games?.[0];
+      cover = hit?.imageUrl || "";
+      if (hit?.metacritic != null) {
+        g._rawgMeta = hit.metacritic;
+        writeRawgCache(`rawg-meta:${matchKey(g.title)}`, hit.metacritic);
       }
+      if (hit) {
+        writeRawgCache(`rawg-indie:${matchKey(g.title)}`, rawgHitIsIndie(hit));
+      }
+      writeRawgCache(key, cover);
     }
     if (cover) {
       g.imageUrl = cover;
@@ -993,27 +995,23 @@ async function enrichWithRawg(game) {
   let data = readRawgCache(cacheKey);
 
   if (!data) {
-    try {
-      const r = await fetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleaned)}&page_size=1`);
-      const json = await r.json();
-      const hit = json?.games?.[0];
-      if (!hit) {
-        writeRawgCache(cacheKey, { miss: true });
-        return;
-      }
-      // El search trae info parcial. Pedimos el detail por slug para descripción larga.
-      const r2 = await fetch(`/api/rawg?mode=detail&id=${encodeURIComponent(hit.slug)}`);
-      const detailJson = await r2.json();
-      data = {
-        ...hit,
-        ...(detailJson?.game || {}),
-        // screenshots vienen del listItem (short_screenshots) — el detail no los trae
-        shortScreenshots: hit.shortScreenshots || [],
-      };
-      writeRawgCache(cacheKey, data);
-    } catch {
+    if (rawgQuotaExhausted()) return; // cupo agotado: la ficha se queda con el fallback
+    const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleaned)}&page_size=1`);
+    if (json === null) return; // sin datos / cupo agotado: no cachear, reintentar luego
+    const hit = json?.games?.[0];
+    if (!hit) {
+      writeRawgCache(cacheKey, { miss: true });
       return;
     }
+    // El search trae info parcial. Pedimos el detail por slug para descripción larga.
+    const detailJson = await rawgFetch(`/api/rawg?mode=detail&id=${encodeURIComponent(hit.slug)}`);
+    data = {
+      ...hit,
+      ...(detailJson?.game || {}),
+      // screenshots vienen del listItem (short_screenshots) — el detail no los trae
+      shortScreenshots: hit.shortScreenshots || [],
+    };
+    writeRawgCache(cacheKey, data);
   }
   if (data?.miss) return;
   // Re-check por si el usuario ya navegó a otro juego durante el fetch
@@ -1157,6 +1155,48 @@ function cleanTitleForRawg(t) {
     .replace(/\b(Cross[- ]?Gen Bundle|Bundle|Pack)\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+// ============================================================
+// Circuit breaker de RAWG.
+// Cuando se agota el cupo mensual de la API (HTTP 401 "monthly limit reached",
+// 429 rate-limit, o {quota:true} desde /api/rawg) dejamos de pedirle más a RAWG
+// por el resto de la sesión. Esto evita el bucle de errores en consola que se
+// dispara cuando cada juego visible intenta enriquecerse, y no quema cupo de más.
+// Se auto-resetea pasados RAWG_COOLDOWN_MS por si el cupo se renueva.
+// ============================================================
+const RAWG_COOLDOWN_MS = 15 * 60 * 1000;
+
+function rawgQuotaExhausted() {
+  try {
+    const until = Number(sessionStorage.getItem("rawg-quota-until") || 0);
+    if (!until) return false;
+    if (Date.now() > until) { sessionStorage.removeItem("rawg-quota-until"); return false; }
+    return true;
+  } catch { return false; }
+}
+
+function markRawgQuotaExhausted() {
+  if (rawgQuotaExhausted()) return;
+  try { sessionStorage.setItem("rawg-quota-until", String(Date.now() + RAWG_COOLDOWN_MS)); } catch {}
+  console.warn("[RAWG] Cupo de la API agotado — se pausan las consultas de metadatos hasta que se renueve.");
+}
+
+// Wrapper de fetch para RAWG con circuit breaker. Devuelve el JSON parseado,
+// o null si el cupo está agotado, hubo error de red, o la respuesta indica que
+// se alcanzó el límite. Los callers tratan null como "sin datos" y no cachean.
+async function rawgFetch(url) {
+  if (rawgQuotaExhausted()) return null;
+  let r;
+  try { r = await fetch(url); } catch { return null; }
+  if (r.status === 401 || r.status === 429) { markRawgQuotaExhausted(); return null; }
+  let json = null;
+  try { json = await r.json(); } catch { return null; }
+  if (json && json.success === false && (json.quota || /\b(401|429|limit|límite|reached)\b/i.test(json.error || ""))) {
+    markRawgQuotaExhausted();
+    return null;
+  }
+  return json;
 }
 
 const RAWG_MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 días para misses (se reintenta más rápido)
@@ -1410,6 +1450,7 @@ async function runEnrichLoop() {
   _enrichRunning = true;
   let changedSinceLastRender = false;
   while (_enrichQueue.length) {
+    if (rawgQuotaExhausted()) { _enrichQueue.length = 0; break; } // cupo agotado: vaciar cola
     const batch = _enrichQueue.splice(0, AAA_ENRICH_BATCH);
     await Promise.all(batch.map(async (g) => {
       const key = matchKey(g.title);
@@ -1426,19 +1467,15 @@ async function runEnrichLoop() {
         g._rawgIndie = cachedIndie;
         return;
       }
-      try {
-        const r = await fetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
-        const json = await r.json();
-        const hit = json?.games?.[0];
-        const meta = hit?.metacritic ?? null;
-        const indie = rawgHitIsIndie(hit);
-        g._rawgMeta = meta;
-        g._rawgIndie = indie;
-        writeRawgCache(cacheKey, meta);
-        writeRawgCache(indieCacheKey, indie);
-      } catch {
-        g._rawgMeta = null;
-      }
+      const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
+      if (json === null) { g._rawgMeta = null; return; } // sin datos / cupo: no cachear veredicto
+      const hit = json?.games?.[0];
+      const meta = hit?.metacritic ?? null;
+      const indie = rawgHitIsIndie(hit);
+      g._rawgMeta = meta;
+      g._rawgIndie = indie;
+      writeRawgCache(cacheKey, meta);
+      writeRawgCache(indieCacheKey, indie);
     }));
     changedSinceLastRender = true;
     // Re-renderizar el grid si el usuario está en una vista filtrada

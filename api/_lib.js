@@ -99,13 +99,46 @@ export function verifyToken(token) {
   } catch { return null; }
 }
 
-export function bearerToken(req) {
+// ===== Sesión vía cookie httpOnly =====
+// El token de sesión viaja en una cookie HttpOnly: el JavaScript del navegador
+// NO puede leerla, así que un XSS no puede robar la sesión con localStorage.
+// SameSite=Lax evita además que valga para CSRF desde otro sitio.
+const SESSION_COOKIE = "rmd_session";
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 días (igual que la expiración del token)
+
+export function parseCookies(req) {
+  const header = req.headers.cookie || "";
+  const out = {};
+  for (const part of header.split(";")) {
+    const i = part.indexOf("=");
+    if (i === -1) continue;
+    const k = part.slice(0, i).trim();
+    if (k) out[k] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+
+// Lee el token de la cookie de sesión y, como respaldo, del header
+// Authorization (compatibilidad con clientes que aún manden Bearer).
+export function getSessionToken(req) {
+  const fromCookie = parseCookies(req)[SESSION_COOKIE];
+  if (fromCookie) return fromCookie;
   const auth = req.headers.authorization || "";
   return auth.replace(/^Bearer\s+/i, "");
 }
 
+export function setSessionCookie(res, token) {
+  res.setHeader("Set-Cookie",
+    `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_MAX_AGE}`);
+}
+
+export function clearSessionCookie(res) {
+  res.setHeader("Set-Cookie",
+    `${SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`);
+}
+
 export async function requireAuth(req) {
-  const token = bearerToken(req);
+  const token = getSessionToken(req);
   const payload = verifyToken(token);
   if (!payload) {
     const err = new Error("Sesión inválida o expirada");
