@@ -2842,6 +2842,59 @@ html { scroll-behavior: smooth; }
   border-color: var(--gold);
   color: #0a0a0a;
 }
+
+/* ===== Pills de categoría (inicio) ===== */
+.category-nav-section { padding: 0.75rem 0 0.25rem; }
+.category-nav-section .section-title { margin-bottom: 0.9rem; }
+.category-nav-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  justify-content: center;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.category-nav-row::-webkit-scrollbar { display: none; }
+.cat-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.42rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.cat-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  filter: brightness(1.08);
+}
+/* Colores por género */
+.cat-card--accion     { background: linear-gradient(135deg, #1d4ed8, #3b82f6); } /* azul */
+.cat-card--terror     { background: linear-gradient(135deg, #991b1b, #dc2626); } /* rojo */
+.cat-card--carreras   { background: linear-gradient(135deg, #c2410c, #f97316); } /* naranja */
+.cat-card--aventura   { background: linear-gradient(135deg, #0d9488, #14b8a6); } /* turquesa */
+.cat-card--rpg        { background: linear-gradient(135deg, #6d28d9, #a855f7); } /* morado */
+.cat-card--shooter    { background: linear-gradient(135deg, #334155, #64748b); } /* gris acero */
+.cat-card--deportes   { background: linear-gradient(135deg, #ca8a04, #facc15); } /* amarillo */
+.cat-card--lucha      { background: linear-gradient(135deg, #a21caf, #d946ef); } /* fucsia/magenta */
+.cat-card--estrategia { background: linear-gradient(135deg, #78350f, #b45309); } /* bronce */
+.cat-card--infantiles { background: linear-gradient(135deg, #f472b6, #67e8f9); } /* rosa/celeste pastel */
+/* El amarillo es claro: texto oscuro para que se lea bien */
+.cat-pill.cat-card--deportes { color: #1a1206; text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3); }
+@media (max-width: 700px) {
+  .category-nav-row { justify-content: flex-start; padding: 0 0.1rem 4px; }
+  .cat-pill { font-size: 0.8rem; padding: 0.38rem 0.7rem; }
+}
 .card-meta {
   position: absolute;
   top: 8px;

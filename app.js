@@ -44,6 +44,7 @@ let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let featuredGames = []; // catálogo curado de "más buscados" (featured-games.json)
+let hiddenGames = { ids: new Set(), titles: new Set() }; // exclusión manual (hidden-games.json)
 let banners = [];
 let testimonials = [];
 let reviewStats = { totalClients: "500+", yearsInBusiness: "5", averageRating: 4.9, totalReviews: 247 };
@@ -415,6 +416,10 @@ function parseRoute() {
     const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
     return { name: "buscar", term: decodeURIComponent(partes[1]), page };
   }
+  if (partes[0] === "categoria" && partes[1]) {
+    const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
+    return { name: "categoria", genre: decodeURIComponent(partes[1]), page };
+  }
   if (partes[0] === "resenas" || partes[0] === "reviews") return { name: "resenas" };
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
@@ -444,7 +449,7 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
@@ -459,7 +464,21 @@ async function load() {
       fetch("/reservaciones.json").then(r => r.json()),
       fetch("/featured-games.json").then(r => r.json()),
       fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
+      fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
     ]);
+    // Lista manual de exclusión: títulos/IDs que el negocio decide esconder
+    // a mano, pase lo que pase con la heurística. Se arma un set por ID de PSN
+    // y otro por título normalizado (matchKey) para matchear sin tildes/espacios.
+    if (hidden.status === "fulfilled" && hidden.value && Array.isArray(hidden.value.hidden)) {
+      for (const entry of hidden.value.hidden) {
+        if (entry == null) continue;
+        const val = String(entry).trim();
+        if (!val) continue;
+        // Un ID de PSN se ve tipo "EP9000-CUSA00000_00-...": empieza con 2 letras + dígitos.
+        if (/^(EP|UP|HP|JP)\d/i.test(val)) hiddenGames.ids.add(val);
+        else hiddenGames.titles.add(matchKey(val));
+      }
+    }
     if (bann.status === "fulfilled" && Array.isArray(bann.value?.banners)) banners = bann.value.banners;
     if (test.status === "fulfilled" && Array.isArray(test.value?.testimonials)) testimonials = test.value.testimonials;
     if (test.status === "fulfilled" && test.value?.stats) reviewStats = { ...reviewStats, ...test.value.stats };
@@ -533,7 +552,13 @@ async function load() {
     if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
-    allGames = games.sort((a, b) => {
+    // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
+    // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
+    // búsqueda, relacionados), no solo del filtro AAA.
+    const filteredGames = (hiddenGames.ids.size || hiddenGames.titles.size)
+      ? games.filter(g => !isHiddenGame(g))
+      : games;
+    allGames = filteredGames.sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return (b.discount || 0) - (a.discount || 0);
     });
@@ -568,6 +593,9 @@ async function enrichFeaturedCovers() {
         if (hit?.metacritic != null) {
           g._rawgMeta = hit.metacritic;
           writeRawgCache(`rawg-meta:${matchKey(g.title)}`, hit.metacritic);
+        }
+        if (hit) {
+          writeRawgCache(`rawg-indie:${matchKey(g.title)}`, rawgHitIsIndie(hit));
         }
         writeRawgCache(key, cover);
       } catch {
@@ -692,6 +720,7 @@ function render() {
   if (route.name === "subscriptions") return renderSubscriptions(route.service);
   if (route.name === "reservaciones") return renderReservaciones();
   if (route.name === "buscar") return renderBusqueda(route.term, route.page);
+  if (route.name === "categoria") return renderCategoria(route.genre, route.page);
   if (route.name === "resenas") return renderResenas();
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
@@ -704,6 +733,7 @@ function renderHome(page = 1) {
   app.innerHTML = `
     ${heroHTML()}
     ${trustBarHTML()}
+    ${categoryCardsHTML()}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Catálogo destacado</h2>
@@ -772,6 +802,14 @@ function categoryChipsHTML(list) {
   `;
 }
 
+// "PS5/PS4" → "PS5": para links a páginas de plataforma necesitamos UNA
+// plataforma real (activePlatforms no incluye el combinado "PS5/PS4", así que
+// /plataforma/PS5%2FPS4 caía en "Próximamente" y no dirigía a nada).
+function primaryPlatform(platform) {
+  const first = String(platform || "").split("/")[0].trim();
+  return first || platform;
+}
+
 function renderProduct(id) {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando juego...</p></section>`;
@@ -798,7 +836,7 @@ function renderProduct(id) {
       <nav class="breadcrumb" aria-label="Migas de pan">
         <a href="/">Inicio</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="/plataforma/${encodeURIComponent(g.platform)}">${escapeHtml(g.platform)}</a>
+        <a href="/plataforma/${encodeURIComponent(primaryPlatform(g.platform))}">${escapeHtml(g.platform)}</a>
         <span class="breadcrumb-sep">›</span>
         <span class="breadcrumb-current">${escapeHtml(g.title)}</span>
       </nav>
@@ -1009,6 +1047,36 @@ const GENRE_LABELS = {
   lucha: "Lucha", estrategia: "Estrategia", infantiles: "Infantil",
 };
 
+// Tarjetas de categoría en colores para el inicio. Cada una linkea a
+// /categoria/<tag>. El color sale de la clase cat-card--<tag> en style.css.
+const HOME_CATEGORIES = [
+  { tag: "accion", icon: "💥" },
+  { tag: "aventura", icon: "🗺️" },
+  { tag: "rpg", icon: "⚔️" },
+  { tag: "shooter", icon: "🎯" },
+  { tag: "terror", icon: "👻" },
+  { tag: "deportes", icon: "⚽" },
+  { tag: "carreras", icon: "🏎️" },
+  { tag: "lucha", icon: "🥊" },
+  { tag: "estrategia", icon: "♟️" },
+  { tag: "infantiles", icon: "🧸" },
+];
+
+function categoryCardsHTML() {
+  return `
+    <section class="container category-nav-section">
+      <div class="section-title">
+        <h2>Explorá por categoría</h2>
+      </div>
+      <div class="category-nav-row">
+        ${HOME_CATEGORIES.map(c => `
+          <a class="cat-pill cat-card--${c.tag}" href="/categoria/${c.tag}">${escapeHtml(GENRE_LABELS[c.tag] || c.tag)}</a>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 // Ficha mínima construida con lo que ya scrapeamos (plataforma, géneros,
 // oferta). Se muestra al instante para que la sección "información del juego"
 // nunca quede vacía; si RAWG matchea después, enrichWithRawg() la reemplaza
@@ -1151,6 +1219,9 @@ function matchKey(t) {
 
 // ============================================================
 // Filtro AAA: heurística por precio + Metacritic cacheado de RAWG.
+//   - Si RAWG marca el juego como "Indie" (g._rawgIndie), se oculta SIEMPRE
+//     del catálogo curado, sin importar precio ni Metacritic. Es la señal
+//     autoritativa que pidió el negocio para no mostrar juegos indie.
 //   - Si tenemos veredicto de RAWG (g._rawgMeta), lo respetamos: >=70 es AAA.
 //   - Si no, fallback por precio: $15+ base, o $25+ original si está en oferta.
 // El veredicto de RAWG se va llenando en background a medida que el
@@ -1162,6 +1233,25 @@ const AAA_META_THRESHOLD = 65;
 const AAA_ENRICH_BATCH = 8;        // requests en paralelo
 const AAA_ENRICH_DELAY_MS = 200;   // pausa entre batches
 
+// ¿RAWG clasifica este resultado como Indie? RAWG expone "Indie" tanto en
+// `genres` como en `tags`; con que aparezca en cualquiera ya lo tratamos como
+// indie. Nombres normalizados a minúscula para comparar sin sorpresas.
+function rawgHitIsIndie(hit) {
+  if (!hit) return false;
+  const names = [...(hit.genres || []), ...(hit.tags || [])]
+    .map(s => String(s).toLowerCase().trim());
+  return names.includes("indie");
+}
+
+// ¿Está este juego en la lista manual de exclusión (hidden-games.json)?
+// Matchea por ID de PSN exacto o por título normalizado.
+function isHiddenGame(g) {
+  if (!g) return false;
+  if (g.id && hiddenGames.ids.has(String(g.id))) return true;
+  if (g.title && hiddenGames.titles.has(matchKey(g.title))) return true;
+  return false;
+}
+
 function isAAA(g) {
   // Ofertas curadas a mano y catálogo curado de "más buscados" siempre se
   // muestran: son títulos elegidos por nosotros, no pasan por la heurística.
@@ -1170,6 +1260,10 @@ function isAAA(g) {
   // Títulos de la lista de prioridad del negocio: siempre AAA sin importar
   // precio ni datos de RAWG.
   if (priorityScore(g) < Infinity) return true;
+
+  // RAWG marcó el juego explícitamente como Indie: lo ocultamos del catálogo
+  // "Solo AAA" aunque tenga buen Metacritic o precio alto. Señal autoritativa.
+  if (g._rawgIndie === true) return false;
 
   const meta = g._rawgMeta;
   // Veredicto positivo de RAWG: Metacritic alto = AAA, sin importar el precio.
@@ -1271,9 +1365,15 @@ function priorityScore(g) {
 // las decisiones de isAAA() son consistentes desde el primer render.
 function hydrateRawgMetaFromCache(games) {
   for (const g of games || []) {
-    if (g._rawgMeta !== undefined) continue;
-    const cached = readRawgCache(`rawg-meta:${matchKey(g.title)}`);
-    if (cached !== undefined) g._rawgMeta = cached; // puede quedar null = "no AAA según RAWG"
+    const key = matchKey(g.title);
+    if (g._rawgMeta === undefined) {
+      const cached = readRawgCache(`rawg-meta:${key}`);
+      if (cached !== undefined) g._rawgMeta = cached; // puede quedar null = "no AAA según RAWG"
+    }
+    if (g._rawgIndie === undefined) {
+      const cachedIndie = readRawgCache(`rawg-indie:${key}`);
+      if (cachedIndie !== undefined) g._rawgIndie = cachedIndie;
+    }
   }
 }
 
@@ -1318,9 +1418,15 @@ async function runEnrichLoop() {
       const key = matchKey(g.title);
       if (!key) { g._rawgMeta = null; return; }
       const cacheKey = `rawg-meta:${key}`;
+      const indieCacheKey = `rawg-indie:${key}`;
       const cached = readRawgCache(cacheKey);
-      if (cached !== undefined) {
+      const cachedIndie = readRawgCache(indieCacheKey);
+      // Solo saltamos el fetch si YA tenemos ambas señales cacheadas. Si el
+      // Metacritic venía de una corrida vieja (sin flag indie), refrescamos
+      // para poblar también el indie — se auto-cura sin invalidar el cache.
+      if (cached !== undefined && cachedIndie !== undefined) {
         g._rawgMeta = cached;
+        g._rawgIndie = cachedIndie;
         return;
       }
       try {
@@ -1328,8 +1434,11 @@ async function runEnrichLoop() {
         const json = await r.json();
         const hit = json?.games?.[0];
         const meta = hit?.metacritic ?? null;
+        const indie = rawgHitIsIndie(hit);
         g._rawgMeta = meta;
+        g._rawgIndie = indie;
         writeRawgCache(cacheKey, meta);
+        writeRawgCache(indieCacheKey, indie);
       } catch {
         g._rawgMeta = null;
       }
@@ -1545,6 +1654,27 @@ function renderBusqueda(term, page = 1) {
     </section>
   `;
   mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`, false);
+}
+
+// Catálogo filtrado por género (categoría). Mismo comportamiento que la
+// página de plataforma: arranca con el filtro "Solo AAA" activo (indies
+// ocultos) y deja las tarjetas de plataforma/oferta para refinar.
+function renderCategoria(genre, page = 1) {
+  const label = GENRE_LABELS[genre] || (genre ? genre[0].toUpperCase() + genre.slice(1) : "Categoría");
+  const list = (allGames || []).filter(g => Array.isArray(g.genres) && g.genres.includes(genre));
+  app.innerHTML = `
+    ${heroSlimHTML(label)}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>${escapeHtml(label)}</h2>
+        <p>${list.length} ${list.length === 1 ? "juego en esta categoría" : "juegos en esta categoría"}.</p>
+      </div>
+      ${toolbarHTML(true)}
+      <div id="grid" class="grid"></div>
+      <div id="pagination" class="pagination"></div>
+    </section>
+  `;
+  mountToolbar(list, page, `/categoria/${encodeURIComponent(genre)}`, true);
 }
 
 function renderOfertas(page = 1) {
