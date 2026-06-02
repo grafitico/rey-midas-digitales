@@ -796,6 +796,14 @@ function categoryChipsHTML(list) {
   `;
 }
 
+// "PS5/PS4" → "PS5": para links a páginas de plataforma necesitamos UNA
+// plataforma real (activePlatforms no incluye el combinado "PS5/PS4", así que
+// /plataforma/PS5%2FPS4 caía en "Próximamente" y no dirigía a nada).
+function primaryPlatform(platform) {
+  const first = String(platform || "").split("/")[0].trim();
+  return first || platform;
+}
+
 function renderProduct(id) {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando juego...</p></section>`;
@@ -822,7 +830,7 @@ function renderProduct(id) {
       <nav class="breadcrumb" aria-label="Migas de pan">
         <a href="/">Inicio</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="/plataforma/${encodeURIComponent(g.platform)}">${escapeHtml(g.platform)}</a>
+        <a href="/plataforma/${encodeURIComponent(primaryPlatform(g.platform))}">${escapeHtml(g.platform)}</a>
         <span class="breadcrumb-sep">›</span>
         <span class="breadcrumb-current">${escapeHtml(g.title)}</span>
       </nav>
