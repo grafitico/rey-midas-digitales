@@ -2842,6 +2842,66 @@ html { scroll-behavior: smooth; }
   border-color: var(--gold);
   color: #0a0a0a;
 }
+
+/* ===== Tarjetas de categoría (inicio) ===== */
+.category-nav-section { padding: 1rem 0 0.5rem; }
+.category-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.9rem;
+}
+.cat-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: 96px;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.cat-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.28));
+  z-index: -1;
+}
+.cat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.cat-card-icon { font-size: 1.7rem; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4)); }
+.cat-card-label {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+/* Colores por género */
+.cat-card--accion     { background: linear-gradient(135deg, #c0392b, #e8590c); }
+.cat-card--aventura   { background: linear-gradient(135deg, #0b8457, #16a085); }
+.cat-card--rpg        { background: linear-gradient(135deg, #6c2bd9, #9b59b6); }
+.cat-card--shooter    { background: linear-gradient(135deg, #34495e, #2c6fa3); }
+.cat-card--terror     { background: linear-gradient(135deg, #4a0e0e, #7b1313); }
+.cat-card--deportes   { background: linear-gradient(135deg, #1e7e34, #2ecc71); }
+.cat-card--carreras   { background: linear-gradient(135deg, #d68910, #f5b041); }
+.cat-card--lucha      { background: linear-gradient(135deg, #a01a3c, #e0245e); }
+.cat-card--estrategia { background: linear-gradient(135deg, #1f4e79, #2980b9); }
+.cat-card--infantiles { background: linear-gradient(135deg, #d63384, #00b8d4); }
+@media (max-width: 560px) {
+  .category-nav-grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 0.6rem; }
+  .cat-card { min-height: 80px; padding: 0.7rem 0.8rem; }
+  .cat-card-icon { font-size: 1.4rem; }
+  .cat-card-label { font-size: 0.9rem; }
+}
 .card-meta {
   position: absolute;
   top: 8px;

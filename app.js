@@ -416,6 +416,10 @@ function parseRoute() {
     const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
     return { name: "buscar", term: decodeURIComponent(partes[1]), page };
   }
+  if (partes[0] === "categoria" && partes[1]) {
+    const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
+    return { name: "categoria", genre: decodeURIComponent(partes[1]), page };
+  }
   if (partes[0] === "resenas" || partes[0] === "reviews") return { name: "resenas" };
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
@@ -716,6 +720,7 @@ function render() {
   if (route.name === "subscriptions") return renderSubscriptions(route.service);
   if (route.name === "reservaciones") return renderReservaciones();
   if (route.name === "buscar") return renderBusqueda(route.term, route.page);
+  if (route.name === "categoria") return renderCategoria(route.genre, route.page);
   if (route.name === "resenas") return renderResenas();
   if (route.name === "cart") return renderCart();
   if (route.name === "login") return renderLogin();
@@ -728,6 +733,7 @@ function renderHome(page = 1) {
   app.innerHTML = `
     ${heroHTML()}
     ${trustBarHTML()}
+    ${categoryCardsHTML()}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Catálogo destacado</h2>
@@ -1040,6 +1046,40 @@ const GENRE_LABELS = {
   deportes: "Deportes", carreras: "Carreras", shooter: "Shooter",
   lucha: "Lucha", estrategia: "Estrategia", infantiles: "Infantil",
 };
+
+// Tarjetas de categoría en colores para el inicio. Cada una linkea a
+// /categoria/<tag>. El color sale de la clase cat-card--<tag> en style.css.
+const HOME_CATEGORIES = [
+  { tag: "accion", icon: "💥" },
+  { tag: "aventura", icon: "🗺️" },
+  { tag: "rpg", icon: "⚔️" },
+  { tag: "shooter", icon: "🎯" },
+  { tag: "terror", icon: "👻" },
+  { tag: "deportes", icon: "⚽" },
+  { tag: "carreras", icon: "🏎️" },
+  { tag: "lucha", icon: "🥊" },
+  { tag: "estrategia", icon: "♟️" },
+  { tag: "infantiles", icon: "🧸" },
+];
+
+function categoryCardsHTML() {
+  return `
+    <section class="container category-nav-section">
+      <div class="section-title">
+        <h2>Explorá por categoría</h2>
+        <p>Encontrá tu próximo juego por género.</p>
+      </div>
+      <div class="category-nav-grid">
+        ${HOME_CATEGORIES.map(c => `
+          <a class="cat-card cat-card--${c.tag}" href="/categoria/${c.tag}">
+            <span class="cat-card-icon" aria-hidden="true">${c.icon}</span>
+            <span class="cat-card-label">${escapeHtml(GENRE_LABELS[c.tag] || c.tag)}</span>
+          </a>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
 
 // Ficha mínima construida con lo que ya scrapeamos (plataforma, géneros,
 // oferta). Se muestra al instante para que la sección "información del juego"
@@ -1618,6 +1658,27 @@ function renderBusqueda(term, page = 1) {
     </section>
   `;
   mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`, false);
+}
+
+// Catálogo filtrado por género (categoría). Mismo comportamiento que la
+// página de plataforma: arranca con el filtro "Solo AAA" activo (indies
+// ocultos) y deja las tarjetas de plataforma/oferta para refinar.
+function renderCategoria(genre, page = 1) {
+  const label = GENRE_LABELS[genre] || (genre ? genre[0].toUpperCase() + genre.slice(1) : "Categoría");
+  const list = (allGames || []).filter(g => Array.isArray(g.genres) && g.genres.includes(genre));
+  app.innerHTML = `
+    ${heroSlimHTML(label)}
+    <section class="container catalog-section">
+      <div class="section-title">
+        <h2>${escapeHtml(label)}</h2>
+        <p>${list.length} ${list.length === 1 ? "juego en esta categoría" : "juegos en esta categoría"}.</p>
+      </div>
+      ${toolbarHTML(true)}
+      <div id="grid" class="grid"></div>
+      <div id="pagination" class="pagination"></div>
+    </section>
+  `;
+  mountToolbar(list, page, `/categoria/${encodeURIComponent(genre)}`, true);
 }
 
 function renderOfertas(page = 1) {
