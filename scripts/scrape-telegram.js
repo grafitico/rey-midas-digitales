@@ -22,9 +22,10 @@ async function main() {
   console.log(`[scrape] Canal: @${CHANNEL}`);
   console.log(`[scrape] Fecha de corte: ${SINCE_DATE.toISOString()} (todo lo posterior se incluye)`);
 
-  const { messages: allMessages, complete } = await fetchAllMessages();
+  const { messages: allMessages, trustworthy, oldestCoveredDate, reachedCutoff } = await fetchAllMessages();
   console.log(`[scrape] Total de mensajes recolectados desde el corte: ${allMessages.length}`);
-  console.log(`[scrape] Escaneo ${complete ? "COMPLETO" : "PARCIAL"} (complete=${complete}) — el prune solo corre si está completo.`);
+  console.log(`[scrape] Escaneo ${trustworthy ? "CONFIABLE" : "NO CONFIABLE"} (trustworthy=${trustworthy}, reachedCutoff=${reachedCutoff})`);
+  console.log(`[scrape] Franja cubierta: desde ${oldestCoveredDate ? oldestCoveredDate.toISOString() : "?"} hasta ahora — el prune solo borra dentro de esta franja.`);
 
   const bundles = [];
   for (const msg of allMessages) {
@@ -59,23 +60,38 @@ async function main() {
     return;
   }
 
-  const stats = await batchUpsert(deduped, complete);
+  const stats = await batchUpsert(deduped, { trustworthy, oldestCoveredDate });
   console.log(`[scrape] Resumen: ${JSON.stringify(stats)}`);
 }
 
 // ===== Paginación =====
-// Devuelve { messages, complete }. `complete` es true SOLO si recorrimos
-// limpiamente toda la ventana (llegamos a SINCE_DATE, o se acabaron los
-// mensajes del canal después de al menos una página válida). Cualquier
-// corte por error HTTP, falta de progreso o MAX_PAGES deja complete=false,
-// porque en ese caso NO tenemos una vista confiable del canal y borrar
-// bundles sería peligroso (podríamos eliminar cosas que sí siguen vivas).
+// Devuelve { messages, trustworthy, oldestCoveredDate, reachedCutoff }.
+//
+// La paginación recorre el canal de lo más nuevo a lo más viejo hasta
+// llegar a SINCE_DATE o agotar MAX_PAGES. Como el canal puede ser muy
+// activo, NO atamos el borrado a SINCE_DATE: definimos la "franja cubierta"
+// como [oldestCoveredDate, ahora], es decir hasta el mensaje más viejo que
+// efectivamente logramos leer en esta corrida. El prune solo borra bundles
+// dentro de esa franja; lo más viejo que no alcanzamos a cubrir se conserva.
+//
+// `trustworthy` es false SOLO si la vista del canal quedó incompleta de
+// forma peligrosa: error HTTP en medio de la paginación, o la primera
+// página no cargó. Cortar por MAX_PAGES NO rompe la confiabilidad: la
+// franja [oldestCoveredDate, ahora] sigue siendo contigua y verificada,
+// simplemente más corta. Si no es trustworthy, no se borra nada.
 async function fetchAllMessages() {
   const all = [];
   let beforeId = null;
   let page = 0;
   let crossedCutoff = false;
-  let complete = false;
+  let trustworthy = true;
+  let oldestCoveredDate = null;  // fecha del mensaje más viejo que vimos
+
+  const noteDate = (d) => {
+    if (d instanceof Date && !isNaN(d)) {
+      if (!oldestCoveredDate || d < oldestCoveredDate) oldestCoveredDate = d;
+    }
+  };
 
   while (page < MAX_PAGES && !crossedCutoff) {
     const url = beforeId ? `${TG_BASE}?before=${beforeId}` : TG_BASE;
@@ -89,19 +105,21 @@ async function fetchAllMessages() {
       },
     });
     if (!r.ok) {
-      console.error(`[scrape] HTTP ${r.status} en ${url} — corto la paginación (escaneo PARCIAL).`);
+      console.error(`[scrape] HTTP ${r.status} en ${url} — corto la paginación (escaneo NO CONFIABLE).`);
+      trustworthy = false;
       break;
     }
     const html = await r.text();
     const messages = extractMessages(html);
     if (messages.length === 0) {
       // Página vacía después de haber traído mensajes = se acabó el canal,
-      // recorrimos todo. Página vacía en el primer intento = algo falló.
+      // recorrimos todo (confiable). Página vacía en el primer intento =
+      // el preview no cargó (no confiable).
       if (page > 0) {
-        complete = true;
-        console.log(`[scrape] Page sin mensajes, llegamos al final del canal. Escaneo COMPLETO.`);
+        console.log(`[scrape] Page sin mensajes, llegamos al final del canal.`);
       } else {
-        console.error(`[scrape] Primera página sin mensajes — el preview no cargó (escaneo PARCIAL).`);
+        console.error(`[scrape] Primera página sin mensajes — el preview no cargó (escaneo NO CONFIABLE).`);
+        trustworthy = false;
       }
       break;
     }
@@ -110,6 +128,7 @@ async function fetchAllMessages() {
     let oldestThisPage = Infinity;
     for (const msg of messages) {
       if (msg.id < oldestThisPage) oldestThisPage = msg.id;
+      noteDate(msg.date);  // cubrimos esta fecha aunque caiga bajo el corte
       if (msg.date && msg.date < SINCE_DATE) {
         crossedCutoff = true;
         continue;
@@ -120,22 +139,22 @@ async function fetchAllMessages() {
     console.log(`[scrape]   ${messages.length} mensajes en la página, ${kept} dentro del rango`);
 
     if (crossedCutoff) {
-      complete = true;
-      console.log(`[scrape] Llegamos a la fecha de corte. Escaneo COMPLETO.`);
+      console.log(`[scrape] Llegamos a la fecha de corte SINCE_DATE.`);
       break;
     }
     if (oldestThisPage === Infinity || oldestThisPage === beforeId) {
-      console.log(`[scrape] Sin progreso en paginación, corto (escaneo PARCIAL).`);
+      console.log(`[scrape] Sin progreso en paginación, corto (escaneo NO CONFIABLE).`);
+      trustworthy = false;
       break;
     }
     beforeId = oldestThisPage;
     page++;
   }
 
-  if (page >= MAX_PAGES) {
-    console.warn(`[scrape] Alcanzado MAX_PAGES=${MAX_PAGES}, puede haber mensajes más viejos sin scrapear (escaneo PARCIAL).`);
+  if (page >= MAX_PAGES && !crossedCutoff) {
+    console.warn(`[scrape] Alcanzado MAX_PAGES=${MAX_PAGES} sin llegar al corte. La franja cubierta es más corta pero sigue siendo confiable; lo anterior se conserva. Subí MAX_PAGES para cubrir más.`);
   }
-  return { messages: all, complete };
+  return { messages: all, trustworthy, oldestCoveredDate, reachedCutoff: crossedCutoff };
 }
 
 // ===== HTML scraping =====
@@ -353,27 +372,29 @@ function bundlesEqual(a, b) {
   return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 }
 
-async function batchUpsert(scrapedBundles, scanComplete) {
+async function batchUpsert(scrapedBundles, scan = {}) {
+  const { trustworthy = false, oldestCoveredDate = null } = scan;
   const stats = { added: 0, updated: 0, unchanged: 0, kept: 0, removed: 0, dateBackfilled: 0 };
 
   // PRUNE: borrar bundles que ya no están en el canal. Activado por defecto.
   // Ponelo en "0" para volver al comportamiento histórico (nunca borrar).
   const pruneEnabled = (process.env.PRUNE || "1") !== "0";
   // Tope de seguridad: si el prune intentara borrar más de este % de los
-  // bundles que están dentro de la ventana, se aborta el borrado y solo se
-  // hace upsert. Protege contra un preview de Telegram caído/recortado que
-  // pasó los chequeos pero igual nos devolvió pocos mensajes.
+  // bundles que están dentro de la franja cubierta, se aborta el borrado y
+  // solo se hace upsert. Protege contra un preview de Telegram caído/recortado
+  // que pasó los chequeos pero igual nos devolvió pocos mensajes.
   const pruneMaxRatio = parseFloat(process.env.PRUNE_MAX_RATIO || "0.5");
 
   const { sha, content } = await getFile();
   const existing = Array.isArray(content.bundles) ? content.bundles : [];
   const existingById = new Map(existing.map(b => [b.id, b]));
 
-  // Un bundle está "dentro de la ventana" escaneada si tiene fecha y esa
-  // fecha es >= SINCE_DATE. Solo esos son candidatos a prune: de los más
-  // viejos (o sin fecha) no tenemos información en este scrape, así que se
-  // conservan siempre.
-  const inWindow = b => b && b.date && new Date(b.date) >= SINCE_DATE;
+  // Un bundle está "dentro de la franja cubierta" si tiene fecha y esa fecha
+  // es >= oldestCoveredDate (el mensaje más viejo que el scrape alcanzó a
+  // leer en esta corrida). Solo esos son candidatos a prune: de los más
+  // viejos (o sin fecha) no tenemos información en este scrape — se conservan.
+  // Usamos >= con seguridad porque el borde ya fue verificado por noteDate.
+  const inWindow = b => b && b.date && oldestCoveredDate && new Date(b.date) >= oldestCoveredDate;
 
   const finalList = [];
   const seen = new Set();
@@ -413,12 +434,15 @@ async function batchUpsert(scrapedBundles, scanComplete) {
   const prunable = missing.filter(inWindow);
   const inWindowExisting = existing.filter(inWindow).length;
 
-  // ¿El prune es seguro? Requiere: feature activado, escaneo COMPLETO y que
-  // no estemos borrando una fracción sospechosamente grande de la ventana.
-  let doPrune = pruneEnabled && scanComplete && prunable.length > 0;
+  // ¿El prune es seguro? Requiere: feature activado, escaneo CONFIABLE y que
+  // no estemos borrando una fracción sospechosamente grande de la franja.
+  let doPrune = pruneEnabled && trustworthy && prunable.length > 0;
   if (doPrune && inWindowExisting > 0 && prunable.length / inWindowExisting > pruneMaxRatio) {
     doPrune = false;
-    console.warn(`[scrape] PRUNE ABORTADO por seguridad: intentaría borrar ${prunable.length}/${inWindowExisting} bundles de la ventana (> ${pruneMaxRatio * 100}%). Se conservan.`);
+    console.warn(`[scrape] PRUNE ABORTADO por seguridad: intentaría borrar ${prunable.length}/${inWindowExisting} bundles de la franja cubierta (> ${pruneMaxRatio * 100}%). Se conservan.`);
+  }
+  if (pruneEnabled && !trustworthy) {
+    console.warn(`[scrape] PRUNE omitido: el escaneo no fue confiable (preview caído/parcial). No se borra nada.`);
   }
 
   const prunableIds = new Set(prunable.map(b => b.id));

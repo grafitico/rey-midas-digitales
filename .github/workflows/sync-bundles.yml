@@ -22,6 +22,10 @@ on:
         description: "Borrar bundles que ya no están en el canal (1 = sí, 0 = no)"
         required: false
         default: "1"
+      max_pages:
+        description: "Máximo de páginas a paginar (~20 mensajes c/u). Subilo para barrer más historia."
+        required: false
+        default: "400"
 
 jobs:
   scrape:
@@ -41,6 +45,7 @@ jobs:
         env:
           TG_CHANNEL: ${{ inputs.channel || 'swichtaccount' }}
           PRUNE: ${{ inputs.prune || '1' }}
+          MAX_PAGES: ${{ inputs.max_pages || '400' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
