@@ -2893,9 +2893,9 @@ html { scroll-behavior: smooth; }
 .cat-card--rpg        { background: linear-gradient(135deg, #6d28d9, #a855f7); } /* morado */
 .cat-card--shooter    { background: linear-gradient(135deg, #334155, #64748b); } /* gris acero */
 .cat-card--deportes   { background: linear-gradient(135deg, #15803d, #22c55e); } /* verde */
-.cat-card--lucha      { background: linear-gradient(135deg, #9d174d, #db2777); } /* carmesí */
-.cat-card--estrategia { background: linear-gradient(135deg, #1e3a8a, #4338ca); } /* índigo */
-.cat-card--infantiles { background: linear-gradient(135deg, #ec4899, #38bdf8); } /* rosa/celeste */
+.cat-card--lucha      { background: linear-gradient(135deg, #a21caf, #d946ef); } /* fucsia/magenta */
+.cat-card--estrategia { background: linear-gradient(135deg, #78350f, #b45309); } /* bronce */
+.cat-card--infantiles { background: linear-gradient(135deg, #f472b6, #67e8f9); } /* rosa/celeste pastel */
 @media (max-width: 560px) {
   .category-nav-grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 0.6rem; }
   .cat-card { min-height: 80px; padding: 0.7rem 0.8rem; }
