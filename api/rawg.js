@@ -86,6 +86,13 @@ export default async function handler(req, res) {
       games: (data.results || []).map(normalizeListItem),
     });
   } catch (e) {
+    // Cupo de RAWG agotado (401 monthly limit) o rate-limit (429): no es un
+    // error del servidor. Respondemos 200 con quota:true para que el cliente
+    // active su circuit breaker y deje de pedir, sin ensuciar la consola con
+    // un mar de 500s en rojo.
+    if (e.status === 401 || e.status === 429) {
+      return res.status(200).json({ success: false, quota: true, error: e.message });
+    }
     return res.status(500).json({ success: false, error: e.message });
   }
 }
@@ -112,7 +119,9 @@ async function rawg(path, params = {}) {
   });
   if (!r.ok) {
     const body = await r.text().catch(() => "");
-    throw new Error(`RAWG HTTP ${r.status} en ${path}: ${body.slice(0, 200)}`);
+    const err = new Error(`RAWG HTTP ${r.status} en ${path}: ${body.slice(0, 200)}`);
+    err.status = r.status; // 401 = cupo mensual agotado, 429 = rate limit
+    throw err;
   }
   return r.json();
 }
