@@ -733,12 +733,12 @@ function renderHome(page = 1) {
   app.innerHTML = `
     ${heroHTML()}
     ${trustBarHTML()}
-    ${categoryCardsHTML()}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>Catálogo destacado</h2>
         <p>Tocá un juego para ver detalles y agregarlo al carrito.</p>
       </div>
+      ${categoryCardsHTML()}
       ${toolbarHTML()}
       <div id="grid" class="grid"></div>
       <div id="pagination" class="pagination"></div>
@@ -1062,18 +1062,15 @@ const HOME_CATEGORIES = [
   { tag: "infantiles", icon: "🧸" },
 ];
 
-function categoryCardsHTML() {
+function categoryCardsHTML(activeGenre) {
   return `
-    <section class="container category-nav-section">
-      <div class="section-title">
-        <h2>Explorá por categoría</h2>
-      </div>
+    <div class="category-nav-bar${activeGenre !== undefined ? " category-nav-bar--sticky" : ""}">
       <div class="category-nav-row">
         ${HOME_CATEGORIES.map(c => `
-          <a class="cat-pill cat-card--${c.tag}" href="/categoria/${c.tag}">${escapeHtml(GENRE_LABELS[c.tag] || c.tag)}</a>
+          <a class="cat-pill cat-card--${c.tag}${activeGenre === c.tag ? " cat-pill--active" : ""}" href="/categoria/${c.tag}">${escapeHtml(GENRE_LABELS[c.tag] || c.tag)}</a>
         `).join("")}
       </div>
-    </section>
+    </div>
   `;
 }
 
@@ -1664,6 +1661,7 @@ function renderCategoria(genre, page = 1) {
   const list = (allGames || []).filter(g => Array.isArray(g.genres) && g.genres.includes(genre));
   app.innerHTML = `
     ${heroSlimHTML(label)}
+    ${categoryCardsHTML(genre)}
     <section class="container catalog-section">
       <div class="section-title">
         <h2>${escapeHtml(label)}</h2>

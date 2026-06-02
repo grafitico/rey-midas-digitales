@@ -2843,9 +2843,19 @@ html { scroll-behavior: smooth; }
   color: #0a0a0a;
 }
 
-/* ===== Pills de categoría (inicio) ===== */
-.category-nav-section { padding: 0.75rem 0 0.25rem; }
-.category-nav-section .section-title { margin-bottom: 0.9rem; }
+/* ===== Barra de categorías ===== */
+.category-nav-bar {
+  padding: 0.75rem 1rem 0.5rem;
+}
+.category-nav-bar--sticky {
+  position: sticky;
+  top: 66px; /* altura del topbar */
+  z-index: 90;
+  background: #0a0a0a;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding: 0.6rem 1rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
 .category-nav-row {
   display: flex;
   flex-wrap: nowrap;
@@ -2854,6 +2864,8 @@ html { scroll-behavior: smooth; }
   justify-content: center;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 .category-nav-row::-webkit-scrollbar { display: none; }
 .cat-pill {
@@ -2877,6 +2889,11 @@ html { scroll-behavior: smooth; }
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
   filter: brightness(1.08);
+}
+.cat-pill--active {
+  box-shadow: 0 0 0 3px #fff, 0 6px 20px rgba(0,0,0,0.5);
+  filter: brightness(1.12);
+  transform: translateY(-1px);
 }
 /* Colores por género */
 .cat-card--accion     { background: linear-gradient(135deg, #1d4ed8, #3b82f6); } /* azul */
