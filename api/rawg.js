@@ -152,6 +152,18 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── PlayStation Store (sin API key, sin cupo mensual) ───────────────────────
+  if (mode === "psn-search") {
+    const q = (req.query.q || "").toString().trim();
+    if (!q) return res.status(400).json({ success: false, error: "Falta q" });
+    try {
+      const hit = await fetchPsnGame(q);
+      return res.status(200).json({ success: true, game: hit });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
   // ── RAWG (requiere RAWG_API_KEY) ─────────────────────────────────────────────
   const availableKeys = RAWG_KEYS.filter(k => !_exhaustedRawgKeys.has(k));
   if (!availableKeys.length) {
@@ -291,4 +303,107 @@ function normalizeDetail(g) {
 
 function stripHtml(s) {
   return String(s).replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+// ─── Helpers PSN ─────────────────────────────────────────────────────────────
+
+const PSN_STORE = "https://store.playstation.com/es-cr";
+const PSN_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+};
+
+async function fetchPsnHtml(url) {
+  const r = await fetch(url, { headers: PSN_HEADERS });
+  if (!r.ok) { const e = new Error(`PSN HTTP ${r.status}`); e.status = r.status; throw e; }
+  return r.text();
+}
+
+function parsePsnNextData(html) {
+  if (!html || html.length < 500) return null;
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  if (!m) return null;
+  try { return JSON.parse(m[1]); } catch { return null; }
+}
+
+function extractPsnMedia(mediaArray, deref) {
+  if (!Array.isArray(mediaArray)) return { imageUrl: "", screenshots: [] };
+  const imgs = mediaArray.map(deref).filter(i => i && i.url);
+  const master = imgs.find(i => i.role === "MASTER") || imgs.find(i => i.role === "GAMEHUB_COVER_ART") || imgs[0];
+  const screenshots = imgs.filter(i => i.role === "SCREENSHOT").slice(0, 4).map(i => i.url).filter(Boolean);
+  return { imageUrl: master?.url || "", screenshots };
+}
+
+function extractPsnGenres(obj) {
+  const genres = [];
+  for (const src of [obj.genres, obj.localizedGenres, obj.genreList, obj.localizedGenreNames]) {
+    if (!Array.isArray(src)) continue;
+    for (const g of src) {
+      const v = typeof g === "string" ? g : (g?.value || g?.name || g?.label);
+      if (v && !genres.includes(v)) genres.push(v);
+    }
+  }
+  return genres;
+}
+
+async function fetchPsnGame(title) {
+  // Step 1: search page → get product ID + cover
+  const searchHtml = await fetchPsnHtml(`${PSN_STORE}/search/${encodeURIComponent(title)}`);
+  const searchData = parsePsnNextData(searchHtml);
+  if (!searchData) return null;
+
+  const cache = searchData?.props?.apolloState || {};
+  const deref = (val) => val?.__ref ? (cache[val.__ref] ?? val) : val;
+
+  let firstProduct = null;
+  for (const key of Object.keys(cache)) {
+    const obj = cache[key];
+    if (!obj || typeof obj !== "object") continue;
+    if (!(obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id)))) continue;
+    if (!obj.name) continue;
+    firstProduct = obj;
+    break;
+  }
+  if (!firstProduct) return null;
+
+  const { imageUrl, screenshots: searchShots } = extractPsnMedia(firstProduct.media, deref);
+  const genres = extractPsnGenres(firstProduct);
+  const plats = firstProduct.platforms || [];
+  const platform = plats.includes("PS5") ? (plats.includes("PS4") ? "PS5/PS4" : "PS5") : "PS4";
+
+  // Step 2: product detail page → description + more screenshots
+  let description = "";
+  let screenshots = searchShots;
+  let released = firstProduct.releaseDate || firstProduct.originalReleaseDate || "";
+
+  try {
+    const detailHtml = await fetchPsnHtml(`${PSN_STORE}/product/${firstProduct.id}`);
+    const detailData = parsePsnNextData(detailHtml);
+    if (detailData) {
+      const dc = detailData?.props?.apolloState || {};
+      const dref = (val) => val?.__ref ? (dc[val.__ref] ?? val) : val;
+      const pKey = Object.keys(dc).find(k => k === `Product:${firstProduct.id}` || k.startsWith(`Product:${firstProduct.id}:`));
+      const p = pKey ? dc[pKey] : null;
+      if (p) {
+        const raw = p.longDescription || p.description || p.localizedDescription || p.shortDescription || "";
+        description = stripHtml(raw).slice(0, 1200);
+        if (!released) released = p.releaseDate || p.originalReleaseDate || p.firstReleaseDate || "";
+        const { screenshots: dShots } = extractPsnMedia(p.media, dref);
+        if (dShots.length) screenshots = dShots;
+      }
+    }
+  } catch {}
+
+  return {
+    id: firstProduct.id,
+    title: firstProduct.name,
+    imageUrl,
+    description,
+    screenshots,
+    genres,
+    platform,
+    released,
+    _source: "psn",
+  };
 }

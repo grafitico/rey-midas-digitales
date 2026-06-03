@@ -587,8 +587,18 @@ async function enrichFeaturedCovers() {
     const mkey = matchKey(g.title);
     let cover = "";
 
+    // Paso 0: PlayStation Store (imagen oficial, sin cupo mensual).
+    if (!cover && !psnUnavailable()) {
+      const psnData = await fetchFromPsn(g.title);
+      if (psnData?.imageUrl) {
+        cover = psnData.imageUrl;
+        // Pre-cachear datos completos para la ficha cuando el usuario la abra
+        writeRawgCache(`psn:${mkey}`, psnData);
+      }
+    }
+
     // Paso 1: RAWG (mejor imagen de fondo; cupo mensual limitado).
-    if (!rawgQuotaExhausted()) {
+    if (!cover && !rawgQuotaExhausted()) {
       const key = `rawg-cover:${mkey}`;
       let cached = readRawgCache(key);
       if (cached === undefined) {
@@ -1008,7 +1018,32 @@ async function enrichWithRawg(game) {
 
   if (!data) {
     if (rawgQuotaExhausted()) {
-      // Sin cupo de RAWG: intentar portada desde Steam (sin auth) o IGDB (si configurado).
+      // Sin cupo de RAWG — intentar PSN primero (ficha completa + portada oficial).
+      if (!psnUnavailable()) {
+        const psnData = await fetchFromPsn(game.title);
+        if (psnData) {
+          if (slot.dataset.title !== game.title) return;
+          if (psnData.imageUrl && !game.imageUrl) {
+            game.imageUrl = psnData.imageUrl;
+            const productImg = document.querySelector(".product-image img, .product-image .placeholder");
+            if (productImg && productImg.tagName !== "IMG") {
+              const img = new Image(); img.src = psnData.imageUrl; img.alt = game.title;
+              productImg.replaceWith(img);
+            }
+          }
+          slot.innerHTML = renderRawgSection({
+            ...psnData,
+            shortScreenshots: psnData.screenshots || [],
+            _source: "psn",
+          });
+          const sobreSlot = document.getElementById("game-sobre-slot");
+          if (sobreSlot && sobreSlot.dataset.title === game.title) {
+            sobreSlot.innerHTML = renderSobreJuego(psnData);
+          }
+          return;
+        }
+      }
+      // Fallback: portada desde Steam (sin auth) o IGDB.
       if (!game.imageUrl) {
         let fallbackCover = "";
         if (!steamUnavailable()) fallbackCover = await fetchCoverFromSteam(game.title);
@@ -1160,7 +1195,8 @@ function renderRawgSection(d) {
   const devs = (d.developers || []).slice(0, 2).join(", ");
   const pubs = (d.publishers || []).slice(0, 2).join(", ");
   const genres = (d.genres || []).slice(0, 5);
-  const shots = (d.shortScreenshots || []).filter(Boolean).slice(0, 4);
+  const shots = (d.shortScreenshots || d.screenshots || []).filter(Boolean).slice(0, 4);
+  const creditSource = d._source === "psn" ? "PlayStation Store" : d._source === "igdb" ? "IGDB.com" : "RAWG.io";
 
   return `
     <div class="rawg-head">
@@ -1180,7 +1216,7 @@ function renderRawgSection(d) {
         ${shots.map(s => `<img loading="lazy" src="${escapeAttr(s)}" alt="Captura de ${escapeAttr(d.title || "")}">`).join("")}
       </div>
     ` : ""}
-    <p class="rawg-credit">Información del juego cortesía de ${d._source === "igdb" ? "IGDB.com" : "RAWG.io"}</p>
+    <p class="rawg-credit">Información del juego cortesía de ${creditSource}</p>
   `;
 }
 
@@ -1346,6 +1382,49 @@ async function fetchCoverFromSteam(title) {
   return cover;
 }
 
+// ============================================================
+// PlayStation Store como fuente primaria de portadas y fichas.
+// Sin API key, sin cupo mensual, datos oficiales de Sony.
+// Busca por título en store.playstation.com/es-cr y devuelve
+// imagen de portada + descripción + capturas de pantalla.
+// ============================================================
+const PSN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min si PSN falla temporalmente
+
+function psnUnavailable() {
+  try {
+    const until = Number(sessionStorage.getItem("psn-until") || 0);
+    if (!until) return false;
+    if (Date.now() > until) { sessionStorage.removeItem("psn-until"); return false; }
+    return true;
+  } catch { return false; }
+}
+
+function markPsnUnavailable() {
+  if (psnUnavailable()) return;
+  try { sessionStorage.setItem("psn-until", String(Date.now() + PSN_COOLDOWN_MS)); } catch {}
+  console.warn("[PSN] Tienda temporalmente no disponible — pausa de 30 min.");
+}
+
+async function psnFetch(url) {
+  if (psnUnavailable()) return null;
+  let r;
+  try { r = await fetch(url); } catch { return null; }
+  if (r.status === 429 || r.status === 503 || r.status === 403) { markPsnUnavailable(); return null; }
+  if (!r.ok) return null;
+  try { return await r.json(); } catch { return null; }
+}
+
+async function fetchFromPsn(title) {
+  const key = `psn:${matchKey(title)}`;
+  let cached = readRawgCache(key);
+  if (cached !== undefined) return cached && !cached.miss ? cached : null;
+  if (psnUnavailable()) return null;
+  const json = await psnFetch(`/api/rawg?mode=psn-search&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
+  if (json === null) return null; // error de red, no cachear
+  const data = json?.game || null;
+  writeRawgCache(key, data || { miss: true });
+  return data;
+}
 
 const RAWG_MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 días para misses (se reintenta más rápido)
 
@@ -1598,7 +1677,7 @@ async function runEnrichLoop() {
   _enrichRunning = true;
   let changedSinceLastRender = false;
   while (_enrichQueue.length) {
-    // Si RAWG está agotado pero IGDB está disponible, seguimos el loop vía IGDB.
+    // Si RAWG está agotado e IGDB no está disponible, no hay fuente para Metacritic.
     if (rawgQuotaExhausted() && igdbUnavailable()) { _enrichQueue.length = 0; break; }
     const batch = _enrichQueue.splice(0, AAA_ENRICH_BATCH);
     await Promise.all(batch.map(async (g) => {

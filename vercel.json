@@ -3,6 +3,9 @@
     "api/scrape.js": {
       "maxDuration": 30
     },
+    "api/rawg.js": {
+      "maxDuration": 20
+    },
     "api/scrape-xbox.js": {
       "maxDuration": 30
     },
