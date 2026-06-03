@@ -22,6 +22,7 @@ export default async function handler(req, res) {
     if (action === "change-password") return await changePassword(req, res, body);
     if (action === "bootstrap") return await bootstrap(req, res, body);
     if (action === "logout") return logout(req, res);
+    if (action === "has-users") return await hasUsers(req, res);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -72,6 +73,13 @@ async function changePassword(req, res, body) {
     body: JSON.stringify({ password_hash: hashPassword(password) }),
   });
   res.status(200).json({ ok: true });
+}
+
+// Devuelve si ya existe algún usuario registrado (sin forzar un 403 en el cliente).
+// Reemplaza el hack de "bootstrap dummy" que ensuciaba la consola del navegador.
+async function hasUsers(req, res) {
+  const existing = await sb(`app_users?select=id&limit=1`);
+  return res.status(200).json({ usersExist: existing.length > 0 });
 }
 
 // Solo funciona si NO hay usuarios todavía. Sirve para crear el primer admin.

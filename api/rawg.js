@@ -10,7 +10,17 @@
 // NO en el código: una key hardcoded en GitHub la escanean bots y la queman
 // (que es justo lo que pasó con la anterior). Si falta, el endpoint responde
 // con quota:true para que el cliente no insista y la web use su ficha fallback.
-const RAWG_KEY = process.env.RAWG_API_KEY || "";
+// Soporte para hasta 3 keys de RAWG (20k req/mes cada una = hasta 60k/mes combinadas).
+// Añadir RAWG_API_KEY_2 y/o RAWG_API_KEY_3 en Vercel para activar la rotación.
+const RAWG_KEYS = [
+  process.env.RAWG_API_KEY,
+  process.env.RAWG_API_KEY_2,
+  process.env.RAWG_API_KEY_3,
+].filter(k => !!k);
+
+// Keys cuyo cupo se agotó en esta instancia (se resetea con cada cold start / ~daily).
+const _exhaustedKeys = new Set();
+
 const RAWG_BASE = "https://api.rawg.io/api";
 
 // IDs de plataformas en RAWG (https://api.rawg.io/api/platforms)
@@ -34,10 +44,14 @@ export default async function handler(req, res) {
 
   const mode = (req.query.mode || "list").toString();
 
-  // Sin key configurada no podemos consultar RAWG. Devolvemos quota:true para
-  // que el circuit breaker del cliente deje de pedir y muestre la ficha fallback.
-  if (!RAWG_KEY) {
-    return res.status(200).json({ success: false, quota: true, error: "RAWG_API_KEY no configurada en el servidor" });
+  // Sin keys configuradas no podemos consultar RAWG. Devolvemos quota:true para
+  // que el circuit breaker del cliente deje de pedir y use IGDB como fallback.
+  const availableKeys = RAWG_KEYS.filter(k => !_exhaustedKeys.has(k));
+  if (!availableKeys.length) {
+    const msg = RAWG_KEYS.length
+      ? "Todas las RAWG API keys agotaron su cupo mensual"
+      : "RAWG_API_KEY no configurada en el servidor";
+    return res.status(200).json({ success: false, quota: true, error: msg });
   }
 
   try {
@@ -113,25 +127,42 @@ function resolvePlatforms(input) {
 }
 
 async function rawg(path, params = {}) {
-  const usp = new URLSearchParams({ key: RAWG_KEY });
-  for (const [k, v] of Object.entries(params)) {
-    if (v == null || v === "") continue;
-    usp.set(k, v);
-  }
-  const url = `${RAWG_BASE}${path}?${usp.toString()}`;
-  const r = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)",
-      "Accept": "application/json",
-    },
-  });
-  if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    const err = new Error(`RAWG HTTP ${r.status} en ${path}: ${body.slice(0, 200)}`);
-    err.status = r.status; // 401 = cupo mensual agotado, 429 = rate limit
+  const keysToTry = RAWG_KEYS.filter(k => !_exhaustedKeys.has(k));
+  if (!keysToTry.length) {
+    const err = new Error("Todas las RAWG API keys agotaron su cupo mensual");
+    err.status = 401;
     throw err;
   }
-  return r.json();
+
+  for (const key of keysToTry) {
+    const usp = new URLSearchParams({ key });
+    for (const [k, v] of Object.entries(params)) {
+      if (v == null || v === "") continue;
+      usp.set(k, v);
+    }
+    const url = `${RAWG_BASE}${path}?${usp.toString()}`;
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)",
+        "Accept": "application/json",
+      },
+    });
+    if (r.status === 401) {
+      _exhaustedKeys.add(key); // esta key agotó su cupo mensual — rotar a la siguiente
+      continue;
+    }
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      const err = new Error(`RAWG HTTP ${r.status} en ${path}: ${body.slice(0, 200)}`);
+      err.status = r.status; // 429 = rate limit
+      throw err;
+    }
+    return r.json();
+  }
+
+  const err = new Error("Todas las RAWG API keys agotaron su cupo mensual");
+  err.status = 401;
+  throw err;
 }
 
 function normalizeListItem(g) {
