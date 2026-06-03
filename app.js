@@ -2182,29 +2182,55 @@ function bindCartActions() {
   });
 }
 
-function checkout() {
+async function checkout() {
   const items = loadCart();
   if (!items.length) return;
-  const subtotal = items.reduce((s, i) => s + i.priceCRC, 0);
-  const code = getDiscountCode();
-  const discount = code ? Math.round(subtotal * 0.10) : 0;
-  const total = subtotal - discount;
-  const cleanMsg = (s) => String(s).replace(/[\n\r\t*_~`\\]/g, " ").trim();
-  const lines = items.map((i, idx) =>
-    `${idx + 1}. ${cleanMsg(i.title)} (${cleanMsg(i.platform)}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
-  );
-  const msg = [
-    "Hola Rey Midas, quiero pedir lo siguiente:",
-    "",
-    ...lines,
-    "",
-    `Subtotal: ${formatCRC(subtotal)}`,
-    ...(code ? [`Código de descuento: ${code} (−${formatCRC(discount)})`] : []),
-    `*Total: ${formatCRC(total)}*`,
-    "",
-    "¿Me confirman disponibilidad y datos de pago? Gracias.",
-  ].join("\n");
-  window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+
+  const btn = document.getElementById("checkoutBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Verificando precios…"; }
+
+  try {
+    // Validar precios en el servidor antes de armar el mensaje
+    const validation = await apiPost("/api/validate-order", {
+      items: items.map(i => ({ id: i.id, modality: i.modality, priceCRC: i.priceCRC })),
+    });
+    if (!validation.ok) {
+      showToast(validation.error || "Error al validar el pedido.", "error");
+      return;
+    }
+
+    // Usar los precios devueltos por el servidor (confiables)
+    const validatedItems = validation.items.map((vi, idx) => ({
+      ...items[idx],
+      priceCRC: vi.priceCRC,
+    }));
+    saveCart(validatedItems);
+
+    const subtotal = validatedItems.reduce((s, i) => s + i.priceCRC, 0);
+    const code = getDiscountCode();
+    const discount = code ? Math.round(subtotal * 0.10) : 0;
+    const total = subtotal - discount;
+    const cleanMsg = (s) => String(s).replace(/[\n\r\t*_~`\\]/g, " ").trim();
+    const lines = validatedItems.map((i, idx) =>
+      `${idx + 1}. ${cleanMsg(i.title)} (${cleanMsg(i.platform)}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
+    );
+    const msg = [
+      "Hola Rey Midas, quiero pedir lo siguiente:",
+      "",
+      ...lines,
+      "",
+      `Subtotal: ${formatCRC(subtotal)}`,
+      ...(code ? [`Código de descuento: ${code} (−${formatCRC(discount)})`] : []),
+      `*Total: ${formatCRC(total)}*`,
+      "",
+      "¿Me confirman disponibilidad y datos de pago? Gracias.",
+    ].join("\n");
+    window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+  } catch {
+    showToast("No se pudo verificar el pedido. Intentá de nuevo.", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Enviar pedido por WhatsApp"; }
+  }
 }
 
 // ============================================================
