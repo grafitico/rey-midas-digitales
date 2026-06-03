@@ -607,7 +607,12 @@ async function enrichFeaturedCovers() {
       cover = cached || "";
     }
 
-    // Paso 2: IGDB como fallback cuando RAWG no tiene cupo o no encontró portada.
+    // Paso 2: Steam Store como fallback (sin API key, sin registro).
+    if (!cover && !steamUnavailable()) {
+      cover = await fetchCoverFromSteam(g.title);
+    }
+
+    // Paso 3: IGDB si está configurado (requiere Twitch dev account).
     if (!cover && !igdbUnavailable()) {
       cover = await fetchCoverFromIgdb(g.title);
     }
@@ -1003,7 +1008,24 @@ async function enrichWithRawg(game) {
 
   if (!data) {
     if (rawgQuotaExhausted()) {
-      // Sin cupo de RAWG: enriquecer con IGDB (portada + descripción + géneros; sin Metacritic).
+      // Sin cupo de RAWG: intentar portada desde Steam (sin auth) o IGDB (si configurado).
+      if (!game.imageUrl) {
+        let fallbackCover = "";
+        if (!steamUnavailable()) fallbackCover = await fetchCoverFromSteam(game.title);
+        if (!fallbackCover && !igdbUnavailable()) fallbackCover = await fetchCoverFromIgdb(game.title);
+        if (fallbackCover) {
+          game.imageUrl = fallbackCover;
+          if (slot.dataset.title !== game.title) return;
+          const productImg = document.querySelector(".product-image img, .product-image .placeholder");
+          if (productImg && productImg.tagName !== "IMG") {
+            const img = new Image();
+            img.src = fallbackCover;
+            img.alt = game.title;
+            productImg.replaceWith(img);
+          }
+        }
+      }
+      // Intentar ficha completa desde IGDB si está configurado
       if (!igdbUnavailable()) {
         const igdbCacheKey = `igdb:${cleaned.toLowerCase()}`;
         let igdbData = readRawgCache(igdbCacheKey);
@@ -1278,6 +1300,48 @@ async function fetchCoverFromIgdb(title) {
   if (igdbUnavailable()) return "";
   const json = await igdbFetch(`/api/igdb?mode=search&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
   cover = json?.games?.[0]?.imageUrl || "";
+  writeRawgCache(key, cover);
+  return cover;
+}
+
+// ============================================================
+// Steam Store como fallback de portadas — sin API key, sin registro,
+// sin cupo mensual. Usa la búsqueda pública de Steam y el CDN de Valve.
+// Funciona para prácticamente todos los juegos PS/Xbox que también están en PC.
+// ============================================================
+const STEAM_COOLDOWN_MS = 30 * 60 * 1000; // 30 min si Steam falla temporalmente
+
+function steamUnavailable() {
+  try {
+    const until = Number(sessionStorage.getItem("steam-until") || 0);
+    if (!until) return false;
+    if (Date.now() > until) { sessionStorage.removeItem("steam-until"); return false; }
+    return true;
+  } catch { return false; }
+}
+
+function markSteamUnavailable() {
+  if (steamUnavailable()) return;
+  try { sessionStorage.setItem("steam-until", String(Date.now() + STEAM_COOLDOWN_MS)); } catch {}
+  console.warn("[Steam] API temporalmente no disponible — pausa de 30 min.");
+}
+
+async function steamFetch(url) {
+  if (steamUnavailable()) return null;
+  let r;
+  try { r = await fetch(url); } catch { return null; }
+  if (r.status === 429 || r.status === 503) { markSteamUnavailable(); return null; }
+  if (!r.ok) return null;
+  try { return await r.json(); } catch { return null; }
+}
+
+async function fetchCoverFromSteam(title) {
+  const key = `steam-cover:${matchKey(title)}`;
+  let cover = readRawgCache(key);
+  if (cover !== undefined) return cover || "";
+  if (steamUnavailable()) return "";
+  const json = await steamFetch(`/api/steam-cover?q=${encodeURIComponent(cleanTitleForRawg(title))}`);
+  cover = json?.imageUrl || "";
   writeRawgCache(key, cover);
   return cover;
 }
