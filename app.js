@@ -2154,13 +2154,26 @@ function bindCartActions() {
     renderCart();
   });
   const applyCodeForm = document.getElementById("applyCodeForm");
-  if (applyCodeForm) applyCodeForm.addEventListener("submit", (e) => {
+  if (applyCodeForm) applyCodeForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const code = e.target.querySelector("input").value.trim().toUpperCase();
     if (!code) return;
-    localStorage.setItem(DISCOUNT_KEY, code);
-    showToast(`Código ${code} aplicado ✓`, "success");
-    renderCart();
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    try {
+      const data = await apiPost("/api/validate-discount", { code });
+      if (!data.valid) {
+        showToast("Código inválido o ya utilizado.", "error");
+        return;
+      }
+      localStorage.setItem(DISCOUNT_KEY, code);
+      showToast(`Código ${escapeHtml(code)} aplicado ✓`, "success");
+      renderCart();
+    } catch {
+      showToast("No se pudo verificar el código. Intentá de nuevo.", "error");
+    } finally {
+      btn.disabled = false;
+    }
   });
   const openPopupBtn = document.getElementById("openPopupFromCart");
   if (openPopupBtn) openPopupBtn.addEventListener("click", (e) => {
