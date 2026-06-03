@@ -170,6 +170,45 @@ export function handleError(res, err) {
   res.status(status).json({ error: err.message });
 }
 
+// ===== Rate limiting en memoria =====
+// Funciona en desarrollo y en Vercel funciones de larga duración.
+// Para Vercel serverless (instancias efímeras) es una protección de
+// "mejor esfuerzo": cada instancia lleva su propio contador, lo cual
+// sigue frenando ataques de baja-media intensidad. Para protección
+// garantizada en producción, migrar a Upstash Redis + @upstash/ratelimit.
+const _rateBuckets = new Map(); // "prefix:ip" → { count, resetAt }
+
+export function checkRateLimit(req, { prefix = "default", max = 10, windowMs = 15 * 60 * 1000 } = {}) {
+  const ip =
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.socket?.remoteAddress ||
+    "unknown";
+  const key = `${prefix}:${ip}`;
+  const now = Date.now();
+  let bucket = _rateBuckets.get(key);
+  if (!bucket || now > bucket.resetAt) {
+    bucket = { count: 0, resetAt: now + windowMs };
+  }
+  bucket.count += 1;
+  _rateBuckets.set(key, bucket);
+  if (bucket.count > max) {
+    const retryAfterSec = Math.ceil((bucket.resetAt - now) / 1000);
+    const err = new Error("Demasiados intentos. Esperá unos minutos e intentá de nuevo.");
+    err.status = 429;
+    err.retryAfter = retryAfterSec;
+    throw err;
+  }
+}
+
+// Limpieza periódica para evitar que el Map crezca indefinidamente
+// (solo aplica a instancias de larga duración)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, bucket] of _rateBuckets) {
+    if (now > bucket.resetAt) _rateBuckets.delete(key);
+  }
+}, 5 * 60 * 1000);
+
 export async function readJson(req) {
   if (req.body && typeof req.body === "object") return req.body;
   return new Promise((resolve, reject) => {

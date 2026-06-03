@@ -3,12 +3,14 @@
 // Responde { valid: true } o { valid: false }.
 // No requiere autenticación: es llamado desde el carrito público.
 
-import { sb, handleError, readJson, checkConfig } from "./_lib.js";
+import { sb, handleError, readJson, checkConfig, checkRateLimit } from "./_lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
     checkConfig();
+    // 20 validaciones por IP cada hora (evita enumeración por fuerza bruta)
+    checkRateLimit(req, { prefix: "validate-discount", max: 20, windowMs: 60 * 60 * 1000 });
     const body = await readJson(req);
     const code = String(body.code || "").trim().toUpperCase();
     if (!code) return res.status(200).json({ valid: false });

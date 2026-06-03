@@ -6,7 +6,7 @@
 import {
   sb, hashPassword, verifyPassword, makeSessionToken,
   requireAuth, handleError, readJson, checkConfig,
-  setSessionCookie, clearSessionCookie,
+  setSessionCookie, clearSessionCookie, checkRateLimit,
 } from "./_lib.js";
 
 export default async function handler(req, res) {
@@ -29,6 +29,8 @@ export default async function handler(req, res) {
 }
 
 async function login(req, res, body) {
+  // 10 intentos por IP cada 15 minutos
+  checkRateLimit(req, { prefix: "login", max: 10, windowMs: 15 * 60 * 1000 });
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   if (!email || !password) {
