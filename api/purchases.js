@@ -1,7 +1,7 @@
 // CRUD de compras. Cliente ve las propias, admin ve/crea/borra todas.
 // POST /api/purchases con { action: "mine" | "list-all" | "create" | "delete", ... }
 
-import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
+import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig, encryptField, decryptField } from "./_lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -20,16 +20,24 @@ export default async function handler(req, res) {
   }
 }
 
+function decryptPurchase(p) {
+  return {
+    ...p,
+    account_password: decryptField(p.account_password),
+    verifier_codes: decryptField(p.verifier_codes),
+  };
+}
+
 async function mine(req, res) {
   const user = await requireAuth(req);
   const data = await sb(`purchases?user_id=eq.${user.id}&select=*&order=purchase_date.desc`);
-  res.status(200).json({ purchases: data });
+  res.status(200).json({ purchases: data.map(decryptPurchase) });
 }
 
 async function listAll(req, res) {
   await requireAdmin(req);
   const data = await sb(`purchases?select=*,app_users(email,full_name,customer_number)&order=created_at.desc&limit=20`);
-  res.status(200).json({ purchases: data });
+  res.status(200).json({ purchases: data.map(decryptPurchase) });
 }
 
 async function create(req, res, body) {
@@ -48,8 +56,8 @@ async function create(req, res, body) {
       platform: body.platform,
       modality: body.modality || null,
       account_email: body.account_email,
-      account_password: body.account_password,
-      verifier_codes: body.verifier_codes || null,
+      account_password: encryptField(body.account_password),
+      verifier_codes: encryptField(body.verifier_codes || null),
       games: body.games || null,
       game_name: body.game_name || null,
       notes: body.notes || null,
@@ -75,8 +83,8 @@ async function update(req, res, body) {
     platform: body.platform,
     modality: body.modality || null,
     account_email: body.account_email,
-    account_password: body.account_password,
-    verifier_codes: body.verifier_codes || null,
+    account_password: encryptField(body.account_password),
+    verifier_codes: encryptField(body.verifier_codes || null),
     games: body.games || null,
     game_name: body.game_name || null,
     notes: body.notes || null,
@@ -100,5 +108,5 @@ async function byClient(req, res, body) {
   if (!users.length) return res.status(404).json({ error: "Cliente no encontrado" });
   const client = users[0];
   const data = await sb(`purchases?user_id=eq.${client.id}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.desc`);
-  res.status(200).json({ purchases: data, client });
+  res.status(200).json({ purchases: data.map(decryptPurchase), client });
 }

@@ -43,6 +43,46 @@ export async function sb(path, options = {}) {
   return data;
 }
 
+// ===== Cifrado de campos sensibles (AES-256-GCM) =====
+// FIELD_ENCRYPTION_KEY debe ser exactamente 64 chars hex (32 bytes).
+// Generarlo con: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+// y configurarlo en Vercel → Environment Variables → FIELD_ENCRYPTION_KEY.
+const _fieldKey = (() => {
+  const hex = process.env.FIELD_ENCRYPTION_KEY || "";
+  if (hex.length === 64) return Buffer.from(hex, "hex");
+  // Sin clave configurada, cifrado deshabilitado (valores guardados en claro).
+  // La app funciona igual; el cifrado se activa al setear la variable.
+  return null;
+})();
+
+export function encryptField(plaintext) {
+  if (!plaintext) return plaintext;
+  if (!_fieldKey) return plaintext; // degraded mode: sin clave, sin cifrado
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", _fieldKey, iv);
+  const enc = Buffer.concat([cipher.update(String(plaintext), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `aes256gcm$${iv.toString("base64")}$${tag.toString("base64")}$${enc.toString("base64")}`;
+}
+
+export function decryptField(stored) {
+  if (!stored || !stored.startsWith("aes256gcm$")) return stored;
+  if (!_fieldKey) return stored; // clave no configurada: devolver tal cual
+  const parts = stored.split("$");
+  if (parts.length !== 4) return stored;
+  const [, ivB64, tagB64, encB64] = parts;
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", _fieldKey, Buffer.from(ivB64, "base64"));
+    decipher.setAuthTag(Buffer.from(tagB64, "base64"));
+    return Buffer.concat([
+      decipher.update(Buffer.from(encB64, "base64")),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    return stored; // datos corruptos o clave incorrecta: devolver sin descifrar
+  }
+}
+
 // ===== Password hashing (scrypt) =====
 export function hashPassword(password) {
   const salt = crypto.randomBytes(16);
