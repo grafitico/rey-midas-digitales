@@ -3090,6 +3090,14 @@ function fmtClientId(n) {
   return n ? `RM-${String(n).padStart(4, "0")}` : "";
 }
 
+function generateInitialPassword() {
+  // Sin O/0/I/1/L para evitar confusión al leer en voz alta o por WhatsApp
+  const CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  return Array.from(crypto.getRandomValues(new Uint8Array(12)))
+    .map(b => CHARS[b % CHARS.length])
+    .join("");
+}
+
 // ============================================================
 // Iconos SVG — reemplazan emojis para look profesional
 // ============================================================
@@ -3326,7 +3334,8 @@ async function renderAdmin() {
             <input name="full_name" type="text" placeholder="Juan Pérez">
           </label>
           <label>Contraseña inicial
-            <input name="password" type="text" required value="Midas2026" minlength="6">
+            <input name="password" type="text" required value="${escapeAttr(generateInitialPassword())}" minlength="10" autocomplete="off">
+            <small>Generada automáticamente. Copiala antes de guardar — no se puede recuperar.</small>
           </label>
         </div>
         <button type="submit">Crear cuenta</button>
@@ -3677,7 +3686,7 @@ async function handleCreateClient(e) {
     status.className = "form-status ok";
     form.querySelector('input[name="email"]').value = "";
     form.querySelector('input[name="full_name"]').value = "";
-    form.querySelector('input[name="password"]').value = "Midas2026";
+    form.querySelector('input[name="password"]').value = generateInitialPassword();
     loadClientsDropdown();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
