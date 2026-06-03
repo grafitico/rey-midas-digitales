@@ -1,6 +1,7 @@
 // Newsletter: suscripción pública + lista de suscriptores para admin.
 // POST /api/newsletter con { action: "subscribe" | "list", ... }
 
+import crypto from "crypto";
 import { sb, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
 
 export default async function handler(req, res) {
@@ -54,9 +55,11 @@ async function list(req, res) {
 }
 
 function generateDiscountCode(email) {
-  // Código consistente y leíble. No usamos hashes complejos porque queremos
-  // que sea fácil de leer/escribir si el cliente lo pasa por WhatsApp.
   const base = email.replace(/[^a-z0-9]/g, "").toUpperCase().slice(0, 4);
-  const rand = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  // 5 bytes → 8 chars base32-like (solo A-Z0-9), ~47 bits de entropía real
+  const CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sin O/0/I/L para evitar confusión visual
+  const rand = Array.from(crypto.randomBytes(5))
+    .map(b => CHARS[b % CHARS.length])
+    .join("");
   return `BIENVENIDA-${base}${rand}`;
 }
