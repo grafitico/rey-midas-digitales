@@ -1030,7 +1030,7 @@ async function enrichWithRawg(game) {
         const igdbCacheKey = `igdb:${cleaned.toLowerCase()}`;
         let igdbData = readRawgCache(igdbCacheKey);
         if (!igdbData) {
-          const json = await igdbFetch(`/api/igdb?mode=detail&id=${encodeURIComponent(cleaned)}`);
+          const json = await igdbFetch(`/api/rawg?mode=igdb-detail&id=${encodeURIComponent(cleaned)}`);
           igdbData = json?.game || null;
           writeRawgCache(igdbCacheKey, igdbData || { miss: true });
         }
@@ -1298,7 +1298,7 @@ async function fetchCoverFromIgdb(title) {
   let cover = readRawgCache(key);
   if (cover !== undefined) return cover || "";
   if (igdbUnavailable()) return "";
-  const json = await igdbFetch(`/api/igdb?mode=search&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
+  const json = await igdbFetch(`/api/rawg?mode=igdb-search&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
   cover = json?.games?.[0]?.imageUrl || "";
   writeRawgCache(key, cover);
   return cover;
@@ -1340,7 +1340,7 @@ async function fetchCoverFromSteam(title) {
   let cover = readRawgCache(key);
   if (cover !== undefined) return cover || "";
   if (steamUnavailable()) return "";
-  const json = await steamFetch(`/api/steam-cover?q=${encodeURIComponent(cleanTitleForRawg(title))}`);
+  const json = await steamFetch(`/api/rawg?mode=steam-cover&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
   cover = json?.imageUrl || "";
   writeRawgCache(key, cover);
   return cover;
@@ -1621,7 +1621,7 @@ async function runEnrichLoop() {
         // RAWG sin cupo: usar igdbScore como proxy de calidad para filtro AAA.
         // IGDB total_rating (0-100) es comparable a Metacritic para este fin.
         if (!igdbUnavailable()) {
-          const igdbJson = await igdbFetch(`/api/igdb?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}`);
+          const igdbJson = await igdbFetch(`/api/rawg?mode=igdb-search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}`);
           const igdbHit = igdbJson?.games?.[0];
           if (igdbHit) {
             const meta = igdbHit.igdbScore ?? null; // 0-100, mismo rango que Metacritic
