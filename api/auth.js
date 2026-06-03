@@ -63,13 +63,21 @@ function logout(req, res) {
 
 async function changePassword(req, res, body) {
   const user = await requireAuth(req);
-  const password = String(body.password || "");
-  if (password.length < 6) {
+  const currentPassword = String(body.current_password || "");
+  const newPassword = String(body.password || "");
+  if (!currentPassword) {
+    return res.status(400).json({ error: "La contraseña actual es requerida" });
+  }
+  const [fullUser] = await sb(`app_users?id=eq.${user.id}&select=password_hash`);
+  if (!verifyPassword(currentPassword, fullUser.password_hash)) {
+    return res.status(401).json({ error: "Contraseña actual incorrecta" });
+  }
+  if (newPassword.length < 6) {
     return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres" });
   }
   await sb(`app_users?id=eq.${user.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ password_hash: hashPassword(password) }),
+    body: JSON.stringify({ password_hash: hashPassword(newPassword) }),
   });
   res.status(200).json({ ok: true });
 }

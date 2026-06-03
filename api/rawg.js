@@ -158,7 +158,6 @@ function normalizeDetail(g) {
     slug: g.slug,
     title: g.name,
     description: stripHtml(g.description || ""),
-    descriptionHtml: g.description || "",
     imageUrl: g.background_image || "",
     imageAdditional: g.background_image_additional || "",
     released: g.released || "",

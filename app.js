@@ -147,9 +147,9 @@ async function bootstrapAdmin(email, password, fullName) {
   }
 }
 
-async function changePassword(newPassword) {
+async function changePassword(currentPassword, newPassword) {
   try {
-    await apiPost("/api/auth", { action: "change-password", password: newPassword });
+    await apiPost("/api/auth", { action: "change-password", current_password: currentPassword, password: newPassword });
     return null;
   } catch (err) {
     return err;
@@ -2130,7 +2130,7 @@ function cartItemHTML(item) {
         </div>
       </div>
       <div class="cart-price">${formatCRC(item.priceCRC)}</div>
-      <button class="cart-remove" data-remove-id="${escapeAttr(item.id)}" data-remove-mod="${item.modality}" aria-label="Quitar del carrito">&times;</button>
+      <button class="cart-remove" data-remove-id="${escapeAttr(item.id)}" data-remove-mod="${escapeAttr(item.modality)}" aria-label="Quitar del carrito">&times;</button>
     </div>
   `;
 }
@@ -2176,8 +2176,9 @@ function checkout() {
   const code = getDiscountCode();
   const discount = code ? Math.round(subtotal * 0.10) : 0;
   const total = subtotal - discount;
+  const cleanMsg = (s) => String(s).replace(/[\n\r\t*_~`\\]/g, " ").trim();
   const lines = items.map((i, idx) =>
-    `${idx + 1}. ${i.title} (${i.platform}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
+    `${idx + 1}. ${cleanMsg(i.title)} (${cleanMsg(i.platform)}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
   );
   const msg = [
     "Hola Rey Midas, quiero pedir lo siguiente:",
@@ -3194,8 +3195,11 @@ async function renderMyAccount() {
       </div>
       <div id="pwdBox" hidden class="pwd-change">
         <h3>Cambiar contraseña</h3>
+        <label>Contraseña actual
+          <input id="currentPwd" type="password" required autocomplete="current-password">
+        </label>
         <label>Nueva contraseña
-          <input id="newPwd" type="password" minlength="6" required>
+          <input id="newPwd" type="password" minlength="6" required autocomplete="new-password">
         </label>
         <div class="pwd-actions">
           <button id="savePwdBtn" class="login-submit-btn">Guardar</button>
@@ -3214,15 +3218,21 @@ async function renderMyAccount() {
     document.getElementById("pwdBox").hidden = true;
   });
   document.getElementById("savePwdBtn").addEventListener("click", async () => {
+    const currentPwd = document.getElementById("currentPwd").value;
     const newPwd = document.getElementById("newPwd").value;
-    if (!newPwd || newPwd.length < 6) {
-      showToast("La contraseña debe tener al menos 6 caracteres.");
+    if (!currentPwd) {
+      showToast("Ingresá tu contraseña actual.");
       return;
     }
-    const error = await changePassword(newPwd);
+    if (!newPwd || newPwd.length < 6) {
+      showToast("La contraseña nueva debe tener al menos 6 caracteres.");
+      return;
+    }
+    const error = await changePassword(currentPwd, newPwd);
     if (error) { showToast(error.message); return; }
     showToast("Contraseña actualizada ✓");
     document.getElementById("pwdBox").hidden = true;
+    document.getElementById("currentPwd").value = "";
     document.getElementById("newPwd").value = "";
   });
 

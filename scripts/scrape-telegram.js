@@ -10,7 +10,8 @@
 // o varios bundles, y commitea todo de una sola pasada al JSON
 // nintendo-bundles.json usando el GITHUB_TOKEN built-in del runner.
 
-const CHANNEL = process.env.TG_CHANNEL || "swichtaccount";
+const CHANNEL = (process.env.TG_CHANNEL || "swichtaccount").replace(/[^a-zA-Z0-9_-]/g, "");
+if (!CHANNEL) { console.error("[scrape] TG_CHANNEL inválido"); process.exit(1); }
 const TG_BASE = `https://t.me/s/${CHANNEL}`;
 const FILE = "nintendo-bundles.json";
 const GITHUB_API = "https://api.github.com";
