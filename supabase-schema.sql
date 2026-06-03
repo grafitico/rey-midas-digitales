@@ -65,11 +65,21 @@ CREATE INDEX idx_purchases_date ON public.purchases(purchase_date DESC);
 -- =============================================================
 
 -- =============================================================
--- 3. RLS desactivado a propósito
+-- 3. RLS habilitado — defensa en profundidad
 -- =============================================================
--- Toda la autorización se hace en la API server-side con la
--- service_role key. La API valida el token de sesión y el flag
--- is_admin antes de dejar pasar cualquier consulta.
+-- La API usa service_role key, que bypasea RLS por diseño de
+-- Supabase, así que el comportamiento de la app no cambia.
+-- El beneficio es que si la service_role key se filtra y alguien
+-- intenta acceder con la anon key o cualquier otro rol, no verá
+-- ni podrá modificar ningún dato.
 -- =============================================================
-ALTER TABLE public.app_users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.purchases DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
+
+-- Sin políticas explícitas: acceso denegado para todos los roles
+-- excepto service_role (que bypasea RLS). La API es el único
+-- punto de entrada legítimo.
+
+-- Migración incremental (si las tablas ya existen con RLS desactivado):
+-- ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
