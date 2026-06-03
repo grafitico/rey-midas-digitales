@@ -156,8 +156,12 @@ export default async function handler(req, res) {
   if (mode === "psn-search") {
     const q = (req.query.q || "").toString().trim();
     if (!q) return res.status(400).json({ success: false, error: "Falta q" });
+    // quick=1 devuelve solo portada+básicos (1 request a PSN en vez de 2).
+    // Usado por enrichFeaturedCovers() para poblar rápido las carátulas sin
+    // bloquear el detalle; la ficha completa se pide por separado al abrirla.
+    const quick = req.query.quick === "1";
     try {
-      const hit = await fetchPsnGame(q);
+      const hit = await fetchPsnGame(q, quick);
       return res.status(200).json({ success: true, game: hit });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
@@ -347,8 +351,8 @@ function extractPsnGenres(obj) {
   return genres;
 }
 
-async function fetchPsnGame(title) {
-  // Step 1: search page → get product ID + cover
+async function fetchPsnGame(title, quick = false) {
+  // Step 1: search page → product ID + cover image
   const searchHtml = await fetchPsnHtml(`${PSN_STORE}/search/${encodeURIComponent(title)}`);
   const searchData = parsePsnNextData(searchHtml);
   if (!searchData) return null;
@@ -371,11 +375,17 @@ async function fetchPsnGame(title) {
   const genres = extractPsnGenres(firstProduct);
   const plats = firstProduct.platforms || [];
   const platform = plats.includes("PS5") ? (plats.includes("PS4") ? "PS5/PS4" : "PS5") : "PS4";
+  const released = firstProduct.releaseDate || firstProduct.originalReleaseDate || "";
 
-  // Step 2: product detail page → description + more screenshots
+  // quick=true: solo portada, sin detail. Usado para poblar carátulas rápido.
+  if (quick) {
+    return { id: firstProduct.id, title: firstProduct.name, imageUrl, genres, platform, released, _source: "psn" };
+  }
+
+  // Step 2: product detail page → description + screenshots
   let description = "";
   let screenshots = searchShots;
-  let released = firstProduct.releaseDate || firstProduct.originalReleaseDate || "";
+  let detailReleased = released;
 
   try {
     const detailHtml = await fetchPsnHtml(`${PSN_STORE}/product/${firstProduct.id}`);
@@ -388,7 +398,7 @@ async function fetchPsnGame(title) {
       if (p) {
         const raw = p.longDescription || p.description || p.localizedDescription || p.shortDescription || "";
         description = stripHtml(raw).slice(0, 1200);
-        if (!released) released = p.releaseDate || p.originalReleaseDate || p.firstReleaseDate || "";
+        if (!detailReleased) detailReleased = p.releaseDate || p.originalReleaseDate || p.firstReleaseDate || "";
         const { screenshots: dShots } = extractPsnMedia(p.media, dref);
         if (dShots.length) screenshots = dShots;
       }
@@ -403,7 +413,7 @@ async function fetchPsnGame(title) {
     screenshots,
     genres,
     platform,
-    released,
+    released: detailReleased,
     _source: "psn",
   };
 }

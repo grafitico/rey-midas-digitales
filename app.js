@@ -580,58 +580,68 @@ async function load() {
 // Trae la carátula (y Metacritic) de cada juego del catálogo curado, primero
 // desde RAWG y, si el cupo está agotado, desde IGDB (gratis, sin cupo mensual).
 // Inyecta en el DOM sin re-renderizar. Cacheado en localStorage 30 días.
+// Cuántos juegos se enriquecen en paralelo. PSN no tiene rate limit estricto
+// pero tampoco queremos saturar Vercel; 6 es un buen balance velocidad/carga.
+const COVER_CONCURRENCY = 6;
+
 async function enrichFeaturedCovers() {
   if (!featuredGames.length) return;
-  for (const g of featuredGames) {
-    if (g.imageUrl) continue;
-    const mkey = matchKey(g.title);
-    let cover = "";
+  const pending = featuredGames.filter(g => !g.imageUrl);
+  if (!pending.length) return;
 
-    // Paso 0: PlayStation Store (imagen oficial, sin cupo mensual).
-    if (!cover && !psnUnavailable()) {
-      const psnData = await fetchFromPsn(g.title);
-      if (psnData?.imageUrl) {
-        cover = psnData.imageUrl;
-        // Pre-cachear datos completos para la ficha cuando el usuario la abra
-        writeRawgCache(`psn:${mkey}`, psnData);
+  // Procesamos en batches de COVER_CONCURRENCY para no bloquear el event loop
+  // y mostrar imágenes progresivamente conforme van llegando.
+  for (let i = 0; i < pending.length; i += COVER_CONCURRENCY) {
+    const batch = pending.slice(i, i + COVER_CONCURRENCY);
+    await Promise.all(batch.map(async (g) => {
+      const mkey = matchKey(g.title);
+      let cover = "";
+
+      // Paso 0: PSN (portada oficial, quick=1 → 1 request, sin detalle).
+      if (!cover && !psnUnavailable()) {
+        const psnData = await fetchCoverFromPsn(g.title);
+        if (psnData?.imageUrl) cover = psnData.imageUrl;
       }
-    }
 
-    // Paso 1: RAWG (mejor imagen de fondo; cupo mensual limitado).
-    if (!cover && !rawgQuotaExhausted()) {
-      const key = `rawg-cover:${mkey}`;
-      let cached = readRawgCache(key);
-      if (cached === undefined) {
-        const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
-        if (json !== null) {
-          const hit = json?.games?.[0];
-          cached = hit?.imageUrl || "";
-          if (hit?.metacritic != null) {
-            g._rawgMeta = hit.metacritic;
-            writeRawgCache(`rawg-meta:${mkey}`, hit.metacritic);
+      // Paso 1: RAWG (cupo mensual limitado).
+      if (!cover && !rawgQuotaExhausted()) {
+        const key = `rawg-cover:${mkey}`;
+        let cached = readRawgCache(key);
+        if (cached === undefined) {
+          const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
+          if (json !== null) {
+            const hit = json?.games?.[0];
+            cached = hit?.imageUrl || "";
+            if (hit?.metacritic != null) {
+              g._rawgMeta = hit.metacritic;
+              writeRawgCache(`rawg-meta:${mkey}`, hit.metacritic);
+            }
+            if (hit) writeRawgCache(`rawg-indie:${mkey}`, rawgHitIsIndie(hit));
+            writeRawgCache(key, cached);
           }
-          if (hit) writeRawgCache(`rawg-indie:${mkey}`, rawgHitIsIndie(hit));
-          writeRawgCache(key, cached);
         }
+        cover = cached || "";
       }
-      cover = cached || "";
-    }
 
-    // Paso 2: Steam Store como fallback (sin API key, sin registro).
-    if (!cover && !steamUnavailable()) {
-      cover = await fetchCoverFromSteam(g.title);
-    }
+      // Paso 2: Steam Store (sin API key).
+      if (!cover && !steamUnavailable()) {
+        cover = await fetchCoverFromSteam(g.title);
+      }
 
-    // Paso 3: IGDB si está configurado (requiere Twitch dev account).
-    if (!cover && !igdbUnavailable()) {
-      cover = await fetchCoverFromIgdb(g.title);
-    }
+      // Paso 3: IGDB (requiere Twitch dev account).
+      if (!cover && !igdbUnavailable()) {
+        cover = await fetchCoverFromIgdb(g.title);
+      }
 
-    if (cover) {
-      g.imageUrl = cover;
-      applyGameCoverUpdate(g);
+      if (cover) {
+        g.imageUrl = cover;
+        applyGameCoverUpdate(g);
+      }
+    }));
+    // Pausa breve entre batches para no acumular 177 requests en vuelo a la vez.
+    if (i + COVER_CONCURRENCY < pending.length) {
+      await new Promise(r => setTimeout(r, 50));
     }
-    await new Promise(res => setTimeout(res, 120));
   }
 }
 
@@ -1414,13 +1424,27 @@ async function psnFetch(url) {
   try { return await r.json(); } catch { return null; }
 }
 
+// Portada rápida (1 request a PSN, sin detalle). Para enriquecer carátulas.
+async function fetchCoverFromPsn(title) {
+  const key = `psn-cover:${matchKey(title)}`;
+  let cached = readRawgCache(key);
+  if (cached !== undefined) return cached && !cached.miss ? cached : null;
+  if (psnUnavailable()) return null;
+  const json = await psnFetch(`/api/rawg?mode=psn-search&q=${encodeURIComponent(cleanTitleForRawg(title))}&quick=1`);
+  if (json === null) return null;
+  const data = json?.game || null;
+  writeRawgCache(key, data || { miss: true });
+  return data;
+}
+
+// Datos completos (2 requests a PSN: search + detalle). Para fichas de juegos.
 async function fetchFromPsn(title) {
   const key = `psn:${matchKey(title)}`;
   let cached = readRawgCache(key);
   if (cached !== undefined) return cached && !cached.miss ? cached : null;
   if (psnUnavailable()) return null;
   const json = await psnFetch(`/api/rawg?mode=psn-search&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
-  if (json === null) return null; // error de red, no cachear
+  if (json === null) return null;
   const data = json?.game || null;
   writeRawgCache(key, data || { miss: true });
   return data;
