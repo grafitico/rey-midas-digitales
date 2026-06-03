@@ -99,19 +99,16 @@ async function initAuth() {
       currentUser = null;
     }
   }
-  // Detectar si ya hay algún usuario en la base (para mostrar bootstrap o no)
+  // Detectar si ya hay algún usuario en la base (para mostrar bootstrap o login).
   if (!currentUser) {
     try {
-      // Intento de bootstrap dummy — si responde 403 ya hay usuarios.
       const test = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "bootstrap", email: "", password: "" }),
+        body: JSON.stringify({ action: "has-users" }),
       });
       const data = await test.json().catch(() => ({}));
-      // 400 = "email/pass requeridos" → no hay usuarios todavía
-      // 403 = "ya hay usuarios" → bootstrap deshabilitado
-      usersExist = test.status === 403 || /Ya hay usuarios/i.test(data.error || "");
+      usersExist = data.usersExist === true;
     } catch { usersExist = true; }
   }
   renderAuthSlot();
@@ -580,35 +577,50 @@ async function load() {
   }
 }
 
-// Trae la carátula (y Metacritic) de cada juego del catálogo curado desde
-// RAWG por su título, y la inyecta en el DOM sin re-renderizar toda la vista.
-// Cacheado en localStorage 30 días para no repetir pedidos.
+// Trae la carátula (y Metacritic) de cada juego del catálogo curado, primero
+// desde RAWG y, si el cupo está agotado, desde IGDB (gratis, sin cupo mensual).
+// Inyecta en el DOM sin re-renderizar. Cacheado en localStorage 30 días.
 async function enrichFeaturedCovers() {
   if (!featuredGames.length) return;
   for (const g of featuredGames) {
     if (g.imageUrl) continue;
-    if (rawgQuotaExhausted()) break; // cupo agotado: no insistir
-    const key = `rawg-cover:${matchKey(g.title)}`;
-    let cover = readRawgCache(key);
-    if (cover === undefined) {
-      const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
-      if (json === null) { if (rawgQuotaExhausted()) break; continue; } // sin datos: no cachear, reintentar luego
-      const hit = json?.games?.[0];
-      cover = hit?.imageUrl || "";
-      if (hit?.metacritic != null) {
-        g._rawgMeta = hit.metacritic;
-        writeRawgCache(`rawg-meta:${matchKey(g.title)}`, hit.metacritic);
+    const mkey = matchKey(g.title);
+    let cover = "";
+
+    // Paso 1: RAWG (mejor imagen de fondo; cupo mensual limitado).
+    if (!rawgQuotaExhausted()) {
+      const key = `rawg-cover:${mkey}`;
+      let cached = readRawgCache(key);
+      if (cached === undefined) {
+        const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
+        if (json !== null) {
+          const hit = json?.games?.[0];
+          cached = hit?.imageUrl || "";
+          if (hit?.metacritic != null) {
+            g._rawgMeta = hit.metacritic;
+            writeRawgCache(`rawg-meta:${mkey}`, hit.metacritic);
+          }
+          if (hit) writeRawgCache(`rawg-indie:${mkey}`, rawgHitIsIndie(hit));
+          writeRawgCache(key, cached);
+        }
       }
-      if (hit) {
-        writeRawgCache(`rawg-indie:${matchKey(g.title)}`, rawgHitIsIndie(hit));
-      }
-      writeRawgCache(key, cover);
+      cover = cached || "";
     }
+
+    // Paso 2: Steam Store como fallback (sin API key, sin registro).
+    if (!cover && !steamUnavailable()) {
+      cover = await fetchCoverFromSteam(g.title);
+    }
+
+    // Paso 3: IGDB si está configurado (requiere Twitch dev account).
+    if (!cover && !igdbUnavailable()) {
+      cover = await fetchCoverFromIgdb(g.title);
+    }
+
     if (cover) {
       g.imageUrl = cover;
       applyGameCoverUpdate(g);
     }
-    // Pausa corta para no saturar el cupo de RAWG.
     await new Promise(res => setTimeout(res, 120));
   }
 }
@@ -995,7 +1007,54 @@ async function enrichWithRawg(game) {
   let data = readRawgCache(cacheKey);
 
   if (!data) {
-    if (rawgQuotaExhausted()) return; // cupo agotado: la ficha se queda con el fallback
+    if (rawgQuotaExhausted()) {
+      // Sin cupo de RAWG: intentar portada desde Steam (sin auth) o IGDB (si configurado).
+      if (!game.imageUrl) {
+        let fallbackCover = "";
+        if (!steamUnavailable()) fallbackCover = await fetchCoverFromSteam(game.title);
+        if (!fallbackCover && !igdbUnavailable()) fallbackCover = await fetchCoverFromIgdb(game.title);
+        if (fallbackCover) {
+          game.imageUrl = fallbackCover;
+          if (slot.dataset.title !== game.title) return;
+          const productImg = document.querySelector(".product-image img, .product-image .placeholder");
+          if (productImg && productImg.tagName !== "IMG") {
+            const img = new Image();
+            img.src = fallbackCover;
+            img.alt = game.title;
+            productImg.replaceWith(img);
+          }
+        }
+      }
+      // Intentar ficha completa desde IGDB si está configurado
+      if (!igdbUnavailable()) {
+        const igdbCacheKey = `igdb:${cleaned.toLowerCase()}`;
+        let igdbData = readRawgCache(igdbCacheKey);
+        if (!igdbData) {
+          const json = await igdbFetch(`/api/igdb?mode=detail&id=${encodeURIComponent(cleaned)}`);
+          igdbData = json?.game || null;
+          writeRawgCache(igdbCacheKey, igdbData || { miss: true });
+        }
+        if (igdbData && !igdbData.miss) {
+          if (slot.dataset.title !== game.title) return;
+          slot.innerHTML = renderRawgSection({ ...igdbData, _source: "igdb" });
+          const sobreSlot = document.getElementById("game-sobre-slot");
+          if (sobreSlot && sobreSlot.dataset.title === game.title) {
+            sobreSlot.innerHTML = renderSobreJuego({ ...igdbData, _source: "igdb" });
+          }
+          if (igdbData.imageUrl && !game.imageUrl) {
+            game.imageUrl = igdbData.imageUrl;
+            const productImg = document.querySelector(".product-image img, .product-image .placeholder");
+            if (productImg && productImg.tagName !== "IMG") {
+              const img = new Image();
+              img.src = igdbData.imageUrl;
+              img.alt = game.title;
+              productImg.replaceWith(img);
+            }
+          }
+        }
+      }
+      return;
+    }
     const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleaned)}&page_size=1`);
     if (json === null) return; // sin datos / cupo agotado: no cachear, reintentar luego
     const hit = json?.games?.[0];
@@ -1121,7 +1180,7 @@ function renderRawgSection(d) {
         ${shots.map(s => `<img loading="lazy" src="${escapeAttr(s)}" alt="Captura de ${escapeAttr(d.title || "")}">`).join("")}
       </div>
     ` : ""}
-    <p class="rawg-credit">Información del juego cortesía de RAWG.io</p>
+    <p class="rawg-credit">Información del juego cortesía de ${d._source === "igdb" ? "IGDB.com" : "RAWG.io"}</p>
   `;
 }
 
@@ -1165,7 +1224,7 @@ function cleanTitleForRawg(t) {
 // dispara cuando cada juego visible intenta enriquecerse, y no quema cupo de más.
 // Se auto-resetea pasados RAWG_COOLDOWN_MS por si el cupo se renueva.
 // ============================================================
-const RAWG_COOLDOWN_MS = 15 * 60 * 1000;
+const RAWG_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24h — el cupo es mensual, no tiene sentido reintentar en 15 min
 
 function rawgQuotaExhausted() {
   try {
@@ -1198,6 +1257,95 @@ async function rawgFetch(url) {
   }
   return json;
 }
+
+// ============================================================
+// Circuit breaker para IGDB — fallback gratuito cuando RAWG agota su cupo.
+// IGDB (Internet Game Database, propiedad de Twitch/Amazon) no tiene cupo
+// mensual: solo límite de 4 req/seg, muy superior a los 20k req/mes de RAWG.
+// Requiere IGDB_CLIENT_ID + IGDB_CLIENT_SECRET en Vercel (dev.twitch.tv).
+// ============================================================
+const IGDB_COOLDOWN_MS = 60 * 60 * 1000; // 1h si IGDB falla temporalmente
+
+function igdbUnavailable() {
+  try {
+    const until = Number(sessionStorage.getItem("igdb-until") || 0);
+    if (!until) return false;
+    if (Date.now() > until) { sessionStorage.removeItem("igdb-until"); return false; }
+    return true;
+  } catch { return false; }
+}
+
+function markIgdbUnavailable() {
+  if (igdbUnavailable()) return;
+  try { sessionStorage.setItem("igdb-until", String(Date.now() + IGDB_COOLDOWN_MS)); } catch {}
+  console.warn("[IGDB] API temporalmente no disponible — pausa de 1h.");
+}
+
+async function igdbFetch(url) {
+  if (igdbUnavailable()) return null;
+  let r;
+  try { r = await fetch(url); } catch { return null; }
+  if (r.status === 401 || r.status === 429 || r.status === 503) { markIgdbUnavailable(); return null; }
+  let json = null;
+  try { json = await r.json(); } catch { return null; }
+  if (json?.success === false && json?.quota) { markIgdbUnavailable(); return null; }
+  return json;
+}
+
+// Obtiene la portada de IGDB para un título. Usa el mismo almacén de caché que RAWG.
+async function fetchCoverFromIgdb(title) {
+  const key = `igdb-cover:${matchKey(title)}`;
+  let cover = readRawgCache(key);
+  if (cover !== undefined) return cover || "";
+  if (igdbUnavailable()) return "";
+  const json = await igdbFetch(`/api/igdb?mode=search&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
+  cover = json?.games?.[0]?.imageUrl || "";
+  writeRawgCache(key, cover);
+  return cover;
+}
+
+// ============================================================
+// Steam Store como fallback de portadas — sin API key, sin registro,
+// sin cupo mensual. Usa la búsqueda pública de Steam y el CDN de Valve.
+// Funciona para prácticamente todos los juegos PS/Xbox que también están en PC.
+// ============================================================
+const STEAM_COOLDOWN_MS = 30 * 60 * 1000; // 30 min si Steam falla temporalmente
+
+function steamUnavailable() {
+  try {
+    const until = Number(sessionStorage.getItem("steam-until") || 0);
+    if (!until) return false;
+    if (Date.now() > until) { sessionStorage.removeItem("steam-until"); return false; }
+    return true;
+  } catch { return false; }
+}
+
+function markSteamUnavailable() {
+  if (steamUnavailable()) return;
+  try { sessionStorage.setItem("steam-until", String(Date.now() + STEAM_COOLDOWN_MS)); } catch {}
+  console.warn("[Steam] API temporalmente no disponible — pausa de 30 min.");
+}
+
+async function steamFetch(url) {
+  if (steamUnavailable()) return null;
+  let r;
+  try { r = await fetch(url); } catch { return null; }
+  if (r.status === 429 || r.status === 503) { markSteamUnavailable(); return null; }
+  if (!r.ok) return null;
+  try { return await r.json(); } catch { return null; }
+}
+
+async function fetchCoverFromSteam(title) {
+  const key = `steam-cover:${matchKey(title)}`;
+  let cover = readRawgCache(key);
+  if (cover !== undefined) return cover || "";
+  if (steamUnavailable()) return "";
+  const json = await steamFetch(`/api/steam-cover?q=${encodeURIComponent(cleanTitleForRawg(title))}`);
+  cover = json?.imageUrl || "";
+  writeRawgCache(key, cover);
+  return cover;
+}
+
 
 const RAWG_MISS_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 días para misses (se reintenta más rápido)
 
@@ -1450,7 +1598,8 @@ async function runEnrichLoop() {
   _enrichRunning = true;
   let changedSinceLastRender = false;
   while (_enrichQueue.length) {
-    if (rawgQuotaExhausted()) { _enrichQueue.length = 0; break; } // cupo agotado: vaciar cola
+    // Si RAWG está agotado pero IGDB está disponible, seguimos el loop vía IGDB.
+    if (rawgQuotaExhausted() && igdbUnavailable()) { _enrichQueue.length = 0; break; }
     const batch = _enrichQueue.splice(0, AAA_ENRICH_BATCH);
     await Promise.all(batch.map(async (g) => {
       const key = matchKey(g.title);
@@ -1468,7 +1617,25 @@ async function runEnrichLoop() {
         return;
       }
       const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}&page_size=1`);
-      if (json === null) { g._rawgMeta = null; return; } // sin datos / cupo: no cachear veredicto
+      if (json === null) {
+        // RAWG sin cupo: usar igdbScore como proxy de calidad para filtro AAA.
+        // IGDB total_rating (0-100) es comparable a Metacritic para este fin.
+        if (!igdbUnavailable()) {
+          const igdbJson = await igdbFetch(`/api/igdb?mode=search&q=${encodeURIComponent(cleanTitleForRawg(g.title))}`);
+          const igdbHit = igdbJson?.games?.[0];
+          if (igdbHit) {
+            const meta = igdbHit.igdbScore ?? null; // 0-100, mismo rango que Metacritic
+            const indie = rawgHitIsIndie({ genres: igdbHit.genres || [], tags: [] });
+            g._rawgMeta = meta;
+            g._rawgIndie = indie;
+            writeRawgCache(cacheKey, meta);
+            writeRawgCache(indieCacheKey, indie);
+            return;
+          }
+        }
+        g._rawgMeta = null;
+        return;
+      }
       const hit = json?.games?.[0];
       const meta = hit?.metacritic ?? null;
       const indie = rawgHitIsIndie(hit);
