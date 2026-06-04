@@ -2763,6 +2763,20 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.05em;
 }
 .rawg-meta li strong { color: var(--text); font-weight: 600; }
+.ficha-video {
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #000;
+}
+.ficha-video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #000;
+}
 .rawg-shots {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

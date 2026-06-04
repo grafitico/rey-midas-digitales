@@ -1002,7 +1002,139 @@ function renderProduct(id) {
     </section>
   `;
   bindAddButtons(g);
-  enrichWithRawg(g);
+  enrichGameFicha(g);
+}
+
+// ============================================================
+// Ficha del juego EN ESPAÑOL. Prioridad:
+//   1) PlayStation Store (es-cr) si el juego tiene psnId — descripción,
+//      distribuidora, géneros, fecha, capturas y VIDEO oficial, todo en español.
+//   2) Vandal (vandal.elespanol.com) como respaldo por título (español).
+//   3) RAWG/IGDB (inglés) como último recurso, vía enrichWithRawg().
+// Cacheado en localStorage (vía readRawgCache/writeRawgCache) para no repetir.
+// ============================================================
+
+function fichaHasContent(f) {
+  return !!(f && (f.description || (f.screenshots && f.screenshots.length) || f.videoUrl));
+}
+
+// El ID de PSN puede venir en game.psnId (destacados) o ser el propio game.id
+// (juegos scrapeados en vivo, con formato "EP9000-CUSA..."/"UP...").
+function gamePsnId(game) {
+  if (game.psnId) return game.psnId;
+  if (typeof game.id === "string" && /^[A-Z]{2}\d/.test(game.id)) return game.id;
+  return null;
+}
+
+async function fetchPsnFicha(psnId) {
+  const key = `psn-ficha:${psnId}`;
+  const cached = readRawgCache(key);
+  if (cached !== undefined) return cached || null;
+  let f = null;
+  try {
+    const r = await fetch(`/api/cover?psnId=${encodeURIComponent(psnId)}&full=1`);
+    f = await r.json();
+  } catch { f = null; }
+  const value = fichaHasContent(f) ? f : null;
+  writeRawgCache(key, value || { miss: true });
+  return value;
+}
+
+async function fetchVandalFicha(title) {
+  const key = `vandal-ficha:${matchKey(title)}`;
+  const cached = readRawgCache(key);
+  if (cached !== undefined) return cached?.miss ? null : (cached || null);
+  let f = null;
+  try {
+    const r = await fetch(`/api/cover?vandal=${encodeURIComponent(cleanTitleForRawg(title))}`);
+    f = await r.json();
+  } catch { f = null; }
+  const value = fichaHasContent(f) ? f : null;
+  writeRawgCache(key, value || { miss: true });
+  return value;
+}
+
+async function enrichGameFicha(game) {
+  const slot = document.getElementById("rawg-info");
+  if (!slot) return;
+
+  // 1) PlayStation Store en español (si tenemos el ID de PSN).
+  const psnId = gamePsnId(game);
+  if (psnId) {
+    const ficha = await fetchPsnFicha(psnId);
+    if (slot.dataset.title !== game.title) return;
+    if (fichaHasContent(ficha)) {
+      renderFichaEspanol(game, { ...ficha, _source: "PlayStation Store" });
+      return;
+    }
+  }
+
+  // 2) Vandal como respaldo en español.
+  const vandal = await fetchVandalFicha(game.title);
+  if (slot.dataset.title !== game.title) return;
+  if (fichaHasContent(vandal)) {
+    renderFichaEspanol(game, { ...vandal, _source: "Vandal" });
+    return;
+  }
+
+  // 3) Último recurso: RAWG/IGDB (inglés).
+  enrichWithRawg(game);
+}
+
+// Renderiza la ficha en español (PSN/Vandal) en las dos secciones de la página.
+function renderFichaEspanol(game, f) {
+  const desc = (f.description || "").trim();
+  const shortDesc = desc.length > 600 ? desc.slice(0, 600).replace(/\s+\S*$/, "") + "…" : desc;
+  const genres = (f.genres || []).slice(0, 6);
+  const shots = (f.screenshots || []).filter(Boolean).slice(0, 4);
+  const cover = game.imageUrl || f.coverUrl || "";
+
+  const metaList = `
+    <ul class="rawg-meta">
+      ${f.developer ? `<li><span>Desarrollador</span><strong>${escapeHtml(f.developer)}</strong></li>` : ""}
+      ${f.publisher && f.publisher !== f.developer ? `<li><span>Distribuidora</span><strong>${escapeHtml(f.publisher)}</strong></li>` : ""}
+      ${f.released ? `<li><span>Lanzamiento</span><strong>${escapeHtml(f.released)}</strong></li>` : ""}
+      ${genres.length ? `<li><span>Géneros</span><strong>${genres.map(escapeHtml).join(" · ")}</strong></li>` : ""}
+    </ul>`;
+
+  const video = f.videoUrl ? `
+    <div class="ficha-video">
+      <video controls preload="none" playsinline ${cover ? `poster="${escapeAttr(cover)}"` : ""}>
+        <source src="${escapeAttr(f.videoUrl)}" type="video/mp4">
+      </video>
+    </div>` : "";
+
+  const shotsHtml = shots.length ? `
+    <div class="rawg-shots">
+      ${shots.map(s => `<img loading="lazy" src="${escapeAttr(s)}" alt="Captura de ${escapeAttr(game.title)}">`).join("")}
+    </div>` : "";
+
+  const slot = document.getElementById("rawg-info");
+  if (slot && slot.dataset.title === game.title) {
+    slot.innerHTML = `
+      <div class="rawg-head">
+        <h2 class="product-section-title">Acerca de ${escapeHtml(game.title)}</h2>
+      </div>
+      ${shortDesc ? `<p class="rawg-desc">${escapeHtml(shortDesc)}</p>` : ""}
+      ${metaList}
+      ${video}
+      ${shotsHtml}
+      <p class="rawg-credit">Información del juego cortesía de ${escapeHtml(f._source || "PlayStation Store")}</p>`;
+    // CSP bloquea onerror inline → manejamos errores de carga vía JS.
+    // Si el video falla (p.ej. URL de PSN expirada), removemos su contenedor.
+    // Las capturas rotas se ocultan para no mostrar el ícono de imagen rota.
+    slot.querySelectorAll(".ficha-video video").forEach(v =>
+      v.addEventListener("error", () => v.closest(".ficha-video")?.remove()));
+    slot.querySelectorAll(".rawg-shots img").forEach(img =>
+      img.addEventListener("error", () => img.remove()));
+  }
+
+  const sobre = document.getElementById("game-sobre-slot");
+  if (sobre && sobre.dataset.title === game.title) {
+    sobre.innerHTML = `
+      ${shortDesc ? `<p class="rawg-desc">${escapeHtml(shortDesc)}</p>` : ""}
+      ${metaList}`;
+  }
 }
 
 // ============================================================
