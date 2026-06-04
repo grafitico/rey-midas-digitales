@@ -6,9 +6,6 @@
 //   GET /api/rawg?mode=detail&id=<slug-o-id>
 //   GET /api/rawg?mode=debug
 //
-// Steam (sin API key, sin registro, sin cupo mensual):
-//   GET /api/rawg?mode=steam-cover&q=<titulo>
-//
 // IGDB (requiere IGDB_CLIENT_ID + IGDB_CLIENT_SECRET en Vercel — dev.twitch.tv):
 //   GET /api/rawg?mode=igdb-search&q=<titulo>
 //   GET /api/rawg?mode=igdb-detail&id=<titulo>
@@ -91,23 +88,6 @@ function safeIgdbQuery(q) {
   return String(q).replace(/\\/g, "").replace(/"/g, " ").trim();
 }
 
-// ─── Steam (CDN público de Valve) ────────────────────────────────────────────
-
-// Prefiere la carátula VERTICAL de la biblioteca (library_600x900 = 600×900,
-// box art real) en lugar del header apaisado (460×215), que se ve pixelado y
-// mal encuadrado dentro de una tarjeta. Si el juego no tiene la versión vertical
-// (DLC, software viejo…), cae al header. Verifica existencia con un GET de 1
-// byte: la CDN responde 404 cuando el archivo no existe.
-async function steamCoverUrl(appId) {
-  const portrait = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-  const header = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
-  try {
-    const r = await fetch(portrait, { headers: { Range: "bytes=0-0" } });
-    if (r.ok || r.status === 206) return portrait;
-  } catch { /* sin conexión a la CDN: caemos al header */ }
-  return header;
-}
-
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -117,24 +97,6 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const mode = (req.query.mode || "list").toString();
-
-  // ── Steam (sin auth, sin cupo mensual) ──────────────────────────────────────
-  if (mode === "steam-cover") {
-    const q = (req.query.q || "").toString().trim();
-    if (!q) return res.status(400).json({ success: false, error: "Falta q" });
-    try {
-      const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(q)}&cc=US&l=english`;
-      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)" } });
-      if (!r.ok) return res.status(200).json({ success: false, error: `Steam HTTP ${r.status}` });
-      const data = await r.json();
-      const hit = data?.items?.[0];
-      if (!hit?.id) return res.status(200).json({ success: true, imageUrl: "" });
-      const imageUrl = await steamCoverUrl(hit.id);
-      return res.status(200).json({ success: true, imageUrl, title: hit.name, appId: hit.id });
-    } catch (e) {
-      return res.status(500).json({ success: false, error: e.message });
-    }
-  }
 
   // ── IGDB (requiere IGDB_CLIENT_ID + IGDB_CLIENT_SECRET en Vercel) ───────────
   if (mode === "igdb-search" || mode === "igdb-detail") {

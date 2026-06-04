@@ -588,9 +588,8 @@ async function enrichFeaturedCovers() {
     if (g.imageUrl) continue; // ya tiene portada oficial de PlayStation Store
     const mkey = matchKey(g.title);
 
-    // Paso 1: box art VERTICAL real (Steam library_600x900 → IGDB cover_big_2x).
-    // Es la portada que mejor encuadra y mayor resolución tiene para la tarjeta,
-    // muy por encima del screenshot apaisado de RAWG.
+    // Paso 1: box art VERTICAL real de IGDB (cover_big_2x = 528×748). Encuadra
+    // perfectamente en la tarjeta y es de alta resolución.
     let cover = await fetchPortraitCover(g.title);
 
     // Paso 2: RAWG. Lo seguimos consultando para cosechar Metacritic/indie (que
@@ -1007,7 +1006,7 @@ async function enrichWithRawg(game) {
 
   if (!data) {
     if (rawgQuotaExhausted()) {
-      // Sin cupo de RAWG: intentar portada desde Steam (sin auth) o IGDB (si configurado).
+      // Sin cupo de RAWG: intentar portada desde IGDB (si configurado).
       if (!game.imageUrl) {
         const fallbackCover = await fetchPortraitCover(game.title);
         if (fallbackCover) {
@@ -1080,8 +1079,8 @@ async function enrichWithRawg(game) {
     sobreSlot.innerHTML = renderSobreJuego(data);
   }
 
-  // Portada si el juego no traía imagen del scraper. Preferimos box art vertical
-  // (Steam/IGDB); el background_image apaisado de RAWG queda como último recurso.
+  // Portada si el juego no traía imagen del scraper. Preferimos IGDB (vertical)
+  // sobre el background_image apaisado de RAWG (último recurso).
   if (!game.imageUrl) {
     const cover = (await fetchPortraitCover(game.title)) || data.imageUrl || "";
     if (cover) {
@@ -1307,57 +1306,12 @@ async function fetchCoverFromIgdb(title) {
 }
 
 // ============================================================
-// Steam Store como fallback de portadas — sin API key, sin registro,
-// sin cupo mensual. Usa la búsqueda pública de Steam y el CDN de Valve.
-// Funciona para prácticamente todos los juegos PS/Xbox que también están en PC.
-// ============================================================
-const STEAM_COOLDOWN_MS = 30 * 60 * 1000; // 30 min si Steam falla temporalmente
-
-function steamUnavailable() {
-  try {
-    const until = Number(sessionStorage.getItem("steam-until") || 0);
-    if (!until) return false;
-    if (Date.now() > until) { sessionStorage.removeItem("steam-until"); return false; }
-    return true;
-  } catch { return false; }
-}
-
-function markSteamUnavailable() {
-  if (steamUnavailable()) return;
-  try { sessionStorage.setItem("steam-until", String(Date.now() + STEAM_COOLDOWN_MS)); } catch {}
-  console.warn("[Steam] API temporalmente no disponible — pausa de 30 min.");
-}
-
-async function steamFetch(url) {
-  if (steamUnavailable()) return null;
-  let r;
-  try { r = await fetch(url); } catch { return null; }
-  if (r.status === 429 || r.status === 503) { markSteamUnavailable(); return null; }
-  if (!r.ok) return null;
-  try { return await r.json(); } catch { return null; }
-}
-
-async function fetchCoverFromSteam(title) {
-  const key = `steam-cover:${matchKey(title)}`;
-  let cover = readRawgCache(key);
-  if (cover !== undefined) return cover || "";
-  if (steamUnavailable()) return "";
-  const json = await steamFetch(`/api/rawg?mode=steam-cover&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
-  cover = json?.imageUrl || "";
-  writeRawgCache(key, cover);
-  return cover;
-}
-
-// Mejor carátula VERTICAL disponible para un título: Steam (library_600x900)
-// primero, luego IGDB (cover_big_2x). Ambas son box art real, de alta
-// resolución y verticales — encuadran bien en la tarjeta. Es el fallback que
-// usamos cuando PlayStation Store no resolvió la portada del juego. Devuelve
-// "" si ninguna fuente tiene portada (p.ej. exclusivos sin equivalente en PC).
+// Mejor carátula disponible como fallback (cuando PSN no resolvió la portada).
+// Usa IGDB (cover_big_2x = 528×748, box art real, alta resolución).
+// Si IGDB no responde o no tiene el juego, devuelve "".
 async function fetchPortraitCover(title) {
-  let cover = "";
-  if (!steamUnavailable()) cover = await fetchCoverFromSteam(title);
-  if (!cover && !igdbUnavailable()) cover = await fetchCoverFromIgdb(title);
-  return cover;
+  if (igdbUnavailable()) return "";
+  return fetchCoverFromIgdb(title);
 }
 
 
