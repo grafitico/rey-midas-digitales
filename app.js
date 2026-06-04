@@ -536,7 +536,9 @@ async function load() {
             id: g.id,
             title: g.title,
             platform: g.platform || "PS5/PS4",
-            imageUrl: "",
+            // Portada oficial de PlayStation Store si PSN resolvió el título.
+            // Si no, queda vacía y enrichFeaturedCovers() busca un fallback.
+            imageUrl: live?.imageUrl || "",
             url: live?.url || `https://wa.me/${CONFIG.whatsapp}`,
             priceUSD: live ? live.priceUSD : fixedUSD,
             originalPriceUSD: live ? live.originalPriceUSD : fixedUSD,
@@ -583,11 +585,18 @@ async function load() {
 async function enrichFeaturedCovers() {
   if (!featuredGames.length) return;
   for (const g of featuredGames) {
-    if (g.imageUrl) continue;
+    if (g.imageUrl) continue; // ya tiene portada oficial de PlayStation Store
     const mkey = matchKey(g.title);
-    let cover = "";
 
-    // Paso 1: RAWG (mejor imagen de fondo; cupo mensual limitado).
+    // Paso 1: box art VERTICAL real (Steam library_600x900 → IGDB cover_big_2x).
+    // Es la portada que mejor encuadra y mayor resolución tiene para la tarjeta,
+    // muy por encima del screenshot apaisado de RAWG.
+    let cover = await fetchPortraitCover(g.title);
+
+    // Paso 2: RAWG. Lo seguimos consultando para cosechar Metacritic/indie (que
+    // alimentan los badges y el orden AAA del catálogo) aunque ya tengamos
+    // portada. Su background_image es apaisado, así que sólo lo usamos como
+    // último recurso si no hubo carátula vertical.
     if (!rawgQuotaExhausted()) {
       const key = `rawg-cover:${mkey}`;
       let cached = readRawgCache(key);
@@ -604,17 +613,7 @@ async function enrichFeaturedCovers() {
           writeRawgCache(key, cached);
         }
       }
-      cover = cached || "";
-    }
-
-    // Paso 2: Steam Store como fallback (sin API key, sin registro).
-    if (!cover && !steamUnavailable()) {
-      cover = await fetchCoverFromSteam(g.title);
-    }
-
-    // Paso 3: IGDB si está configurado (requiere Twitch dev account).
-    if (!cover && !igdbUnavailable()) {
-      cover = await fetchCoverFromIgdb(g.title);
+      if (!cover) cover = cached || "";
     }
 
     if (cover) {
@@ -1010,9 +1009,7 @@ async function enrichWithRawg(game) {
     if (rawgQuotaExhausted()) {
       // Sin cupo de RAWG: intentar portada desde Steam (sin auth) o IGDB (si configurado).
       if (!game.imageUrl) {
-        let fallbackCover = "";
-        if (!steamUnavailable()) fallbackCover = await fetchCoverFromSteam(game.title);
-        if (!fallbackCover && !igdbUnavailable()) fallbackCover = await fetchCoverFromIgdb(game.title);
+        const fallbackCover = await fetchPortraitCover(game.title);
         if (fallbackCover) {
           game.imageUrl = fallbackCover;
           if (slot.dataset.title !== game.title) return;
@@ -1083,15 +1080,20 @@ async function enrichWithRawg(game) {
     sobreSlot.innerHTML = renderSobreJuego(data);
   }
 
-  // Actualizar imagen de portada si el juego no tenía imagen del scraper
-  if (data.imageUrl && !game.imageUrl) {
-    game.imageUrl = data.imageUrl;
-    const productImg = document.querySelector(".product-image img, .product-image .placeholder");
-    if (productImg && productImg.tagName !== "IMG") {
-      const img = new Image();
-      img.src = data.imageUrl;
-      img.alt = game.title;
-      productImg.replaceWith(img);
+  // Portada si el juego no traía imagen del scraper. Preferimos box art vertical
+  // (Steam/IGDB); el background_image apaisado de RAWG queda como último recurso.
+  if (!game.imageUrl) {
+    const cover = (await fetchPortraitCover(game.title)) || data.imageUrl || "";
+    if (cover) {
+      game.imageUrl = cover;
+      if (slot.dataset.title !== game.title) return;
+      const productImg = document.querySelector(".product-image img, .product-image .placeholder");
+      if (productImg && productImg.tagName !== "IMG") {
+        const img = new Image();
+        img.src = cover;
+        img.alt = game.title;
+        productImg.replaceWith(img);
+      }
     }
   }
 }
@@ -1343,6 +1345,18 @@ async function fetchCoverFromSteam(title) {
   const json = await steamFetch(`/api/rawg?mode=steam-cover&q=${encodeURIComponent(cleanTitleForRawg(title))}`);
   cover = json?.imageUrl || "";
   writeRawgCache(key, cover);
+  return cover;
+}
+
+// Mejor carátula VERTICAL disponible para un título: Steam (library_600x900)
+// primero, luego IGDB (cover_big_2x). Ambas son box art real, de alta
+// resolución y verticales — encuadran bien en la tarjeta. Es el fallback que
+// usamos cuando PlayStation Store no resolvió la portada del juego. Devuelve
+// "" si ninguna fuente tiene portada (p.ej. exclusivos sin equivalente en PC).
+async function fetchPortraitCover(title) {
+  let cover = "";
+  if (!steamUnavailable()) cover = await fetchCoverFromSteam(title);
+  if (!cover && !igdbUnavailable()) cover = await fetchCoverFromIgdb(title);
   return cover;
 }
 

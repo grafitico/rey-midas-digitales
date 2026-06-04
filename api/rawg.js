@@ -74,7 +74,7 @@ function normalizeIgdbGame(g) {
     id: g.id,
     slug: g.slug || String(g.id),
     title: g.name,
-    imageUrl: g.cover?.image_id ? igdbCoverUrl(g.cover.image_id) : "",
+    imageUrl: g.cover?.image_id ? igdbCoverUrl(g.cover.image_id, "cover_big_2x") : "",
     rating: g.total_rating ? +(g.total_rating / 10).toFixed(1) : 0,
     igdbScore: g.total_rating ? Math.round(g.total_rating) : null,
     metacritic: null,
@@ -89,6 +89,23 @@ function normalizeIgdbGame(g) {
 
 function safeIgdbQuery(q) {
   return String(q).replace(/\\/g, "").replace(/"/g, " ").trim();
+}
+
+// ─── Steam (CDN público de Valve) ────────────────────────────────────────────
+
+// Prefiere la carátula VERTICAL de la biblioteca (library_600x900 = 600×900,
+// box art real) en lugar del header apaisado (460×215), que se ve pixelado y
+// mal encuadrado dentro de una tarjeta. Si el juego no tiene la versión vertical
+// (DLC, software viejo…), cae al header. Verifica existencia con un GET de 1
+// byte: la CDN responde 404 cuando el archivo no existe.
+async function steamCoverUrl(appId) {
+  const portrait = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
+  const header = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
+  try {
+    const r = await fetch(portrait, { headers: { Range: "bytes=0-0" } });
+    if (r.ok || r.status === 206) return portrait;
+  } catch { /* sin conexión a la CDN: caemos al header */ }
+  return header;
 }
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -112,7 +129,7 @@ export default async function handler(req, res) {
       const data = await r.json();
       const hit = data?.items?.[0];
       if (!hit?.id) return res.status(200).json({ success: true, imageUrl: "" });
-      const imageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${hit.id}/header.jpg`;
+      const imageUrl = await steamCoverUrl(hit.id);
       return res.status(200).json({ success: true, imageUrl, title: hit.name, appId: hit.id });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
@@ -140,8 +157,8 @@ export default async function handler(req, res) {
       if (!g) return res.status(200).json({ success: true, game: null });
       const normalized = normalizeIgdbGame(g);
       normalized.shortScreenshots = [
-        ...(g.artworks || []).slice(0, 2).map(a => igdbCoverUrl(a.image_id, "screenshot_big")),
-        ...(g.screenshots || []).slice(0, 4).map(s => igdbCoverUrl(s.image_id, "screenshot_big")),
+        ...(g.artworks || []).slice(0, 2).map(a => igdbCoverUrl(a.image_id, "screenshot_huge")),
+        ...(g.screenshots || []).slice(0, 4).map(s => igdbCoverUrl(s.image_id, "screenshot_huge")),
       ];
       return res.status(200).json({ success: true, game: normalized });
     } catch (e) {

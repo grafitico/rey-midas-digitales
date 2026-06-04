@@ -148,7 +148,27 @@ function toPriceEntry(g) {
     url: g.url,
     psnId: g.id,
     platform: g.platform,
+    // Portada OFICIAL de PlayStation Store (cuadrada, alta resolución). Es la
+    // que mejor encuadra y se ve nítida; el cliente la usa como portada del
+    // juego destacado en lugar de caer a RAWG/Steam (apaisadas/pixeladas).
+    imageUrl: g.imageUrl || "",
   };
+}
+
+// Elige la mejor imagen de portada del array `media` de un Product de PSN.
+// MASTER es la key art principal (cuadrada). Si PSN no la trae, probamos roles
+// de carátula alternativos y, por último, la primera imagen — nunca un video.
+function pickPsnCover(media) {
+  if (!Array.isArray(media)) return "";
+  const byRole = (role) => media.find(m => m && m.role === role && m.url)?.url;
+  return (
+    byRole("MASTER") ||
+    byRole("GAMEHUB_COVER_ART") ||
+    byRole("PORTRAIT") ||
+    byRole("KEY_ART") ||
+    media.find(m => m && (m.type === "IMAGE" || !m.type) && m.url)?.url ||
+    ""
+  );
 }
 
 function loadFeatured() {
@@ -216,6 +236,7 @@ function normalize(p) {
     platform,
     platforms: plats,
     url: `https://store.playstation.com/es-cr/product/${p.id}`,
+    imageUrl: pickPsnCover(p.media),
     priceUSD: current,
     originalPriceUSD: original,
     onSale,

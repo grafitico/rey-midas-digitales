@@ -224,11 +224,7 @@ function normalize(p) {
   if (hasPS5 && hasPS4) platform = "PS5/PS4";
   else if (hasPS5) platform = "PS5";
 
-  let imageUrl = "";
-  if (Array.isArray(p.media)) {
-    const img = p.media.find(m => m.role === "MASTER") || p.media[0];
-    if (img) imageUrl = img.url;
-  }
+  const imageUrl = pickPsnCover(p.media);
 
   const onSale = original > current;
   return {
@@ -261,6 +257,23 @@ function extractDirectGenres(p) {
     }
   }
   return Array.from(out);
+}
+
+// Elige la mejor imagen de portada del array `media` de un Product de PSN.
+// MASTER es la key art principal (cuadrada). Si PSN cambia el esquema o no la
+// trae, probamos roles de carátula alternativos y, por último, la primera
+// imagen real — nunca un video (que rompería la portada).
+function pickPsnCover(media) {
+  if (!Array.isArray(media)) return "";
+  const byRole = (role) => media.find(m => m && m.role === role && m.url)?.url;
+  return (
+    byRole("MASTER") ||
+    byRole("GAMEHUB_COVER_ART") ||
+    byRole("PORTRAIT") ||
+    byRole("KEY_ART") ||
+    media.find(m => m && (m.type === "IMAGE" || !m.type) && m.url)?.url ||
+    ""
+  );
 }
 
 function normalizeGenreTag(s) {
