@@ -588,9 +588,27 @@ async function enrichFeaturedCovers() {
     if (g.imageUrl) continue; // ya tiene portada oficial de PlayStation Store
     const mkey = matchKey(g.title);
 
-    // Paso 1: box art VERTICAL real de IGDB (cover_big_2x = 528×748). Encuadra
-    // perfectamente en la tarjeta y es de alta resolución.
-    let cover = await fetchPortraitCover(g.title);
+    // Paso 1: portada directa desde la página de producto de PS Store por PSN ID.
+    // Fase 2 de featured-prices resuelve el precio vía búsqueda, cuyo apolloState
+    // no incluye `media` → imageUrl queda vacío aunque el juego sí exista en PSN.
+    // Aquí lo corregimos: si tenemos psnId, fetcheamos la página del producto.
+    let cover = "";
+    if (g.psnId) {
+      const cacheKey = `psn-cover:${g.psnId}`;
+      let cached = localStorage.getItem(cacheKey);
+      if (cached === null) {
+        try {
+          const r = await fetch(`/api/cover?psnId=${encodeURIComponent(g.psnId)}`);
+          const data = await r.json();
+          cached = data.coverUrl || "";
+          localStorage.setItem(cacheKey, cached);
+        } catch { cached = ""; }
+      }
+      cover = cached || "";
+    }
+
+    // Paso 2: IGDB como fallback vertical (cover_big_2x = 528×748).
+    if (!cover) cover = await fetchPortraitCover(g.title);
 
     // Paso 2: RAWG. Lo seguimos consultando para cosechar Metacritic/indie (que
     // alimentan los badges y el orden AAA del catálogo) aunque ya tengamos

@@ -1,13 +1,38 @@
-// Resolver de carátulas de Nintendo Switch usando la búsqueda pública
-// de Nintendo Europe (Solr, devuelve JSON sin auth).
+// Resolver de carátulas:
+//   GET /api/cover?q=<titulo>        → Nintendo Europe Solr (para bundles Switch)
+//   GET /api/cover?psnId=<id>        → página de producto de PS Store (para destacados PS4/PS5)
+
+const PSN_BASE = "https://store.playstation.com/es-cr";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=604800, stale-while-revalidate=86400");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // ── Portada por PSN ID ─────────────────────────────────────────────────────
+  const psnId = (req.query.psnId || "").toString().trim();
+  if (psnId) {
+    try {
+      const url = `${PSN_BASE}/product/${encodeURIComponent(psnId)}`;
+      const r = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+        },
+      });
+      if (!r.ok) return res.status(200).json({ coverUrl: "", psnId });
+      const html = await r.text();
+      const coverUrl = extractPsnCover(html);
+      return res.status(200).json({ coverUrl, psnId });
+    } catch (e) {
+      return res.status(500).json({ error: e.message, coverUrl: "", psnId });
+    }
+  }
+
+  // ── Portada Nintendo por título ────────────────────────────────────────────
   const raw = (req.query.q || "").toString().trim();
-  if (!raw) return res.status(400).json({ error: "missing q" });
+  if (!raw) return res.status(400).json({ error: "missing q or psnId" });
 
   const candidates = buildCandidates(raw);
 
@@ -40,6 +65,44 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ coverUrl: "" });
 }
+
+// ─── PSN helpers ─────────────────────────────────────────────────────────────
+
+function extractPsnCover(html) {
+  if (!html || html.length < 500) return "";
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  if (!m) return "";
+  let data;
+  try { data = JSON.parse(m[1]); } catch { return ""; }
+
+  const cache = data?.props?.apolloState || {};
+  for (const obj of Object.values(cache)) {
+    if (!obj || typeof obj !== "object") continue;
+    if (obj.__typename !== "Product" && !String(obj.id || "").match(/^[A-Z]{2}\d/)) continue;
+    // media puede ser array de objetos directos o de __refs al apolloState
+    const media = (Array.isArray(obj.media) ? obj.media : [])
+      .map(m => (m?.__ref ? cache[m.__ref] : m))
+      .filter(Boolean);
+    const cover = pickPsnCover(media);
+    if (cover) return cover;
+  }
+  return "";
+}
+
+function pickPsnCover(media) {
+  if (!media?.length) return "";
+  const byRole = (role) => media.find(m => m?.role === role && m.url)?.url;
+  return (
+    byRole("MASTER") ||
+    byRole("GAMEHUB_COVER_ART") ||
+    byRole("PORTRAIT") ||
+    byRole("KEY_ART") ||
+    media.find(m => m && (m.type === "IMAGE" || !m.type) && m.url)?.url ||
+    ""
+  );
+}
+
+// ─── Nintendo helpers ─────────────────────────────────────────────────────────
 
 // Genera variantes del nombre para mejorar el chance de match:
 // "Mortal Kombat™ 1" → ["Mortal Kombat™ 1", "Mortal Kombat 1", "Mortal Kombat"]
