@@ -831,6 +831,7 @@ function renderPlatform(platform, page = 1) {
         <a class="cta" href="https://wa.me/${CONFIG.whatsapp}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
       </section>
     `;
+    if (platform === 'PS4') mountDragonCanvas();
     return;
   }
   const list = allGames.filter(g => g.platform.includes(platform));
@@ -848,6 +849,7 @@ function renderPlatform(platform, page = 1) {
     </section>
   `;
   mountToolbar(list, page, `/plataforma/${platform}`, true);
+  if (platform === 'PS4') mountDragonCanvas();
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -3356,10 +3358,8 @@ function heroSlimHTML(platform) {
   const isPs4 = platform === 'PS4';
   return `
     <section class="hero slim${isPs4 ? ' hero--ps4' : ''}">
-      <div class="hero-glow"></div>
-      ${isPs4 ? `<video class="ps4-banner-video" autoplay loop muted playsinline aria-hidden="true">
-        <source src="/ps4-banner.mp4" type="video/mp4">
-      </video>` : ''}
+      ${isPs4 ? '' : '<div class="hero-glow"></div>'}
+      ${isPs4 ? '<canvas id="ps4-dragon-canvas" aria-hidden="true"></canvas>' : ''}
       <div class="container hero-inner"${isPs4 ? ' style="display:none"' : ''}>
         <h1 class="slim-title">${escapeHtml(platform)}</h1>
       </div>
@@ -3373,125 +3373,108 @@ function mountDragonCanvas() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const ctx = canvas.getContext('2d');
-  let W, H;
-  function resize() { W = canvas.width = canvas.offsetWidth || 400; H = canvas.height = canvas.offsetHeight || 160; }
+  const H = 220;
+  let W;
+  function resize() { W = canvas.width = canvas.offsetWidth || 800; canvas.height = H; }
   resize();
   const onResize = () => resize();
   window.addEventListener('resize', onResize);
 
-  let t = 0, phase = 0, dragonX = 0, knightX = 0, textAlpha = 0;
-  let fire = [], sparks = [];
+  // Sprites
+  const imgDragon = new Image(), imgKnight = new Image();
+  imgDragon.src = '/dragon.png'; imgKnight.src = '/knight.png';
+  [imgDragon, imgKnight].forEach(img => { img.onerror = () => {}; });
 
-  const DX = () => W * 0.62;
-  const KX = () => W * 0.38;
-  const GY = () => H * 0.78;
-  const DY = () => H * 0.42;
-  function easeOut(x) { return 1 - Math.pow(1 - Math.min(x, 1), 3); }
+  let t = 0, phase = 0, cloudOff = 0;
+  let dragonX = 0, dragonY = 0, dragonRot = 0;
+  let knightX = 0;
+  let smoke = [], sparks = [], textAlpha = 0;
+
+  const DW = () => Math.round(H * 0.85);   // dragon sprite width
+  const DH = () => Math.round(H * 0.68);   // dragon sprite height
+  const KW = () => Math.round(H * 0.52);   // knight sprite width
+  const KH = () => Math.round(H * 0.60);   // knight sprite height
+  const GY = () => Math.round(H * 0.72);   // ground Y
+  const FLY_Y = () => Math.round(H * 0.30);// dragon flight Y (center)
+  const DX_T = () => Math.round(W * 0.62); // dragon target X
+  const KX_T = () => Math.round(W * 0.36); // knight target X
+
+  function easeOut(x) { return 1 - Math.pow(1 - Math.min(x,1), 3); }
 
   function init() {
-    dragonX = W + 120; knightX = -130;
-    textAlpha = 0; fire = []; sparks = [];
+    dragonX = W + DW() + 40; dragonY = FLY_Y(); dragonRot = 0;
+    knightX = -(KW()/2 + 40);
+    smoke = []; sparks = []; textAlpha = 0;
     phase = 0; t = 0;
   }
 
-  function drawDragon(x, y) {
-    ctx.save(); ctx.translate(x, y);
-    const flap = Math.sin(t * 0.18) > 0;
-    // Tail
-    ctx.strokeStyle = '#8b1a1a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(40,4); ctx.quadraticCurveTo(56,16,68,4); ctx.quadraticCurveTo(78,-4,84,10); ctx.stroke();
-    ctx.fillStyle = '#5a0d0d'; ctx.beginPath(); ctx.moveTo(81,10); ctx.lineTo(92,5); ctx.lineTo(81,18); ctx.closePath(); ctx.fill();
-    // Wing
-    const wy = flap ? -32 : -10;
-    ctx.fillStyle = '#5a0d0d';
-    ctx.beginPath(); ctx.moveTo(12,-10); ctx.quadraticCurveTo(22,wy-18,50,wy-4); ctx.quadraticCurveTo(35,wy+4,18,6); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#3a0808'; ctx.lineWidth = 1;
-    [-3,4,11].forEach(d => { ctx.beginPath(); ctx.moveTo(12+d*2,-4); ctx.lineTo(30+d*3,wy-2); ctx.stroke(); });
-    // Body
-    ctx.fillStyle = '#8b1a1a'; ctx.beginPath(); ctx.ellipse(0,0,38,20,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#c8501a'; ctx.beginPath(); ctx.ellipse(-4,8,26,12,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#a01a1a'; [-24,-12,0,12].forEach(sx => { ctx.beginPath(); ctx.arc(sx,-7,3.5,0,Math.PI); ctx.fill(); });
-    // Neck
-    ctx.fillStyle = '#8b1a1a';
-    ctx.beginPath(); ctx.moveTo(-33,-4); ctx.lineTo(-55,-16); ctx.lineTo(-50,2); ctx.lineTo(-33,6); ctx.closePath(); ctx.fill();
-    // Head
-    ctx.fillStyle = '#8b1a1a';
-    ctx.beginPath(); ctx.moveTo(-50,-16); ctx.lineTo(-78,-12); ctx.lineTo(-86,-2); ctx.lineTo(-80,7); ctx.lineTo(-54,7); ctx.lineTo(-48,-4); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#701010';
-    ctx.beginPath(); ctx.moveTo(-76,0); ctx.lineTo(-88,3); ctx.lineTo(-86,9); ctx.lineTo(-72,7); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fff8e0'; [-76,-80,-84].forEach(tx => { ctx.beginPath(); ctx.moveTo(tx,2); ctx.lineTo(tx+2,9); ctx.lineTo(tx+4,2); ctx.closePath(); ctx.fill(); });
-    ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.arc(-68,-8,4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-67,-8,2,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#500a0a'; ctx.beginPath(); ctx.arc(-81,-6,2,0,Math.PI*2); ctx.fill();
-    ctx.restore();
+  // --- Background ---
+  const cloudDefs = [{rx:0.10,ry:0.15,w:62,spd:0.10},{rx:0.33,ry:0.11,w:50,spd:0.07},{rx:0.73,ry:0.19,w:42,spd:0.09}];
+
+  function drawCloud(cx, cy, w) {
+    ctx.save(); ctx.strokeStyle = '#999'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    ctx.moveTo(cx, cy + 8);
+    ctx.arc(cx + w*0.22, cy + 4, w*0.14, Math.PI*0.6, Math.PI*1.95);
+    ctx.arc(cx + w*0.46, cy - 2, w*0.18, Math.PI*0.9, Math.PI*2.1);
+    ctx.arc(cx + w*0.71, cy + 2, w*0.15, Math.PI*0.85, Math.PI*2.0);
+    ctx.lineTo(cx + w*0.93, cy + 8); ctx.lineTo(cx, cy + 8);
+    ctx.stroke(); ctx.restore();
   }
 
-  function spawnFire(hx, hy) {
-    for (let i = 0; i < 3; i++) {
-      fire.push({ x: hx+(Math.random()-0.5)*6, y: hy+(Math.random()-0.5)*8, vx: -(2+Math.random()*3), vy: (Math.random()-0.5)*1.2, r: 8+Math.random()*12, life: 1 });
-    }
-    if (fire.length > 60) fire.splice(0, 3);
+  function drawCastle(bx, by) {
+    const s = Math.max(0.6, H / 200);
+    ctx.fillStyle = '#9a9a9a';
+    ctx.fillRect(bx, by-50*s, 22*s, 50*s); ctx.fillRect(bx+24*s, by-36*s, 16*s, 36*s); ctx.fillRect(bx-4*s, by-18*s, 50*s, 18*s);
+    [0,8,16].forEach(ox => ctx.fillRect(bx+ox*s, by-58*s, 5*s, 8*s));
+    [24,31].forEach(ox => ctx.fillRect(bx+ox*s, by-43*s, 4*s, 7*s));
+    ctx.fillStyle = '#f0ebe0'; ctx.fillRect(bx+7*s, by-14*s, 8*s, 14*s);
+    ctx.fillStyle = '#666'; ctx.fillRect(bx+9*s, by-72*s, 2*s, 16*s);
+    ctx.fillStyle = '#888'; ctx.beginPath(); ctx.moveTo(bx+11*s,by-72*s); ctx.lineTo(bx+20*s,by-67*s); ctx.lineTo(bx+11*s,by-62*s); ctx.fill();
   }
-  function updateFire() {
-    fire.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.r*=0.94; p.life-=0.033; p.vx*=0.97; });
-    fire = fire.filter(p => p.life > 0 && p.r > 1);
+
+  function drawBackground() {
+    ctx.fillStyle = '#f0ebe0'; ctx.fillRect(0, 0, W, H);
+    cloudOff += 0.25;
+    cloudDefs.forEach(c => { const cx = ((c.rx*W + cloudOff*c.spd*50) % (W+120)) - 120; drawCloud(cx, c.ry*H, c.w); });
+    drawCastle(W - 112, GY());
+    const s = H/220, cX = Math.round(W*0.06), cY = GY();
+    ctx.fillStyle = '#111';
+    ctx.fillRect(cX, cY-28*s, 5*s, 28*s); ctx.fillRect(cX-9*s, cY-20*s, 9*s, 4*s);
+    ctx.fillRect(cX-9*s, cY-27*s, 4*s, 11*s); ctx.fillRect(cX+5*s, cY-15*s, 8*s, 4*s); ctx.fillRect(cX+9*s, cY-22*s, 4*s, 11*s);
+    ctx.fillStyle = '#666';
+    [[0.17,0,11],[0.21,-2,7],[0.53,0,9],[0.57,-2,6],[0.80,0,8]].forEach(([rx,dy,r]) => {
+      ctx.beginPath(); ctx.ellipse(W*rx, cY+dy, r*s, r*0.55*s, 0, Math.PI, 0); ctx.fill();
+    });
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, GY()); ctx.lineTo(W, GY()); ctx.stroke();
+    ctx.fillStyle = '#333';
+    for (let px = 4; px < W; px += 12) for (let py = 4; py < H - GY() - 2; py += 7)
+      if (((px*3)+py*7)%37 < 4) ctx.fillRect(px+(py%3)*2, GY()+py, 3, 2);
   }
-  function drawFire() {
-    fire.forEach(p => {
-      ctx.save(); ctx.globalAlpha = p.life * 0.85;
-      ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 14;
+
+  // --- Smoke ---
+  function spawnSmoke(ox, oy) {
+    for (let i = 0; i < 3; i++) smoke.push({ x:ox+(Math.random()-0.5)*8, y:oy+(Math.random()-0.5)*10, vx:-(2.5+Math.random()*3), vy:(Math.random()-0.5)*0.8, r:7+Math.random()*10, life:1 });
+    if (smoke.length > 70) smoke.splice(0, 3);
+  }
+  function updateSmoke() {
+    smoke.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.r*=0.96; p.life-=0.028; p.vx*=0.98; });
+    smoke = smoke.filter(p => p.life > 0 && p.r > 1);
+  }
+  function drawSmoke() {
+    smoke.forEach(p => {
+      ctx.save(); ctx.globalAlpha = p.life * 0.6;
       const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
-      g.addColorStop(0,'#ffffa0'); g.addColorStop(0.4,'#ff7700'); g.addColorStop(1,'transparent');
+      g.addColorStop(0,'rgba(80,80,80,0.9)'); g.addColorStop(0.5,'rgba(50,50,50,0.4)'); g.addColorStop(1,'transparent');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); ctx.restore();
     });
   }
 
-  function drawKnight(x, y) {
-    ctx.save(); ctx.translate(x, y);
-    const run = Math.sin(t * 0.28) * 10;
-    // Horse body
-    ctx.fillStyle = '#6b3a1f'; ctx.beginPath(); ctx.ellipse(0,0,40,20,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#7a4a28'; ctx.beginPath(); ctx.ellipse(0,8,28,11,0,0,Math.PI*2); ctx.fill();
-    // Legs
-    ctx.strokeStyle = '#4a2510'; ctx.lineWidth = 7; ctx.lineCap = 'round';
-    [[24,13,26,35+run],[28,13,20,35-run],[-24,13,-22,35-run],[-28,13,-30,35+run]].forEach(([x1,y1,x2,y2]) => {
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    });
-    // Horse neck & head
-    ctx.fillStyle = '#6b3a1f';
-    ctx.beginPath(); ctx.moveTo(30,-8); ctx.lineTo(46,-20); ctx.lineTo(50,-5); ctx.lineTo(34,4); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(44,-20); ctx.lineTo(62,-16); ctx.lineTo(67,-7); ctx.lineTo(62,2); ctx.lineTo(44,0); ctx.lineTo(42,-10); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1a0a00'; ctx.beginPath(); ctx.arc(56,-13,2.5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#2a1008'; [28,34,40].forEach((mx,i) => { ctx.beginPath(); ctx.arc(mx,-19-(i%2)*3,3.5,0,Math.PI*2); ctx.fill(); });
-    // Armor torso
-    ctx.fillStyle = '#a0a8b0'; ctx.fillRect(-12,-52,24,28);
-    ctx.strokeStyle = '#787880'; ctx.lineWidth = 1.5; ctx.strokeRect(-12,-52,24,28);
-    ctx.beginPath(); ctx.moveTo(-12,-39); ctx.lineTo(12,-39); ctx.stroke();
-    // Helmet
-    ctx.fillStyle = '#8890a0'; ctx.beginPath(); ctx.arc(0,-60,12,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#1a1a2a'; ctx.fillRect(-6,-63,13,5);
-    ctx.fillStyle = '#c80000'; ctx.beginPath(); ctx.moveTo(-3,-73); ctx.lineTo(3,-73); ctx.lineTo(4,-58); ctx.lineTo(-4,-58); ctx.closePath(); ctx.fill();
-    // Shield
-    ctx.fillStyle = '#1a3a8b';
-    ctx.beginPath(); ctx.moveTo(-14,-50); ctx.lineTo(-28,-44); ctx.lineTo(-31,-26); ctx.lineTo(-14,-20); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-22,-43); ctx.lineTo(-22,-27); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-31,-35); ctx.lineTo(-14,-35); ctx.stroke();
-    // Sword
-    const sw = phase === 3 ? Math.sin(t * 0.25) * 0.5 - 0.3 : -0.5;
-    ctx.save(); ctx.translate(14,-48); ctx.rotate(sw);
-    ctx.fillStyle = '#d0d8e0'; ctx.fillRect(-2.5,-36,5,36);
-    ctx.fillStyle = '#8b6914'; ctx.fillRect(-7,-2,14,5);
-    ctx.fillStyle = '#5a3010'; ctx.fillRect(-2,3,4,12);
-    ctx.fillStyle = '#8b6914'; ctx.beginPath(); ctx.arc(0,18,4,0,Math.PI*2); ctx.fill();
-    ctx.restore();
-    ctx.restore();
-  }
-
-  function spawnSparks(x, y) {
-    for (let i = 0; i < 8; i++) {
+  // --- Sparks ---
+  function spawnSparks(ox, oy) {
+    for (let i = 0; i < 10; i++) {
       const a = Math.random()*Math.PI*2, spd = 2+Math.random()*5;
-      sparks.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd - 1, life: 1, col: Math.random()>0.5 ? '#ffd700' : '#ff6600' });
+      sparks.push({ x:ox, y:oy, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd-1, life:1 });
     }
   }
   function updateSparks() {
@@ -3500,64 +3483,83 @@ function mountDragonCanvas() {
   }
   function drawSparks() {
     sparks.forEach(s => {
-      ctx.save(); ctx.globalAlpha = s.life;
-      ctx.fillStyle = s.col; ctx.shadowColor = s.col; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.arc(s.x,s.y,2.5,0,Math.PI*2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.globalAlpha = s.life; ctx.fillStyle = '#111';
+      ctx.fillRect(Math.round(s.x)-1, Math.round(s.y)-1, 3, 3); ctx.restore();
     });
   }
 
-  const DUR = { fly:90, fire:80, knight:80, combat:110, textIn:45, textHold:90 };
+  // --- Sprites ---
+  function drawDragonSprite(x, y, rot) {
+    if (!imgDragon.complete || !imgDragon.naturalWidth) return;
+    const dw = DW(), dh = DH();
+    ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot);
+    ctx.drawImage(imgDragon, -dw/2, -dh/2, dw, dh); ctx.restore();
+  }
+  function drawKnightSprite(x, y) {
+    if (!imgKnight.complete || !imgKnight.naturalWidth) return;
+    const kw = KW(), kh = KH();
+    ctx.drawImage(imgKnight, x - kw/2, y - kh, kw, kh);
+  }
+
+  // --- State machine ---
+  const DUR = { enter:90, smoke:75, knightIn:70, combat:100, fall:60, victory:45, textIn:40, hold:85 };
 
   function update() {
     t++;
-    const dT = DX(), kT = KX(), gY = GY();
+    const dT = DX_T(), kT = KX_T(), gY = GY(), flyY = FLY_Y();
     if (phase === 0) {
-      dragonX = W + 120 - (W + 120 - dT) * easeOut(t / DUR.fly);
-      if (t >= DUR.fly) { dragonX = dT; phase = 1; t = 0; }
+      dragonX = (W+DW()+40) - (W+DW()+40-dT)*easeOut(t/DUR.enter);
+      dragonY = flyY + Math.sin(t*0.14)*6; dragonRot = 0;
+      if (t >= DUR.enter) { dragonX=dT; phase=1; t=0; }
     } else if (phase === 1) {
-      spawnFire(dragonX - 90, DY()); updateFire();
-      if (t >= DUR.fire) { phase = 2; t = 0; }
+      dragonY = flyY + Math.sin(t*0.14)*5;
+      if (t%2===0) spawnSmoke(dragonX - DW()*0.50, dragonY + DH()*0.04);
+      updateSmoke();
+      if (t >= DUR.smoke) { phase=2; t=0; }
     } else if (phase === 2) {
-      updateFire();
-      knightX = -130 + (kT + 130) * easeOut(t / DUR.knight);
-      if (t >= DUR.knight) { knightX = kT; phase = 3; t = 0; fire = []; }
+      updateSmoke();
+      knightX = -(KW()/2+40) + (kT+KW()/2+40)*easeOut(t/DUR.knightIn);
+      dragonY = flyY + Math.sin(t*0.12)*5;
+      if (t >= DUR.knightIn) { knightX=kT; phase=3; t=0; smoke=[]; }
     } else if (phase === 3) {
-      if (t % 18 === 0) spawnSparks((dT + kT) / 2, gY - 78);
-      if (t % 6 < 3) { dragonX = dT + (Math.random()-0.5)*5; knightX = kT + (Math.random()-0.5)*5; }
+      dragonY = flyY + Math.sin(t*0.16)*4;
+      const clashX = (dT+kT)/2 + DW()*0.04, clashY = gY - KH()*0.55;
+      if (t%16===0) spawnSparks(clashX, clashY);
+      if (t%5<2) { dragonX=dT+(Math.random()-0.5)*5; knightX=kT+(Math.random()-0.5)*4; }
       updateSparks();
-      if (t >= DUR.combat) { phase = 4; t = 0; dragonX = dT; knightX = kT; sparks = []; }
+      if (t >= DUR.combat) { phase=4; t=0; dragonX=dT; knightX=kT; sparks=[]; }
     } else if (phase === 4) {
-      updateSparks(); textAlpha = Math.min(1, t / 30);
-      if (t >= DUR.textIn) { phase = 5; t = 0; textAlpha = 1; }
+      const fallY = gY - DH()*0.18;
+      const p = easeOut(t/DUR.fall);
+      dragonY = flyY + (fallY-flyY)*p; dragonRot = p * 0.5;
+      if (t >= DUR.fall) { dragonY=fallY; dragonRot=0.5; phase=5; t=0; }
     } else if (phase === 5) {
-      if (t > DUR.textHold - 35) textAlpha = Math.max(0, 1 - (t - (DUR.textHold - 35)) / 35);
-      if (t >= DUR.textHold) init();
+      if (t >= DUR.victory) { phase=6; t=0; }
+    } else if (phase === 6) {
+      textAlpha = Math.min(1, t/25);
+      if (t >= DUR.textIn) { phase=7; t=0; textAlpha=1; }
+    } else if (phase === 7) {
+      if (t > DUR.hold-30) textAlpha = Math.max(0, 1-(t-(DUR.hold-30))/30);
+      if (t >= DUR.hold) init();
     }
   }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    const bg = ctx.createLinearGradient(0,0,0,H);
-    bg.addColorStop(0,'#1a0a25'); bg.addColorStop(1,'#07070c');
-    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+    drawBackground();
     const gY = GY();
-    ctx.strokeStyle = 'rgba(245,196,81,0.25)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0,gY); ctx.lineTo(W,gY); ctx.stroke();
-    const gg = ctx.createLinearGradient(0,gY,0,gY+18);
-    gg.addColorStop(0,'rgba(245,196,81,0.12)'); gg.addColorStop(1,'transparent');
-    ctx.fillStyle = gg; ctx.fillRect(0,gY,W,18);
-    drawDragon(dragonX, DY());
-    if (phase === 1 || phase === 2) drawFire();
-    if (phase >= 2) drawKnight(knightX, gY - 36);
+    drawDragonSprite(dragonX, dragonY, dragonRot);
+    if (phase === 1 || phase === 2) drawSmoke();
+    if (phase >= 2) drawKnightSprite(knightX, gY);
     if (phase >= 3) drawSparks();
     if (textAlpha > 0) {
       ctx.save(); ctx.globalAlpha = textAlpha;
-      const fs = Math.max(16, Math.min(34, W * 0.046));
+      const fs = Math.max(13, Math.min(28, W*0.038));
       ctx.font = `900 ${fs}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = '#f5c451'; ctx.shadowBlur = 22;
-      ctx.fillStyle = '#f5c451';
-      ctx.fillText('Juegos PlayStation 4', W / 2, H / 2);
+      ctx.shadowColor = 'rgba(0,0,0,0.15)'; ctx.shadowBlur = 6;
+      ctx.fillStyle = '#111';
+      ctx.fillText('Juegos PlayStation 4', W/2, H*0.18);
       ctx.restore();
     }
   }
