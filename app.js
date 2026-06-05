@@ -40,6 +40,8 @@ let allGames = [];
 let loaded = false;
 let loadError = null;
 let nintendo = { telegramChannel: "", bundles: [] };
+let _nintendoLoaded = false;
+let _nintendoLoadStarted = false;
 let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
@@ -454,10 +456,9 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
+    const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
-      fetch("/nintendo-bundles.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -497,9 +498,6 @@ async function load() {
     }
     if (xbox.status === "fulfilled" && xbox.value.success) {
       games.push(...(xbox.value.games || []).filter(g => !g._placeholder));
-    }
-    if (nin.status === "fulfilled" && nin.value && Array.isArray(nin.value.bundles)) {
-      nintendo = nin.value;
     }
     if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
       psBundles = psB.value;
@@ -554,7 +552,7 @@ async function load() {
         });
       games.push(...featuredGames);
     }
-    if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
+    if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
     // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
@@ -670,6 +668,18 @@ async function enrichBundleCovers() {
   // Si el usuario está en una vista que muestra bundles, actualizamos en DOM
   // sin re-renderizar entero (evita perder scroll).
   applyCoverUpdates(updated);
+}
+
+async function loadNintendoBundles() {
+  if (_nintendoLoadStarted) return;
+  _nintendoLoadStarted = true;
+  try {
+    const data = await fetch("/nintendo-bundles.json").then(r => r.json());
+    if (data && Array.isArray(data.bundles)) nintendo = data;
+  } catch { /* no-op: bundles unavailable */ } finally {
+    _nintendoLoaded = true;
+    enrichBundleCovers();
+  }
 }
 
 function applyCoverUpdates(bundleIds) {
@@ -1561,6 +1571,18 @@ function renderNintendoBundleGrid() {
 }
 
 function renderSwitch() {
+  if (!_nintendoLoaded) {
+    app.innerHTML = `
+      ${heroSlimHTML("Nintendo Switch")}
+      <section class="container catalog-section">
+        <div class="status">Cargando bundles Nintendo Switch&hellip;</div>
+      </section>
+    `;
+    loadNintendoBundles().then(() => {
+      if (parseRoute().name === "platform" && parseRoute().platform === "Switch") renderSwitch();
+    });
+    return;
+  }
   const bundles = nintendo.bundles || [];
   nintendoFilters.q = "";
   nintendoFilters.sort = "recent";
@@ -1925,6 +1947,14 @@ function bundleCardHTML(b, type = "nintendo") {
 function renderBundle(id, type = "nintendo") {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
+    return;
+  }
+  if (type === "nintendo" && !_nintendoLoaded) {
+    app.innerHTML = `<section class="container empty-state"><p class="status">Cargando bundle&hellip;</p></section>`;
+    loadNintendoBundles().then(() => {
+      const r = parseRoute();
+      if (r.name === "bundle" && r.type === "nintendo") renderBundle(id, "nintendo");
+    });
     return;
   }
   const sources = {
