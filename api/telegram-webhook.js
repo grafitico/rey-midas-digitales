@@ -18,11 +18,20 @@
 //   GITHUB_REPO              — ej "grafitico/rey-midas-digitales"
 //   GITHUB_BRANCH            — opcional, default "main"
 
-const JSON_PATH = "nintendo-bundles.json";
-
 import crypto from "crypto";
+import { requireAdmin, handleError } from "./_lib.js";
+
+const JSON_PATH = "nintendo-bundles.json";
+const TG_API = "https://api.telegram.org";
 
 export default async function handler(req, res) {
+  // Modo admin (registrar/inspeccionar/borrar el webhook): /api/telegram-webhook?action=setup
+  // Requiere sesión de admin. La URL del receptor de Telegram NO cambia.
+  if (req.query && req.query.action === "setup") {
+    return handleSetup(req, res);
+  }
+
+  // Modo receptor: Telegram hace POST acá con cada channel_post.
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "method not allowed" });
   }
@@ -209,4 +218,67 @@ async function upsertBundleInGithub(bundle) {
     throw new Error(`GitHub PUT ${putRes.status}: ${t.slice(0, 200)}`);
   }
   return { action };
+}
+
+// ===== Setup del webhook (solo admin) =====
+// Antes vivía en /api/telegram-setup; se fusionó acá para no exceder el
+// límite de funciones de Vercel. La URL del receptor sigue siendo la misma.
+//   GET    ?action=setup → getWebhookInfo
+//   POST   ?action=setup → setWebhook (registra contra Telegram)
+//   DELETE ?action=setup → deleteWebhook
+async function handleSetup(req, res) {
+  try {
+    await requireAdmin(req);
+
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    const baseUrl = process.env.PUBLIC_BASE_URL;
+    if (!token) throw withStatus("Falta TELEGRAM_BOT_TOKEN", 500);
+
+    if (req.method === "GET") {
+      const info = await tg(token, "getWebhookInfo");
+      return res.status(200).json({ ok: true, info });
+    }
+
+    if (req.method === "POST") {
+      if (!secret) throw withStatus("Falta TELEGRAM_WEBHOOK_SECRET", 500);
+      if (!baseUrl) throw withStatus("Falta PUBLIC_BASE_URL (ej https://reymidas.cr)", 500);
+      const url = `${baseUrl.replace(/\/+$/, "")}/api/telegram-webhook`;
+      const result = await tg(token, "setWebhook", {
+        url,
+        secret_token: secret,
+        allowed_updates: ["channel_post", "edited_channel_post"],
+        drop_pending_updates: false,
+      });
+      return res.status(200).json({ ok: true, url, result });
+    }
+
+    if (req.method === "DELETE") {
+      const result = await tg(token, "deleteWebhook", { drop_pending_updates: false });
+      return res.status(200).json({ ok: true, result });
+    }
+
+    return res.status(405).json({ ok: false, error: "method not allowed" });
+  } catch (e) {
+    return handleError(res, e);
+  }
+}
+
+async function tg(token, method, payload) {
+  const r = await fetch(`${TG_API}/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  const json = await r.json();
+  if (!json.ok) {
+    throw withStatus(`Telegram ${method} falló: ${json.description}`, 502);
+  }
+  return json.result;
+}
+
+function withStatus(msg, status) {
+  const err = new Error(msg);
+  err.status = status;
+  return err;
 }

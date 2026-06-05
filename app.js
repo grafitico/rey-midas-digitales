@@ -2191,7 +2191,7 @@ function bindCartActions() {
     const btn = e.target.querySelector("button");
     btn.disabled = true;
     try {
-      const data = await apiPost("/api/validate-discount", { code });
+      const data = await apiPost("/api/validate", { action: "discount", code });
       if (!data.valid) {
         showToast("Código inválido o ya utilizado.", "error");
         return;
@@ -2221,7 +2221,8 @@ async function checkout() {
 
   try {
     // Validar precios en el servidor antes de armar el mensaje
-    const validation = await apiPost("/api/validate-order", {
+    const validation = await apiPost("/api/validate", {
+      action: "order",
       items: items.map(i => ({ id: i.id, modality: i.modality, priceCRC: i.priceCRC })),
     });
     if (!validation.ok) {

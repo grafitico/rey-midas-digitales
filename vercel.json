@@ -10,6 +10,9 @@
       "maxDuration": 30,
       "includeFiles": "featured-games.json"
     },
+    "api/validate.js": {
+      "includeFiles": "*.json"
+    },
     "api/cover.js": {
       "maxDuration": 15
     },
@@ -18,9 +21,6 @@
     },
     "api/telegram-webhook.js": {
       "maxDuration": 15
-    },
-    "api/telegram-setup.js": {
-      "maxDuration": 10
     }
   },
   "rewrites": [

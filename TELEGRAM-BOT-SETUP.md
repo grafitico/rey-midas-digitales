@@ -95,24 +95,30 @@ Redeploy después de agregarlas.
 
 ### 6) Registrar el webhook contra Telegram
 
-Como admin del sitio (logueado), hacé `POST /api/telegram-setup`:
+Como admin del sitio (logueado), hacé `POST /api/telegram-webhook?action=setup`:
 
 ```bash
-curl -X POST https://reymidas.cr/api/telegram-setup \
+curl -X POST "https://reymidas.cr/api/telegram-webhook?action=setup" \
   -H "Authorization: Bearer <tu_session_token>"
 ```
 
 Verificá con `GET`:
 
 ```bash
-curl https://reymidas.cr/api/telegram-setup \
+curl "https://reymidas.cr/api/telegram-webhook?action=setup" \
   -H "Authorization: Bearer <tu_session_token>"
 ```
 
 Debería mostrar `url`, `pending_update_count: 0` y `last_error_date`
 vacío.
 
-Para borrarlo: `DELETE /api/telegram-setup`.
+Para borrarlo: `DELETE "https://reymidas.cr/api/telegram-webhook?action=setup"`.
+
+> Nota: el setup vive en el mismo endpoint que el receptor del webhook
+> (`/api/telegram-webhook`) para no exceder el límite de funciones de
+> Vercel. El modo admin se activa con `?action=setup` y requiere sesión
+> de administrador. La URL que Telegram usa para los `channel_post` sigue
+> siendo `/api/telegram-webhook` sin parámetros.
 
 ## Formato de mensaje esperado
 
