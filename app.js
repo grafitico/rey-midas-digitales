@@ -1,4 +1,27 @@
 // ============================================================
+// Migración de caché: cuando sale una actualización del sitio, borramos los
+// datos de juegos guardados en el navegador (portadas, fichas, capturas,
+// tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
+// limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
+// ============================================================
+const APP_CACHE_VERSION = "2026-06-05a";
+(function migrateLocalCaches() {
+  try {
+    if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
+    const stalePrefixes = [
+      "psn-cover:", "psn-ficha:", "vandal-ficha:", "rawg-media:", "yt-trailer:",
+      "rawg-cover:", "rawg-meta:", "rawg-indie:", "rawg:", "igdb-cover:", "igdb:",
+      "steam-cover:", "cover:",
+    ];
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && stalePrefixes.some(p => k.startsWith(p))) localStorage.removeItem(k);
+    }
+    localStorage.setItem("app-cache-version", APP_CACHE_VERSION);
+  } catch { /* localStorage no disponible: no pasa nada */ }
+})();
+
+// ============================================================
 // CONFIGURACION — editá estos valores
 // ============================================================
 const CONFIG = {
