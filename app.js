@@ -614,7 +614,7 @@ async function enrichFeaturedCovers() {
 // Reemplaza el placeholder por la imagen real en las tarjetas y/o en la ficha
 // del juego, sin re-renderizar (mantiene scroll y filtros activos).
 function applyGameCoverUpdate(g) {
-  const href = `#/producto/${encodeURIComponent(g.id)}`;
+  const href = `/producto/${encodeURIComponent(g.id)}`;
   document.querySelectorAll(`a[href="${CSS.escape(href)}"] .card-image`).forEach(box => {
     const ph = box.querySelector(".placeholder");
     if (!ph) return;
