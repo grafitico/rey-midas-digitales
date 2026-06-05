@@ -134,9 +134,10 @@ function extractPsnFicha(html, psnId) {
   const out = emptyFicha(psnId);
   if (!html || html.length < 500) return out;
 
-  // Descripción base: og:description (siempre presente en el HTML, en español).
-  const og = html.match(/<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)["']/i);
-  if (og) out.description = decodeEntities(og[1]).trim();
+  // Descripción en español desde el HTML server-rendered. La galería (capturas,
+  // video) la carga PSN por JS y NO está en el HTML; la descripción sí suele
+  // venir en el JSON-LD (SEO) o en las meta og/twitter.
+  out.description = extractMetaDescription(html);
 
   const cache = parseApolloState(html);
   if (!cache) return out;
@@ -265,6 +266,18 @@ function debugPsn(html, psnId) {
       if (typeof obj[f] === "string") out.descFields[f] = Math.max(out.descFields[f] || 0, obj[f].length);
     }
   }
+  // Descripción detectada + resumen de los bloques JSON-LD (para confirmar fuente).
+  out.detectedDescription = extractMetaDescription(html).slice(0, 220);
+  out.jsonLd = [];
+  for (const block of (html || "").matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]+?)<\/script>/gi)) {
+    try {
+      const ld = JSON.parse(block[1].trim());
+      const nodes = Array.isArray(ld) ? ld : (ld["@graph"] || [ld]);
+      for (const n of [].concat(nodes)) {
+        out.jsonLd.push({ type: n["@type"] || null, hasDesc: typeof n.description === "string", descLen: (n.description || "").length, keys: Object.keys(n || {}).slice(0, 16) });
+      }
+    } catch { out.jsonLd.push({ parseError: true }); }
+  }
   return out;
 }
 
@@ -279,6 +292,31 @@ async function psnSearchFirstId(title) {
     if (!obj || typeof obj !== "object") continue;
     if (obj.__typename === "Product" && obj.id) return obj.id;
     if (typeof obj.id === "string" && /^[A-Z]{2}\d/.test(obj.id)) return obj.id;
+  }
+  return "";
+}
+
+// Descripción en español del HTML: JSON-LD (Product/VideoGame) primero —suele ser
+// la descripción larga—, luego og:description / twitter:description (sin depender
+// del orden de los atributos del <meta>).
+function extractMetaDescription(html) {
+  if (!html) return "";
+  for (const block of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]+?)<\/script>/gi)) {
+    try {
+      const ld = JSON.parse(block[1].trim());
+      const nodes = Array.isArray(ld) ? ld : (ld["@graph"] || [ld]);
+      for (const n of [].concat(nodes)) {
+        if (n && typeof n.description === "string" && n.description.trim().length > 20) {
+          return decodeEntities(stripTags(n.description)).trim();
+        }
+      }
+    } catch { /* sigo */ }
+  }
+  for (const tag of html.match(/<meta\b[^>]*>/gi) || []) {
+    if (/(?:property|name)=["'](?:og:description|twitter:description|description)["']/i.test(tag)) {
+      const c = tag.match(/content=["']([^"']*)["']/i);
+      if (c && c[1].trim().length > 20) return decodeEntities(c[1]).trim();
+    }
   }
   return "";
 }

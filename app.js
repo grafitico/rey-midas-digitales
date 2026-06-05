@@ -1027,7 +1027,7 @@ function gamePsnId(game) {
 }
 
 async function fetchPsnFicha(psnId) {
-  const key = `psn-ficha:v2:${psnId}`;
+  const key = `psn-ficha:v3:${psnId}`;
   const cached = readRawgCache(key);
   if (cached !== undefined) return cached || null;
   let f = null;
@@ -1041,7 +1041,7 @@ async function fetchPsnFicha(psnId) {
 }
 
 async function fetchVandalFicha(title) {
-  const key = `vandal-ficha:v2:${matchKey(title)}`;
+  const key = `vandal-ficha:v3:${matchKey(title)}`;
   const cached = readRawgCache(key);
   if (cached !== undefined) return cached?.miss ? null : (cached || null);
   let f = null;
@@ -1058,27 +1058,102 @@ async function enrichGameFicha(game) {
   const slot = document.getElementById("rawg-info");
   if (!slot) return;
 
-  // 1) PlayStation Store en español (si tenemos el ID de PSN).
+  const f = { description: "", genres: [], publisher: "", developer: "", released: "", coverUrl: "", screenshots: [], videoUrl: "", _source: "" };
+
+  // (A) Descripción/metadatos EN ESPAÑOL: PSN (JSON-LD) → Vandal.
   const psnId = gamePsnId(game);
   if (psnId) {
-    const ficha = await fetchPsnFicha(psnId);
+    const psn = await fetchPsnFicha(psnId);
     if (slot.dataset.title !== game.title) return;
-    if (fichaHasContent(ficha)) {
-      renderFichaEspanol(game, { ...ficha, _source: "PlayStation Store" });
-      return;
+    if (psn) { mergeFicha(f, psn); if (psn.description) f._source = "PlayStation Store"; }
+  }
+  if (!f.description) {
+    const vandal = await fetchVandalFicha(game.title);
+    if (slot.dataset.title !== game.title) return;
+    if (vandal) { mergeFicha(f, vandal); if (!f._source && vandal.description) f._source = "Vandal"; }
+  }
+
+  // (B) Capturas y metadatos que falten: base de datos de juegos (RAWG/IGDB).
+  // Las imágenes son neutrales al idioma; PSN NO las expone en el HTML (las carga
+  // por JS), así que las traemos de acá. La descripción de RAWG (inglés) solo se
+  // usa si no hubo ninguna en español.
+  if (!f.screenshots.length || !f.description || !f.genres.length) {
+    const media = await fetchRawgMedia(game.title);
+    if (slot.dataset.title !== game.title) return;
+    if (media) {
+      if (!f.screenshots.length) f.screenshots = media.screenshots || [];
+      if (!f.genres.length) f.genres = media.genres || [];
+      if (!f.developer) f.developer = media.developer || "";
+      if (!f.publisher) f.publisher = media.publisher || "";
+      if (!f.released) f.released = media.released || "";
+      if (!f.description) { f.description = media.description || ""; if (!f._source) f._source = media._source || "RAWG.io"; }
     }
   }
 
-  // 2) Vandal como respaldo en español.
-  const vandal = await fetchVandalFicha(game.title);
-  if (slot.dataset.title !== game.title) return;
-  if (fichaHasContent(vandal)) {
-    renderFichaEspanol(game, { ...vandal, _source: "Vandal" });
+  if (f.description || f.screenshots.length) {
+    renderFichaEspanol(game, f);
     return;
   }
-
-  // 3) Último recurso: RAWG/IGDB (inglés).
+  // Nada disponible: ficha mínima existente.
   enrichWithRawg(game);
+}
+
+// Vuelca en dst los campos de src que dst aún no tenga (sin pisar lo ya resuelto).
+function mergeFicha(dst, src) {
+  if (!src) return;
+  if (src.description && !dst.description) dst.description = src.description;
+  if (src.coverUrl && !dst.coverUrl) dst.coverUrl = src.coverUrl;
+  if (src.videoUrl && !dst.videoUrl) dst.videoUrl = src.videoUrl;
+  if (src.screenshots?.length && !dst.screenshots.length) dst.screenshots = src.screenshots;
+  if (src.genres?.length && !dst.genres.length) dst.genres = src.genres;
+  if (src.publisher && !dst.publisher) dst.publisher = src.publisher;
+  if (src.developer && !dst.developer) dst.developer = src.developer;
+  if (src.released && !dst.released) dst.released = src.released;
+}
+
+// Capturas + metadatos desde la base de datos de juegos (RAWG, IGDB de respaldo).
+// Neutral al idioma: completa lo que PSN no expone (capturas). Cacheado.
+async function fetchRawgMedia(title) {
+  const key = `rawg-media:v1:${matchKey(title)}`;
+  const cached = readRawgCache(key);
+  if (cached !== undefined) return cached?.miss ? null : cached;
+
+  let media = null;
+  if (!rawgQuotaExhausted()) {
+    const json = await rawgFetch(`/api/rawg?mode=search&q=${encodeURIComponent(cleanTitleForRawg(title))}&page_size=1`);
+    const hit = json?.games?.[0];
+    if (hit) {
+      media = {
+        screenshots: (hit.shortScreenshots || []).filter(Boolean).slice(0, 4),
+        genres: hit.genres || [], developer: "", publisher: "",
+        released: hit.released || "", description: "", videoUrl: "", _source: "RAWG.io",
+      };
+      if (hit.slug) {
+        const dj = await rawgFetch(`/api/rawg?mode=detail&id=${encodeURIComponent(hit.slug)}`);
+        const d = dj?.game;
+        if (d) {
+          media.developer = (d.developers || [])[0] || "";
+          media.publisher = (d.publishers || [])[0] || "";
+          if (d.released) media.released = d.released;
+          if (d.description) media.description = d.description;
+        }
+      }
+    }
+  }
+  if (!media && !igdbUnavailable()) {
+    const json = await igdbFetch(`/api/rawg?mode=igdb-detail&id=${encodeURIComponent(cleanTitleForRawg(title))}`);
+    const g = json?.game;
+    if (g) {
+      media = {
+        screenshots: (g.shortScreenshots || []).filter(Boolean).slice(0, 4),
+        genres: g.genres || [], developer: (g.developers || [])[0] || "",
+        publisher: (g.publishers || [])[0] || "", released: g.released || "",
+        description: g.description || "", videoUrl: "", _source: "IGDB.com",
+      };
+    }
+  }
+  writeRawgCache(key, media || { miss: true });
+  return media;
 }
 
 // Renderiza la ficha en español (PSN/Vandal) en las dos secciones de la página.
