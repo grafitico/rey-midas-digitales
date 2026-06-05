@@ -1027,7 +1027,7 @@ function gamePsnId(game) {
 }
 
 async function fetchPsnFicha(psnId) {
-  const key = `psn-ficha:${psnId}`;
+  const key = `psn-ficha:v2:${psnId}`;
   const cached = readRawgCache(key);
   if (cached !== undefined) return cached || null;
   let f = null;
@@ -1041,7 +1041,7 @@ async function fetchPsnFicha(psnId) {
 }
 
 async function fetchVandalFicha(title) {
-  const key = `vandal-ficha:${matchKey(title)}`;
+  const key = `vandal-ficha:v2:${matchKey(title)}`;
   const cached = readRawgCache(key);
   if (cached !== undefined) return cached?.miss ? null : (cached || null);
   let f = null;

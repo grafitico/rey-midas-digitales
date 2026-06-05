@@ -13,6 +13,23 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=604800, stale-while-revalidate=86400");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // ── Diagnóstico: estructura real del apolloState de PSN para un título ───────
+  //    /api/cover?psnDebug=<titulo>  (busca el juego, abre su producto y resume)
+  const psnDebug = (req.query.psnDebug || "").toString().trim();
+  if (psnDebug) {
+    try {
+      const id = await psnSearchFirstId(psnDebug);
+      if (!id) return res.status(200).json({ error: "sin match en PSN", title: psnDebug });
+      const r = await fetch(`${PSN_BASE}/product/${encodeURIComponent(id)}`, {
+        headers: { "User-Agent": UA, "Accept-Language": "es-CR,es;q=0.9,en;q=0.8" },
+      });
+      const html = r.ok ? await r.text() : "";
+      return res.status(200).json({ title: psnDebug, httpOk: r.ok, ...debugPsn(html, id) });
+    } catch (e) {
+      return res.status(200).json({ error: e.message, title: psnDebug });
+    }
+  }
+
   // ── PS Store por PSN ID: carátula o ficha completa ──────────────────────────
   const psnId = (req.query.psnId || "").toString().trim();
   if (psnId) {
@@ -28,6 +45,7 @@ export default async function handler(req, res) {
       });
       if (!r.ok) return res.status(200).json(full ? emptyFicha(psnId) : { coverUrl: "", psnId });
       const html = await r.text();
+      if (req.query.debug === "1") return res.status(200).json(debugPsn(html, psnId));
       if (full) return res.status(200).json({ ...extractPsnFicha(html, psnId), source: "psn", psnId });
       return res.status(200).json({ coverUrl: extractPsnCover(html), psnId });
     } catch (e) {
@@ -86,23 +104,9 @@ export default async function handler(req, res) {
 
 function extractPsnCover(html) {
   if (!html || html.length < 500) return "";
-  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
-  if (!m) return "";
-  let data;
-  try { data = JSON.parse(m[1]); } catch { return ""; }
-
-  const cache = data?.props?.apolloState || {};
-  for (const obj of Object.values(cache)) {
-    if (!obj || typeof obj !== "object") continue;
-    if (obj.__typename !== "Product" && !String(obj.id || "").match(/^[A-Z]{2}\d/)) continue;
-    // media puede ser array de objetos directos o de __refs al apolloState
-    const media = (Array.isArray(obj.media) ? obj.media : [])
-      .map(m => (m?.__ref ? cache[m.__ref] : m))
-      .filter(Boolean);
-    const cover = pickPsnCover(media);
-    if (cover) return cover;
-  }
-  return "";
+  const cache = parseApolloState(html);
+  if (!cache) return "";
+  return pickPsnCover(collectAllMedia(cache));
 }
 
 function pickPsnCover(media) {
@@ -123,64 +127,160 @@ function emptyFicha(psnId) {
 }
 
 // Ficha completa desde la página de producto de PS Store (es-cr → todo en español).
+// PSN separa Product (precio/SKU) de Concept (juego: descripción larga, capturas,
+// video). Escaneamos TODO el apolloState para no depender de en cuál objeto vive
+// cada dato.
 function extractPsnFicha(html, psnId) {
   const out = emptyFicha(psnId);
   if (!html || html.length < 500) return out;
 
-  // Descripción base: og:description / meta description (siempre presente, en español).
+  // Descripción base: og:description (siempre presente en el HTML, en español).
   const og = html.match(/<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)["']/i);
   if (og) out.description = decodeEntities(og[1]).trim();
 
-  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
-  if (!m) return out;
-  let data;
-  try { data = JSON.parse(m[1]); } catch { return out; }
-  const cache = data?.props?.apolloState || {};
+  const cache = parseApolloState(html);
+  if (!cache) return out;
 
-  // Localizar el Product principal (id exacto, o el que tenga el media más rico).
-  let product = null;
-  for (const obj of Object.values(cache)) {
-    if (!obj || typeof obj !== "object") continue;
-    const isProduct = obj.__typename === "Product" || String(obj.id || "").match(/^[A-Z]{2}\d/);
-    if (!isProduct) continue;
-    if (psnId && obj.id === psnId) { product = obj; break; }
-    if (!product && Array.isArray(obj.media) && obj.media.length) product = obj;
-  }
-  if (!product) return out;
-
-  const media = (Array.isArray(product.media) ? product.media : [])
-    .map(x => (x?.__ref ? cache[x.__ref] : x)).filter(Boolean);
-
+  // Reunir TODA la media del apolloState (de cualquier Product/Concept).
+  const media = collectAllMedia(cache);
   out.coverUrl = pickPsnCover(media);
 
-  // Capturas: rol SCREENSHOT; si no hay, cualquier IMAGE que no sea la carátula.
-  const coverRoles = new Set(["MASTER", "GAMEHUB_COVER_ART", "PORTRAIT", "KEY_ART", "BACKGROUND"]);
-  let shots = media.filter(x => x.role === "SCREENSHOT" && x.url).map(x => x.url);
+  // Capturas: rol SCREENSHOT; si ese rol no existe, imágenes que no sean
+  // carátula/fondo/logo (excluimos también la portada ya elegida).
+  const nonShotRoles = new Set([
+    "MASTER", "GAMEHUB_COVER_ART", "PORTRAIT", "KEY_ART", "BACKGROUND",
+    "BACKGROUND_LAYER_ART", "BACKGROUND_GLOBAL_NAV", "LOGO", "BUNDLE_ART",
+    "STORE_DISPLAY_CLASSIFICATION", "GAME_HUB_COVER_ART",
+  ]);
+  let shots = media.filter(m => m.role === "SCREENSHOT" && isImage(m)).map(m => m.url);
   if (!shots.length) {
-    shots = media.filter(x => (x.type === "IMAGE" || !x.type) && x.url && !coverRoles.has(x.role)).map(x => x.url);
+    shots = media.filter(m => isImage(m) && m.url !== out.coverUrl && !nonShotRoles.has(m.role)).map(m => m.url);
   }
   out.screenshots = [...new Set(shots)].slice(0, 6);
 
-  // Video de preview/gameplay (mp4 servido por PSN).
-  const vid = media.find(x => (x.type === "VIDEO" || x.role === "PREVIEW") && x.url);
-  if (vid?.url) out.videoUrl = vid.url;
+  // Video de preview/gameplay (preferimos un mp4 reproducible con <video>).
+  out.videoUrl = pickPsnVideo(media);
 
-  // Metadatos.
-  out.publisher = product.publisherName || product.providerName || "";
-  const genres = product.localizedGenres || product.genres || [];
-  out.genres = (Array.isArray(genres) ? genres : [])
-    .map(g => (typeof g === "string" ? g : g?.value || g?.name)).filter(Boolean).slice(0, 6);
-  const rel = product.releaseDate || product.releaseDateText || "";
+  // Metadatos: buscados en cualquier objeto del cache (Product o Concept).
+  out.publisher = firstField(cache, ["publisherName", "providerName", "publisher"]) || "";
+  out.developer = firstField(cache, ["developerName", "developer"]) || "";
+  out.genres = normalizeGenres(firstField(cache, ["localizedGenres", "genres", "genreNames"]));
+  const rel = firstField(cache, ["releaseDate", "releaseDateText"]);
   out.released = rel ? String(rel).slice(0, 10) : "";
 
-  // Descripción larga si el Product la trae como campo de texto.
-  for (const field of ["longDescription", "description", "shortDescription"]) {
-    const v = product[field];
-    if (typeof v === "string" && v.trim().length > out.description.length) {
-      out.description = decodeEntities(stripTags(v)).trim();
+  // Descripción larga: el string de prosa más largo del cache (vive en el Concept).
+  const long = longestDescription(cache);
+  if (long && long.length > out.description.length) out.description = long;
+
+  return out;
+}
+
+function parseApolloState(html) {
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  if (!m) return null;
+  try { return JSON.parse(m[1])?.props?.apolloState || null; } catch { return null; }
+}
+
+function isImage(m) {
+  return !!(m && m.url && (m.type === "IMAGE" || !m.type) && !/\.(mp4|webm|m3u8)(\?|$)/i.test(m.url));
+}
+
+// Reúne todos los items de media de todos los objetos del apolloState
+// (resolviendo __refs y deduplicando por URL).
+function collectAllMedia(cache) {
+  const all = [];
+  const seen = new Set();
+  for (const obj of Object.values(cache)) {
+    if (!obj || typeof obj !== "object" || !Array.isArray(obj.media)) continue;
+    for (const item of obj.media) {
+      const m = item?.__ref ? cache[item.__ref] : item;
+      if (m && m.url && !seen.has(m.url)) { seen.add(m.url); all.push(m); }
+    }
+  }
+  return all;
+}
+
+function pickPsnVideo(media) {
+  const vids = media.filter(m => m.url && (m.type === "VIDEO" || m.role === "PREVIEW" || /\.(mp4|webm)(\?|$)/i.test(m.url)));
+  if (!vids.length) return "";
+  return (vids.find(v => /\.mp4(\?|$)/i.test(v.url)) || vids[0]).url;
+}
+
+// Primer valor no vacío para alguno de los nombres de campo, en cualquier objeto.
+function firstField(cache, names) {
+  for (const obj of Object.values(cache)) {
+    if (!obj || typeof obj !== "object") continue;
+    for (const n of names) {
+      const v = obj[n];
+      if (v != null && v !== "" && !(Array.isArray(v) && !v.length)) return v;
+    }
+  }
+  return null;
+}
+
+function normalizeGenres(g) {
+  if (!g) return [];
+  return [].concat(g).map(x => (typeof x === "string" ? x : x?.value || x?.name)).filter(Boolean).slice(0, 6);
+}
+
+function longestDescription(cache) {
+  let best = "";
+  const fields = ["longDescription", "description", "shortDescription", "conceptDescription", "localizedLongDescription"];
+  for (const obj of Object.values(cache)) {
+    if (!obj || typeof obj !== "object") continue;
+    for (const f of fields) {
+      if (typeof obj[f] === "string") {
+        const clean = decodeEntities(stripTags(obj[f])).trim();
+        if (clean.length > best.length) best = clean;
+      }
+    }
+  }
+  return best;
+}
+
+// Diagnóstico: resume la estructura real del apolloState de PSN para poder ajustar
+// la extracción sin acceso directo a la tienda. /api/cover?psnDebug=<titulo>
+function debugPsn(html, psnId) {
+  const out = { psnId, htmlLen: html ? html.length : 0, hasNextData: false, typenames: {}, mediaRoles: {}, mediaTypes: {}, sampleMedia: [], descFields: {}, sampleKeys: [] };
+  const ogd = html && html.match(/<meta[^>]+(?:property|name)=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+  out.ogDescription = ogd ? ogd[1].slice(0, 160) : "";
+  const cache = parseApolloState(html || "");
+  if (!cache) return out;
+  out.hasNextData = true;
+  out.sampleKeys = Object.keys(cache).slice(0, 40);
+  for (const [k, obj] of Object.entries(cache)) {
+    if (!obj || typeof obj !== "object") continue;
+    const tn = obj.__typename || k.split(":")[0] || "?";
+    out.typenames[tn] = (out.typenames[tn] || 0) + 1;
+    if (Array.isArray(obj.media)) {
+      for (const item of obj.media) {
+        const m = item?.__ref ? cache[item.__ref] : item;
+        if (!m) continue;
+        if (m.role) out.mediaRoles[m.role] = (out.mediaRoles[m.role] || 0) + 1;
+        if (m.type) out.mediaTypes[m.type] = (out.mediaTypes[m.type] || 0) + 1;
+        if (out.sampleMedia.length < 10 && m.url) out.sampleMedia.push({ role: m.role || null, type: m.type || null, url: String(m.url).slice(0, 90) });
+      }
+    }
+    for (const f of ["longDescription", "description", "shortDescription", "conceptDescription"]) {
+      if (typeof obj[f] === "string") out.descFields[f] = Math.max(out.descFields[f] || 0, obj[f].length);
     }
   }
   return out;
+}
+
+// Busca un título en PSN y devuelve el primer ID de producto (para el modo debug).
+async function psnSearchFirstId(title) {
+  const url = `${PSN_BASE}/search/${encodeURIComponent(title)}`;
+  const r = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "es-CR,es;q=0.9,en;q=0.8" } });
+  if (!r.ok) return "";
+  const cache = parseApolloState(await r.text());
+  if (!cache) return "";
+  for (const obj of Object.values(cache)) {
+    if (!obj || typeof obj !== "object") continue;
+    if (obj.__typename === "Product" && obj.id) return obj.id;
+    if (typeof obj.id === "string" && /^[A-Z]{2}\d/.test(obj.id)) return obj.id;
+  }
+  return "";
 }
 
 function stripTags(s) {
@@ -198,63 +298,78 @@ function decodeEntities(s) {
 
 // ─── Vandal (respaldo de ficha en español) ─────────────────────────────────────
 //
-// Vandal no tiene API pública, así que: 1) buscamos el juego, 2) tomamos el primer
-// resultado que sea una ficha de juego, 3) extraemos descripción e imágenes vía
-// Open Graph / JSON-LD (más estable que parsear el HTML interno).
-// NOTA: las URLs/selectores de Vandal pueden requerir ajuste contra el sitio real.
+// Vandal no tiene API pública: 1) buscamos el juego, 2) probamos los primeros
+// resultados, 3) usamos SOLO el que su título coincida con el buscado (evita
+// matches errados), 4) extraemos descripción/capturas vía JSON-LD. NO usamos
+// og:image como captura: en Vandal es una tarjeta para compartir (pixelada).
+// NOTA: la URL de búsqueda puede requerir ajuste contra el sitio real.
 const VANDAL_BASE = "https://vandal.elespanol.com";
 
 async function fetchVandalFicha(title) {
   const out = emptyFicha("");
-  const pageUrl = await findVandalPage(title);
-  if (!pageUrl) return out;
-
-  const r = await fetch(pageUrl, {
-    headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" },
-  });
-  if (!r.ok) return out;
-  const html = await r.text();
-
-  // 1) JSON-LD (schema VideoGame) si Vandal lo expone.
-  for (const block of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]+?)<\/script>/gi)) {
+  const candidates = await findVandalPages(title);
+  for (const pageUrl of candidates) {
+    let html;
     try {
-      const ld = JSON.parse(block[1].trim());
-      const node = Array.isArray(ld) ? ld.find(x => /VideoGame|Game|Product/i.test(x["@type"] || "")) : ld;
-      if (node) {
+      const r = await fetch(pageUrl, { headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" }, signal: AbortSignal.timeout(6000) });
+      if (!r.ok) continue;
+      html = await r.text();
+    } catch { continue; }
+
+    // Verificar que la página corresponde al juego buscado (evita "Fatekeeper"
+    // y otros destacados no relacionados que el buscador pueda devolver).
+    const pageTitle = (html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<title>([^<]+)<\/title>/i)?.[1] || "");
+    if (!titlesMatch(title, pageTitle)) continue;
+
+    // JSON-LD (schema VideoGame) — única fuente confiable de capturas reales.
+    for (const block of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]+?)<\/script>/gi)) {
+      try {
+        const ld = JSON.parse(block[1].trim());
+        const node = Array.isArray(ld) ? ld.find(x => /VideoGame|Game/i.test(x["@type"] || "")) : ld;
+        if (!node) continue;
         if (node.description) out.description = decodeEntities(stripTags(node.description)).trim();
-        if (node.genre) out.genres = [].concat(node.genre).filter(Boolean).slice(0, 6);
+        if (node.genre) out.genres = normalizeGenres(node.genre);
         if (node.publisher) out.publisher = (typeof node.publisher === "string" ? node.publisher : node.publisher?.name) || "";
         if (node.image) out.screenshots = [].concat(node.image).map(i => (typeof i === "string" ? i : i?.url)).filter(Boolean).slice(0, 6);
         if (node.datePublished) out.released = String(node.datePublished).slice(0, 10);
-      }
-    } catch { /* sigo con OG */ }
-  }
+      } catch { /* sigo */ }
+    }
 
-  // 2) Open Graph como respaldo de la descripción/imagen.
-  if (!out.description) {
-    const ogd = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
-    if (ogd) out.description = decodeEntities(ogd[1]).trim();
-  }
-  if (!out.screenshots.length) {
-    const ogi = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
-    if (ogi) out.screenshots = [ogi[1]];
+    // Descripción de respaldo (texto, NO imagen) si el JSON-LD no la trajo.
+    if (!out.description) {
+      const ogd = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i);
+      if (ogd) out.description = decodeEntities(ogd[1]).trim();
+    }
+    if (out.description || out.screenshots.length) return out; // match válido
   }
   return out;
 }
 
-async function findVandalPage(title) {
+// Compara el título buscado con el de la página: inclusión o ≥60% de palabras.
+function titlesMatch(a, b) {
+  const norm = s => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const A = norm(a), B = norm(b);
+  if (!A || !B) return false;
+  if (B.includes(A) || A.includes(B)) return true;
+  const aw = A.split(" ").filter(w => w.length > 2);
+  if (!aw.length) return false;
+  const bw = new Set(B.split(" "));
+  return aw.filter(w => bw.has(w)).length / aw.length >= 0.6;
+}
+
+async function findVandalPages(title) {
   const q = encodeURIComponent(title.replace(/[™®©]/g, "").trim());
-  // Buscador de Vandal. Si cambia el patrón, ajustar acá.
   const searchUrl = `${VANDAL_BASE}/busqueda?texto=${q}`;
   try {
-    const r = await fetch(searchUrl, { headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" } });
-    if (!r.ok) return "";
+    const r = await fetch(searchUrl, { headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9" }, signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return [];
     const html = await r.text();
-    // Primer enlace a una ficha de juego (/juegos/ o /fichas/).
-    const m = html.match(/href=["'](\/(?:juegos|fichas)\/[^"']+)["']/i);
-    if (m) return m[1].startsWith("http") ? m[1] : `${VANDAL_BASE}${m[1]}`;
-  } catch { /* sin resultado */ }
-  return "";
+    // Enlaces a fichas de juego (/juegos/<algo>/<algo> o /fichas/...). Pedimos al
+    // menos dos segmentos para descartar páginas de categoría (/juegos/ps5).
+    const links = [...html.matchAll(/href=["'](\/(?:juegos|fichas)\/[^"'#?]+\/[^"'#?]+)["']/gi)].map(m => m[1]);
+    return [...new Set(links)].slice(0, 3).map(u => (u.startsWith("http") ? u : `${VANDAL_BASE}${u}`));
+  } catch { return []; }
 }
 
 // ─── Nintendo helpers ─────────────────────────────────────────────────────────
