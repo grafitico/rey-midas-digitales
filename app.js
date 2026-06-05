@@ -792,6 +792,7 @@ function renderPlatform(platform, page = 1) {
         <a class="cta" href="https://wa.me/${CONFIG.whatsapp}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
       </section>
     `;
+    if (platform === 'PS4') mountDragonCanvas();
     return;
   }
   const list = allGames.filter(g => g.platform.includes(platform));
@@ -809,6 +810,7 @@ function renderPlatform(platform, page = 1) {
     </section>
   `;
   mountToolbar(list, page, `/plataforma/${platform}`, true);
+  if (platform === 'PS4') mountDragonCanvas();
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -3068,14 +3070,226 @@ function faqInlineHTML(limit) {
 }
 
 function heroSlimHTML(platform) {
+  const isPs4 = platform === 'PS4';
   return `
-    <section class="hero slim">
+    <section class="hero slim${isPs4 ? ' hero--ps4' : ''}">
       <div class="hero-glow"></div>
-      <div class="container hero-inner">
+      ${isPs4 ? '<canvas id="ps4-dragon-canvas" aria-hidden="true"></canvas>' : ''}
+      <div class="container hero-inner"${isPs4 ? ' style="display:none"' : ''}>
         <h1 class="slim-title">${escapeHtml(platform)}</h1>
       </div>
     </section>
   `;
+}
+
+function mountDragonCanvas() {
+  const canvas = document.getElementById('ps4-dragon-canvas');
+  if (!canvas) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  function resize() { W = canvas.width = canvas.offsetWidth || 400; H = canvas.height = canvas.offsetHeight || 160; }
+  resize();
+  const onResize = () => resize();
+  window.addEventListener('resize', onResize);
+
+  let t = 0, phase = 0, dragonX = 0, knightX = 0, textAlpha = 0;
+  let fire = [], sparks = [];
+
+  const DX = () => W * 0.62;
+  const KX = () => W * 0.38;
+  const GY = () => H * 0.78;
+  const DY = () => H * 0.42;
+  function easeOut(x) { return 1 - Math.pow(1 - Math.min(x, 1), 3); }
+
+  function init() {
+    dragonX = W + 120; knightX = -130;
+    textAlpha = 0; fire = []; sparks = [];
+    phase = 0; t = 0;
+  }
+
+  function drawDragon(x, y) {
+    ctx.save(); ctx.translate(x, y);
+    const flap = Math.sin(t * 0.18) > 0;
+    // Tail
+    ctx.strokeStyle = '#8b1a1a'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(40,4); ctx.quadraticCurveTo(56,16,68,4); ctx.quadraticCurveTo(78,-4,84,10); ctx.stroke();
+    ctx.fillStyle = '#5a0d0d'; ctx.beginPath(); ctx.moveTo(81,10); ctx.lineTo(92,5); ctx.lineTo(81,18); ctx.closePath(); ctx.fill();
+    // Wing
+    const wy = flap ? -32 : -10;
+    ctx.fillStyle = '#5a0d0d';
+    ctx.beginPath(); ctx.moveTo(12,-10); ctx.quadraticCurveTo(22,wy-18,50,wy-4); ctx.quadraticCurveTo(35,wy+4,18,6); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#3a0808'; ctx.lineWidth = 1;
+    [-3,4,11].forEach(d => { ctx.beginPath(); ctx.moveTo(12+d*2,-4); ctx.lineTo(30+d*3,wy-2); ctx.stroke(); });
+    // Body
+    ctx.fillStyle = '#8b1a1a'; ctx.beginPath(); ctx.ellipse(0,0,38,20,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#c8501a'; ctx.beginPath(); ctx.ellipse(-4,8,26,12,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#a01a1a'; [-24,-12,0,12].forEach(sx => { ctx.beginPath(); ctx.arc(sx,-7,3.5,0,Math.PI); ctx.fill(); });
+    // Neck
+    ctx.fillStyle = '#8b1a1a';
+    ctx.beginPath(); ctx.moveTo(-33,-4); ctx.lineTo(-55,-16); ctx.lineTo(-50,2); ctx.lineTo(-33,6); ctx.closePath(); ctx.fill();
+    // Head
+    ctx.fillStyle = '#8b1a1a';
+    ctx.beginPath(); ctx.moveTo(-50,-16); ctx.lineTo(-78,-12); ctx.lineTo(-86,-2); ctx.lineTo(-80,7); ctx.lineTo(-54,7); ctx.lineTo(-48,-4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#701010';
+    ctx.beginPath(); ctx.moveTo(-76,0); ctx.lineTo(-88,3); ctx.lineTo(-86,9); ctx.lineTo(-72,7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff8e0'; [-76,-80,-84].forEach(tx => { ctx.beginPath(); ctx.moveTo(tx,2); ctx.lineTo(tx+2,9); ctx.lineTo(tx+4,2); ctx.closePath(); ctx.fill(); });
+    ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.arc(-68,-8,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-67,-8,2,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#500a0a'; ctx.beginPath(); ctx.arc(-81,-6,2,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function spawnFire(hx, hy) {
+    for (let i = 0; i < 3; i++) {
+      fire.push({ x: hx+(Math.random()-0.5)*6, y: hy+(Math.random()-0.5)*8, vx: -(2+Math.random()*3), vy: (Math.random()-0.5)*1.2, r: 8+Math.random()*12, life: 1 });
+    }
+    if (fire.length > 60) fire.splice(0, 3);
+  }
+  function updateFire() {
+    fire.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.r*=0.94; p.life-=0.033; p.vx*=0.97; });
+    fire = fire.filter(p => p.life > 0 && p.r > 1);
+  }
+  function drawFire() {
+    fire.forEach(p => {
+      ctx.save(); ctx.globalAlpha = p.life * 0.85;
+      ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 14;
+      const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+      g.addColorStop(0,'#ffffa0'); g.addColorStop(0.4,'#ff7700'); g.addColorStop(1,'transparent');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); ctx.restore();
+    });
+  }
+
+  function drawKnight(x, y) {
+    ctx.save(); ctx.translate(x, y);
+    const run = Math.sin(t * 0.28) * 10;
+    // Horse body
+    ctx.fillStyle = '#6b3a1f'; ctx.beginPath(); ctx.ellipse(0,0,40,20,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#7a4a28'; ctx.beginPath(); ctx.ellipse(0,8,28,11,0,0,Math.PI*2); ctx.fill();
+    // Legs
+    ctx.strokeStyle = '#4a2510'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    [[24,13,26,35+run],[28,13,20,35-run],[-24,13,-22,35-run],[-28,13,-30,35+run]].forEach(([x1,y1,x2,y2]) => {
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    });
+    // Horse neck & head
+    ctx.fillStyle = '#6b3a1f';
+    ctx.beginPath(); ctx.moveTo(30,-8); ctx.lineTo(46,-20); ctx.lineTo(50,-5); ctx.lineTo(34,4); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(44,-20); ctx.lineTo(62,-16); ctx.lineTo(67,-7); ctx.lineTo(62,2); ctx.lineTo(44,0); ctx.lineTo(42,-10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#1a0a00'; ctx.beginPath(); ctx.arc(56,-13,2.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#2a1008'; [28,34,40].forEach((mx,i) => { ctx.beginPath(); ctx.arc(mx,-19-(i%2)*3,3.5,0,Math.PI*2); ctx.fill(); });
+    // Armor torso
+    ctx.fillStyle = '#a0a8b0'; ctx.fillRect(-12,-52,24,28);
+    ctx.strokeStyle = '#787880'; ctx.lineWidth = 1.5; ctx.strokeRect(-12,-52,24,28);
+    ctx.beginPath(); ctx.moveTo(-12,-39); ctx.lineTo(12,-39); ctx.stroke();
+    // Helmet
+    ctx.fillStyle = '#8890a0'; ctx.beginPath(); ctx.arc(0,-60,12,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a1a2a'; ctx.fillRect(-6,-63,13,5);
+    ctx.fillStyle = '#c80000'; ctx.beginPath(); ctx.moveTo(-3,-73); ctx.lineTo(3,-73); ctx.lineTo(4,-58); ctx.lineTo(-4,-58); ctx.closePath(); ctx.fill();
+    // Shield
+    ctx.fillStyle = '#1a3a8b';
+    ctx.beginPath(); ctx.moveTo(-14,-50); ctx.lineTo(-28,-44); ctx.lineTo(-31,-26); ctx.lineTo(-14,-20); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-22,-43); ctx.lineTo(-22,-27); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-31,-35); ctx.lineTo(-14,-35); ctx.stroke();
+    // Sword
+    const sw = phase === 3 ? Math.sin(t * 0.25) * 0.5 - 0.3 : -0.5;
+    ctx.save(); ctx.translate(14,-48); ctx.rotate(sw);
+    ctx.fillStyle = '#d0d8e0'; ctx.fillRect(-2.5,-36,5,36);
+    ctx.fillStyle = '#8b6914'; ctx.fillRect(-7,-2,14,5);
+    ctx.fillStyle = '#5a3010'; ctx.fillRect(-2,3,4,12);
+    ctx.fillStyle = '#8b6914'; ctx.beginPath(); ctx.arc(0,18,4,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.restore();
+  }
+
+  function spawnSparks(x, y) {
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random()*Math.PI*2, spd = 2+Math.random()*5;
+      sparks.push({ x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd - 1, life: 1, col: Math.random()>0.5 ? '#ffd700' : '#ff6600' });
+    }
+  }
+  function updateSparks() {
+    sparks.forEach(s => { s.x+=s.vx; s.y+=s.vy; s.vy+=0.25; s.life-=0.06; });
+    sparks = sparks.filter(s => s.life > 0);
+  }
+  function drawSparks() {
+    sparks.forEach(s => {
+      ctx.save(); ctx.globalAlpha = s.life;
+      ctx.fillStyle = s.col; ctx.shadowColor = s.col; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(s.x,s.y,2.5,0,Math.PI*2); ctx.fill(); ctx.restore();
+    });
+  }
+
+  const DUR = { fly:90, fire:80, knight:80, combat:110, textIn:45, textHold:90 };
+
+  function update() {
+    t++;
+    const dT = DX(), kT = KX(), gY = GY();
+    if (phase === 0) {
+      dragonX = W + 120 - (W + 120 - dT) * easeOut(t / DUR.fly);
+      if (t >= DUR.fly) { dragonX = dT; phase = 1; t = 0; }
+    } else if (phase === 1) {
+      spawnFire(dragonX - 90, DY()); updateFire();
+      if (t >= DUR.fire) { phase = 2; t = 0; }
+    } else if (phase === 2) {
+      updateFire();
+      knightX = -130 + (kT + 130) * easeOut(t / DUR.knight);
+      if (t >= DUR.knight) { knightX = kT; phase = 3; t = 0; fire = []; }
+    } else if (phase === 3) {
+      if (t % 18 === 0) spawnSparks((dT + kT) / 2, gY - 78);
+      if (t % 6 < 3) { dragonX = dT + (Math.random()-0.5)*5; knightX = kT + (Math.random()-0.5)*5; }
+      updateSparks();
+      if (t >= DUR.combat) { phase = 4; t = 0; dragonX = dT; knightX = kT; sparks = []; }
+    } else if (phase === 4) {
+      updateSparks(); textAlpha = Math.min(1, t / 30);
+      if (t >= DUR.textIn) { phase = 5; t = 0; textAlpha = 1; }
+    } else if (phase === 5) {
+      if (t > DUR.textHold - 35) textAlpha = Math.max(0, 1 - (t - (DUR.textHold - 35)) / 35);
+      if (t >= DUR.textHold) init();
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#1a0a25'); bg.addColorStop(1,'#07070c');
+    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+    const gY = GY();
+    ctx.strokeStyle = 'rgba(245,196,81,0.25)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0,gY); ctx.lineTo(W,gY); ctx.stroke();
+    const gg = ctx.createLinearGradient(0,gY,0,gY+18);
+    gg.addColorStop(0,'rgba(245,196,81,0.12)'); gg.addColorStop(1,'transparent');
+    ctx.fillStyle = gg; ctx.fillRect(0,gY,W,18);
+    drawDragon(dragonX, DY());
+    if (phase === 1 || phase === 2) drawFire();
+    if (phase >= 2) drawKnight(knightX, gY - 36);
+    if (phase >= 3) drawSparks();
+    if (textAlpha > 0) {
+      ctx.save(); ctx.globalAlpha = textAlpha;
+      const fs = Math.max(16, Math.min(34, W * 0.046));
+      ctx.font = `900 ${fs}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#f5c451'; ctx.shadowBlur = 22;
+      ctx.fillStyle = '#f5c451';
+      ctx.fillText('Juegos PlayStation 4', W / 2, H / 2);
+      ctx.restore();
+    }
+  }
+
+  init();
+  let animId = null;
+  const obs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { if (!animId) loop(); }
+    else { if (animId) { cancelAnimationFrame(animId); animId = null; } }
+  }, { threshold: 0.1 });
+  obs.observe(canvas);
+
+  function loop() {
+    if (!document.contains(canvas)) { obs.disconnect(); window.removeEventListener('resize', onResize); return; }
+    update(); draw();
+    animId = requestAnimationFrame(loop);
+  }
 }
 
 function howToHTML() {
