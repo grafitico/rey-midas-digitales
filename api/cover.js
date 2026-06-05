@@ -64,21 +64,20 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── Ficha de Xbox por ID (catálogo de Microsoft, en español, sin cupo) ──────
+  // ── Ficha desde el catálogo de Microsoft (descripción ES + CAPTURAS, sin cupo) ─
+  //    ?xboxId=<id>      para juegos Xbox (id directo)
+  //    ?xboxSearch=<q>   para cualquier juego (PS multiplataforma) buscando por título
   const xboxId = (req.query.xboxId || "").toString().trim();
   if (xboxId) {
+    try { return res.status(200).json({ ...(await xboxFichaById(xboxId)), source: "xbox" }); }
+    catch (e) { return res.status(200).json({ ...emptyFicha(""), source: "xbox", error: e.message }); }
+  }
+  const xboxSearch = (req.query.xboxSearch || "").toString().trim();
+  if (xboxSearch) {
     try {
-      const url = `https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=${encodeURIComponent(xboxId)}&market=MX&languages=es-MX&fieldsTemplate=Details`;
-      const r = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)", "Accept": "application/json", "MS-CV": "ReyMidas.1" },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!r.ok) return res.status(200).json({ ...emptyFicha(""), source: "xbox" });
-      const data = await r.json();
-      return res.status(200).json({ ...extractXboxFicha((data.Products || [])[0]), source: "xbox" });
-    } catch (e) {
-      return res.status(200).json({ ...emptyFicha(""), source: "xbox", error: e.message });
-    }
+      const id = await xboxSearchFirstId(xboxSearch);
+      return res.status(200).json({ ...(id ? await xboxFichaById(id) : emptyFicha("")), source: "xbox" });
+    } catch (e) { return res.status(200).json({ ...emptyFicha(""), source: "xbox", error: e.message }); }
   }
 
   // ── Tráiler de YouTube por título (sin API key, sin configurar nada) ────────
@@ -362,9 +361,39 @@ function decodeEntities(s) {
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
 }
 
-// ─── Xbox (catálogo de Microsoft) ───────────────────────────────────────────────
-// Ficha desde displaycatalog (la misma API del scraper, gratis y sin cupo). Trae
-// descripción en español + CAPTURAS (ImagePurpose=Screenshot), que PSN no expone.
+// ─── Xbox / Microsoft Store (catálogo, gratis y sin cupo) ───────────────────────
+// displaycatalog (la misma API del scraper) trae descripción en español +
+// CAPTURAS (ImagePurpose=Screenshot), que PSN no expone. Sirve para juegos Xbox y
+// también para juegos de PS multiplataforma (que también están en la tienda MS).
+
+// Ficha por ID del catálogo de Microsoft.
+async function xboxFichaById(id) {
+  const url = `https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=${encodeURIComponent(id)}&market=MX&languages=es-MX&fieldsTemplate=Details`;
+  const r = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)", "Accept": "application/json", "MS-CV": "ReyMidas.1" },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) return emptyFicha("");
+  const data = await r.json();
+  return extractXboxFicha((data.Products || [])[0]);
+}
+
+// Busca un título en el autosuggest público de la Microsoft Store (clientId fijo
+// que usa la propia web de MS) y devuelve el primer ProductId.
+async function xboxSearchFirstId(title) {
+  const url = `https://www.microsoft.com/msstoreapiprod/api/autosuggest?market=es-mx&clientId=7F27B536-CF6B-4C65-8638-A0F8CBDFCA65&sources=DCatAll-Products&query=${encodeURIComponent(title)}`;
+  const r = await fetch(url, { headers: { "User-Agent": UA, "Accept": "application/json" }, signal: AbortSignal.timeout(7000) });
+  if (!r.ok) return "";
+  const data = await r.json();
+  const suggests = [];
+  for (const rs of (data.ResultSets || [])) for (const s of (rs.Suggests || [])) suggests.push(s);
+  // Preferir un resultado cuyo título coincida con el buscado (evita capturas de
+  // otro juego); si ninguno coincide claramente, usar el primero.
+  const pick = suggests.find(s => titlesMatch(title, s.Title || "")) || suggests[0];
+  const meta = (pick?.Metas || []).find(m => m.Key === "BigCatalogId" || m.Key === "ProductId");
+  return meta?.Value || "";
+}
+
 function extractXboxFicha(p) {
   const out = emptyFicha("");
   if (!p) return out;

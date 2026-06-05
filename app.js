@@ -4,13 +4,13 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-06-05b";
+const APP_CACHE_VERSION = "2026-06-05c";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
     const stalePrefixes = [
       "psn-cover:", "psn-ficha:", "vandal-ficha:", "xbox-ficha:", "rawg-media:",
-      "yt-trailer:", "rawg-cover:", "rawg-meta:", "rawg-indie:", "rawg:",
+      "ms-ficha:", "yt-trailer:", "rawg-cover:", "rawg-meta:", "rawg-indie:", "rawg:",
       "igdb-cover:", "igdb:", "steam-cover:", "cover:",
     ];
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -1104,7 +1104,16 @@ async function enrichGameFicha(game) {
     if (vandal) { mergeFicha(f, vandal); if (!f._source && vandal.description) f._source = "Vandal"; }
   }
 
-  // (B) Capturas y metadatos que falten: base de datos de juegos (RAWG/IGDB).
+  // (B) CAPTURAS sin cupo: catálogo de Microsoft por título. La mayoría de los
+  // juegos de PS son multiplataforma y están también en la tienda MS, así que de
+  // acá salen las capturas (y descripción/géneros si aún faltan) sin gastar RAWG.
+  if (!xboxId && !f.screenshots.length) {
+    const ms = await fetchXboxFichaByTitle(game.title);
+    if (slot.dataset.title !== game.title) return;
+    if (ms) { mergeFicha(f, ms); if (!f._source && ms.description) f._source = "Xbox"; }
+  }
+
+  // (C) Último recurso (RAWG/IGDB, con cupo): solo si todavía falta algo.
   // Las imágenes son neutrales al idioma; PSN NO las expone en el HTML (las carga
   // por JS), así que las traemos de acá. La descripción de RAWG (inglés) solo se
   // usa si no hubo ninguna en español.
@@ -1160,7 +1169,7 @@ function mergeFicha(dst, src) {
   if (src.released && !dst.released) dst.released = src.released;
 }
 
-// Ficha de Xbox (descripción ES + capturas) desde el catálogo de Microsoft. Cacheada.
+// Ficha de Xbox por ID (descripción ES + capturas) desde el catálogo de Microsoft.
 async function fetchXboxFicha(xboxId) {
   const key = `xbox-ficha:v1:${xboxId}`;
   const cached = readRawgCache(key);
@@ -1168,6 +1177,21 @@ async function fetchXboxFicha(xboxId) {
   let f = null;
   try {
     const r = await fetch(`/api/cover?xboxId=${encodeURIComponent(xboxId)}`);
+    f = await r.json();
+  } catch { f = null; }
+  const value = fichaHasContent(f) ? f : null;
+  writeRawgCache(key, value || { miss: true });
+  return value;
+}
+
+// Capturas (sin cupo) buscando el juego por título en el catálogo de Microsoft.
+async function fetchXboxFichaByTitle(title) {
+  const key = `ms-ficha:v1:${matchKey(title)}`;
+  const cached = readRawgCache(key);
+  if (cached !== undefined) return cached?.miss ? null : cached;
+  let f = null;
+  try {
+    const r = await fetch(`/api/cover?xboxSearch=${encodeURIComponent(cleanTitleForRawg(title))}`);
     f = await r.json();
   } catch { f = null; }
   const value = fichaHasContent(f) ? f : null;
