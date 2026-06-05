@@ -1,0 +1,44 @@
+# Environment variables
+.env.local
+.env*.local
+.env
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+.next/
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Scraper temporal files
+covers-temp/
+covers-database.json
+covers-database-*.json
+
+# Cron logs
+logs/
+
+# Vercel
+.vercel/
+
+# Testing
+coverage/
+.nyc_output/

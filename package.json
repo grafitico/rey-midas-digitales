@@ -2,5 +2,16 @@
   "name": "rey-midas-digitales",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod",
+    "scrape:steam": "node scripts/scrape-covers.js --source=steam --limit=500",
+    "scrape:all": "node scripts/scrape-covers.js --source=all --limit=1000",
+    "scrape:upload": "node scripts/scrape-covers.js --source=steam --limit=500 --upload-to-bana"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.1",
+    "basic-ftp": "^11.2.0"
+  }
 }
