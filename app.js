@@ -831,7 +831,6 @@ function renderPlatform(platform, page = 1) {
         <a class="cta" href="https://wa.me/${CONFIG.whatsapp}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
       </section>
     `;
-    if (platform === 'PS4') mountDragonCanvas();
     return;
   }
   const list = allGames.filter(g => g.platform.includes(platform));
@@ -849,7 +848,6 @@ function renderPlatform(platform, page = 1) {
     </section>
   `;
   mountToolbar(list, page, `/plataforma/${platform}`, true);
-  if (platform === 'PS4') mountDragonCanvas();
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -3359,7 +3357,9 @@ function heroSlimHTML(platform) {
   return `
     <section class="hero slim${isPs4 ? ' hero--ps4' : ''}">
       <div class="hero-glow"></div>
-      ${isPs4 ? '<canvas id="ps4-dragon-canvas" aria-hidden="true"></canvas>' : ''}
+      ${isPs4 ? `<video class="ps4-banner-video" autoplay loop muted playsinline aria-hidden="true">
+        <source src="/ps4-banner.mp4" type="video/mp4">
+      </video>` : ''}
       <div class="container hero-inner"${isPs4 ? ' style="display:none"' : ''}>
         <h1 class="slim-title">${escapeHtml(platform)}</h1>
       </div>
