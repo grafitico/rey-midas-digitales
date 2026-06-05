@@ -3392,8 +3392,8 @@ function mountDragonCanvas() {
 
   const DW = () => Math.round(H * 0.85);   // dragon sprite width
   const DH = () => Math.round(H * 0.68);   // dragon sprite height
-  const KW = () => Math.round(H * 0.52);   // knight sprite width
-  const KH = () => Math.round(H * 0.60);   // knight sprite height
+  const KW = () => Math.round(H * 0.68);   // knight sprite width
+  const KH = () => Math.round(H * 0.80);   // knight sprite height
   const GY = () => Math.round(H * 0.72);   // ground Y
   const FLY_Y = () => Math.round(H * 0.30);// dragon flight Y (center)
   const DX_T = () => Math.round(W * 0.62); // dragon target X
@@ -3523,43 +3523,44 @@ function mountDragonCanvas() {
     ctx.restore();
   }
   function drawKnightSprite(x, y) {
+    const kw = KW(), kh = KH();
+    // Compensación de padding transparente del PNG (~12% abajo) + bob sutil
+    const groundAdj = kh * 0.12;
+    const bob = Math.sin(t * 0.10) * 2;
+    const tilt = Math.sin(t * 0.10) * 0.04; // oscilación que simula movimiento del brazo
     if (imgKnight.complete && imgKnight.naturalWidth) {
-      const kw = KW(), kh = KH();
-      ctx.drawImage(imgKnight, x - kw/2, y - kh, kw, kh);
+      ctx.save();
+      ctx.translate(x, y - kh * 0.5 + groundAdj + bob);
+      ctx.rotate(tilt);
+      ctx.drawImage(imgKnight, -kw/2, -kh/2, kw, kh);
+      ctx.restore();
     } else {
       // Silueta negra geométrica (fallback)
-      const sc = KH() / 110;
-      ctx.save(); ctx.translate(x, y);
+      const sc = kh / 110;
+      ctx.save(); ctx.translate(x, y + 5*sc + groundAdj + bob);
+      ctx.rotate(tilt);
       ctx.scale(sc, sc);
       const run = Math.sin(t * 0.28) * 10;
       ctx.fillStyle = '#111';
-      // Cuerpo del caballo
       ctx.beginPath(); ctx.ellipse(0,-40,42,21,0,0,Math.PI*2); ctx.fill();
-      // Patas
       ctx.strokeStyle = '#111'; ctx.lineWidth = 7; ctx.lineCap = 'round';
       [[24,-27,26,-5+run],[28,-27,20,-5-run],[-24,-27,-22,-5-run],[-28,-27,-30,-5+run]].forEach(([x1,y1,x2,y2]) => {
         ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       });
-      // Cabeza del caballo (derecha)
       ctx.fillStyle = '#111';
       ctx.beginPath(); ctx.moveTo(30,-50); ctx.lineTo(46,-62); ctx.lineTo(50,-48); ctx.lineTo(34,-40); ctx.closePath(); ctx.fill();
       ctx.beginPath(); ctx.moveTo(44,-62); ctx.lineTo(62,-58); ctx.lineTo(67,-49); ctx.lineTo(62,-40); ctx.lineTo(44,-42); ctx.lineTo(42,-52); ctx.closePath(); ctx.fill();
-      // Melena
       [28,34,40].forEach((mx,i) => { ctx.beginPath(); ctx.arc(mx,-62-(i%2)*3,4,0,Math.PI*2); ctx.fill(); });
-      // Armadura cuerpo
       ctx.fillRect(-13,-94,25,30);
-      // Casco
       ctx.beginPath(); ctx.arc(0,-102,13,0,Math.PI*2); ctx.fill();
-      // Visera
       ctx.fillStyle = '#ccc'; ctx.fillRect(-6,-106,14,5);
-      // Escudo
       ctx.fillStyle = '#111';
       ctx.beginPath(); ctx.moveTo(-15,-92); ctx.lineTo(-29,-86); ctx.lineTo(-32,-68); ctx.lineTo(-15,-62); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#f0ebe0'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(-23,-85); ctx.lineTo(-23,-69); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-32,-77); ctx.lineTo(-15,-77); ctx.stroke();
-      // Espada
-      const sw = phase === 3 ? Math.sin(t*0.25)*0.5 - 0.3 : -0.5;
+      // Espada siempre animada
+      const sw = Math.sin(t * (phase === 3 ? 0.25 : 0.08)) * (phase === 3 ? 0.5 : 0.18) - 0.35;
       ctx.save(); ctx.translate(14,-90); ctx.rotate(sw);
       ctx.fillStyle = '#aaa'; ctx.fillRect(-2,-38,4,38);
       ctx.fillStyle = '#111'; ctx.fillRect(-7,-2,14,5); ctx.fillRect(-2,3,4,14);
