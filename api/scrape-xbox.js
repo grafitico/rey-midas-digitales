@@ -108,6 +108,10 @@ function normalize(p) {
   const title = lp.ProductTitle || lp.ShortTitle;
   if (!title) return null;
 
+  // Filtrar juegos PC-only (Game Pass for PC sin soporte en consola Xbox).
+  const props = p.Properties || {};
+  if (props.XboxTitle === false && props.IsXboxPlayAnywhere !== true) return null;
+
   // Imagen: buscamos primero la Poster, después cualquier otra
   let imageUrl = "";
   const images = lp.Images || [];

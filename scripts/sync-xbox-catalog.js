@@ -144,6 +144,15 @@ function normalize(p) {
   const title = lp.ProductTitle || lp.ShortTitle;
   if (!title) return null;
 
+  // Filtrar juegos PC-only (Game Pass for PC sin soporte en consola Xbox).
+  // El SIGL mezcla títulos de Xbox Console y de PC; XboxTitle===false indica
+  // que el producto es exclusivo de Windows y no sirve para la tienda.
+  // IsXboxPlayAnywhere===true lo rescata porque corre en ambas plataformas.
+  // Si XboxTitle está ausente (undefined) conservamos el juego para no
+  // descartar títulos válidos cuando la API no devuelve el campo.
+  const props = p.Properties || {};
+  if (props.XboxTitle === false && props.IsXboxPlayAnywhere !== true) return null;
+
   // Imagen: Poster > BoxArt > SuperHeroArt > Tile > primera disponible
   let imageUrl = "";
   const images = lp.Images || [];
