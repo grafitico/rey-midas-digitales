@@ -35,66 +35,77 @@ const LOCAL_COVERS_DIR = path.join(process.cwd(), "covers-temp");
 const COVERS_DB_FILE = path.join(process.cwd(), "covers-database.json");
 
 // ============================================================================
-// SCRAPER DE STEAM (mejor calidad, sin restricciones)
+// SCRAPER DE STEAM (alternativa: usa RAWG para obtener metadatos de juegos Steam)
 // ============================================================================
 async function scrapeFromSteam(limit = 1000) {
-  console.log(`\n📦 STEAM: Buscando ${limit} juegos...`);
+  console.log(`\n📦 STEAM (via RAWG): Buscando ${limit} juegos...`);
 
   const covers = {};
   let count = 0;
 
-  // Lista de juegos populares en Steam (puedes expandirla)
-  const popularIds = [
-    570940,   // Elden Ring
-    2348590,  // S.T.A.L.K.E.R. 2
-    292030,   // The Witcher 3
-    1091500,  // Cyberpunk 2077
-    976730,   // Hogwarts Legacy
-    252490,   // Valheim
-    1517290,  // Starfield
-    570090,   // God of War
-    1313860,  // It Takes Two
-    1378720,  // Deep Rock Galactic
-    // ... agregar más (puedes scrapear de SteamDB)
+  // Lista de IDs RAWG de juegos populares en Steam
+  // Formato: { rawgId, title, steamId }
+  const popularGames = [
+    { rawgId: "elden-ring", title: "Elden Ring" },
+    { rawgId: "the-witcher-3", title: "The Witcher 3" },
+    { rawgId: "cyberpunk-2077", title: "Cyberpunk 2077" },
+    { rawgId: "hogwarts-legacy", title: "Hogwarts Legacy" },
+    { rawgId: "baldurs-gate-3", title: "Baldur's Gate 3" },
+    { rawgId: "starfield", title: "Starfield" },
+    { rawgId: "palworld", title: "Palworld" },
+    { rawgId: "dragon-age-the-veilguard", title: "Dragon Age: The Veilguard" },
+    { rawgId: "final-fantasy-vii-remake", title: "Final Fantasy VII Remake" },
+    { rawgId: "the-last-of-us-part-i", title: "The Last of Us Part I" },
+    { rawgId: "tekken-8", title: "Tekken 8" },
+    { rawgId: "hades", title: "Hades" },
+    { rawgId: "hollow-knight-silksong", title: "Hollow Knight: Silksong" },
+    { rawgId: "it-takes-two", title: "It Takes Two" },
+    { rawgId: "deep-rock-galactic", title: "Deep Rock Galactic" },
+    { rawgId: "monster-hunter-world", title: "Monster Hunter: World" },
+    { rawgId: "sekiro-shadows-die-twice", title: "Sekiro: Shadows Die Twice" },
+    { rawgId: "dark-souls-3", title: "Dark Souls 3" },
+    { rawgId: "bloodborne", title: "Bloodborne" },
+    { rawgId: "zelda-breath-of-the-wild", title: "Zelda: Breath of the Wild" },
+    // Agregar más según necesidad
   ];
 
-  for (const steamId of popularIds) {
+  for (const game of popularGames) {
     if (count >= limit) break;
 
     try {
-      // Alternativas de URLs de Steam (en orden de preferencia)
-      const imageUrls = [
-        `https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/library_600x900_2x.jpg`,
-        `https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/hero.jpg`,
-        `https://cdn.akamai.steamstatic.com/steam/apps/${steamId}/library_hero.jpg`,
-      ];
+      // RAWG tiene URLs públicas de carátulas
+      // Buscamos el juego en RAWG
+      const searchUrl = `https://api.rawg.io/api/games?search=${encodeURIComponent(game.title)}&page_size=1`;
+      const res = await fetch(searchUrl, { timeout: 5000 });
 
-      let imageUrl = null;
-      for (const url of imageUrls) {
-        const res = await fetch(url, { timeout: 5000 });
-        if (res.ok) {
-          imageUrl = url;
-          break;
-        }
-      }
-
-      if (!imageUrl) {
-        console.log(`  ⚠️  Steam ${steamId}: No image found`);
+      if (!res.ok) {
+        console.log(`  ⚠️  ${game.title}: API error`);
         continue;
       }
 
-      const gameId = `steam-${steamId}`;
+      const data = await res.json();
+      const result = data.results?.[0];
+
+      if (!result || !result.background_image) {
+        console.log(`  ⚠️  ${game.title}: No image found`);
+        continue;
+      }
+
+      const gameId = `steam-${game.rawgId}`;
       covers[gameId] = {
         source: "steam",
-        steamId,
-        imageUrl,
+        title: game.title,
+        imageUrl: result.background_image,
         downloaded: false,
         optimized: false,
       };
       count++;
       console.log(`  ✓ ${gameId}`);
+
+      // Rate limiting
+      await new Promise(r => setTimeout(r, 100));
     } catch (e) {
-      console.error(`  ✗ Steam ${steamId}: ${e.message}`);
+      console.error(`  ✗ ${game.title}: ${e.message}`);
     }
   }
 
