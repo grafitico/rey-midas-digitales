@@ -6,9 +6,6 @@
 //   GET /api/rawg?mode=detail&id=<slug-o-id>
 //   GET /api/rawg?mode=debug
 //
-// Steam (sin API key, sin registro, sin cupo mensual):
-//   GET /api/rawg?mode=steam-cover&q=<titulo>
-//
 // IGDB (requiere IGDB_CLIENT_ID + IGDB_CLIENT_SECRET en Vercel — dev.twitch.tv):
 //   GET /api/rawg?mode=igdb-search&q=<titulo>
 //   GET /api/rawg?mode=igdb-detail&id=<titulo>
@@ -74,7 +71,7 @@ function normalizeIgdbGame(g) {
     id: g.id,
     slug: g.slug || String(g.id),
     title: g.name,
-    imageUrl: g.cover?.image_id ? igdbCoverUrl(g.cover.image_id) : "",
+    imageUrl: g.cover?.image_id ? igdbCoverUrl(g.cover.image_id, "cover_big_2x") : "",
     rating: g.total_rating ? +(g.total_rating / 10).toFixed(1) : 0,
     igdbScore: g.total_rating ? Math.round(g.total_rating) : null,
     metacritic: null,
@@ -101,24 +98,6 @@ export default async function handler(req, res) {
 
   const mode = (req.query.mode || "list").toString();
 
-  // ── Steam (sin auth, sin cupo mensual) ──────────────────────────────────────
-  if (mode === "steam-cover") {
-    const q = (req.query.q || "").toString().trim();
-    if (!q) return res.status(400).json({ success: false, error: "Falta q" });
-    try {
-      const url = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(q)}&cc=US&l=english`;
-      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)" } });
-      if (!r.ok) return res.status(200).json({ success: false, error: `Steam HTTP ${r.status}` });
-      const data = await r.json();
-      const hit = data?.items?.[0];
-      if (!hit?.id) return res.status(200).json({ success: true, imageUrl: "" });
-      const imageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${hit.id}/header.jpg`;
-      return res.status(200).json({ success: true, imageUrl, title: hit.name, appId: hit.id });
-    } catch (e) {
-      return res.status(500).json({ success: false, error: e.message });
-    }
-  }
-
   // ── IGDB (requiere IGDB_CLIENT_ID + IGDB_CLIENT_SECRET en Vercel) ───────────
   if (mode === "igdb-search" || mode === "igdb-detail") {
     if (!IGDB_CLIENT_ID || !IGDB_CLIENT_SECRET) {
@@ -140,8 +119,8 @@ export default async function handler(req, res) {
       if (!g) return res.status(200).json({ success: true, game: null });
       const normalized = normalizeIgdbGame(g);
       normalized.shortScreenshots = [
-        ...(g.artworks || []).slice(0, 2).map(a => igdbCoverUrl(a.image_id, "screenshot_big")),
-        ...(g.screenshots || []).slice(0, 4).map(s => igdbCoverUrl(s.image_id, "screenshot_big")),
+        ...(g.artworks || []).slice(0, 2).map(a => igdbCoverUrl(a.image_id, "screenshot_huge")),
+        ...(g.screenshots || []).slice(0, 4).map(s => igdbCoverUrl(s.image_id, "screenshot_huge")),
       ];
       return res.status(200).json({ success: true, game: normalized });
     } catch (e) {
