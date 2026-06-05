@@ -43,6 +43,23 @@ export async function sb(path, options = {}) {
   return data;
 }
 
+// Devuelve el count total de una query sin transferir filas.
+// Usa el header Content-Range que Supabase retorna con Prefer: count=exact.
+export async function sbCount(path) {
+  checkConfig();
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      "Prefer": "count=exact",
+      "Range": "0-0",
+    },
+  });
+  const range = res.headers.get("content-range") || "";
+  const match = range.match(/\/(\d+)$/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 // ===== Password hashing (scrypt) =====
 export function hashPassword(password) {
   const salt = crypto.randomBytes(16);

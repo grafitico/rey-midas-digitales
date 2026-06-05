@@ -4035,6 +4035,63 @@ html { scroll-behavior: smooth; }
 .cyber-status-dot { animation: cyber-dot-blink 1.6s infinite; }
 .cyber-status-dot:last-child { animation-delay: 0.8s; }
 
+/* Panel de tráfico */
+.cyber-traffic-panel {
+  background: rgba(0,229,255,0.015);
+  border: 1px solid rgba(0,229,255,0.15);
+  border-radius: 12px;
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.4rem;
+}
+.cyber-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: "Courier New", monospace;
+  font-size: 0.68rem;
+  color: #00ff88;
+  letter-spacing: 0.12em;
+}
+.cyber-live-dot-anim {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00ff88;
+  box-shadow: 0 0 7px #00ff88;
+  animation: cyber-dot-blink 1s infinite;
+  flex-shrink: 0;
+}
+.cyber-traffic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.cyber-traffic-stat { text-align: center; }
+.cyber-traffic-num {
+  display: block;
+  font-family: "Courier New", monospace;
+  font-size: clamp(1.5rem, 3.5vw, 2.4rem);
+  font-weight: 900;
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(0,229,255,0.55);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+  transition: color 0.3s, text-shadow 0.3s;
+}
+.cyber-traffic-num.is-live {
+  color: #00ff88;
+  text-shadow: 0 0 18px rgba(0,255,136,0.55);
+}
+.cyber-traffic-label {
+  font-family: "Courier New", monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  display: block;
+}
+
 /* === Responsive === */
 @media (max-width: 900px) {
   .cyber-counters-grid { grid-template-columns: repeat(2, 1fr); }
@@ -4047,4 +4104,6 @@ html { scroll-behavior: smooth; }
   .cyber-bar-value { font-size: 0.72rem; }
   .cyber-chart-title { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
   .cyber-footer-row { font-size: 0.55rem; letter-spacing: 0.1em; text-align: center; }
+  .cyber-traffic-grid { gap: 0.5rem; }
+  .cyber-traffic-num { font-size: 1.4rem; }
 }
