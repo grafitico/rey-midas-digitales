@@ -3488,17 +3488,84 @@ function mountDragonCanvas() {
     });
   }
 
-  // --- Sprites ---
+  // --- Sprites (con fallback de silueta negra si el PNG no carga) ---
   function drawDragonSprite(x, y, rot) {
-    if (!imgDragon.complete || !imgDragon.naturalWidth) return;
-    const dw = DW(), dh = DH();
     ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot);
-    ctx.drawImage(imgDragon, -dw/2, -dh/2, dw, dh); ctx.restore();
+    if (imgDragon.complete && imgDragon.naturalWidth) {
+      const dw = DW(), dh = DH();
+      ctx.drawImage(imgDragon, -dw/2, -dh/2, dw, dh);
+    } else {
+      // Silueta negra geométrica (fallback)
+      const sc = DW() / 186;
+      ctx.scale(sc, sc);
+      const flap = Math.sin(t * 0.18) > 0, wy = flap ? -32 : -10;
+      ctx.fillStyle = '#111';
+      // Cola
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(40,4); ctx.quadraticCurveTo(58,18,70,4); ctx.quadraticCurveTo(80,-4,86,12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(83,12); ctx.lineTo(95,6); ctx.lineTo(83,20); ctx.closePath(); ctx.fill();
+      // Ala
+      ctx.beginPath(); ctx.moveTo(12,-10); ctx.quadraticCurveTo(22,wy-18,52,wy-4); ctx.quadraticCurveTo(36,wy+4,18,6); ctx.closePath(); ctx.fill();
+      // Cuerpo
+      ctx.beginPath(); ctx.ellipse(0,0,40,21,0,0,Math.PI*2); ctx.fill();
+      // Cuello
+      ctx.beginPath(); ctx.moveTo(-33,-4); ctx.lineTo(-56,-17); ctx.lineTo(-51,2); ctx.lineTo(-33,7); ctx.closePath(); ctx.fill();
+      // Cabeza
+      ctx.beginPath(); ctx.moveTo(-51,-17); ctx.lineTo(-80,-13); ctx.lineTo(-88,-2); ctx.lineTo(-82,8); ctx.lineTo(-55,8); ctx.lineTo(-49,-5); ctx.closePath(); ctx.fill();
+      // Mandíbula (más oscura para contraste)
+      ctx.fillStyle = '#333';
+      ctx.beginPath(); ctx.moveTo(-77,0); ctx.lineTo(-89,4); ctx.lineTo(-87,10); ctx.lineTo(-73,8); ctx.closePath(); ctx.fill();
+      // Dientes
+      ctx.fillStyle = '#f0ebe0'; [-77,-81,-85].forEach(tx => { ctx.beginPath(); ctx.moveTo(tx,2); ctx.lineTo(tx+2,9); ctx.lineTo(tx+4,2); ctx.closePath(); ctx.fill(); });
+      // Ojo
+      ctx.fillStyle = '#f0ebe0'; ctx.beginPath(); ctx.arc(-69,-8,3,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
   }
   function drawKnightSprite(x, y) {
-    if (!imgKnight.complete || !imgKnight.naturalWidth) return;
-    const kw = KW(), kh = KH();
-    ctx.drawImage(imgKnight, x - kw/2, y - kh, kw, kh);
+    if (imgKnight.complete && imgKnight.naturalWidth) {
+      const kw = KW(), kh = KH();
+      ctx.drawImage(imgKnight, x - kw/2, y - kh, kw, kh);
+    } else {
+      // Silueta negra geométrica (fallback)
+      const sc = KH() / 110;
+      ctx.save(); ctx.translate(x, y);
+      ctx.scale(sc, sc);
+      const run = Math.sin(t * 0.28) * 10;
+      ctx.fillStyle = '#111';
+      // Cuerpo del caballo
+      ctx.beginPath(); ctx.ellipse(0,-40,42,21,0,0,Math.PI*2); ctx.fill();
+      // Patas
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+      [[24,-27,26,-5+run],[28,-27,20,-5-run],[-24,-27,-22,-5-run],[-28,-27,-30,-5+run]].forEach(([x1,y1,x2,y2]) => {
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      });
+      // Cabeza del caballo (derecha)
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.moveTo(30,-50); ctx.lineTo(46,-62); ctx.lineTo(50,-48); ctx.lineTo(34,-40); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(44,-62); ctx.lineTo(62,-58); ctx.lineTo(67,-49); ctx.lineTo(62,-40); ctx.lineTo(44,-42); ctx.lineTo(42,-52); ctx.closePath(); ctx.fill();
+      // Melena
+      [28,34,40].forEach((mx,i) => { ctx.beginPath(); ctx.arc(mx,-62-(i%2)*3,4,0,Math.PI*2); ctx.fill(); });
+      // Armadura cuerpo
+      ctx.fillRect(-13,-94,25,30);
+      // Casco
+      ctx.beginPath(); ctx.arc(0,-102,13,0,Math.PI*2); ctx.fill();
+      // Visera
+      ctx.fillStyle = '#ccc'; ctx.fillRect(-6,-106,14,5);
+      // Escudo
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.moveTo(-15,-92); ctx.lineTo(-29,-86); ctx.lineTo(-32,-68); ctx.lineTo(-15,-62); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#f0ebe0'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-23,-85); ctx.lineTo(-23,-69); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-32,-77); ctx.lineTo(-15,-77); ctx.stroke();
+      // Espada
+      const sw = phase === 3 ? Math.sin(t*0.25)*0.5 - 0.3 : -0.5;
+      ctx.save(); ctx.translate(14,-90); ctx.rotate(sw);
+      ctx.fillStyle = '#aaa'; ctx.fillRect(-2,-38,4,38);
+      ctx.fillStyle = '#111'; ctx.fillRect(-7,-2,14,5); ctx.fillRect(-2,3,4,14);
+      ctx.restore();
+      ctx.restore();
+    }
   }
 
   // --- State machine ---
