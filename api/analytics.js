@@ -1,18 +1,6 @@
 // Endpoint de analítica de visitas.
-//
-// POST /api/analytics  — registra una visita (path + session ID)
+// POST /api/analytics  — registra una visita (page_path + session ID)
 // GET  /api/analytics  — devuelve estadísticas: total, hoy, en línea ahora
-//
-// La tabla page_views debe existir en Supabase. Ejecutar en SQL Editor:
-//   CREATE TABLE IF NOT EXISTS public.page_views (
-//     id  BIGSERIAL PRIMARY KEY,
-//     path TEXT NOT NULL DEFAULT '/',
-//     sid  TEXT NOT NULL DEFAULT '',
-//     ts   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-//   );
-//   CREATE INDEX IF NOT EXISTS idx_pv_ts ON public.page_views(ts);
-//   ALTER TABLE public.page_views ENABLE ROW LEVEL SECURITY;
-//   -- service_role bypasses RLS, así que no necesitamos policy adicional.
 
 import { sb, sbCount, readJson, checkConfig } from "./_lib.js";
 
@@ -36,12 +24,9 @@ export default async function handler(req, res) {
         sb(`page_views?select=sid&ts=gte.${encodeURIComponent(fiveMinAgo)}&limit=500`),
       ]);
 
-      // "En línea ahora" = session IDs únicos en los últimos 5 min
       const online = new Set((recentRows || []).map(r => r.sid).filter(Boolean)).size;
-
       return res.status(200).json({ total, today, online });
     } catch (e) {
-      // No exponer detalles del error, pero tampoco romper la UI
       return res.status(200).json({ total: 0, today: 0, online: 0 });
     }
   }
@@ -55,8 +40,8 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
-          path: String(body.path || "/").slice(0, 200),
-          sid:  String(body.sid  || "").slice(0, 64),
+          page_path: String(body.path || "/").slice(0, 200),
+          sid:       String(body.sid  || "").slice(0, 64),
         }),
       });
       return res.status(200).json({ ok: true });
