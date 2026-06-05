@@ -716,10 +716,24 @@ function applyCoverUpdates(bundleIds) {
 // ============================================================
 // Render principal
 // ============================================================
+function trackPageView() {
+  let sid = sessionStorage.getItem("rmd_sid");
+  if (!sid) {
+    sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem("rmd_sid", sid);
+  }
+  fetch("/api/analytics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: location.pathname, sid }),
+  }).catch(() => {});
+}
+
 function render() {
   navigateActive();
   updateCartBadge();
   updateMiniCart(loadCart());
+  trackPageView();
   const route = parseRoute();
   if (route.name === "product") return renderProduct(route.id);
   if (route.name === "bundle") return renderBundle(route.id, route.type || "nintendo");
@@ -2805,12 +2819,20 @@ function reviewsStatsBarHTML() {
 function cyberStatsHTML() {
   const byPlatform = { PS5: 0, PS4: 0, Xbox: 0, Switch: 0 };
   for (const g of allGames) {
-    if (g.platform?.includes("PS5"))    byPlatform.PS5++;
-    if (g.platform?.includes("PS4"))    byPlatform.PS4++;
-    if (g.platform?.includes("Xbox"))   byPlatform.Xbox++;
-    if (g.platform?.includes("Switch")) byPlatform.Switch++;
+    if (g.platform?.includes("PS5"))  byPlatform.PS5++;
+    if (g.platform?.includes("PS4"))  byPlatform.PS4++;
+    if (g.platform?.includes("Xbox")) byPlatform.Xbox++;
   }
-  const totalGames = allGames.length;
+  // Nintendo Switch: contar títulos únicos de los bundles de Telegram
+  const switchTitles = new Set();
+  for (const b of (nintendo.bundles || [])) {
+    for (const g of (b.games || [])) {
+      if (g.name) switchTitles.add(g.name.toLowerCase().trim());
+    }
+  }
+  byPlatform.Switch = switchTitles.size;
+
+  const totalGames = allGames.length + byPlatform.Switch;
   const maxCount = Math.max(1, ...Object.values(byPlatform));
 
   const platforms = [
@@ -2881,6 +2903,27 @@ function cyberStatsHTML() {
           <div class="cyber-bars">${barsHTML}</div>
         </div>
 
+        <div class="cyber-traffic-panel">
+          <div class="cyber-chart-title">
+            <span>◈ TRÁFICO DEL SITIO</span>
+            <span class="cyber-live-badge"><span class="cyber-live-dot-anim"></span>EN VIVO</span>
+          </div>
+          <div class="cyber-traffic-grid">
+            <div class="cyber-traffic-stat">
+              <span class="cyber-traffic-num" id="cyberStatToday">—</span>
+              <span class="cyber-traffic-label">Visitas hoy</span>
+            </div>
+            <div class="cyber-traffic-stat">
+              <span class="cyber-traffic-num" id="cyberStatTotal">—</span>
+              <span class="cyber-traffic-label">Total histórico</span>
+            </div>
+            <div class="cyber-traffic-stat">
+              <span class="cyber-traffic-num" id="cyberStatOnline">—</span>
+              <span class="cyber-traffic-label">En línea ahora</span>
+            </div>
+          </div>
+        </div>
+
         <div class="cyber-footer-row">
           <div class="cyber-status-dot"></div>
           <span>SISTEMA OPERATIVO &nbsp;::&nbsp; CATÁLOGO ACTUALIZADO DIARIAMENTE</span>
@@ -2925,6 +2968,22 @@ function mountCyberStats() {
         entry.target.querySelectorAll(".cyber-bar-fill")
           .forEach(bar => bar.classList.add("cyber-bar-animated"));
       }, 200);
+
+      // Cargar datos de tráfico en vivo desde la API
+      fetch("/api/analytics")
+        .then(r => r.json())
+        .then(stats => {
+          const elToday  = document.getElementById("cyberStatToday");
+          const elTotal  = document.getElementById("cyberStatTotal");
+          const elOnline = document.getElementById("cyberStatOnline");
+          if (elToday)  elToday.textContent  = (stats.today  || 0).toLocaleString("es");
+          if (elTotal)  elTotal.textContent  = (stats.total  || 0).toLocaleString("es");
+          if (elOnline) {
+            elOnline.textContent = String(stats.online || 0);
+            if ((stats.online || 0) > 0) elOnline.classList.add("is-live");
+          }
+        })
+        .catch(() => {});
     });
   }, { threshold: 0.15 });
 
