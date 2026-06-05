@@ -573,8 +573,8 @@ async function load() {
     render();
     enrichBundleCovers();
     enrichFeaturedCovers();
-    // Enriquecer en background: la primera vez tarda, después todo cacheado.
-    scheduleAAAEnrichForVisible();
+    // No llamar scheduleAAAEnrichForVisible() acá sin lista de juegos visibles —
+    // mountToolbar lo llama con la lista correcta ya al renderizar la primera vista.
   }
 }
 
@@ -1436,7 +1436,6 @@ function scheduleAAAEnrichForVisible(priorityList) {
   if (!allGames?.length) return;
 
   const enqueue = (arr, toFront) => {
-    // Al meter al frente, recorremos en reversa para preservar el orden.
     const items = toFront ? [...arr].reverse() : arr;
     for (const g of items) {
       if (!g || g._rawgMeta !== undefined) continue;
@@ -1446,12 +1445,13 @@ function scheduleAAAEnrichForVisible(priorityList) {
     }
   };
 
-  // 1) Lo que se ve ahora, al frente de la cola.
+  // Solo encolar los juegos actualmente visibles en pantalla.
+  // El "relleno global" proactivo (150 juegos en background para todo visitante
+  // nuevo) agotaba la cuota mensual de RAWG muy rápido, ya que el filtro AAA
+  // está activo por defecto y localStorage no se comparte entre navegadores.
   if (Array.isArray(priorityList) && priorityList.length) {
-    enqueue(priorityList.slice(0, 200), true);
+    enqueue(priorityList.slice(0, 60), true);
   }
-  // 2) Relleno global — procesamos más juegos para poblar el cache más rápido.
-  enqueue(allGames.filter(g => g._rawgMeta === undefined).slice(0, 150), false);
 
   if (!_enrichRunning) runEnrichLoop();
 }
