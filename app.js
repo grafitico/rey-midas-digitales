@@ -476,7 +476,7 @@ async function load() {
   try {
     const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
-      fetch("/api/scrape-xbox").then(r => r.json()),
+      fetch("/xbox-catalog.json").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
@@ -515,8 +515,8 @@ async function load() {
     if (psn.status === "fulfilled" && psn.value.success) {
       games.push(...(psn.value.games || []));
     }
-    if (xbox.status === "fulfilled" && xbox.value.success) {
-      games.push(...(xbox.value.games || []).filter(g => !g._placeholder));
+    if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {
+      games.push(...xbox.value.games.filter(g => !g._placeholder));
     }
     if (nin.status === "fulfilled" && nin.value && Array.isArray(nin.value.bundles)) {
       nintendo = nin.value;
