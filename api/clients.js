@@ -1,7 +1,7 @@
 // Gestión de clientes (solo admins).
 // POST /api/clients con { action: "create" | "find", ... }
 
-import { sb, hashPassword, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
+import { sb, hashPassword, requireAdmin, handleError, readJson, checkConfig, invalidateSessions } from "./_lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -81,7 +81,7 @@ async function resetPassword(req, res, body) {
   }
   await sb(`app_users?id=eq.${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ password_hash: hashPassword(password) }),
+    body: JSON.stringify({ password_hash: hashPassword(password), sessions_valid_from: Math.floor(Date.now() / 1000) }),
   });
   res.status(200).json({ ok: true });
 }

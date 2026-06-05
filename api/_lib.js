@@ -185,14 +185,31 @@ export async function requireAuth(req) {
     err.status = 401;
     throw err;
   }
-  const users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin`);
+  const users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin,sessions_valid_from`);
   const user = users[0];
   if (!user) {
     const err = new Error("Usuario no encontrado");
     err.status = 401;
     throw err;
   }
-  return user;
+  // Si el token fue emitido antes de la última invalidación (logout o cambio de contraseña),
+  // lo rechazamos aunque la firma HMAC sea válida.
+  if (payload.iat && user.sessions_valid_from && payload.iat < user.sessions_valid_from) {
+    const err = new Error("Sesión inválida o expirada");
+    err.status = 401;
+    throw err;
+  }
+  const { sessions_valid_from, ...safeUser } = user;
+  return safeUser;
+}
+
+// Invalida todas las sesiones activas del usuario actualizando el umbral de tiempo.
+// Cualquier token con iat < sessions_valid_from será rechazado por requireAuth.
+export async function invalidateSessions(userId) {
+  await sb(`app_users?id=eq.${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sessions_valid_from: Math.floor(Date.now() / 1000) }),
+  });
 }
 
 export async function requireAdmin(req) {
@@ -207,7 +224,11 @@ export async function requireAdmin(req) {
 
 export function handleError(res, err) {
   const status = err.status || 500;
-  res.status(status).json({ error: err.message });
+  // Solo exponemos el mensaje en errores 4xx que nosotros mismos construimos.
+  // Los 5xx (incluyendo errores crudos de Supabase) se enmascaran para no
+  // filtrar nombres de tablas, columnas o detalles del schema al cliente.
+  const message = status < 500 ? err.message : "Error interno del servidor";
+  res.status(status).json({ error: message });
 }
 
 // ===== Rate limiting en memoria =====

@@ -20,14 +20,19 @@
 
 const JSON_PATH = "nintendo-bundles.json";
 
+import crypto from "crypto";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "method not allowed" });
   }
 
-  const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
-  const received = req.headers["x-telegram-bot-api-secret-token"];
-  if (!expected || received !== expected) {
+  const expected = process.env.TELEGRAM_WEBHOOK_SECRET || "";
+  const received = req.headers["x-telegram-bot-api-secret-token"] || "";
+  const secretValid = expected.length > 0
+    && received.length === expected.length
+    && crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));
+  if (!secretValid) {
     return res.status(401).json({ ok: false, error: "bad secret" });
   }
 

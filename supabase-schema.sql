@@ -23,6 +23,7 @@ CREATE TABLE public.app_users (
   password_hash TEXT NOT NULL,
   is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   customer_number INTEGER,
+  sessions_valid_from BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE SEQUENCE IF NOT EXISTS app_users_customer_number_seq START 1;
@@ -83,3 +84,6 @@ ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
 -- Migración incremental (si las tablas ya existen con RLS desactivado):
 -- ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
+
+-- Migración: columna para invalidación de sesiones (si la tabla ya existe):
+-- ALTER TABLE public.app_users ADD COLUMN IF NOT EXISTS sessions_valid_from BIGINT NOT NULL DEFAULT 0;

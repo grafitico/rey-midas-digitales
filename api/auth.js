@@ -7,6 +7,7 @@ import {
   sb, hashPassword, verifyPassword, makeSessionToken,
   requireAuth, handleError, readJson, checkConfig,
   setSessionCookie, clearSessionCookie, checkRateLimit,
+  invalidateSessions,
 } from "./_lib.js";
 
 export default async function handler(req, res) {
@@ -58,7 +59,11 @@ async function me(req, res) {
   res.status(200).json({ user });
 }
 
-function logout(req, res) {
+async function logout(req, res) {
+  try {
+    const user = await requireAuth(req);
+    await invalidateSessions(user.id);
+  } catch { /* sesión ya inválida — igual limpiamos la cookie */ }
   clearSessionCookie(res);
   res.status(200).json({ ok: true });
 }
@@ -77,10 +82,15 @@ async function changePassword(req, res, body) {
   if (newPassword.length < 6) {
     return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres" });
   }
+  const validFrom = Math.floor(Date.now() / 1000);
   await sb(`app_users?id=eq.${user.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ password_hash: hashPassword(newPassword) }),
+    body: JSON.stringify({ password_hash: hashPassword(newPassword), sessions_valid_from: validFrom }),
   });
+  // Emitir un token nuevo para que la sesión actual siga activa
+  // (iat del nuevo token es >= validFrom, así que pasa la validación).
+  const newToken = makeSessionToken(user.id);
+  setSessionCookie(res, newToken);
   res.status(200).json({ ok: true });
 }
 
