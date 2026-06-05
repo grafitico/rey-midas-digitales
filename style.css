@@ -2583,7 +2583,7 @@ html { scroll-behavior: smooth; }
 .toast.toast-info .toast-icon { color: var(--cyan); }
 
 /* WhatsApp flotante con tooltip */
-.wa-float { position: relative; }
+.wa-float { position: fixed; }
 .wa-float::after {
   content: "Chateá con nosotros";
   position: absolute;
@@ -3782,3 +3782,253 @@ html { scroll-behavior: smooth; }
 .abr-info strong { font-size: 0.92rem; }
 .abr-meta { font-size: 0.76rem; color: var(--text-dim); }
 .abr-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+
+/* ===================== CYBER STATS SECTION ===================== */
+.cyber-stats-section {
+  position: relative;
+  padding: 4rem 0;
+  background: #030310;
+  overflow: hidden;
+  border-top: 1px solid rgba(0,229,255,0.15);
+  border-bottom: 1px solid rgba(0,229,255,0.15);
+  margin: 0;
+}
+/* Grid de fondo */
+.cyber-stats-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
+}
+/* Scan lines */
+.cyber-stats-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.12) 3px,
+    rgba(0,0,0,0.12) 4px
+  );
+  pointer-events: none;
+}
+.cyber-stats-section .container { position: relative; z-index: 1; }
+
+/* Header */
+.cyber-header { text-align: center; margin-bottom: 2.5rem; }
+.cyber-tag {
+  display: inline-block;
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  color: var(--cyan);
+  letter-spacing: 0.18em;
+  margin-bottom: 0.7rem;
+  opacity: 0.65;
+}
+.cyber-title {
+  font-size: clamp(1.7rem, 4.5vw, 2.6rem);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+  line-height: 1.1;
+}
+.cyber-title .cyber-accent { color: var(--cyan); text-shadow: 0 0 18px rgba(0,229,255,0.6); }
+.cyber-subtitle {
+  font-family: "Courier New", monospace;
+  font-size: 0.72rem;
+  color: var(--cyan);
+  letter-spacing: 0.22em;
+  opacity: 0.5;
+}
+
+/* Glitch en el título */
+@keyframes cyber-glitch {
+  0%, 88%, 100% { clip-path: none; transform: none; color: inherit; }
+  89% { clip-path: polygon(0 15%, 100% 15%, 100% 35%, 0 35%); transform: translateX(-4px); color: #ff00cc; }
+  91% { clip-path: polygon(0 58%, 100% 58%, 100% 72%, 0 72%); transform: translateX(4px); color: #00e5ff; }
+  93% { clip-path: none; transform: none; color: inherit; }
+}
+.cyber-title-glitch { display: inline-block; animation: cyber-glitch 7s infinite; }
+
+/* Counters grid */
+.cyber-counters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.cyber-counter-card {
+  background: rgba(0,229,255,0.025);
+  border: 1px solid rgba(0,229,255,0.2);
+  border-radius: 12px;
+  padding: 1.5rem 1rem 1.2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+/* Barra de acento en la parte superior */
+.cyber-counter-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--cyan) 50%, transparent 100%);
+}
+.cyber-counter-card:hover {
+  border-color: rgba(0,229,255,0.45);
+  box-shadow: 0 0 24px rgba(0,229,255,0.08), inset 0 0 20px rgba(0,229,255,0.03);
+}
+.cyber-counter-icon {
+  font-size: 1.1rem;
+  color: var(--cyan);
+  opacity: 0.4;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+.cyber-counter-num {
+  font-family: "Courier New", monospace;
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 900;
+  color: var(--cyan);
+  text-shadow: 0 0 22px rgba(0,229,255,0.65);
+  line-height: 1;
+  margin-bottom: 0.55rem;
+  display: block;
+  letter-spacing: -0.02em;
+}
+.cyber-counter-label {
+  font-family: "Courier New", monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  display: block;
+}
+
+/* Chart panel */
+.cyber-chart-panel {
+  background: rgba(0,229,255,0.018);
+  border: 1px solid rgba(0,229,255,0.15);
+  border-radius: 12px;
+  padding: 1.4rem 1.5rem;
+  margin-bottom: 1.4rem;
+}
+.cyber-chart-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Courier New", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+  opacity: 0.75;
+}
+.cyber-total-badge {
+  background: rgba(0,229,255,0.1);
+  border: 1px solid rgba(0,229,255,0.25);
+  border-radius: 5px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+}
+.cyber-bars { display: flex; flex-direction: column; gap: 0.85rem; }
+.cyber-bar-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 52px;
+  align-items: center;
+  gap: 0.8rem;
+}
+.cyber-bar-label {
+  font-family: "Courier New", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.cyber-bar-track {
+  height: 22px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.cyber-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  background: linear-gradient(90deg, var(--clr) 0%, var(--clr) 75%, rgba(255,255,255,0.25) 100%);
+  box-shadow: 2px 0 14px var(--clr);
+}
+.cyber-bar-fill.cyber-bar-animated { width: var(--pct); }
+/* Destello en el extremo de la barra */
+.cyber-bar-fill::after {
+  content: "";
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: rgba(255,255,255,0.75);
+  box-shadow: 0 0 8px rgba(255,255,255,0.8);
+  border-radius: 0 3px 3px 0;
+}
+.cyber-bar-value {
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  text-align: right;
+}
+
+/* Footer row */
+.cyber-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-family: "Courier New", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: var(--cyan);
+  opacity: 0.45;
+  text-transform: uppercase;
+}
+.cyber-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+  flex-shrink: 0;
+}
+@keyframes cyber-dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+.cyber-status-dot { animation: cyber-dot-blink 1.6s infinite; }
+.cyber-status-dot:last-child { animation-delay: 0.8s; }
+
+/* === Responsive === */
+@media (max-width: 900px) {
+  .cyber-counters-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .cyber-stats-section { padding: 2.5rem 0; }
+  .cyber-counter-num { font-size: 1.9rem; }
+  .cyber-bar-row { grid-template-columns: 52px 1fr 42px; gap: 0.5rem; }
+  .cyber-bar-label { font-size: 0.62rem; }
+  .cyber-bar-value { font-size: 0.72rem; }
+  .cyber-chart-title { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+  .cyber-footer-row { font-size: 0.55rem; letter-spacing: 0.1em; text-align: center; }
+}
