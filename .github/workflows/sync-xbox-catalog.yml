@@ -1,0 +1,46 @@
+name: Sync Xbox catalog from Microsoft APIs
+
+# Descarga el catálogo completo de Xbox (mercado Turquía) usando las APIs
+# públicas de Microsoft y commitea los resultados en xbox-catalog.json.
+#
+# A diferencia del endpoint /api/scrape-xbox (limitado a 80 juegos por el
+# timeout de 30s de Vercel), este script corre en GitHub Actions sin límite
+# de tiempo y procesa todos los IDs del SIGL — típicamente 400-800 juegos.
+#
+# El JSON resultante es servido como archivo estático por Vercel, eliminando
+# el cuello de botella del serverless y reduciendo el tiempo de carga.
+#
+# Schedule en UTC. "0 5 * * *" = 5am UTC diario ≈ 11pm/12am Costa Rica.
+# GitHub Actions puede demorar hasta ~15 min en disparar un cron programado.
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      max_games:
+        description: "Máximo de juegos a guardar en el catálogo"
+        required: false
+        default: "600"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Sync Xbox catalog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+          MAX_GAMES: ${{ inputs.max_games || '600' }}
+        run: node scripts/sync-xbox-catalog.js
