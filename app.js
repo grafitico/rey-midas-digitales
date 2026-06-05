@@ -798,10 +798,12 @@ function renderHome(page = 1) {
     </section>
     ${howToHTML()}
     ${testimonialsHTML()}
+    ${cyberStatsHTML()}
     ${faqInlineHTML(5)}
   `;
   mountHeroSlider();
   mountToolbar(null, page, "/");
+  mountCyberStats();
 }
 
 function renderPlatform(platform, page = 1) {
@@ -3080,6 +3082,138 @@ function reviewsStatsBarHTML() {
       <div class="rsb-stat"><strong>< 10 min</strong><span>Entrega promedio</span></div>
     </div>
   `;
+}
+
+// ============================================================
+// Sección Cyber Stats — Homepage únicamente
+// ============================================================
+function cyberStatsHTML() {
+  const byPlatform = { PS5: 0, PS4: 0, Xbox: 0, Switch: 0 };
+  for (const g of allGames) {
+    if (g.platform?.includes("PS5"))    byPlatform.PS5++;
+    if (g.platform?.includes("PS4"))    byPlatform.PS4++;
+    if (g.platform?.includes("Xbox"))   byPlatform.Xbox++;
+    if (g.platform?.includes("Switch")) byPlatform.Switch++;
+  }
+  const totalGames = allGames.length;
+  const maxCount = Math.max(1, ...Object.values(byPlatform));
+
+  const platforms = [
+    { label: "PS5",    key: "PS5",    clr: "#0070d1" },
+    { label: "PS4",    key: "PS4",    clr: "#003791" },
+    { label: "XBOX",   key: "Xbox",   clr: "#52b043" },
+    { label: "SWITCH", key: "Switch", clr: "#e4000f" },
+  ];
+  const barsHTML = platforms.map(({ label, key, clr }) => {
+    const count = byPlatform[key] || 0;
+    const pct = Math.round((count / maxCount) * 100);
+    return `
+      <div class="cyber-bar-row">
+        <span class="cyber-bar-label">${label}</span>
+        <div class="cyber-bar-track">
+          <div class="cyber-bar-fill" style="--pct:${pct}%;--clr:${clr}"></div>
+        </div>
+        <span class="cyber-bar-value">${count > 0 ? count.toLocaleString("es") : "—"}</span>
+      </div>`;
+  }).join("");
+
+  // Fecha de lanzamiento del sitio — actualizar si es necesario
+  const launchDate = new Date("2024-06-01");
+  const daysOnline = Math.max(0, Math.floor((Date.now() - launchDate) / 86400000));
+  const clients = parseInt(reviewStats.totalClients) || 500;
+  const rating  = reviewStats.averageRating || 4.9;
+
+  return `
+    <section class="cyber-stats-section" id="cyberStats">
+      <div class="container">
+        <div class="cyber-header">
+          <div class="cyber-tag">// SISTEMA_ACTIVO :: DIAGNÓSTICO EN VIVO</div>
+          <h2 class="cyber-title">
+            <span class="cyber-title-glitch">REY MIDAS</span>
+            <span class="cyber-accent"> STATS</span>
+          </h2>
+          <p class="cyber-subtitle">REYMIDASCR.COM &nbsp;::&nbsp; FEED EN TIEMPO REAL</p>
+        </div>
+
+        <div class="cyber-counters-grid">
+          <div class="cyber-counter-card">
+            <span class="cyber-counter-icon">◈</span>
+            <span class="cyber-counter-num" data-target="${clients}">0</span>
+            <span class="cyber-counter-label">Clientes felices</span>
+          </div>
+          <div class="cyber-counter-card">
+            <span class="cyber-counter-icon">◈</span>
+            <span class="cyber-counter-num" data-target="${totalGames || 500}">0</span>
+            <span class="cyber-counter-label">Títulos en catálogo</span>
+          </div>
+          <div class="cyber-counter-card">
+            <span class="cyber-counter-icon">◈</span>
+            <span class="cyber-counter-num" data-target="${daysOnline}">0</span>
+            <span class="cyber-counter-label">Días en línea</span>
+          </div>
+          <div class="cyber-counter-card">
+            <span class="cyber-counter-icon">◈</span>
+            <span class="cyber-counter-num" data-target="${rating}" data-float="true">${rating.toFixed(1)}</span>
+            <span class="cyber-counter-label">Rating promedio</span>
+          </div>
+        </div>
+
+        <div class="cyber-chart-panel">
+          <div class="cyber-chart-title">
+            <span>◈ DISTRIBUCIÓN DE CATÁLOGO POR PLATAFORMA</span>
+            <span class="cyber-total-badge">${totalGames.toLocaleString("es")} JUEGOS</span>
+          </div>
+          <div class="cyber-bars">${barsHTML}</div>
+        </div>
+
+        <div class="cyber-footer-row">
+          <div class="cyber-status-dot"></div>
+          <span>SISTEMA OPERATIVO &nbsp;::&nbsp; CATÁLOGO ACTUALIZADO DIARIAMENTE</span>
+          <div class="cyber-status-dot"></div>
+        </div>
+      </div>
+    </section>`;
+}
+
+function mountCyberStats() {
+  const section = document.getElementById("cyberStats");
+  if (!section) return;
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+
+      // Animar contadores
+      entry.target.querySelectorAll("[data-target]").forEach(el => {
+        const isFloat = el.dataset.float === "true";
+        const target  = parseFloat(el.dataset.target);
+        const duration = 1800;
+        const start   = performance.now();
+        const tick = now => {
+          const p     = Math.min(1, (now - start) / duration);
+          const eased = 1 - Math.pow(1 - p, 3);
+          const val   = eased * target;
+          el.textContent = isFloat
+            ? val.toFixed(1)
+            : Math.floor(val).toLocaleString("es");
+          if (p < 1) requestAnimationFrame(tick);
+          else el.textContent = isFloat
+            ? target.toFixed(1)
+            : Math.round(target).toLocaleString("es");
+        };
+        requestAnimationFrame(tick);
+      });
+
+      // Animar barras con un pequeño delay
+      setTimeout(() => {
+        entry.target.querySelectorAll(".cyber-bar-fill")
+          .forEach(bar => bar.classList.add("cyber-bar-animated"));
+      }, 200);
+    });
+  }, { threshold: 0.15 });
+
+  observer.observe(section);
 }
 
 // ============================================================
