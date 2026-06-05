@@ -64,6 +64,23 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Ficha de Xbox por ID (catálogo de Microsoft, en español, sin cupo) ──────
+  const xboxId = (req.query.xboxId || "").toString().trim();
+  if (xboxId) {
+    try {
+      const url = `https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=${encodeURIComponent(xboxId)}&market=MX&languages=es-MX&fieldsTemplate=Details`;
+      const r = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)", "Accept": "application/json", "MS-CV": "ReyMidas.1" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) return res.status(200).json({ ...emptyFicha(""), source: "xbox" });
+      const data = await r.json();
+      return res.status(200).json({ ...extractXboxFicha((data.Products || [])[0]), source: "xbox" });
+    } catch (e) {
+      return res.status(200).json({ ...emptyFicha(""), source: "xbox", error: e.message });
+    }
+  }
+
   // ── Tráiler de YouTube por título (sin API key, sin configurar nada) ────────
   const ytTitle = (req.query.youtube || "").toString().trim();
   if (ytTitle) {
@@ -343,6 +360,30 @@ function decodeEntities(s) {
     .replace(/&nbsp;/g, " ")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+// ─── Xbox (catálogo de Microsoft) ───────────────────────────────────────────────
+// Ficha desde displaycatalog (la misma API del scraper, gratis y sin cupo). Trae
+// descripción en español + CAPTURAS (ImagePurpose=Screenshot), que PSN no expone.
+function extractXboxFicha(p) {
+  const out = emptyFicha("");
+  if (!p) return out;
+  const lp = (p.LocalizedProperties || [])[0] || {};
+  out.description = decodeEntities(stripTags(lp.ProductDescription || lp.ShortDescription || lp.Description || "")).trim();
+  out.developer = lp.DeveloperName || "";
+  out.publisher = lp.PublisherName || "";
+
+  const imgs = lp.Images || [];
+  const abs = (u) => (u && u.startsWith("//") ? `https:${u}` : u);
+  out.screenshots = imgs.filter(i => i.ImagePurpose === "Screenshot" && i.Uri).map(i => abs(i.Uri)).slice(0, 6);
+  const cover = imgs.find(i => i.ImagePurpose === "Poster") || imgs.find(i => i.ImagePurpose === "BoxArt") || imgs.find(i => i.ImagePurpose === "SuperHeroArt");
+  if (cover?.Uri) out.coverUrl = abs(cover.Uri);
+
+  const cats = p.Properties?.Categories || p.Properties?.Category || [];
+  out.genres = [].concat(cats).filter(Boolean).slice(0, 6);
+  const rel = (p.MarketProperties || [])[0]?.OriginalReleaseDate || "";
+  out.released = rel ? String(rel).slice(0, 10) : "";
+  return out;
 }
 
 // ─── YouTube (tráiler sin API key) ──────────────────────────────────────────────

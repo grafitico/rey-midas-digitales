@@ -4,14 +4,14 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-06-05a";
+const APP_CACHE_VERSION = "2026-06-05b";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
     const stalePrefixes = [
-      "psn-cover:", "psn-ficha:", "vandal-ficha:", "rawg-media:", "yt-trailer:",
-      "rawg-cover:", "rawg-meta:", "rawg-indie:", "rawg:", "igdb-cover:", "igdb:",
-      "steam-cover:", "cover:",
+      "psn-cover:", "psn-ficha:", "vandal-ficha:", "xbox-ficha:", "rawg-media:",
+      "yt-trailer:", "rawg-cover:", "rawg-meta:", "rawg-indie:", "rawg:",
+      "igdb-cover:", "igdb:", "steam-cover:", "cover:",
     ];
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
@@ -1083,12 +1083,20 @@ async function enrichGameFicha(game) {
 
   const f = { description: "", genres: [], publisher: "", developer: "", released: "", coverUrl: "", screenshots: [], videoUrl: "", _source: "" };
 
-  // (A) Descripción/metadatos EN ESPAÑOL: PSN (JSON-LD) → Vandal.
+  // (A) Descripción/metadatos EN ESPAÑOL según la plataforma:
+  //   - PlayStation: página de producto de PSN (JSON-LD).
+  //   - Xbox: catálogo de Microsoft (trae descripción ES + capturas, sin cupo).
   const psnId = gamePsnId(game);
   if (psnId) {
     const psn = await fetchPsnFicha(psnId);
     if (slot.dataset.title !== game.title) return;
     if (psn) { mergeFicha(f, psn); if (psn.description) f._source = "PlayStation Store"; }
+  }
+  const xboxId = (typeof game.id === "string" && game.id.startsWith("xbox-")) ? game.id.slice(5) : "";
+  if (xboxId && (!f.description || !f.screenshots.length)) {
+    const xb = await fetchXboxFicha(xboxId);
+    if (slot.dataset.title !== game.title) return;
+    if (xb) { mergeFicha(f, xb); if (!f._source && xb.description) f._source = "Xbox"; }
   }
   if (!f.description) {
     const vandal = await fetchVandalFicha(game.title);
@@ -1150,6 +1158,21 @@ function mergeFicha(dst, src) {
   if (src.publisher && !dst.publisher) dst.publisher = src.publisher;
   if (src.developer && !dst.developer) dst.developer = src.developer;
   if (src.released && !dst.released) dst.released = src.released;
+}
+
+// Ficha de Xbox (descripción ES + capturas) desde el catálogo de Microsoft. Cacheada.
+async function fetchXboxFicha(xboxId) {
+  const key = `xbox-ficha:v1:${xboxId}`;
+  const cached = readRawgCache(key);
+  if (cached !== undefined) return cached?.miss ? null : cached;
+  let f = null;
+  try {
+    const r = await fetch(`/api/cover?xboxId=${encodeURIComponent(xboxId)}`);
+    f = await r.json();
+  } catch { f = null; }
+  const value = fichaHasContent(f) ? f : null;
+  writeRawgCache(key, value || { miss: true });
+  return value;
 }
 
 // Capturas + metadatos desde la base de datos de juegos (RAWG, IGDB de respaldo).
