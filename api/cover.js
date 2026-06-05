@@ -64,6 +64,17 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Tráiler de YouTube por título (sin API key, sin configurar nada) ────────
+  const ytTitle = (req.query.youtube || "").toString().trim();
+  if (ytTitle) {
+    try {
+      const videoId = await youtubeFirstVideo(ytTitle);
+      return res.status(200).json({ videoId, embedUrl: videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : "" });
+    } catch (e) {
+      return res.status(200).json({ videoId: "", embedUrl: "", error: e.message });
+    }
+  }
+
   // ── Portada Nintendo por título ────────────────────────────────────────────
   const raw = (req.query.q || "").toString().trim();
   if (!raw) return res.status(400).json({ error: "missing q, psnId or vandal" });
@@ -332,6 +343,26 @@ function decodeEntities(s) {
     .replace(/&nbsp;/g, " ")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+// ─── YouTube (tráiler sin API key) ──────────────────────────────────────────────
+//
+// Busca "<titulo> trailer" en YouTube y devuelve el primer videoId, scrapeando la
+// página de resultados (sp=EgIQAQ%3D%3D filtra solo VIDEOS, no canales/listas).
+// Sin API key ni configuración. Si YouTube cambia el HTML, degrada a "" (sin video).
+async function youtubeFirstVideo(title) {
+  const q = encodeURIComponent(`${title} trailer`);
+  const url = `https://www.youtube.com/results?search_query=${q}&hl=es&sp=EgIQAQ%253D%253D`;
+  const r = await fetch(url, {
+    // La cookie CONSENT evita el muro de consentimiento que YouTube muestra a
+    // requests de servidor (sin ella devolvería una página intermedia sin resultados).
+    headers: { "User-Agent": UA, "Accept-Language": "es-ES,es;q=0.9", "Accept": "text/html", "Cookie": "CONSENT=YES+1" },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) return "";
+  const html = await r.text();
+  const m = html.match(/"videoId":"([\w-]{11})"/);
+  return m ? m[1] : "";
 }
 
 // ─── Vandal (respaldo de ficha en español) ─────────────────────────────────────

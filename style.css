@@ -2770,10 +2770,12 @@ html { scroll-behavior: smooth; }
   border: 1px solid var(--border);
   background: #000;
 }
-.ficha-video video {
+.ficha-video video,
+.ficha-video iframe {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
+  border: 0;
   object-fit: cover;
   background: #000;
 }

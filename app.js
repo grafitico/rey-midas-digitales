@@ -1092,10 +1092,28 @@ async function enrichGameFicha(game) {
 
   if (f.description || f.screenshots.length) {
     renderFichaEspanol(game, f);
+    // Tráiler de YouTube en segundo plano (no bloquea la ficha; sin configurar nada).
+    fetchTrailer(game.title).then(url => {
+      if (url && slot.dataset.title === game.title) injectFichaVideo(game, url);
+    });
     return;
   }
   // Nada disponible: ficha mínima existente.
   enrichWithRawg(game);
+}
+
+// Tráiler de YouTube para un título (vía /api/cover?youtube=). Cacheado.
+async function fetchTrailer(title) {
+  const key = `yt-trailer:v1:${matchKey(title)}`;
+  const cached = readRawgCache(key);
+  if (cached !== undefined) return cached?.miss ? "" : (cached || "");
+  let url = "";
+  try {
+    const r = await fetch(`/api/cover?youtube=${encodeURIComponent(cleanTitleForRawg(title))}`);
+    url = (await r.json())?.embedUrl || "";
+  } catch { url = ""; }
+  writeRawgCache(key, url || { miss: true });
+  return url;
 }
 
 // Vuelca en dst los campos de src que dst aún no tenga (sin pisar lo ya resuelto).
@@ -1172,13 +1190,6 @@ function renderFichaEspanol(game, f) {
       ${genres.length ? `<li><span>Géneros</span><strong>${genres.map(escapeHtml).join(" · ")}</strong></li>` : ""}
     </ul>`;
 
-  const video = f.videoUrl ? `
-    <div class="ficha-video">
-      <video controls preload="none" playsinline ${cover ? `poster="${escapeAttr(cover)}"` : ""}>
-        <source src="${escapeAttr(f.videoUrl)}" type="video/mp4">
-      </video>
-    </div>` : "";
-
   const shotsHtml = shots.length ? `
     <div class="rawg-shots">
       ${shots.map(s => `<img loading="lazy" src="${escapeAttr(s)}" alt="Captura de ${escapeAttr(game.title)}">`).join("")}
@@ -1192,14 +1203,10 @@ function renderFichaEspanol(game, f) {
       </div>
       ${shortDesc ? `<p class="rawg-desc">${escapeHtml(shortDesc)}</p>` : ""}
       ${metaList}
-      ${video}
+      <div class="ficha-video-slot"></div>
       ${shotsHtml}
       <p class="rawg-credit">Información del juego cortesía de ${escapeHtml(f._source || "PlayStation Store")}</p>`;
-    // CSP bloquea onerror inline → manejamos errores de carga vía JS.
-    // Si el video falla (p.ej. URL de PSN expirada), removemos su contenedor.
-    // Las capturas rotas se ocultan para no mostrar el ícono de imagen rota.
-    slot.querySelectorAll(".ficha-video video").forEach(v =>
-      v.addEventListener("error", () => v.closest(".ficha-video")?.remove()));
+    // CSP bloquea onerror inline → ocultamos las capturas rotas vía JS.
     slot.querySelectorAll(".rawg-shots img").forEach(img =>
       img.addEventListener("error", () => img.remove()));
   }
@@ -1210,6 +1217,21 @@ function renderFichaEspanol(game, f) {
       ${shortDesc ? `<p class="rawg-desc">${escapeHtml(shortDesc)}</p>` : ""}
       ${metaList}`;
   }
+}
+
+// Inserta el tráiler de YouTube en el hueco reservado de la ficha (sin re-render).
+function injectFichaVideo(game, embedUrl) {
+  const slot = document.getElementById("rawg-info");
+  if (!slot || slot.dataset.title !== game.title) return;
+  const holder = slot.querySelector(".ficha-video-slot");
+  if (!holder || holder.querySelector("iframe")) return;
+  holder.innerHTML = `
+    <div class="ficha-video">
+      <iframe src="${escapeAttr(embedUrl)}" title="Tráiler de ${escapeAttr(game.title)}"
+        loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen></iframe>
+    </div>`;
 }
 
 // ============================================================
