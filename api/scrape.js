@@ -107,6 +107,18 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Diagnóstico de PREVENTAS: rápido y legible. Sólo consulta las fuentes de
+  //    "próximos lanzamientos" (sin recorrer el catálogo completo), para que el
+  //    dueño pueda abrir /api/scrape?debug=comingsoon en el navegador y ver al
+  //    instante cuántas preventas encuentra PSN y de qué fuente vienen.
+  if ((req.query.debug || "") === "comingsoon") {
+    try {
+      return res.status(200).json(await debugComingSoon());
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -179,7 +191,9 @@ export default async function handler(req, res) {
     // que el catálogo principal pero con forceComingSoon=true: todos los juegos
     // que vienen de ahí son preventas por definición, sin importar precio/fecha.
     const comingSoonCatWork = COMING_SOON_CATEGORIES.map(async (catId) => {
-      const items = await fetchCategoryPaginated(catId, stats, { forceComingSoon: true });
+      // maxPages bajo: la categoría de próximos lanzamientos tiene pocas páginas
+      // y NO debe poder disparar el timeout de 30s del catálogo completo.
+      const items = await fetchCategoryPaginated(catId, stats, { forceComingSoon: true, maxPages: 6 });
       for (const g of items) {
         g.comingSoon = true;
         comingSoonIds.add(g.id);
@@ -238,10 +252,11 @@ export default async function handler(req, res) {
 
 async function fetchCategoryPaginated(catId, stats, opts = {}) {
   const all = [];
+  const maxPages = opts.maxPages || MAX_PAGES_PER_CATEGORY;
   let pageStart = 1;
-  while (pageStart <= MAX_PAGES_PER_CATEGORY) {
+  while (pageStart <= maxPages) {
     const pageNums = [];
-    for (let i = 0; i < PAGE_CHUNK && pageStart + i <= MAX_PAGES_PER_CATEGORY; i++) {
+    for (let i = 0; i < PAGE_CHUNK && pageStart + i <= maxPages; i++) {
       pageNums.push(pageStart + i);
     }
     const results = await Promise.allSettled(
@@ -460,6 +475,36 @@ function parsePrice(str) {
   if (typeof str === "number") return str;
   const m = String(str).match(/[\d.]+/);
   return m ? parseFloat(m[0]) : 0;
+}
+
+// ── Diagnóstico de PREVENTAS (/api/scrape?debug=comingsoon).
+//    Consulta SOLO las fuentes de próximos lanzamientos y devuelve un resumen
+//    legible: cuántas preventas encuentra y de qué fuente. Cada fuente se prueba
+//    por separado para saber exactamente cuál funciona en la región es-cr.
+async function debugComingSoon() {
+  const out = { region: PSN_BASE, sources: {}, totalUnicos: 0, titulos: [] };
+  const seen = new Map();
+
+  const probe = async (label, url, force) => {
+    try {
+      const games = await fetchAndParse(url, null, { forceComingSoon: force });
+      const list = force ? games : games.filter(g => g.comingSoon);
+      out.sources[label] = { url, ok: true, encontrados: games.length, preventas: list.length };
+      for (const g of list) if (!seen.has(g.id)) seen.set(g.id, g.title);
+    } catch (e) {
+      out.sources[label] = { url, ok: false, error: e.message };
+    }
+  };
+
+  await Promise.all([
+    probe("categoria_coming_soon", `${PSN_BASE}/category/${COMING_SOON_CATEGORIES[0]}/1`, true),
+    probe("pagina_coming_soon", `${PSN_BASE}/pages/coming-soon`, true),
+    probe("busqueda_preventa", `${PSN_BASE}/search/${encodeURIComponent("preventa")}`, false),
+  ]);
+
+  out.totalUnicos = seen.size;
+  out.titulos = Array.from(seen.values()).slice(0, 60);
+  return out;
 }
 
 // ── Diagnóstico: trae una página real de PSN y reporta, para los primeros
