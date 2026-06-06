@@ -856,7 +856,7 @@ function renderPlatform(platform, page = 1) {
     </section>
   `;
   mountToolbar(list, page, `/plataforma/${platform}`, true);
-  if (platform === 'PS4') mountArcadeCanvas();
+  if (platform === 'PS4') { const v = document.querySelector('.ps4-arcade-video'); if (v) v.play().catch(()=>{}); }
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -3387,7 +3387,7 @@ function heroSlimHTML(platform) {
   return `
     <section class="hero slim${isPs4 ? ' hero--ps4' : ''}">
       ${isPs4 ? '' : '<div class="hero-glow"></div>'}
-      ${isPs4 ? '<canvas id="ps4-arcade-canvas" aria-label="Banner animado PS4 — caballero vs dragón estilo arcade"></canvas>' : ''}
+      ${isPs4 ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606e" type="video/mp4"></video>' : ''}
       <div class="container hero-inner"${isPs4 ? ' style="display:none"' : ''}>
         <h1 class="slim-title">${escapeHtml(platform)}</h1>
       </div>

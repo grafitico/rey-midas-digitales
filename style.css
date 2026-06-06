@@ -959,7 +959,7 @@ body {
 }
 .hero.slim { padding: 2rem 0 1.5rem; }
 .hero.slim.hero--ps4 { padding: 0; overflow: hidden; }
-#ps4-arcade-canvas { display: block; width: 100%; height: auto; }
+.ps4-arcade-video { display: block; width: 100%; height: auto; }
 .hero-glow {
   position: absolute;
   inset: 0;
