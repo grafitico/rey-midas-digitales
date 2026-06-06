@@ -871,7 +871,7 @@ function categoryChipsHTML(list) {
     }
   }
   if (present.size < 2) return ""; // sin variedad real, no vale la pena
-  const order = ["accion", "aventura", "rpg", "shooter", "terror", "lucha", "carreras", "deportes", "estrategia", "infantiles"];
+  const order = ["preventa", "estreno", "edicion", "accion", "aventura", "rpg", "shooter", "terror", "lucha", "carreras", "deportes", "estrategia", "infantiles"];
   const tags = order.filter(t => present.has(t));
   return `
     <div class="category-chips" id="categoryChips">
@@ -887,6 +887,22 @@ function categoryChipsHTML(list) {
 function primaryPlatform(platform) {
   const first = String(platform || "").split("/")[0].trim();
   return first || platform;
+}
+
+// Fila de "facetas" del producto (tipo, fecha de lanzamiento, clasificación por
+// edad) — los datos que el scraper saca del Product de PSN. Solo muestra lo que
+// realmente tiene; si el juego no trae ninguno, no renderiza nada.
+function productFacetsHTML(g) {
+  const bits = [];
+  const TYPE_LABEL = { edition: "Edición especial", bundle: "Bundle", "full-game": "Juego completo" };
+  if (TYPE_LABEL[g.type] && g.type !== "full-game") bits.push(`<span class="facet facet-type">${TYPE_LABEL[g.type]}</span>`);
+  if (g.ageRating) bits.push(`<span class="facet">${escapeHtml(g.ageRating)}</span>`);
+  if (g.releaseDate) {
+    const d = new Date(g.releaseDate + "T00:00:00");
+    const txt = isNaN(d.getTime()) ? g.releaseDate : d.toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" });
+    bits.push(`<span class="facet facet-date">${g.comingSoon ? "Disponible el " : "Lanzamiento: "}${escapeHtml(txt)}</span>`);
+  }
+  return bits.length ? `<div class="product-facets">${bits.join("")}</div>` : "";
 }
 
 function renderProduct(id) {
@@ -924,10 +940,12 @@ function renderProduct(id) {
         <div class="product-image">
           ${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}">` : `${placeholderHTML()}`}
           ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
+          ${g.comingSoon ? `<span class="badge-preventa">Preventa</span>` : ""}
         </div>
         <div class="product-info">
           <span class="product-platform">${escapeHtml(g.platform)}</span>
           <h1>${escapeHtml(g.title)}</h1>
+          ${productFacetsHTML(g)}
 
           <div class="product-tags">
             <span class="tag tag-stock">
@@ -1443,6 +1461,9 @@ async function enrichWithRawg(game) {
 // Géneros que el scraper de PSN guarda normalizados (sin tilde, minúsculas).
 // Acá los volvemos a una etiqueta presentable para la ficha.
 const GENRE_LABELS = {
+  // Facetas tipo PS Store (no son géneros, pero se filtran igual):
+  preventa: "Preventas", estreno: "Novedades", edicion: "Ediciones",
+  // Géneros:
   accion: "Acción", aventura: "Aventura", terror: "Terror", rpg: "RPG",
   deportes: "Deportes", carreras: "Carreras", shooter: "Shooter",
   lucha: "Lucha", estrategia: "Estrategia", infantiles: "Infantil",
@@ -3909,6 +3930,7 @@ function cardHTML(g) {
       <div class="card-image">
         ${img}
         ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
+        ${g.comingSoon ? `<span class="badge-preventa">Preventa</span>` : ""}
         <span class="badge-platform">${escapeHtml(g.platform)}</span>
       </div>
       <div class="card-body">

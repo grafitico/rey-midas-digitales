@@ -1,12 +1,23 @@
-// Scraper de PlayStation Store (es-cr) — v3 paginado.
+// Scraper de PlayStation Store (es-cr) — v4 paginado + facetas.
 //
 // Recorre todas las páginas de la(s) categoría(s) principales de juegos
 // PS5/PS4 hasta encontrar un chunk vacío, en paralelo controlado. Más
 // las páginas estáticas de deals/latest. Antes traíamos ~200 juegos
 // fijos; ahora apuntamos a varios miles.
 //
+// v4 añade las "facetas" que usa la propia PS Store para filtrar, leyendo
+// los campos del Product de PSN:
+//   • type        → full-game / bundle / edition / add-on
+//   • releaseDate → fecha de lanzamiento
+//   • comingSoon  → releaseDate en el futuro (va a la sección de Preventa)
+//   • ageRating   → clasificación por edad
+// Y EXCLUYE los add-on (DLC): el negocio no los vende.
+//
 // Si PSN cambia el UUID de la categoría o el patrón /category/{id}/{n},
 // hay que actualizar CATEGORIES/STATIC_PAGES abajo.
+//
+// Diagnóstico (para confirmar nombres de campo reales contra PSN en vivo):
+//   GET /api/scrape?debug=classification
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
 
@@ -51,15 +62,34 @@ const MAX_PAGES_PER_CATEGORY = 150;
 // (8 chunks * ~2.5s ≈ 20s).
 const PAGE_CHUNK = 20;
 
+// ── Clasificación del producto (facetas tipo PS Store) ───────────────────────
+// PSN expone la clasificación en `storeDisplayClassification` (FULL_GAME,
+// GAME_BUNDLE, PREMIUM_EDITION, ADD_ON, …). Como distintas vistas/regiones la
+// exponen con nombres distintos, probamos varios y, si no hay ninguno, inferimos
+// por el título (conservador: ante la duda dejamos el juego, nunca lo borramos).
+const ADDON_TITLE_RE = /pase de temporada|season pass|expansion pass|pase de expansi[oó]n|paquete de (monedas|divisas|puntos|cr[eé]ditos|gemas)|\b\d{2,}\s*(monedas|cr[eé]ditos|puntos|v-?bucks|gemas)\b|contenido adicional|complemento\b|\bdlc\b|\badd[\s-]?on\b/i;
+const EDITION_TITLE_RE = /\b(ultimate|deluxe|gold|premium|definitive|complete|collector'?s?|legendary|legacy|goty|game of the year|digital deluxe)\b|\bedici[oó]n\b|\bedition\b|\bbundle\b|\btrilog(y|[ií]a)\b|\bcollection\b|\bcolecci[oó]n\b/i;
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  // ── Diagnóstico de campos: confirma contra PSN en vivo qué campo trae la
+  //    clasificación (type) y la clasificación por edad, sin adivinar.
+  if ((req.query.debug || "") === "classification") {
+    try {
+      return res.status(200).json(await debugClassification());
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map(); // gameId -> Set<genreTag>
+    const newIds = new Set();   // ids que aparecen en /pages/latest -> "estreno"
     const stats = {
       categoriesScanned: CATEGORIES.length,
       pagesFetched: 0,
@@ -67,6 +97,7 @@ export default async function handler(req, res) {
       pagesFailed: 0,
       genresFetched: 0,
       genresFailed: 0,
+      addonsExcluded: 0,
     };
 
     const categoryWork = CATEGORIES.map(async (catId) => {
@@ -78,10 +109,12 @@ export default async function handler(req, res) {
 
     const staticWork = STATIC_PAGES.map(async (path) => {
       try {
-        const games = await fetchAndParse(`${PSN_BASE}${path}`);
+        const games = await fetchAndParse(`${PSN_BASE}${path}`, stats);
         stats.pagesFetched++;
+        const isLatest = path.includes("latest");
         for (const g of games) {
           if (!map.has(g.id)) map.set(g.id, g);
+          if (isLatest) newIds.add(g.id);
         }
       } catch {
         stats.pagesFailed++;
@@ -90,7 +123,7 @@ export default async function handler(req, res) {
 
     const genreWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
       try {
-        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`);
+        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`, stats);
         stats.genresFetched++;
         for (const g of games) {
           if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
@@ -112,6 +145,10 @@ export default async function handler(req, res) {
         const direct = new Set(g.directGenres || []);
         const search = genreMap.get(g.id) || new Set();
         const merged = new Set([...direct, ...search]);
+        // Facetas de merchandising (además del género), como etiquetas filtrables:
+        if (g.type === "edition" || g.type === "bundle") merged.add("edicion");
+        if (g.comingSoon) merged.add("preventa");
+        else if (newIds.has(g.id)) merged.add("estreno");
         if (direct.size > 0) taggedDirect++;
         if (search.size > 0) taggedSearch++;
         if (merged.size > 0 && sampleTagged.length < 5) {
@@ -128,6 +165,8 @@ export default async function handler(req, res) {
     stats.taggedDirect = taggedDirect;
     stats.taggedSearch = taggedSearch;
     stats.sampleTagged = sampleTagged;
+    stats.comingSoon = games.filter(g => g.comingSoon).length;
+    stats.editions = games.filter(g => g.type === "edition" || g.type === "bundle").length;
 
     return res.status(200).json({
       success: true,
@@ -149,7 +188,7 @@ async function fetchCategoryPaginated(catId, stats) {
       pageNums.push(pageStart + i);
     }
     const results = await Promise.allSettled(
-      pageNums.map(p => fetchAndParse(`${PSN_BASE}/category/${catId}/${p}`))
+      pageNums.map(p => fetchAndParse(`${PSN_BASE}/category/${catId}/${p}`, stats))
     );
     let chunkProduced = false;
     for (const r of results) {
@@ -172,7 +211,7 @@ async function fetchCategoryPaginated(catId, stats) {
   return all;
 }
 
-async function fetchAndParse(url) {
+async function fetchHtml(url) {
   const r = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -181,11 +220,14 @@ async function fetchAndParse(url) {
     },
   });
   if (!r.ok) throw new Error(`HTTP ${r.status} en ${url}`);
-  const html = await r.text();
-  return parseGames(html);
+  return r.text();
 }
 
-function parseGames(html) {
+async function fetchAndParse(url, stats) {
+  return parseGames(await fetchHtml(url), stats);
+}
+
+function parseGames(html, stats) {
   if (!html || html.length < 500) return [];
   const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
   if (!m) return [];
@@ -201,8 +243,9 @@ function parseGames(html) {
     const obj = cache[key];
     if (!obj || typeof obj !== "object") continue;
     if (obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) {
-      const g = normalize({ ...obj, price: deref(obj.price) });
+      const g = normalize({ ...obj, price: deref(obj.price), contentRating: deref(obj.contentRating) });
       if (g) out.push(g);
+      else if (stats && g === null && classifyType(obj) === "add-on") stats.addonsExcluded++;
     }
   }
   return out;
@@ -210,6 +253,11 @@ function parseGames(html) {
 
 function normalize(p) {
   if (!p.id || !p.name) return null;
+
+  // Tipo de producto. El negocio NO vende DLC/add-ons → fuera del catálogo.
+  const type = classifyType(p);
+  if (type === "add-on") return null;
+
   const priceInfo = p.price || {};
   // PSN expone el precio de oferta como "discountedPrice" (SkuPrice). Algunas
   // vistas usan "discountedValue". Probamos ambos y caemos a basePrice.
@@ -225,6 +273,8 @@ function normalize(p) {
   else if (hasPS5) platform = "PS5";
 
   const imageUrl = pickPsnCover(p.media);
+  const releaseDate = extractReleaseDate(p);
+  const comingSoon = isFutureDate(releaseDate);
 
   const onSale = original > current;
   return {
@@ -237,13 +287,57 @@ function normalize(p) {
     originalPriceUSD: original,
     onSale,
     discount: onSale ? Math.round((1 - current / original) * 100) : 0,
-    isBundle: /bundle|edition|collection|pack|trilogy|complete|deluxe|ultimate|gold|premium|definitive|remaster/i.test(p.name),
+    // Facetas tipo PS Store:
+    type,                       // full-game | bundle | edition
+    releaseDate,                // "YYYY-MM-DD" o ""
+    comingSoon,                 // releaseDate en el futuro
+    ageRating: extractAgeRating(p), // "Teen", "+18", etc. (mejor esfuerzo)
+    isBundle: type === "bundle" || type === "edition",
     // Géneros desde el propio Product de PSN. Distintas páginas de PSN
     // exponen el campo con nombres distintos, así que probamos varios.
     // Lo que matchee se taggea con la versión normalizada (sin tildes,
     // minúsculas) para que la búsqueda interna del cliente lo encuentre.
     directGenres: extractDirectGenres(p),
   };
+}
+
+// Devuelve "full-game" | "bundle" | "edition" | "add-on".
+function classifyType(p) {
+  const raw = String(
+    p.storeDisplayClassification ?? p.displayClassification ??
+    p.topCategory ?? p.gameContentType ?? p.contentType ?? p.productType ?? ""
+  ).toUpperCase();
+  if (/ADD[\s_-]?ON|ADDON|\bDLC\b/.test(raw)) return "add-on";
+  if (/BUNDLE/.test(raw)) return "bundle";
+  if (/PREMIUM|EDITION/.test(raw)) return "edition";
+  if (/FULL[\s_-]?GAME|PS[345][\s_-]?GAME|^GAME$|DIGITAL[\s_-]?FULL/.test(raw)) return "full-game";
+  // Sin clasificación reconocible: inferimos por título (conservador).
+  if (ADDON_TITLE_RE.test(p.name)) return "add-on";
+  if (EDITION_TITLE_RE.test(p.name)) return "edition";
+  return "full-game";
+}
+
+function extractReleaseDate(p) {
+  const v = p.releaseDate ?? p.releaseDateText ?? p.originalReleaseDate ?? "";
+  const m = String(v).match(/\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : "";
+}
+
+function isFutureDate(ymd) {
+  if (!ymd) return false;
+  const t = Date.parse(ymd + "T00:00:00Z");
+  return Number.isFinite(t) && t > Date.now();
+}
+
+// Clasificación por edad (mejor esfuerzo: PSN la expone de formas distintas).
+function extractAgeRating(p) {
+  const cr = p.contentRating;
+  if (cr && typeof cr === "object") {
+    const v = cr.description || cr.name || cr.title || cr.ratingSystemId || cr.ageRatingText;
+    if (v) return String(v).trim();
+  }
+  const v = p.ageRating ?? p.ratingDescription ?? "";
+  return String(v || "").trim();
 }
 
 function extractDirectGenres(p) {
@@ -280,7 +374,7 @@ function normalizeGenreTag(s) {
   return String(s)
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "");
 }
 
@@ -289,4 +383,33 @@ function parsePrice(str) {
   if (typeof str === "number") return str;
   const m = String(str).match(/[\d.]+/);
   return m ? parseFloat(m[0]) : 0;
+}
+
+// ── Diagnóstico: trae una página real de PSN y reporta, para los primeros
+//    productos, TODAS sus llaves + los valores de los campos candidatos. Sirve
+//    para confirmar el nombre real del campo de "type" y de "age rating" sin
+//    adivinar. /api/scrape?debug=classification
+async function debugClassification() {
+  const html = await fetchHtml(`${PSN_BASE}/category/${CATEGORIES[0]}/1`);
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  if (!m) return { error: "sin __NEXT_DATA__" };
+  const cache = JSON.parse(m[1])?.props?.apolloState || {};
+  const deref = (v) => (v && typeof v === "object" && v.__ref ? cache[v.__ref] ?? v : v);
+
+  const candidates = ["storeDisplayClassification", "displayClassification", "topCategory", "gameContentType", "contentType", "productType", "releaseDate", "ageRating", "ratingDescription"];
+  const breakdown = {};
+  const samples = [];
+  for (const key of Object.keys(cache)) {
+    const obj = cache[key];
+    if (!obj || typeof obj !== "object") continue;
+    if (obj.__typename !== "Product" && !(typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) continue;
+    const cls = obj.storeDisplayClassification ?? obj.displayClassification ?? obj.topCategory ?? "(sin campo)";
+    breakdown[cls] = (breakdown[cls] || 0) + 1;
+    if (samples.length < 8) {
+      const picked = {};
+      for (const c of candidates) if (obj[c] !== undefined) picked[c] = obj[c];
+      samples.push({ id: obj.id, name: obj.name, detectedType: classifyType(obj), allKeys: Object.keys(obj), candidateValues: picked, contentRating: deref(obj.contentRating) });
+    }
+  }
+  return { classificationBreakdown: breakdown, samples };
 }

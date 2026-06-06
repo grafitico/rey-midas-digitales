@@ -1201,6 +1201,41 @@ body {
   border: 1px solid rgba(0, 229, 255, 0.3);
 }
 
+/* Sello de preventa/próximamente (esquina superior izquierda) */
+.badge-preventa {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  background: linear-gradient(135deg, #7b5cff, #4a2fd6);
+  color: #fff;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  box-shadow: 0 4px 14px rgba(95, 60, 255, 0.45);
+}
+.product-image .badge-preventa { font-size: 0.95rem; padding: 0.45rem 0.85rem; }
+
+/* Fila de facetas del producto (tipo, fecha, edad) */
+.product-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0.6rem;
+}
+.facet {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-dim);
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.facet-type { color: var(--gold); border-color: rgba(245, 196, 81, 0.4); background: rgba(245, 196, 81, 0.1); }
+.facet-date { color: var(--cyan); border-color: rgba(0, 229, 255, 0.3); background: rgba(0, 229, 255, 0.08); }
+
 .card-body {
   padding: 0.85rem 0.95rem 1rem;
   flex: 1;
