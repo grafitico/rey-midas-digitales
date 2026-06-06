@@ -1,25 +1,19 @@
-name: Harvest covers to Bana
+name: Harvest covers to covers.json
 
-# Cosecha las carátulas de los juegos featured (que dependen de RAWG),
-# las sube a Bana Hosting y commitea covers.json al repo. Una vez cosechadas,
-# el sitio las carga directo desde Bana y deja de gastar cupo de RAWG.
+# Busca la URL de portada de cada juego featured en RAWG (una sola vez),
+# la guarda en covers.json y la commitea al repo.
+# El sitio lee covers.json y carga las imágenes directo del CDN de RAWG
+# (media.rawg.io) sin tocar la API nunca más → cero cuota en producción.
 #
-# Se dispara a mano (botón "Run workflow") o por schedule semanal para
-# capturar los juegos nuevos que se vayan agregando a featured-games.json.
+# Correr manualmente al inicio de cada mes (cuando se renueva la cuota RAWG)
+# o cuando se agreguen juegos nuevos a featured-games.json.
 #
-# Requiere estos secrets del repo (Settings → Secrets and variables → Actions):
-#   RAWG_API_KEY, BANA_HOST, BANA_USER, BANA_PASSWORD
-#   BANA_PUBLIC_URL es opcional (se autodetecta si no se pone).
+# Solo requiere: RAWG_API_KEY en los secrets del repo.
 
 on:
   workflow_dispatch:
-    inputs:
-      public_url:
-        description: "URL pública de Bana (opcional, ej https://grafiticocr.com/covers). Vacío = autodetectar."
-        required: false
-        default: ""
   schedule:
-    - cron: "30 6 * * 1"   # lunes 06:30 UTC
+    - cron: "0 8 2 * *"   # día 2 de cada mes, 08:00 UTC (cuota ya renovada)
 
 jobs:
   harvest:
@@ -35,16 +29,9 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install deps
-        run: npm install basic-ftp@^5.0.5
-
-      - name: Harvest covers
+      - name: Harvest cover URLs from RAWG
         env:
           RAWG_API_KEY: ${{ secrets.RAWG_API_KEY }}
-          BANA_HOST: ${{ secrets.BANA_HOST }}
-          BANA_USER: ${{ secrets.BANA_USER }}
-          BANA_PASSWORD: ${{ secrets.BANA_PASSWORD }}
-          BANA_PUBLIC_URL: ${{ inputs.public_url || secrets.BANA_PUBLIC_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
