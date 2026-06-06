@@ -53,6 +53,19 @@ const GENRE_SEARCHES = [
   { tag: "infantiles", query: "infantil" },
 ];
 
+// Descubrimiento de PREVENTAS para la sección de Reservaciones. La categoría
+// principal del catálogo casi no expone los juegos que todavía no salieron, así
+// que le preguntamos al buscador de PSN directamente por la etiqueta "preventa"
+// (la misma que usa la tienda para los próximos lanzamientos). Todo lo que venga
+// de acá se marca como comingSoon = true aunque la vista de búsqueda no traiga
+// la fecha en el apolloState, porque por definición son títulos en preventa.
+const COMING_SOON_SEARCHES = ["preventa"];
+
+// Señales de "próximamente / preventa" por texto. PSN a veces no expone la
+// releaseDate en las vistas de lista, pero sí una etiqueta o texto de
+// disponibilidad. Las detectamos para no perder preventas.
+const COMING_SOON_TEXT_RE = /preventa|pre-?venta|pr[oó]ximamente|coming soon|pre-?order|pre-?orden|disponible el|available (from|on)/i;
+
 // Tope de páginas por categoría. 150 * ~24 productos = ~3600 por categoría.
 // La corrida anterior llegó a 50 sin ningún empty/fail, así que el catálogo
 // tiene bastante más profundidad que eso.
@@ -88,8 +101,9 @@ export default async function handler(req, res) {
 
   try {
     const map = new Map();
-    const genreMap = new Map(); // gameId -> Set<genreTag>
-    const newIds = new Set();   // ids que aparecen en /pages/latest -> "estreno"
+    const genreMap = new Map();    // gameId -> Set<genreTag>
+    const newIds = new Set();      // ids que aparecen en /pages/latest -> "estreno"
+    const comingSoonIds = new Set(); // ids del descubrimiento de preventas -> "preventa"
     const stats = {
       categoriesScanned: CATEGORIES.length,
       pagesFetched: 0,
@@ -134,7 +148,19 @@ export default async function handler(req, res) {
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork, ...genreWork]);
+    const comingSoonWork = COMING_SOON_SEARCHES.map(async (query) => {
+      try {
+        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`, stats);
+        for (const g of games) {
+          if (!map.has(g.id)) map.set(g.id, g);
+          comingSoonIds.add(g.id);
+        }
+      } catch {
+        stats.genresFailed++;
+      }
+    });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork]);
 
     let taggedDirect = 0;
     let taggedSearch = 0;
@@ -145,6 +171,9 @@ export default async function handler(req, res) {
         const direct = new Set(g.directGenres || []);
         const search = genreMap.get(g.id) || new Set();
         const merged = new Set([...direct, ...search]);
+        // El descubrimiento de preventas (búsqueda "preventa" en PSN) marca el
+        // juego como próximo a salir aunque la vista de lista no traiga la fecha.
+        if (comingSoonIds.has(g.id)) g.comingSoon = true;
         // Facetas de merchandising (además del género), como etiquetas filtrables:
         if (g.type === "edition" || g.type === "bundle") merged.add("edicion");
         if (g.comingSoon) merged.add("preventa");
@@ -274,7 +303,7 @@ function normalize(p) {
 
   const imageUrl = pickPsnCover(p.media);
   const releaseDate = extractReleaseDate(p);
-  const comingSoon = isFutureDate(releaseDate);
+  const comingSoon = detectComingSoon(p, releaseDate);
 
   const onSale = original > current;
   return {
@@ -327,6 +356,22 @@ function isFutureDate(ymd) {
   if (!ymd) return false;
   const t = Date.parse(ymd + "T00:00:00Z");
   return Number.isFinite(t) && t > Date.now();
+}
+
+// ¿El juego está en preventa / próximo a salir? Primero por fecha futura y,
+// si PSN no la expuso en esta vista, por la etiqueta/texto de disponibilidad.
+// Sólo miramos campos candidatos concretos (no todo el producto) para no
+// generar falsos positivos con títulos que mencionen "preventa" por casualidad.
+function detectComingSoon(p, releaseDate) {
+  if (isFutureDate(releaseDate)) return true;
+  const labels = [
+    p.upsellText, p.availabilityText, p.topCategory, p.badge, p.callToAction,
+    p?.price?.upsellText, p?.price?.serviceBranding, p?.price?.priceType,
+  ];
+  for (const v of labels) {
+    if (v && COMING_SOON_TEXT_RE.test(String(v))) return true;
+  }
+  return false;
 }
 
 // Clasificación por edad (mejor esfuerzo: PSN la expone de formas distintas).

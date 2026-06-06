@@ -600,6 +600,7 @@ async function load() {
     loaded = true;
     render();
     enrichFeaturedCovers();
+    enrichReservaCovers();
     // Enriquecer en background: la primera vez tarda, después todo cacheado.
     scheduleAAAEnrichForVisible();
   }
@@ -692,6 +693,56 @@ function applyGameCoverUpdate(g) {
       ph.replaceWith(img);
     }
   }
+}
+
+// Auto-busca la portada de cada reservación manual (reservaciones.json) que no
+// tenga imageUrl, igual que hacemos con los destacados. Usa /api/cover?q=<título>
+// (IGDB) y cachea el resultado en localStorage. Inyecta la imagen en el DOM sin
+// re-renderizar, así que sirve aunque el usuario ya esté en la página de
+// Reservaciones. Idempotente y con guarda para no correr dos veces a la vez.
+let reservaCoversRunning = false;
+async function enrichReservaCovers() {
+  if (reservaCoversRunning) return;
+  const pending = (reservaciones || []).filter(r => r && r.title && !r.imageUrl);
+  if (!pending.length) return;
+  reservaCoversRunning = true;
+  try {
+    for (const r of pending) {
+      if (r.imageUrl) continue;
+      const cacheKey = `reserva-cover:${matchKey(r.title)}`;
+      let url = localStorage.getItem(cacheKey);
+      if (url === null) {
+        try {
+          const resp = await fetch(`/api/cover?q=${encodeURIComponent(r.title)}`);
+          const data = await resp.json();
+          url = data.coverUrl || "";
+          localStorage.setItem(cacheKey, url);
+        } catch { url = ""; }
+      }
+      if (url) {
+        r.imageUrl = url;
+        applyReservaCoverUpdate(r);
+      }
+      await new Promise(res => setTimeout(res, 120));
+    }
+  } finally {
+    reservaCoversRunning = false;
+  }
+}
+
+// Reemplaza el placeholder por la portada real en la tarjeta de reservación,
+// sin re-renderizar (mantiene scroll). Casa por data-reserva-id.
+function applyReservaCoverUpdate(r) {
+  const id = String(r.id || r.title);
+  document.querySelectorAll(`article[data-reserva-id="${CSS.escape(id)}"] .card-image`).forEach(box => {
+    const ph = box.querySelector(".placeholder");
+    if (!ph) return;
+    const img = new Image();
+    img.src = r.imageUrl;
+    img.alt = r.title;
+    img.loading = "lazy";
+    ph.replaceWith(img);
+  });
 }
 
 // Carga diferida de los bundles de Nintendo Switch (nintendo-bundles.json, ~2.9 MB):
@@ -2337,7 +2388,7 @@ function renderReservaciones() {
   const manual = reservaciones || [];
   const manualKeys = new Set(manual.map(r => matchKey(r.title)));
   const preorders = (allGames || [])
-    .filter(g => g.comingSoon && !manualKeys.has(matchKey(g.title)))
+    .filter(g => (g.comingSoon || (Array.isArray(g.genres) && g.genres.includes("preventa"))) && !manualKeys.has(matchKey(g.title)))
     .sort((a, b) => String(a.releaseDate || "9999-99-99").localeCompare(String(b.releaseDate || "9999-99-99")));
   const hasAny = manual.length || preorders.length;
   app.innerHTML = `
@@ -2369,6 +2420,9 @@ function renderReservaciones() {
       ` : ""}
     </section>
   `;
+  // Si alguna reservación manual no tiene portada, la buscamos (cacheada) y la
+  // inyectamos en la tarjeta sin re-renderizar.
+  enrichReservaCovers();
 }
 
 function reservaCardHTML(r) {
@@ -2380,7 +2434,7 @@ function reservaCardHTML(r) {
     : `${placeholderHTML()}`;
   const waMsg = encodeURIComponent(`Hola, quiero reservar ${r.title} (${r.platform}). Confirmen disponibilidad y el monto de la señal, gracias.`);
   return `
-    <article class="card reserva-card">
+    <article class="card reserva-card" data-reserva-id="${escapeAttr(String(r.id || r.title))}">
       <div class="card-image">
         ${img}
         <span class="badge-platform">${escapeHtml(r.platform)}</span>
