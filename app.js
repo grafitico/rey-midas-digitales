@@ -857,6 +857,7 @@ function renderPlatform(platform, page = 1) {
   `;
   mountToolbar(list, page, `/plataforma/${platform}`, true);
   if (platform === 'PS4') { const v = document.querySelector('.ps4-arcade-video'); if (v) v.play().catch(()=>{}); }
+  if (platform === 'PS5') { const v = document.querySelector('.ps5-banner-video'); if (v) v.play().catch(()=>{}); }
 }
 
 // Chips de categoría (género) — replican la navegación por categorías de la
@@ -3384,11 +3385,19 @@ function faqInlineHTML(limit) {
 
 function heroSlimHTML(platform) {
   const isPs4 = platform === 'PS4';
+  const isPs5 = platform === 'PS5';
+  const hasVideo = isPs4 || isPs5;
+  const extraClass = isPs4 ? ' hero--ps4' : isPs5 ? ' hero--ps5' : '';
+  const videoHTML = isPs4
+    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606e" type="video/mp4"></video>'
+    : isPs5
+      ? '<video class="ps5-banner-video" autoplay muted loop playsinline><source src="/ps5-banner.mp4?v=20260606" type="video/mp4"></video>'
+      : '';
   return `
-    <section class="hero slim${isPs4 ? ' hero--ps4' : ''}">
-      ${isPs4 ? '' : '<div class="hero-glow"></div>'}
-      ${isPs4 ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606e" type="video/mp4"></video>' : ''}
-      <div class="container hero-inner"${isPs4 ? ' style="display:none"' : ''}>
+    <section class="hero slim${extraClass}">
+      ${hasVideo ? '' : '<div class="hero-glow"></div>'}
+      ${videoHTML}
+      <div class="container hero-inner"${hasVideo ? ' style="display:none"' : ''}>
         <h1 class="slim-title">${escapeHtml(platform)}</h1>
       </div>
     </section>
