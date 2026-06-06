@@ -3005,7 +3005,7 @@ function heroHTML() {
     <section class="hero">
       <div class="hero-glow"></div>
       <div class="container hero-inner">
-        <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
+        <img src="/assets/logo.png?v=2" alt="Rey Midas Digitales" class="logo">
         <p class="tagline">Tu tienda de juegos digitales en Costa Rica</p>
         <a class="cta" href="/plataforma/PS5">Ver juegos PS5</a>
       </div>
