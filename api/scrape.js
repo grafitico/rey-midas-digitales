@@ -92,7 +92,7 @@ const PAGE_CHUNK = 20;
 // GAME_BUNDLE, PREMIUM_EDITION, ADD_ON, …). Como distintas vistas/regiones la
 // exponen con nombres distintos, probamos varios y, si no hay ninguno, inferimos
 // por el título (conservador: ante la duda dejamos el juego, nunca lo borramos).
-const ADDON_TITLE_RE = /pase de temporada|season pass|expansion pass|pase de expansi[oó]n|paquete de (monedas|divisas|puntos|cr[eé]ditos|gemas)|\b\d{2,}\s*(monedas|cr[eé]ditos|puntos|v-?bucks|gemas)\b|contenido adicional|complemento\b|\bdlc\b|\badd[\s-]?on\b/i;
+const ADDON_TITLE_RE = /pase de temporada|season pass|expansion pass|pase de expansi[oó]n|paquete de (monedas|divisas|puntos|cr[eé]ditos|gemas)|\b\d{2,}\s*(monedas|cr[eé]ditos|puntos|v-?bucks|gemas)\b|contenido adicional|complemento\b|\bdlc\b|\badd[\s-]?on\b|pre-?order bonus|bonus pack|\b(cosmetic|skin|booster|starter|character|costume|currency|upgrade|content|weapon|outfit|avatar)\s+pack\b|paquete de (bonificaci[oó]n|preventa|contenido|cosm[eé]ticos)/i;
 const EDITION_TITLE_RE = /\b(ultimate|deluxe|gold|premium|definitive|complete|collector'?s?|legendary|legacy|goty|game of the year|digital deluxe)\b|\bedici[oó]n\b|\bedition\b|\bbundle\b|\btrilog(y|[ií]a)\b|\bcollection\b|\bcolecci[oó]n\b/i;
 
 export default async function handler(req, res) {

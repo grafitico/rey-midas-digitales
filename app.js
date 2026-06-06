@@ -438,6 +438,9 @@ function parseRoute() {
   if (partes[0] === "playstation-plus") return { name: "subscriptions", service: "psplus" };
   if (partes[0] === "game-pass") return { name: "subscriptions", service: "gamepass" };
   if (partes[0] === "reservaciones") return { name: "reservaciones" };
+  if (partes[0] === "reserva" && partes[1]) {
+    return { name: "reserva", id: decodeURIComponent(partes[1]) };
+  }
   if (partes[0] === "buscar" && partes[1]) {
     const page = (partes[2] === "p" && partes[3]) ? parseInt(partes[3], 10) || 1 : 1;
     return { name: "buscar", term: decodeURIComponent(partes[1]), page };
@@ -731,11 +734,12 @@ async function enrichReservaCovers() {
   }
 }
 
-// Reemplaza el placeholder por la portada real en la tarjeta de reservación,
-// sin re-renderizar (mantiene scroll). Casa por data-reserva-id.
+// Reemplaza el placeholder por la portada real en la tarjeta y/o ficha de la
+// reservación, sin re-renderizar (mantiene scroll). Casa por data-reserva-id,
+// tanto en la grilla (.card-image) como en la ficha (.product-image).
 function applyReservaCoverUpdate(r) {
   const id = String(r.id || r.title);
-  document.querySelectorAll(`article[data-reserva-id="${CSS.escape(id)}"] .card-image`).forEach(box => {
+  document.querySelectorAll(`[data-reserva-id="${CSS.escape(id)}"]`).forEach(box => {
     const ph = box.querySelector(".placeholder");
     if (!ph) return;
     const img = new Image();
@@ -858,6 +862,7 @@ function render() {
   if (route.name === "info") return renderInfoPage(route.slug);
   if (route.name === "subscriptions") return renderSubscriptions(route.service);
   if (route.name === "reservaciones") return renderReservaciones();
+  if (route.name === "reserva") return renderReserva(route.id);
   if (route.name === "buscar") return renderBusqueda(route.term, route.page);
   if (route.name === "categoria") return renderCategoria(route.genre, route.page);
   if (route.name === "resenas") return renderResenas();
@@ -2391,7 +2396,10 @@ function renderReservaciones() {
   const preorders = (allGames || [])
     .filter(g => (g.comingSoon || (Array.isArray(g.genres) && g.genres.includes("preventa"))) && !manualKeys.has(matchKey(g.title)))
     .sort((a, b) => String(a.releaseDate || "9999-99-99").localeCompare(String(b.releaseDate || "9999-99-99")));
-  const hasAny = manual.length || preorders.length;
+  // Una sola lista: las reservas curadas (con señal) primero, y a continuación
+  // los próximos lanzamientos del catálogo. Todo como tarjetas uniformes.
+  const total = manual.length + preorders.length;
+  const hasAny = total > 0;
   app.innerHTML = `
     ${heroSlimHTML("Reservaciones")}
     <section class="container catalog-section">
@@ -2399,26 +2407,21 @@ function renderReservaciones() {
         <h2>Reservá tus juegos antes del lanzamiento</h2>
         <p>Asegurate tu copia desde el día 1. Pagás una señal y completás cuando se lanza.</p>
       </div>
-      ${manual.length ? `
-        <div class="grid reservas-grid">
-          ${manual.map(reservaCardHTML).join("")}
-        </div>
-      ` : ""}
-      ${preorders.length ? `
-        <div class="section-title centered" style="margin-top:2.5rem">
+      ${hasAny ? `
+        <div class="section-title centered" style="margin-top:1.5rem">
           <h2>Próximos lanzamientos en preventa</h2>
-          <p>${preorders.length} ${preorders.length === 1 ? "título que todavía no salió" : "títulos que todavía no salieron"} a la venta. Reservá hoy y aseguralo.</p>
+          <p>${total} ${total === 1 ? "título que todavía no salió" : "títulos que todavía no salieron"} a la venta. Reservá hoy y aseguralo.</p>
         </div>
         <div class="grid">
+          ${manual.map(reservaCardHTML).join("")}
           ${preorders.map(preorderCardHTML).join("")}
         </div>
-      ` : ""}
-      ${!hasAny ? `
+      ` : `
         <div class="empty-purchases">
           <p>Por ahora no tenemos reservas abiertas. Pronto vamos a sumar los próximos lanzamientos.</p>
           <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, quiero saber qué reservas tienen abiertas.")}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
         </div>
-      ` : ""}
+      `}
     </section>
   `;
   // Si alguna reservación manual no tiene portada, la buscamos (cacheada) y la
@@ -2426,28 +2429,29 @@ function renderReservaciones() {
   enrichReservaCovers();
 }
 
+// Tarjeta compacta de una reserva manual (reservaciones.json). Igual de uniforme
+// que las preventas del catálogo; al hacer clic abre la ficha /reserva/<id> con
+// precios, señal y el botón de Reservar por WhatsApp.
 function reservaCardHTML(r) {
-  const release = r.releaseDate
-    ? new Date(r.releaseDate + "T00:00:00").toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" })
-    : "Por anunciar";
   const img = r.imageUrl
     ? `<img src="${escapeAttr(r.imageUrl)}" alt="${escapeAttr(r.title)}" loading="lazy">`
     : `${placeholderHTML()}`;
-  const waMsg = encodeURIComponent(`Hola, quiero reservar ${r.title} (${r.platform}). Confirmen disponibilidad y el monto de la señal, gracias.`);
+  const facets = [];
+  if (r.releaseDate) {
+    const d = new Date(r.releaseDate + "T00:00:00");
+    const txt = isNaN(d.getTime()) ? r.releaseDate : d.toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" });
+    facets.push(`<span class="facet facet-date">Disponible el ${escapeHtml(txt)}</span>`);
+  }
   return `
-    <article class="card reserva-card" data-reserva-id="${escapeAttr(String(r.id || r.title))}">
+    <a class="card reserva-card" data-reserva-id="${escapeAttr(String(r.id || r.title))}" href="/reserva/${encodeURIComponent(r.id || matchKey(r.title))}">
       <div class="card-image">
         ${img}
+        <span class="badge-preventa">Preventa</span>
         <span class="badge-platform">${escapeHtml(r.platform)}</span>
-        <span class="badge-reserva">Reserva</span>
       </div>
       <div class="card-body">
         <div class="card-title">${escapeHtml(r.title)}</div>
-        <div class="reserva-meta">
-          <span>Lanzamiento</span>
-          <strong>${escapeHtml(release)}</strong>
-        </div>
-        ${r.description ? `<p class="reserva-desc">${escapeHtml(r.description)}</p>` : ""}
+        ${facets.length ? `<div class="product-facets">${facets.join("")}</div>` : ""}
         <div class="price-rows">
           ${r.priceCRC_principal != null ? `
             <div class="price-row">
@@ -2463,12 +2467,82 @@ function reservaCardHTML(r) {
           ` : ""}
         </div>
         ${r.deposit ? `<div class="reserva-deposit">Señal desde <strong>${formatCRC(r.deposit)}</strong></div>` : ""}
-        <a class="cta cta-wa reserva-cta" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
-          Reservar por WhatsApp
-        </a>
       </div>
-    </article>
+    </a>
   `;
+}
+
+// Ficha completa de una reserva manual. Se abre desde la tarjeta (/reserva/<id>)
+// y muestra portada grande, precios, señal y el botón de Reservar por WhatsApp.
+function renderReserva(id) {
+  if (!loaded) {
+    app.innerHTML = `<section class="container empty-state"><p>Cargando reserva...</p></section>`;
+    return;
+  }
+  const list = reservaciones || [];
+  const r = list.find(x => String(x.id) === String(id)) || list.find(x => matchKey(x.title) === String(id));
+  if (!r) {
+    app.innerHTML = `
+      <section class="container empty-state">
+        <h2>Reserva no encontrada</h2>
+        <p>Esta reserva ya no está disponible.</p>
+        <a class="cta" href="/reservaciones">Ver reservaciones</a>
+      </section>
+    `;
+    return;
+  }
+  const release = r.releaseDate
+    ? new Date(r.releaseDate + "T00:00:00").toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" })
+    : "Por anunciar";
+  const img = r.imageUrl
+    ? `<img src="${escapeAttr(r.imageUrl)}" alt="${escapeAttr(r.title)}" loading="lazy">`
+    : `${placeholderHTML()}`;
+  const waMsg = encodeURIComponent(`Hola, quiero reservar ${r.title} (${r.platform}). Confirmen disponibilidad y el monto de la señal, gracias.`);
+  app.innerHTML = `
+    <section class="container product-page">
+      <nav class="breadcrumb" aria-label="Migas de pan">
+        <a href="/">Inicio</a>
+        <span class="breadcrumb-sep">›</span>
+        <a href="/reservaciones">Reservaciones</a>
+        <span class="breadcrumb-sep">›</span>
+        <span class="breadcrumb-current">${escapeHtml(r.title)}</span>
+      </nav>
+      <div class="product-grid">
+        <div class="product-image" data-reserva-id="${escapeAttr(String(r.id || r.title))}">
+          ${img}
+          <span class="badge-preventa">Preventa</span>
+        </div>
+        <div class="product-info">
+          <span class="badge-platform">${escapeHtml(r.platform)}</span>
+          <h1 class="product-title">${escapeHtml(r.title)}</h1>
+          <div class="reserva-meta">
+            <span>Lanzamiento</span>
+            <strong>${escapeHtml(release)}</strong>
+          </div>
+          ${r.description ? `<p class="product-desc">${escapeHtml(r.description)}</p>` : ""}
+          <div class="price-rows">
+            ${r.priceCRC_principal != null ? `
+              <div class="price-row">
+                <span class="price-tag">Principal</span>
+                <span class="price-value">${formatCRC(r.priceCRC_principal)}</span>
+              </div>
+            ` : ""}
+            ${r.priceCRC_secundaria != null ? `
+              <div class="price-row secundaria">
+                <span class="price-tag">Secundaria</span>
+                <span class="price-value">${formatCRC(r.priceCRC_secundaria)}</span>
+              </div>
+            ` : ""}
+          </div>
+          ${r.deposit ? `<div class="reserva-deposit">Señal desde <strong>${formatCRC(r.deposit)}</strong></div>` : ""}
+          <a class="cta cta-wa reserva-cta" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
+            Reservar por WhatsApp
+          </a>
+        </div>
+      </div>
+    </section>
+  `;
+  enrichReservaCovers();
 }
 
 // Card de un juego en preventa del catálogo (comingSoon). Muestra los labels
