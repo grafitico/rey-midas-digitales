@@ -962,11 +962,11 @@ function renderProduct(id) {
           <div class="product-tags">
             <span class="tag tag-stock">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
-              En stock
+              ${g.comingSoon ? "En preventa" : "En stock"}
             </span>
             <span class="tag tag-delivery">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Entrega inmediata
+              ${g.comingSoon ? "Entrega el día de lanzamiento" : "Entrega inmediata"}
             </span>
             <span class="tag tag-warranty">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -2331,6 +2331,15 @@ function planCardHTML(p, serviceTitle) {
 // Reservaciones (pre-orders)
 // ============================================================
 function renderReservaciones() {
+  // Reservas manuales curadas (reservaciones.json, con señal/depósito) + TODOS
+  // los juegos del catálogo que todavía no salieron a la venta (comingSoon =
+  // releaseDate futuro). Deduplicamos por título para no repetir un mismo juego.
+  const manual = reservaciones || [];
+  const manualKeys = new Set(manual.map(r => matchKey(r.title)));
+  const preorders = (allGames || [])
+    .filter(g => g.comingSoon && !manualKeys.has(matchKey(g.title)))
+    .sort((a, b) => String(a.releaseDate || "9999-99-99").localeCompare(String(b.releaseDate || "9999-99-99")));
+  const hasAny = manual.length || preorders.length;
   app.innerHTML = `
     ${heroSlimHTML("Reservaciones")}
     <section class="container catalog-section">
@@ -2338,16 +2347,26 @@ function renderReservaciones() {
         <h2>Reservá tus juegos antes del lanzamiento</h2>
         <p>Asegurate tu copia desde el día 1. Pagás una señal y completás cuando se lanza.</p>
       </div>
-      ${reservaciones.length ? `
+      ${manual.length ? `
         <div class="grid reservas-grid">
-          ${reservaciones.map(reservaCardHTML).join("")}
+          ${manual.map(reservaCardHTML).join("")}
         </div>
-      ` : `
+      ` : ""}
+      ${preorders.length ? `
+        <div class="section-title centered" style="margin-top:2.5rem">
+          <h2>Próximos lanzamientos en preventa</h2>
+          <p>${preorders.length} ${preorders.length === 1 ? "título que todavía no salió" : "títulos que todavía no salieron"} a la venta. Reservá hoy y aseguralo.</p>
+        </div>
+        <div class="grid">
+          ${preorders.map(preorderCardHTML).join("")}
+        </div>
+      ` : ""}
+      ${!hasAny ? `
         <div class="empty-purchases">
           <p>Por ahora no tenemos reservas abiertas. Pronto vamos a sumar los próximos lanzamientos.</p>
           <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, quiero saber qué reservas tienen abiertas.")}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
         </div>
-      `}
+      ` : ""}
     </section>
   `;
 }
@@ -2394,6 +2413,59 @@ function reservaCardHTML(r) {
         </a>
       </div>
     </article>
+  `;
+}
+
+// Card de un juego en preventa del catálogo (comingSoon). Muestra los labels
+// (Preventa, plataforma) y los tags (tipo/edición, fecha de lanzamiento y
+// géneros), y enlaza a la ficha del producto. Reutiliza el CSS de .card/.facet.
+function preorderCardHTML(g) {
+  const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
+  const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
+  const img = g.imageUrl
+    ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">`
+    : `${placeholderHTML()}`;
+  const facets = [];
+  const TYPE_LABEL = { edition: "Edición especial", bundle: "Bundle" };
+  if (TYPE_LABEL[g.type]) facets.push(`<span class="facet facet-type">${TYPE_LABEL[g.type]}</span>`);
+  if (g.releaseDate) {
+    const d = new Date(g.releaseDate + "T00:00:00");
+    const txt = isNaN(d.getTime()) ? g.releaseDate : d.toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" });
+    facets.push(`<span class="facet facet-date">Disponible el ${escapeHtml(txt)}</span>`);
+  }
+  // Géneros reales como tags (excluye las pseudo-facetas preventa/estreno/edicion).
+  const PSEUDO = ["preventa", "estreno", "edicion"];
+  for (const t of (g.genres || [])) {
+    if (GENRE_LABELS[t] && !PSEUDO.includes(t) && facets.length < 6) {
+      facets.push(`<span class="facet">${escapeHtml(GENRE_LABELS[t])}</span>`);
+    }
+  }
+  return `
+    <a class="card" href="/producto/${encodeURIComponent(g.id)}">
+      <div class="card-image">
+        ${img}
+        <span class="badge-preventa">Preventa</span>
+        <span class="badge-platform">${escapeHtml(g.platform)}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${escapeHtml(g.title)}</div>
+        ${facets.length ? `<div class="product-facets">${facets.join("")}</div>` : ""}
+        <div class="price-rows">
+          ${principal != null ? `
+            <div class="price-row">
+              <span class="price-tag">Principal</span>
+              <span class="price-value">${formatCRC(principal)}</span>
+            </div>
+          ` : ""}
+          ${secundaria != null ? `
+            <div class="price-row secundaria">
+              <span class="price-tag">Secundaria</span>
+              <span class="price-value">${formatCRC(secundaria)}</span>
+            </div>
+          ` : ""}
+        </div>
+      </div>
+    </a>
   `;
 }
 
