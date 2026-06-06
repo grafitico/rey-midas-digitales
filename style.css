@@ -958,8 +958,10 @@ body {
   text-align: center;
 }
 .hero.slim { padding: 2rem 0 1.5rem; }
-.hero.slim.hero--ps4 { padding: 0; min-height: 220px; }
-#ps4-dragon-canvas { display: block; width: 100%; height: 220px; }
+.hero.slim.hero--ps4 { padding: 0; }
+/* Banner PS4: imagen arcade a todo el ancho, escala proporcional (responsiva).
+   width/height en el <img> reservan el aspect-ratio 1280x160 y evitan saltos de layout. */
+.ps4-banner-img { display: block; width: 100%; height: auto; }
 .hero-glow {
   position: absolute;
   inset: 0;
