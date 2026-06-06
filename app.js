@@ -710,13 +710,14 @@ async function enrichReservaCovers() {
     for (const r of pending) {
       if (r.imageUrl) continue;
       const cacheKey = `reserva-cover:${matchKey(r.title)}`;
-      let url = localStorage.getItem(cacheKey);
-      if (url === null) {
+      let url = localStorage.getItem(cacheKey) || null; // null si vacío o no existe
+      if (!url) {
         try {
           const resp = await fetch(`/api/cover?q=${encodeURIComponent(r.title)}`);
           const data = await resp.json();
           url = data.coverUrl || "";
-          localStorage.setItem(cacheKey, url);
+          // Solo cacheamos si encontramos algo; si no, volvemos a intentar la próxima vez
+          if (url) localStorage.setItem(cacheKey, url);
         } catch { url = ""; }
       }
       if (url) {
