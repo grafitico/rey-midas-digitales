@@ -25,6 +25,13 @@ const CATEGORIES = [
   "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
 ];
 
+// Categorías de PSN que son 100% "próximos lanzamientos". Todo lo que venga
+// de aquí se trata como comingSoon=true sin importar si tiene precio o fecha.
+// UUID extraído de: store.playstation.com/en-us/category/82ced94c-ed3f-4d81-9b50-4d4cf1da170b
+const COMING_SOON_CATEGORIES = [
+  "82ced94c-ed3f-4d81-9b50-4d4cf1da170b",
+];
+
 const STATIC_PAGES = [
   "/pages/deals",
   "/pages/latest",
@@ -168,7 +175,20 @@ export default async function handler(req, res) {
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork]);
+    // Categorías dedicadas de "próximos lanzamientos" en PSN. Se scrapen igual
+    // que el catálogo principal pero con forceComingSoon=true: todos los juegos
+    // que vienen de ahí son preventas por definición, sin importar precio/fecha.
+    const comingSoonCatWork = COMING_SOON_CATEGORIES.map(async (catId) => {
+      const items = await fetchCategoryPaginated(catId, stats, { forceComingSoon: true });
+      for (const g of items) {
+        g.comingSoon = true;
+        comingSoonIds.add(g.id);
+        if (!map.has(g.id)) map.set(g.id, g);
+        else map.set(g.id, { ...map.get(g.id), comingSoon: true, imageUrl: map.get(g.id).imageUrl || g.imageUrl });
+      }
+    });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork]);
 
     let taggedDirect = 0;
     let taggedSearch = 0;
@@ -216,7 +236,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function fetchCategoryPaginated(catId, stats) {
+async function fetchCategoryPaginated(catId, stats, opts = {}) {
   const all = [];
   let pageStart = 1;
   while (pageStart <= MAX_PAGES_PER_CATEGORY) {
@@ -225,7 +245,7 @@ async function fetchCategoryPaginated(catId, stats) {
       pageNums.push(pageStart + i);
     }
     const results = await Promise.allSettled(
-      pageNums.map(p => fetchAndParse(`${PSN_BASE}/category/${catId}/${p}`, stats))
+      pageNums.map(p => fetchAndParse(`${PSN_BASE}/category/${catId}/${p}`, stats, opts))
     );
     let chunkProduced = false;
     for (const r of results) {
@@ -260,11 +280,11 @@ async function fetchHtml(url) {
   return r.text();
 }
 
-async function fetchAndParse(url, stats) {
-  return parseGames(await fetchHtml(url), stats);
+async function fetchAndParse(url, stats, opts = {}) {
+  return parseGames(await fetchHtml(url), stats, opts);
 }
 
-function parseGames(html, stats) {
+function parseGames(html, stats, opts = {}) {
   if (!html || html.length < 500) return [];
   const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
   if (!m) return [];
@@ -280,7 +300,7 @@ function parseGames(html, stats) {
     const obj = cache[key];
     if (!obj || typeof obj !== "object") continue;
     if (obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) {
-      const g = normalize({ ...obj, price: deref(obj.price), contentRating: deref(obj.contentRating) });
+      const g = normalize({ ...obj, price: deref(obj.price), contentRating: deref(obj.contentRating) }, opts);
       if (g) out.push(g);
       else if (stats && g === null && classifyType(obj) === "add-on") stats.addonsExcluded++;
     }
@@ -288,7 +308,7 @@ function parseGames(html, stats) {
   return out;
 }
 
-function normalize(p) {
+function normalize(p, opts = {}) {
   if (!p.id || !p.name) return null;
 
   // Tipo de producto. El negocio NO vende DLC/add-ons → fuera del catálogo.
@@ -298,7 +318,9 @@ function normalize(p) {
   // Detectamos preventa ANTES del filtro de precio: los juegos que todavía no
   // salieron pueden no tener precio en PSN y no deben ser descartados.
   const releaseDate = extractReleaseDate(p);
-  const comingSoon = detectComingSoon(p, releaseDate);
+  // opts.forceComingSoon = true cuando el juego viene de una categoría de
+  // "próximos lanzamientos" donde todos son preventas por definición.
+  const comingSoon = opts.forceComingSoon || detectComingSoon(p, releaseDate);
 
   const priceInfo = p.price || {};
   const current = parsePrice(priceInfo.discountedPrice ?? priceInfo.discountedValue ?? priceInfo.basePrice);
