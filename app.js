@@ -456,10 +456,8 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    // Precargar covers desde Bana Hosting (en background, no-bloqueante)
-    import("./bana-covers.js").then(m => {
-      m.getBanaCovers().catch(e => console.log("[Bana Covers] Fallback a RAWG:", e.message));
-    }).catch(e => console.log("[Bana Covers] Módulo no disponible"));
+    // Arrancar la carga del índice de carátulas de Bana en paralelo (no bloquea).
+    import("./bana-covers.js").then(m => m.initBanaCovers()).catch(() => {});
 
     const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
@@ -588,8 +586,18 @@ async function load() {
 // Cacheado en localStorage 30 días para no repetir pedidos.
 async function enrichFeaturedCovers() {
   if (!featuredGames.length) return;
+  // Asegurar que el índice de Bana esté cargado antes de decidir si pegarle a RAWG.
+  try { await (await import("./bana-covers.js")).initBanaCovers(); } catch {}
   for (const g of featuredGames) {
     if (g.imageUrl) continue;
+    // 1) Bana: si ya tenemos la carátula alojada, usarla y no tocar RAWG.
+    const banaUrl = window.__BANA_COVERS?.[g.id];
+    if (banaUrl) {
+      g.imageUrl = banaUrl;
+      applyGameCoverUpdate(g);
+      continue;
+    }
+    // 2) Fallback a RAWG (consume cupo) solo para lo que Bana todavía no tiene.
     if (rawgQuotaExhausted()) break; // cupo agotado: no insistir
     const key = `rawg-cover:${matchKey(g.title)}`;
     let cover = readRawgCache(key);
@@ -618,19 +626,9 @@ async function enrichFeaturedCovers() {
 
 // Reemplaza el placeholder por la imagen real en las tarjetas y/o en la ficha
 // del juego, sin re-renderizar (mantiene scroll y filtros activos).
-async function applyGameCoverUpdate(g) {
-  // Intenta cargar desde Bana primero (si está disponible)
-  let imageUrl = g.imageUrl;
-  try {
-    const { getCoverUrl } = await import("./bana-covers.js");
-    const banaUrl = getCoverUrl(g.id, g.title);
-    if (banaUrl) {
-      imageUrl = banaUrl;
-    }
-  } catch (e) {
-    // Bana no disponible, usa RAWG
-  }
-
+function applyGameCoverUpdate(g) {
+  // Preferir la carátula alojada en Bana (lookup síncrono); si no, la de g.imageUrl.
+  const imageUrl = (window.__BANA_COVERS && window.__BANA_COVERS[g.id]) || g.imageUrl;
   const href = `/producto/${encodeURIComponent(g.id)}`;
   document.querySelectorAll(`a[href="${CSS.escape(href)}"] .card-image`).forEach(box => {
     const ph = box.querySelector(".placeholder");

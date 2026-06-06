@@ -6,18 +6,9 @@
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
-    "build-covers": "node scripts/build-covers-from-api.js",
-    "compile-covers": "node scripts/compile-covers-to-bana.js",
-    "scrape:quick": "node scripts/quick-scrape-covers.js 300",
-    "scrape:steam": "node scripts/scrape-covers.js --source=steam --limit=500",
-    "scrape:all": "node scripts/scrape-covers.js --source=all --limit=1000",
-    "scrape:upload": "node scripts/scrape-covers.js --source=steam --limit=500 --upload-to-bana"
-  },
-  "dependencies": {
-    "node-fetch": "^2.7.0"
+    "harvest-covers": "node scripts/harvest-covers.mjs"
   },
   "devDependencies": {
-    "sharp": "^0.33.1",
-    "basic-ftp": "^6.0.0"
+    "basic-ftp": "^5.0.5"
   }
 }
