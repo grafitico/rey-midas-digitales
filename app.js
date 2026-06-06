@@ -67,6 +67,7 @@ let psBundles = { bundles: [] };
 let xboxBundles = { bundles: [] };
 let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let featuredGames = []; // catálogo curado de "más buscados" (featured-games.json)
+let coversIndex = {};   // covers.json: { id de featured → URL de carátula } cosechada offline (cero cupo de API)
 let hiddenGames = { ids: new Set(), titles: new Set() }; // exclusión manual (hidden-games.json)
 let banners = [];
 let testimonials = [];
@@ -474,7 +475,7 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
+    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/xbox-catalog.json").then(r => r.json()),
       fetch("/nintendo-bundles.json").then(r => r.json()),
@@ -490,7 +491,13 @@ async function load() {
       fetch("/featured-games.json").then(r => r.json()),
       fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
+      fetch("/covers.json").then(r => r.json()).catch(() => ({})),
     ]);
+    // Carátulas cosechadas offline (covers.json): { id de featured → URL del CDN }.
+    // Es la fuente PRINCIPAL de portadas del catálogo curado: se resuelve sin tocar
+    // ninguna API (cero cupo de RAWG/IGDB). Si un juego no está aquí, cae a los
+    // fallbacks en vivo (PSN/IGDB/RAWG) como antes.
+    coversIndex = (covers.status === "fulfilled" && covers.value && covers.value.covers) || {};
     // Lista manual de exclusión: títulos/IDs que el negocio decide esconder
     // a mano, pase lo que pase con la heurística. Se arma un set por ID de PSN
     // y otro por título normalizado (matchKey) para matchear sin tildes/espacios.
@@ -559,9 +566,10 @@ async function load() {
             id: g.id,
             title: g.title,
             platform: g.platform || "PS5/PS4",
-            // Portada oficial de PlayStation Store si PSN resolvió el título.
-            // Si no, queda vacía y enrichFeaturedCovers() busca un fallback.
-            imageUrl: live?.imageUrl || "",
+            // Portada: 1) la oficial de PlayStation Store si PSN resolvió el título;
+            // 2) la cosechada en covers.json (CDN, sin cupo de API); 3) si ninguna,
+            // queda vacía y enrichFeaturedCovers() busca un fallback en vivo.
+            imageUrl: live?.imageUrl || coversIndex[g.id] || "",
             url: live?.url || `https://wa.me/${CONFIG.whatsapp}`,
             priceUSD: live ? live.priceUSD : fixedUSD,
             originalPriceUSD: live ? live.originalPriceUSD : fixedUSD,

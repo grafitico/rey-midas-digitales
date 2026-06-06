@@ -1,0 +1,37 @@
+name: Harvest box art from Microsoft Store
+
+# Cosecha box-art de la Microsoft Store (gratis, SIN API key) y la guarda en
+# covers.json. El sitio lee covers.json y carga las imágenes directo del CDN de
+# Microsoft (store-images.s-microsoft.com) → cero cuota de RAWG/IGDB en producción.
+#
+# Cubre los juegos multiplataforma (COD, FIFA, Nier, Code Vein, …). Los exclusivos
+# de PlayStation los completa el workflow "harvest-covers" (RAWG) al día siguiente,
+# que mergea sobre el mismo covers.json sin pisar lo ya guardado.
+#
+# No requiere ningún secret: usa solo el GITHUB_TOKEN que Actions provee.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 1 * *"   # día 1 de cada mes (un día antes del cosechador de RAWG)
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Harvest box art from Microsoft Store
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+        run: node scripts/harvest-covers-msstore.mjs
