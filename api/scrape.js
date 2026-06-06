@@ -21,13 +21,20 @@
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
 
+// Tienda de la que leemos las PREVENTAS. La categoría de próximos lanzamientos
+// existe (con juegos) en la tienda de EE.UU. (en-us); en es-cr (Costa Rica) esa
+// categoría viene VACÍA. Los juegos son los mismos a nivel mundial (mismo ID de
+// producto), así que descubrimos las preventas en en-us. Confirmado en vivo:
+// es-cr devolvía 0 juegos, por eso la sección de Reservaciones estaba vacía.
+const COMING_SOON_BASE = "https://store.playstation.com/en-us";
+
 const CATEGORIES = [
   "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
 ];
 
 // Categorías de PSN que son 100% "próximos lanzamientos". Todo lo que venga
 // de aquí se trata como comingSoon=true sin importar si tiene precio o fecha.
-// UUID extraído de: store.playstation.com/en-us/category/82ced94c-ed3f-4d81-9b50-4d4cf1da170b
+// UUID de: store.playstation.com/en-us/category/82ced94c-ed3f-4d81-9b50-4d4cf1da170b
 const COMING_SOON_CATEGORIES = [
   "82ced94c-ed3f-4d81-9b50-4d4cf1da170b",
 ];
@@ -35,7 +42,6 @@ const COMING_SOON_CATEGORIES = [
 const STATIC_PAGES = [
   "/pages/deals",
   "/pages/latest",
-  "/pages/coming-soon", // preventas / próximos lanzamientos
 ];
 
 // Búsquedas por género — usamos el buscador de PSN como "discovery" de
@@ -61,13 +67,11 @@ const GENRE_SEARCHES = [
   { tag: "infantiles", query: "infantil" },
 ];
 
-// Descubrimiento de PREVENTAS para la sección de Reservaciones. La categoría
-// principal del catálogo casi no expone los juegos que todavía no salieron, así
-// que le preguntamos al buscador de PSN directamente por la etiqueta "preventa"
-// (la misma que usa la tienda para los próximos lanzamientos). Todo lo que venga
-// de acá se marca como comingSoon = true aunque la vista de búsqueda no traiga
-// la fecha en el apolloState, porque por definición son títulos en preventa.
-const COMING_SOON_SEARCHES = ["preventa"];
+// Búsqueda de PREVENTAS como fuente secundaria (la principal es la categoría
+// de próximos lanzamientos en en-us). Se consulta en en-us con término en
+// inglés porque "preventa" en es-cr devolvió 0 resultados (confirmado en vivo).
+// Todo lo que venga de acá se marca comingSoon=true.
+const COMING_SOON_SEARCHES = ["pre-order"];
 
 // Señales de "próximamente / preventa" por texto. PSN a veces no expone la
 // releaseDate en las vistas de lista, pero sí una etiqueta o texto de
@@ -177,8 +181,9 @@ export default async function handler(req, res) {
 
     const comingSoonWork = COMING_SOON_SEARCHES.map(async (query) => {
       try {
-        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`, stats);
+        const games = await fetchAndParse(`${COMING_SOON_BASE}/search/${encodeURIComponent(query)}`, stats, { forceComingSoon: true });
         for (const g of games) {
+          g.comingSoon = true;
           if (!map.has(g.id)) map.set(g.id, g);
           comingSoonIds.add(g.id);
         }
@@ -193,7 +198,7 @@ export default async function handler(req, res) {
     const comingSoonCatWork = COMING_SOON_CATEGORIES.map(async (catId) => {
       // maxPages bajo: la categoría de próximos lanzamientos tiene pocas páginas
       // y NO debe poder disparar el timeout de 30s del catálogo completo.
-      const items = await fetchCategoryPaginated(catId, stats, { forceComingSoon: true, maxPages: 6 });
+      const items = await fetchCategoryPaginated(catId, stats, { forceComingSoon: true, maxPages: 6, base: COMING_SOON_BASE });
       for (const g of items) {
         g.comingSoon = true;
         comingSoonIds.add(g.id);
@@ -253,6 +258,7 @@ export default async function handler(req, res) {
 async function fetchCategoryPaginated(catId, stats, opts = {}) {
   const all = [];
   const maxPages = opts.maxPages || MAX_PAGES_PER_CATEGORY;
+  const base = opts.base || PSN_BASE;
   let pageStart = 1;
   while (pageStart <= maxPages) {
     const pageNums = [];
@@ -260,7 +266,7 @@ async function fetchCategoryPaginated(catId, stats, opts = {}) {
       pageNums.push(pageStart + i);
     }
     const results = await Promise.allSettled(
-      pageNums.map(p => fetchAndParse(`${PSN_BASE}/category/${catId}/${p}`, stats, opts))
+      pageNums.map(p => fetchAndParse(`${base}/category/${catId}/${p}`, stats, opts))
     );
     let chunkProduced = false;
     for (const r of results) {
@@ -482,7 +488,7 @@ function parsePrice(str) {
 //    legible: cuántas preventas encuentra y de qué fuente. Cada fuente se prueba
 //    por separado para saber exactamente cuál funciona en la región es-cr.
 async function debugComingSoon() {
-  const out = { region: PSN_BASE, sources: {}, totalUnicos: 0, titulos: [] };
+  const out = { fuenteUsada: COMING_SOON_BASE, sources: {}, totalUnicos: 0, titulos: [] };
   const seen = new Map();
 
   const probe = async (label, url, force) => {
@@ -496,10 +502,14 @@ async function debugComingSoon() {
     }
   };
 
+  const cat = COMING_SOON_CATEGORIES[0];
   await Promise.all([
-    probe("categoria_coming_soon", `${PSN_BASE}/category/${COMING_SOON_CATEGORIES[0]}/1`, true),
-    probe("pagina_coming_soon", `${PSN_BASE}/pages/coming-soon`, true),
-    probe("busqueda_preventa", `${PSN_BASE}/search/${encodeURIComponent("preventa")}`, false),
+    // La fuente real que usa el scraper (en-us):
+    probe("ENUS_categoria_coming_soon", `${COMING_SOON_BASE}/category/${cat}/1`, true),
+    probe("ENUS_pagina_coming_soon", `${COMING_SOON_BASE}/pages/coming-soon`, true),
+    // Comparación con es-cr (que dio 0), para confirmar el diagnóstico:
+    probe("ESCR_categoria_coming_soon", `${PSN_BASE}/category/${cat}/1`, true),
+    probe("ESCR_busqueda_preventa", `${PSN_BASE}/search/${encodeURIComponent("preventa")}`, false),
   ]);
 
   out.totalUnicos = seen.size;
