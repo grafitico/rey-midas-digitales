@@ -28,6 +28,7 @@ const CATEGORIES = [
 const STATIC_PAGES = [
   "/pages/deals",
   "/pages/latest",
+  "/pages/coming-soon", // preventas / próximos lanzamientos
 ];
 
 // Búsquedas por género — usamos el buscador de PSN como "discovery" de
@@ -126,8 +127,15 @@ export default async function handler(req, res) {
         const games = await fetchAndParse(`${PSN_BASE}${path}`, stats);
         stats.pagesFetched++;
         const isLatest = path.includes("latest");
+        const isComingSoonPage = path.includes("coming-soon");
         for (const g of games) {
+          if (isComingSoonPage) {
+            // Todo lo de esta página ES preventa por definición
+            g.comingSoon = true;
+            comingSoonIds.add(g.id);
+          }
           if (!map.has(g.id)) map.set(g.id, g);
+          else if (isComingSoonPage) map.set(g.id, { ...map.get(g.id), comingSoon: true });
           if (isLatest) newIds.add(g.id);
         }
       } catch {
@@ -287,12 +295,16 @@ function normalize(p) {
   const type = classifyType(p);
   if (type === "add-on") return null;
 
+  // Detectamos preventa ANTES del filtro de precio: los juegos que todavía no
+  // salieron pueden no tener precio en PSN y no deben ser descartados.
+  const releaseDate = extractReleaseDate(p);
+  const comingSoon = detectComingSoon(p, releaseDate);
+
   const priceInfo = p.price || {};
-  // PSN expone el precio de oferta como "discountedPrice" (SkuPrice). Algunas
-  // vistas usan "discountedValue". Probamos ambos y caemos a basePrice.
   const current = parsePrice(priceInfo.discountedPrice ?? priceInfo.discountedValue ?? priceInfo.basePrice);
   const original = parsePrice(priceInfo.basePrice) || current;
-  if (!current) return null;
+  // Sin precio Y no es preventa → lo descartamos (producto sin datos útiles).
+  if (!current && !comingSoon) return null;
 
   let platform = "PS4";
   const plats = p.platforms || [];
@@ -302,8 +314,6 @@ function normalize(p) {
   else if (hasPS5) platform = "PS5";
 
   const imageUrl = pickPsnCover(p.media);
-  const releaseDate = extractReleaseDate(p);
-  const comingSoon = detectComingSoon(p, releaseDate);
 
   const onSale = original > current;
   return {
