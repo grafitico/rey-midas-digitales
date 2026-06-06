@@ -475,10 +475,9 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, nin, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers] = await Promise.allSettled([
+    const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/xbox-catalog.json").then(r => r.json()),
-      fetch("/nintendo-bundles.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -524,9 +523,6 @@ async function load() {
     }
     if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {
       games.push(...xbox.value.games.filter(g => !g._placeholder));
-    }
-    if (nin.status === "fulfilled" && nin.value && Array.isArray(nin.value.bundles)) {
-      nintendo = nin.value;
     }
     if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
       psBundles = psB.value;
@@ -584,7 +580,7 @@ async function load() {
         });
       games.push(...featuredGames);
     }
-    if (!games.length && !nintendo.bundles.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
+    if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
     // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
@@ -603,7 +599,6 @@ async function load() {
   } finally {
     loaded = true;
     render();
-    enrichBundleCovers();
     enrichFeaturedCovers();
     // Enriquecer en background: la primera vez tarda, después todo cacheado.
     scheduleAAAEnrichForVisible();
@@ -697,6 +692,23 @@ function applyGameCoverUpdate(g) {
       ph.replaceWith(img);
     }
   }
+}
+
+// Carga diferida de los bundles de Nintendo Switch (nintendo-bundles.json, ~2.9 MB):
+// NO se baja en el arranque (la home no los necesita); solo la primera vez que el
+// usuario entra a la pagina de Switch o a un bundle de Nintendo. Memoizado.
+let nintendoPromise = null;
+function ensureNintendo() {
+  if (!nintendoPromise) {
+    nintendoPromise = fetch("/nintendo-bundles.json")
+      .then(r => r.json())
+      .then(data => {
+        if (data && Array.isArray(data.bundles)) nintendo = data;
+        enrichBundleCovers(); // best-effort en background, cacheado en localStorage
+      })
+      .catch(() => {});
+  }
+  return nintendoPromise;
 }
 
 // Auto-busca carátulas de Nintendo para los bundles sin coverUrl.
@@ -2059,7 +2071,21 @@ function renderNintendoBundleGrid() {
   }
 }
 
-function renderSwitch() {
+async function renderSwitch() {
+  // nintendo-bundles.json (~2.9 MB) se carga AQUI, no en el arranque. Mostramos el
+  // shell con un loader mientras baja la primera vez.
+  if (!nintendo.bundles.length) {
+    app.innerHTML = `
+      ${heroSlimHTML("Nintendo Switch")}
+      <section class="container catalog-section">
+        <div class="section-title"><h2>Bundles Nintendo Switch</h2></div>
+        <div class="status">Cargando bundles...</div>
+      </section>
+    `;
+    await ensureNintendo();
+    const r = parseRoute();
+    if (!(r.name === "platform" && r.platform === "Switch")) return;
+  }
   const bundles = nintendo.bundles || [];
   nintendoFilters.q = "";
   nintendoFilters.sort = "recent";
@@ -2421,10 +2447,17 @@ function bundleCardHTML(b, type = "nintendo") {
   `;
 }
 
-function renderBundle(id, type = "nintendo") {
+async function renderBundle(id, type = "nintendo") {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
     return;
+  }
+  // Los bundles de Nintendo se bajan bajo demanda (ver ensureNintendo).
+  if (type === "nintendo" && !nintendo.bundles.length) {
+    app.innerHTML = `<section class="container empty-state"><p>Cargando bundle...</p></section>`;
+    await ensureNintendo();
+    const r = parseRoute();
+    if (!(r.name === "bundle" && String(r.id) === String(id))) return;
   }
   const sources = {
     nintendo: { list: nintendo.bundles || [], platform: "Nintendo Switch", backHref: "/plataforma/Switch", telegram: nintendo.telegramChannel },
@@ -3005,7 +3038,7 @@ function heroHTML() {
     <section class="hero">
       <div class="hero-glow"></div>
       <div class="container hero-inner">
-        <img src="/assets/logo.png" alt="Rey Midas Digitales" class="logo">
+        <img src="/assets/logo.png?v=2" alt="Rey Midas Digitales" class="logo">
         <p class="tagline">Tu tienda de juegos digitales en Costa Rica</p>
         <a class="cta" href="/plataforma/PS5">Ver juegos PS5</a>
       </div>
@@ -3389,9 +3422,9 @@ function heroSlimHTML(platform) {
   const hasVideo = isPs4 || isPs5;
   const extraClass = isPs4 ? ' hero--ps4' : isPs5 ? ' hero--ps5' : '';
   const videoHTML = isPs4
-    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606e" type="video/mp4"></video>'
+    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606f" type="video/mp4"></video>'
     : isPs5
-      ? '<video class="ps5-banner-video" autoplay muted loop playsinline><source src="/ps5-banner.mp4?v=20260606" type="video/mp4"></video>'
+      ? '<video class="ps5-banner-video" autoplay muted loop playsinline><source src="/ps5-banner.mp4?v=20260606f" type="video/mp4"></video>'
       : '';
   return `
     <section class="hero slim${extraClass}">
