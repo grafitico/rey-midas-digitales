@@ -456,6 +456,11 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
+    // Precargar covers desde Bana Hosting (en background, no-bloqueante)
+    import("./bana-covers.js").then(m => {
+      m.getBanaCovers().catch(e => console.log("[Bana Covers] Fallback a RAWG:", e.message));
+    }).catch(e => console.log("[Bana Covers] Módulo no disponible"));
+
     const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/api/scrape-xbox").then(r => r.json()),
@@ -613,13 +618,25 @@ async function enrichFeaturedCovers() {
 
 // Reemplaza el placeholder por la imagen real en las tarjetas y/o en la ficha
 // del juego, sin re-renderizar (mantiene scroll y filtros activos).
-function applyGameCoverUpdate(g) {
+async function applyGameCoverUpdate(g) {
+  // Intenta cargar desde Bana primero (si está disponible)
+  let imageUrl = g.imageUrl;
+  try {
+    const { getCoverUrl } = await import("./bana-covers.js");
+    const banaUrl = getCoverUrl(g.id, g.title);
+    if (banaUrl) {
+      imageUrl = banaUrl;
+    }
+  } catch (e) {
+    // Bana no disponible, usa RAWG
+  }
+
   const href = `/producto/${encodeURIComponent(g.id)}`;
   document.querySelectorAll(`a[href="${CSS.escape(href)}"] .card-image`).forEach(box => {
     const ph = box.querySelector(".placeholder");
     if (!ph) return;
     const img = new Image();
-    img.src = g.imageUrl;
+    img.src = imageUrl;
     img.alt = g.title;
     img.loading = "lazy";
     ph.replaceWith(img);
@@ -631,7 +648,7 @@ function applyGameCoverUpdate(g) {
     const ph = box?.querySelector(".placeholder");
     if (ph) {
       const img = new Image();
-      img.src = g.imageUrl;
+      img.src = imageUrl;
       img.alt = g.title;
       ph.replaceWith(img);
     }

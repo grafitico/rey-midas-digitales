@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
+    "build-covers": "node scripts/build-covers-from-api.js",
     "compile-covers": "node scripts/compile-covers-to-bana.js",
     "scrape:quick": "node scripts/quick-scrape-covers.js 300",
     "scrape:steam": "node scripts/scrape-covers.js --source=steam --limit=500",

@@ -8,10 +8,32 @@
  * Esto es MÁS RÁPIDO porque evita descargas — solo indexa lo existente
  */
 
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { writeFile } from "fs/promises";
 import path from "path";
 import { Client } from "basic-ftp";
+
+// ============================================================================
+// CARGAR .env.local MANUALMENTE
+// ============================================================================
+function loadEnv() {
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (existsSync(envPath)) {
+    const content = readFileSync(envPath, "utf-8");
+    const lines = content.split("\n");
+    for (const line of lines) {
+      if (line.trim() && !line.startsWith("#")) {
+        const [key, ...valueParts] = line.split("=");
+        if (key && valueParts.length > 0) {
+          const value = valueParts.join("=").trim();
+          process.env[key.trim()] = value;
+        }
+      }
+    }
+  }
+}
+
+loadEnv();
 
 const BANA_CONFIG = {
   host: process.env.BANA_HOST || "ftp.grafticocr.com",
