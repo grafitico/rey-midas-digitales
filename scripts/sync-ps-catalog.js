@@ -68,9 +68,14 @@ async function main() {
   const genreMap = new Map();     // id → Set(tags)
 
   // 1) Categorías principales (PS4 + PS5), paginadas en profundidad (sin timeout).
+  //    Lotes chicos (8) + pausa (1.2s) entre lotes para NO gatillar el 403 de
+  //    rate-limit de PSN, que en la corrida anterior dejó páginas PS5 sin leer
+  //    (faltaban MK1 y otros). Más lento, pero cobertura completa.
   for (const catId of SYNC_CATEGORIES) {
     try {
-      const items = await fetchCategoryPaginated(catId, stats, { maxPages: MAX_PAGES });
+      const items = await fetchCategoryPaginated(catId, stats, {
+        maxPages: MAX_PAGES, chunkSize: 8, delayMs: 1200,
+      });
       for (const g of items) if (!map.has(g.id)) map.set(g.id, g);
       console.log(`[sync-ps] Categoría ${catId}: ${items.length} juegos — acumulado ${map.size}`);
     } catch (e) {

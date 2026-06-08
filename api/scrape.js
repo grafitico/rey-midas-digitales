@@ -303,10 +303,15 @@ export async function fetchCategoryPaginated(catId, stats, opts = {}) {
   const all = [];
   const maxPages = opts.maxPages || MAX_PAGES_PER_CATEGORY;
   const base = opts.base || PSN_BASE;
+  // chunkSize/delayMs permiten al sync de GitHub Actions ir más lento (lotes
+  // chicos + pausa) para no gatillar el rate-limit 403 de PSN. El scrape en
+  // vivo de Vercel no los pasa → mantiene PAGE_CHUNK=20 sin pausa (rápido).
+  const chunkSize = opts.chunkSize || PAGE_CHUNK;
+  const delayMs = opts.delayMs || 0;
   let pageStart = 1;
   while (pageStart <= maxPages) {
     const pageNums = [];
-    for (let i = 0; i < PAGE_CHUNK && pageStart + i <= maxPages; i++) {
+    for (let i = 0; i < chunkSize && pageStart + i <= maxPages; i++) {
       pageNums.push(pageStart + i);
     }
     const results = await Promise.allSettled(
@@ -328,7 +333,8 @@ export async function fetchCategoryPaginated(catId, stats, opts = {}) {
     }
     // Si todo el chunk vino vacío o falló, asumimos que ya pasamos del final.
     if (!chunkProduced) break;
-    pageStart += PAGE_CHUNK;
+    pageStart += chunkSize;
+    if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
   return all;
 }
