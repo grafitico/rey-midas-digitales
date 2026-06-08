@@ -21,6 +21,13 @@
     },
     "api/telegram-setup.js": {
       "maxDuration": 10
+    },
+    "api/sitemap.js": {
+      "includeFiles": "*.{html,json}"
+    },
+    "api/prerender.js": {
+      "maxDuration": 10,
+      "includeFiles": "*.{html,json}"
     }
   },
   "rewrites": [
