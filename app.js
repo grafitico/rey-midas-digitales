@@ -4729,7 +4729,7 @@ async function renderAdmin() {
             <input name="full_name" type="text" placeholder="Juan Pérez">
           </label>
           <label>Contraseña inicial
-            <input name="password" type="text" required value="Midas2026" minlength="6">
+            <input name="password" type="text" required placeholder="Contraseña inicial" minlength="6">
           </label>
         </div>
         <button type="submit">Crear cuenta</button>
@@ -5080,7 +5080,7 @@ async function handleCreateClient(e) {
     status.className = "form-status ok";
     form.querySelector('input[name="email"]').value = "";
     form.querySelector('input[name="full_name"]').value = "";
-    form.querySelector('input[name="password"]').value = "Midas2026";
+    form.querySelector('input[name="password"]').value = "";
     loadClientsDropdown();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;

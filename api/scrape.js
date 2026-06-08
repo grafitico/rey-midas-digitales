@@ -28,6 +28,11 @@ const PSN_BASE = "https://store.playstation.com/es-cr";
 // es-cr devolvía 0 juegos, por eso la sección de Reservaciones estaba vacía.
 const COMING_SOON_BASE = "https://store.playstation.com/en-us";
 
+// ─── IGDB (Twitch) — enriquece portadas faltantes al final del scrape ─────────
+const IGDB_CLIENT_ID = process.env.IGDB_CLIENT_ID || "";
+const IGDB_CLIENT_SECRET = process.env.IGDB_CLIENT_SECRET || "";
+let _igdbToken = null;
+
 const CATEGORIES = [
   "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
 ];
@@ -43,6 +48,12 @@ const STATIC_PAGES = [
   "/pages/deals",
   "/pages/latest",
 ];
+
+// Páginas de browse general de PSN (en-us). Capturan juegos que no aparecen
+// en la categoría principal: precio bajo ($2–$5), precio alto ($60–$100) y otros.
+// Se leen desde en-us (igual que las preventas) porque la cobertura es mayor.
+// Las primeras 5 páginas son ~120 juegos; se mergean por ID sin duplicados.
+const BROWSE_PAGES_COUNT = 5;
 
 // Búsquedas por género — usamos el buscador de PSN como "discovery" de
 // géneros. Cada query trae ~24-48 juegos clasificados en ese género por
@@ -136,6 +147,10 @@ export default async function handler(req, res) {
       genresFetched: 0,
       genresFailed: 0,
       addonsExcluded: 0,
+      pcExcluded: 0,
+      igdbEnriched: 0,
+      browsePages: 0,
+      browseFound: 0,
     };
 
     const categoryWork = CATEGORIES.map(async (catId) => {
@@ -207,7 +222,23 @@ export default async function handler(req, res) {
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork]);
+    // Páginas de browse general (en-us) — captura juegos que la categoría principal omite.
+    const browseWork = Array.from({ length: BROWSE_PAGES_COUNT }, (_, i) => i + 1).map(async (n) => {
+      try {
+        const games = await fetchAndParse(`${COMING_SOON_BASE}/pages/browse/${n}`, stats);
+        stats.browsePages++;
+        for (const g of games) {
+          if (!map.has(g.id)) {
+            map.set(g.id, g);
+            stats.browseFound++;
+          }
+        }
+      } catch {
+        stats.pagesFailed++;
+      }
+    });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork, ...browseWork]);
 
     let taggedDirect = 0;
     let taggedSearch = 0;
@@ -243,6 +274,12 @@ export default async function handler(req, res) {
     stats.sampleTagged = sampleTagged;
     stats.comingSoon = games.filter(g => g.comingSoon).length;
     stats.editions = games.filter(g => g.type === "edition" || g.type === "bundle").length;
+
+    // Enriquecer con IGDB las portadas faltantes (preventas primero, hasta 25 juegos).
+    // Solo corre si las credenciales IGDB están configuradas en Vercel.
+    if (IGDB_CLIENT_ID && IGDB_CLIENT_SECRET) {
+      await enrichWithIgdb(games, stats);
+    }
 
     return res.status(200).json({
       success: true,
@@ -323,7 +360,15 @@ function parseGames(html, stats, opts = {}) {
     if (obj.__typename === "Product" || (typeof obj.id === "string" && /^(EP|UP|HP|JP)\d/.test(obj.id))) {
       const g = normalize({ ...obj, price: deref(obj.price), contentRating: deref(obj.contentRating) }, opts);
       if (g) out.push(g);
-      else if (stats && g === null && classifyType(obj) === "add-on") stats.addonsExcluded++;
+      else if (stats && g === null) {
+        if (classifyType(obj) === "add-on") stats.addonsExcluded++;
+        else {
+          const plats = obj.platforms || [];
+          if (plats.length > 0 && !plats.some(pl => /^ps[2345]?\b|vita|playstation/i.test(String(pl)))) {
+            stats.pcExcluded++;
+          }
+        }
+      }
     }
   }
   return out;
@@ -353,6 +398,13 @@ function normalize(p, opts = {}) {
   const plats = p.platforms || [];
   const hasPS5 = plats.includes("PS5") || /PS5/i.test(p.name);
   const hasPS4 = plats.includes("PS4");
+
+  // Excluir si PSN reporta plataformas pero ninguna es PlayStation (ej. PC only, Xbox only…)
+  if (plats.length > 0 && !hasPS5 && !hasPS4 &&
+      !plats.some(pl => /^ps[2345]?\b|vita|playstation/i.test(String(pl)))) {
+    return null;
+  }
+
   if (hasPS5 && hasPS4) platform = "PS5/PS4";
   else if (hasPS5) platform = "PS5";
 
@@ -544,4 +596,66 @@ async function debugClassification() {
     }
   }
   return { classificationBreakdown: breakdown, samples };
+}
+
+// ─── IGDB: enriquecimiento de portadas ────────────────────────────────────────
+//
+// Para juegos que PSN devolvió sin imageUrl (frecuente en preventas), consulta
+// IGDB (base de datos de juegos de Twitch/Amazon) para obtener la carátula.
+// Se priorizan los juegos comingSoon porque PSN rara vez tiene imagen de esos.
+// Máx 25 por scrape para no tocar el timeout de 30s de Vercel.
+
+async function getIgdbToken() {
+  const now = Date.now();
+  if (_igdbToken && _igdbToken.exp > now + 60_000) return _igdbToken.tok;
+  const r = await fetch(
+    `https://id.twitch.tv/oauth2/token?client_id=${encodeURIComponent(IGDB_CLIENT_ID)}&client_secret=${encodeURIComponent(IGDB_CLIENT_SECRET)}&grant_type=client_credentials`,
+    { method: "POST", signal: AbortSignal.timeout(5000) }
+  );
+  if (!r.ok) throw new Error(`IGDB token HTTP ${r.status}`);
+  const d = await r.json();
+  _igdbToken = { tok: d.access_token, exp: now + d.expires_in * 1000 };
+  return d.access_token;
+}
+
+async function igdbCoverForTitle(title) {
+  const tok = await getIgdbToken();
+  const safe = title.replace(/\\/g, "").replace(/"/g, " ").trim();
+  const r = await fetch("https://api.igdb.com/v4/games", {
+    method: "POST",
+    headers: {
+      "Client-ID": IGDB_CLIENT_ID,
+      "Authorization": `Bearer ${tok}`,
+      "Content-Type": "text/plain",
+    },
+    body: `search "${safe}"; fields cover.image_id; limit 1;`,
+    signal: AbortSignal.timeout(4000),
+  });
+  if (!r.ok) return "";
+  const games = await r.json();
+  const imageId = games?.[0]?.cover?.image_id;
+  return imageId ? `https://images.igdb.com/igdb/image/upload/t_cover_big_2x/${imageId}.jpg` : "";
+}
+
+async function enrichWithIgdb(games, stats) {
+  const MAX = 25;
+  // Prioritize comingSoon (pre-orders) and then any game without cover
+  const pool = games
+    .filter(g => !g.imageUrl)
+    .sort((a, b) => (b.comingSoon ? 1 : 0) - (a.comingSoon ? 1 : 0))
+    .slice(0, MAX);
+  if (!pool.length) return;
+
+  // Process in parallel batches of 5 to stay well within rate limits
+  const CONCURRENCY = 5;
+  for (let i = 0; i < pool.length; i += CONCURRENCY) {
+    await Promise.allSettled(
+      pool.slice(i, i + CONCURRENCY).map(async g => {
+        try {
+          const cover = await igdbCoverForTitle(g.title);
+          if (cover) { g.imageUrl = cover; stats.igdbEnriched++; }
+        } catch { /* skip individual failures silently */ }
+      })
+    );
+  }
 }
