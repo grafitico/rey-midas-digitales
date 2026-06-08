@@ -674,7 +674,7 @@ async function enrichFeaturedCovers() {
 // Reemplaza el placeholder por la imagen real en las tarjetas y/o en la ficha
 // del juego, sin re-renderizar (mantiene scroll y filtros activos).
 function applyGameCoverUpdate(g) {
-  const href = `#/producto/${encodeURIComponent(g.id)}`;
+  const href = `/producto/${encodeURIComponent(g.id)}`;
   document.querySelectorAll(`a[href="${CSS.escape(href)}"] .card-image`).forEach(box => {
     const ph = box.querySelector(".placeholder");
     if (!ph) return;
@@ -695,6 +695,48 @@ function applyGameCoverUpdate(g) {
       img.alt = g.title;
       ph.replaceWith(img);
     }
+  }
+}
+
+// Portadas del catálogo SCRAPEADO en vivo (PSN). Las vistas de lista de la PS
+// Store muchas veces NO incluyen el array `media`, así que esos juegos llegan
+// sin imageUrl y mostrarían el placeholder para siempre (enrichFeaturedCovers
+// sólo cubre los destacados). Aquí, para los juegos VISIBLES (la página actual
+// de la grilla) sin portada y con un ID de producto PSN, pedimos la carátula
+// real a /api/cover?psnId=<id> (abre la página de producto) y la inyectamos en
+// el DOM sin re-render. Sólo cacheamos aciertos, para reintentar si PSN falla.
+const _catalogCoverTried = new Set();
+let _catalogCoverRunning = false;
+async function enrichCatalogCoversForVisible(visible) {
+  const pending = (visible || []).filter(g =>
+    g && !g.imageUrl &&
+    /^(EP|UP|HP|JP)\d/i.test(String(g.id)) && // id real de producto PSN
+    !_catalogCoverTried.has(g.id)
+  );
+  if (!pending.length || _catalogCoverRunning) return;
+  _catalogCoverRunning = true;
+  try {
+    for (const g of pending) {
+      if (g.imageUrl) continue;
+      _catalogCoverTried.add(g.id); // no repetir en esta sesión, aunque falle
+      const cacheKey = `psn-cover:${g.id}`;
+      let url = localStorage.getItem(cacheKey) || "";
+      if (!url) {
+        try {
+          const r = await fetch(`/api/cover?psnId=${encodeURIComponent(g.id)}`);
+          const data = await r.json();
+          url = data.coverUrl || "";
+          if (url) localStorage.setItem(cacheKey, url); // sólo cacheamos aciertos
+        } catch { url = ""; }
+      }
+      if (url) {
+        g.imageUrl = url;
+        applyGameCoverUpdate(g);
+      }
+      await new Promise(res => setTimeout(res, 120));
+    }
+  } finally {
+    _catalogCoverRunning = false;
   }
 }
 
@@ -924,7 +966,7 @@ function renderPlatform(platform, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/plataforma/${platform}`, true);
+  mountToolbar(list, page, `/plataforma/${platform}`, false);
   if (platform === 'PS4') { const v = document.querySelector('.ps4-arcade-video'); if (v) v.play().catch(()=>{}); }
   if (platform === 'PS5') { const v = document.querySelector('.ps5-banner-video'); if (v) v.play().catch(()=>{}); }
 }
@@ -2273,8 +2315,8 @@ function renderBusqueda(term, page = 1) {
 }
 
 // Catálogo filtrado por género (categoría). Mismo comportamiento que la
-// página de plataforma: arranca con el filtro "Solo AAA" activo (indies
-// ocultos) y deja las tarjetas de plataforma/oferta para refinar.
+// página de plataforma: arranca mostrando TODOS los juegos (indies al final
+// del orden) y deja el botón "Solo AAA" para que el usuario filtre si quiere.
 function renderCategoria(genre, page = 1) {
   const label = GENRE_LABELS[genre] || (genre ? genre[0].toUpperCase() + genre.slice(1) : "Categoría");
   const list = (allGames || []).filter(g => Array.isArray(g.genres) && g.genres.includes(genre));
@@ -2291,7 +2333,7 @@ function renderCategoria(genre, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/categoria/${encodeURIComponent(genre)}`, true);
+  mountToolbar(list, page, `/categoria/${encodeURIComponent(genre)}`, false);
 }
 
 function renderOfertas(page = 1) {
@@ -3989,13 +4031,13 @@ function toolbarHTML(showPlatformFilters = true) {
           <button class="filter" data-platform="PS4">PS4</button>
           <button class="filter" data-platform="Xbox">Xbox</button>
           <button class="filter" data-sale="true">En oferta</button>
-          <button class="filter active" data-aaa="true" title="Filtrar indies y juegos baratos">Solo AAA</button>
+          <button class="filter" data-aaa="true" title="Filtrar indies y juegos baratos">Ver todos</button>
         </div>
       ` : `
         <div class="filters">
           <button class="filter active" data-platform="all">Todos</button>
           <button class="filter" data-sale="true">En oferta</button>
-          <button class="filter active" data-aaa="true" title="Filtrar indies y juegos baratos">Solo AAA</button>
+          <button class="filter" data-aaa="true" title="Filtrar indies y juegos baratos">Ver todos</button>
         </div>
       `}
     </div>
@@ -4005,12 +4047,12 @@ function toolbarHTML(showPlatformFilters = true) {
 // ============================================================
 // Grid + filtros + paginación
 // ============================================================
-const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true, genre: null };
+const localFilters = { platform: "all", sale: false, q: "", aaaOnly: false, genre: null };
 let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
 
-function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
+function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = false) {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";
@@ -4135,6 +4177,9 @@ function renderGrid(list) {
   }
   const page = paginate(list);
   grid.innerHTML = page.map(cardHTML).join("");
+  // Resolver portadas de los juegos visibles que llegaron sin imageUrl (típico
+  // del catálogo scrapeado: la vista de lista de PSN no trae `media`).
+  enrichCatalogCoversForVisible(page);
 }
 
 function renderPagination(total) {

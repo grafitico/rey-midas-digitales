@@ -44,6 +44,22 @@ const STATIC_PAGES = [
   "/pages/latest",
 ];
 
+// Páginas de "browse" de PSN (en-us) con facetas de precio. El dueño quiere
+// asegurar que aparezcan en el catálogo los juegos de estos rangos de precio,
+// que la categoría principal no siempre lista. `webBasePrice` va en centavos de
+// USD, así que el query replica exactamente los filtros de la PS Store:
+//   200-499   → $2.00 – $4.99   (juegos baratos / indies de oferta)
+//   6000-7999 → $60.00 – $79.99 (lanzamientos a precio completo)
+//   8000-9999 → $80.00 – $99.99 (ediciones deluxe / bundles caros)
+// Se lee en en-us (mismo ID de producto a nivel mundial, precio en USD igual que
+// es-cr) y se mergea por ID, así que dedup con la categoría principal es exacto.
+const BROWSE_PAGES = [
+  { base: COMING_SOON_BASE, query: "200-499=webBasePrice&6000-7999=webBasePrice&8000-9999=webBasePrice" },
+];
+// Tope de páginas de browse. Corre en paralelo con la categoría principal, así
+// que lo mantenemos modesto para no disparar el timeout de 30s.
+const MAX_BROWSE_PAGES = 20;
+
 // Búsquedas por género — usamos el buscador de PSN como "discovery" de
 // géneros. Cada query trae ~24-48 juegos clasificados en ese género por
 // PSN. Después taggeamos cada juego del catálogo con sus géneros para
@@ -136,6 +152,8 @@ export default async function handler(req, res) {
       genresFetched: 0,
       genresFailed: 0,
       addonsExcluded: 0,
+      browsePages: 0,
+      browseFound: 0,
     };
 
     const categoryWork = CATEGORIES.map(async (catId) => {
@@ -207,7 +225,18 @@ export default async function handler(req, res) {
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork]);
+    // Browse por facetas de precio (en-us). Aporta juegos que la categoría
+    // principal no lista. Se mergea por ID; si el juego ya vino de es-cr,
+    // conservamos esa entrada (su URL es-cr) y no la pisamos.
+    const browseWork = BROWSE_PAGES.map(async (spec) => {
+      const items = await fetchBrowsePaginated(spec, stats);
+      for (const g of items) {
+        stats.browseFound++;
+        if (!map.has(g.id)) map.set(g.id, g);
+      }
+    });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork, ...browseWork]);
 
     let taggedDirect = 0;
     let taggedSearch = 0;
@@ -283,6 +312,41 @@ async function fetchCategoryPaginated(catId, stats, opts = {}) {
       }
     }
     // Si todo el chunk vino vacío o falló, asumimos que ya pasamos del final.
+    if (!chunkProduced) break;
+    pageStart += PAGE_CHUNK;
+  }
+  return all;
+}
+
+// Igual que fetchCategoryPaginated pero contra /pages/browse/{n}?{facetas}.
+// La URL de browse pagina por el segmento de ruta {n} y filtra con el query de
+// facetas (precio, etc.). Recorremos en bloques hasta que un bloque entero
+// venga vacío o falle.
+async function fetchBrowsePaginated(spec, stats) {
+  const all = [];
+  let pageStart = 1;
+  while (pageStart <= MAX_BROWSE_PAGES) {
+    const pageNums = [];
+    for (let i = 0; i < PAGE_CHUNK && pageStart + i <= MAX_BROWSE_PAGES; i++) {
+      pageNums.push(pageStart + i);
+    }
+    const results = await Promise.allSettled(
+      pageNums.map(p => fetchAndParse(`${spec.base}/pages/browse/${p}?${spec.query}`, stats))
+    );
+    let chunkProduced = false;
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        if (r.value.length > 0) {
+          all.push(...r.value);
+          stats.browsePages++;
+          chunkProduced = true;
+        } else {
+          stats.pagesEmpty++;
+        }
+      } else {
+        stats.pagesFailed++;
+      }
+    }
     if (!chunkProduced) break;
     pageStart += PAGE_CHUNK;
   }
