@@ -555,14 +555,29 @@ async function load() {
       // título se pudo resolver contra PSN, usamos su precio/oferta real; si
       // no, caemos al priceUSD fijo de featured-games.json.
       const livePrices = (featPrices.status === "fulfilled" && featPrices.value?.prices) || {};
-      // Solo deduplicar contra juegos con precio real. Si el scraper trajo
-      // la misma preventa a $0, el curado (con _featured: true) debe seguir
-      // visible — de lo contrario desaparece del catálogo.
-      const seen = new Set(
-        games.filter(g => Number(g.priceUSD) > 0).map(g => matchKey(g.title))
-      );
+
+      // Mapa: matchKey(título) → psnId del juego scrapeado (solo los que tienen precio real).
+      // Sirve para detectar cuando el scraper encontró una EDICIÓN DIFERENTE
+      // (ej: Deluxe) del mismo juego que está curado con psnId propio (ej: Standard).
+      const seenById = new Map();
+      for (const g of games) {
+        if (Number(g.priceUSD) > 0) {
+          const key = matchKey(g.title);
+          if (!seenById.has(key)) seenById.set(key, g.id);
+        }
+      }
+
       featuredGames = feat.value.games
-        .filter(g => g && g.title && !seen.has(matchKey(g.title)))
+        .filter(g => {
+          if (!g || !g.title) return false;
+          const key = matchKey(g.title);
+          const scrapedId = seenById.get(key);
+          if (!scrapedId) return true; // no está en el catálogo scrapeado → mostrar
+          // El curado tiene psnId distinto al scrapeado (ej: Standard vs Deluxe) → mostrar ambos
+          if (g.psnId && g.psnId !== scrapedId) return true;
+          // Si no hay psnId o coincide, deduplicar (el scrapeado ya cubre ese producto)
+          return false;
+        })
         .map(g => {
           const live = livePrices[g.id];
           const fixedUSD = Number(g.priceUSD) || 0;
