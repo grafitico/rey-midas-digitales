@@ -3760,8 +3760,8 @@ function mountArcadeCanvas() {
   window.addEventListener('resize', onResize);
 
   const imgDragon = new Image(), imgKnight = new Image();
-  imgDragon.src = '/dragon.png?v=20260606d';
-  imgKnight.src = '/knight.png?v=20260606d';
+  imgDragon.src = '/dragon.webp?v=20260608a';
+  imgKnight.src = '/knight.webp?v=20260608a';
 
   let t = 0, cloudOff = 0;
   let fire = [], embers = [];
