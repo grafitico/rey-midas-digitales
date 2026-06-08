@@ -555,7 +555,12 @@ async function load() {
       // título se pudo resolver contra PSN, usamos su precio/oferta real; si
       // no, caemos al priceUSD fijo de featured-games.json.
       const livePrices = (featPrices.status === "fulfilled" && featPrices.value?.prices) || {};
-      const seen = new Set(games.map(g => matchKey(g.title)));
+      // Solo deduplicar contra juegos con precio real. Si el scraper trajo
+      // la misma preventa a $0, el curado (con _featured: true) debe seguir
+      // visible — de lo contrario desaparece del catálogo.
+      const seen = new Set(
+        games.filter(g => Number(g.priceUSD) > 0).map(g => matchKey(g.title))
+      );
       featuredGames = feat.value.games
         .filter(g => g && g.title && !seen.has(matchKey(g.title)))
         .map(g => {

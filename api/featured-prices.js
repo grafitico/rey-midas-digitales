@@ -47,6 +47,33 @@ export default async function handler(req, res) {
   try {
     const featured = loadFeatured();
 
+    const prices = {};
+    const resolvedIds = new Set();
+    let phase0Count = 0;
+
+    // ── FASE 0: producto exacto por psnId ─────────────────────────────────
+    // Juegos con campo psnId en featured-games.json → precio directo desde
+    // la página del producto específico, sin búsqueda ni selección del más
+    // barato. Garantiza que una Edición Deluxe use su propio precio y no el
+    // de la edición estándar que el buscador podría devolver.
+    const withPsnId = featured.filter(g => g.psnId);
+    if (withPsnId.length > 0) {
+      await Promise.allSettled(
+        withPsnId.map(async game => {
+          try {
+            const url = `${PSN_BASE}/product/${encodeURIComponent(game.psnId)}`;
+            const results = await fetchAndParse(url);
+            const hit = results.find(p => p.id === game.psnId) || results[0];
+            if (hit && hit.priceUSD > 0) {
+              prices[game.id] = toPriceEntry(hit);
+              resolvedIds.add(game.id);
+              phase0Count++;
+            }
+          } catch { /* skip, fallback a Fase 1/2 */ }
+        })
+      );
+    }
+
     // ── FASE 1: páginas de catálogo/deals en paralelo ──────────────────────
     const fetched = await Promise.allSettled(
       SOURCE_PAGES.map(path => fetchAndParse(`${PSN_BASE}${path}`))
@@ -62,19 +89,20 @@ export default async function handler(req, res) {
       }
     }
 
-    const prices = {};
     const phase1Resolved = new Set();
     for (const game of featured) {
+      if (resolvedIds.has(game.id)) continue;
       const live = liveMap.get(matchKey(game.title));
       if (!live) continue;
       prices[game.id] = toPriceEntry(live);
       phase1Resolved.add(game.id);
+      resolvedIds.add(game.id);
     }
 
     // ── FASE 2: búsqueda directa para TODOS los no resueltos ───────────────
     // El resultado de búsqueda PSN ya incluye discountedPrice correcto
     // (confirmado con debug). Un solo request por juego es suficiente.
-    const toSearch = featured.filter(g => !phase1Resolved.has(g.id));
+    const toSearch = featured.filter(g => !resolvedIds.has(g.id));
 
     let idx = 0;
     async function worker() {
@@ -98,6 +126,7 @@ export default async function handler(req, res) {
       stats: {
         sourcePages: SOURCE_PAGES.length,
         liveMapSize: liveMap.size,
+        phase0: phase0Count,
         phase1: phase1Resolved.size,
         phase2Total: toSearch.length,
         resolved: Object.keys(prices).length,
