@@ -3,15 +3,17 @@
 // Corre desde GitHub Actions sin el timeout de 30s de Vercel.
 //
 // Fuentes (en orden de ejecución):
-//   1. SIGLs del catálogo de Game Pass / Xbox TR
-//   2. catalog.gamepass.com/browse — paginado por plataforma (XboxSeriesX|S + XboxOne)
-//   3. Páginas HTML del Xbox Store turco con __NEXT_DATA__ (deals, all-games por plataforma)
+//   1. SIGLs del catálogo de Game Pass / Xbox TR (IDs directos)
+//   2. Listas computadas de Microsoft Store (reco-public): top pagos/gratis,
+//      mejor valorados, nuevos, ofertas, próximos — catálogo comprable amplio.
+// La generación de consola (Xbox One / Series X|S) la deriva normalize() de los
+// campos del propio producto (XboxConsoleGenCompatible/Optimized).
 //
 // Variables de entorno (las provee el runner de GitHub Actions):
 //   GITHUB_TOKEN   — token con permisos de escritura sobre el repo
 //   GITHUB_REPO    — "owner/repo" (ej: grafitico/rey-midas-digitales)
 //   GITHUB_BRANCH  — rama donde commitear (ej: main)
-//   BROWSE_PAGES   — páginas de browse por plataforma (default 80)
+//   RECO_COUNT     — items a pedir por lista computada (default 1000)
 
 const MARKET = "TR";
 const LANGUAGE = "tr-TR";
@@ -22,47 +24,37 @@ const SIGL_IDS = [
   "fdd9e2a7-0fee-49f6-ad69-4354098401ff", // Catálogo principal Xbox/Game Pass TR
 ];
 
-// Etiquetas de generación de consola. Se adjuntan a cada juego según la fuente
-// (filtro de plataforma de la propia Microsoft) de donde salió su ProductId.
+// Etiquetas de generación de consola. NO dependemos de la fuente para esto:
+// normalize() las deriva de los campos XboxConsoleGenCompatible/Optimized del
+// propio producto (confirmado: taggea ~66% del catálogo correctamente).
 const TAG_SERIES = "Xbox Series X|S";
 const TAG_ONE = "Xbox One";
 
-// Páginas HTML del Xbox Store turco. El scraper extrae ProductIds embebidos
-// en __NEXT_DATA__ (Next.js SSR). `consoles` indica con qué etiqueta marcar
-// los IDs hallados en esa página (null = página mixta, sin etiqueta de gen).
-const XBOX_HTML_PAGES = [
-  { url: "https://www.xbox.com/tr-TR/games/browse/DynamicChannel.GameDeals", consoles: null },
-  { url: "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxSeriesX%7CS&TechnicalFeatures=ConsoleGen9Optimized", consoles: [TAG_SERIES] },
-  { url: "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxOne", consoles: [TAG_ONE] },
-  { url: "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxSeriesX%7CS", consoles: [TAG_SERIES] },
-  { url: "https://www.xbox.com/tr-TR/games/browse/new", consoles: null },
-  { url: "https://www.xbox.com/tr-TR/games/browse/coming-soon", consoles: null },
-];
-
-// Plataformas a usar en catalog.gamepass.com/browse, con su etiqueta de gen.
-// El pipe (|) se codifica como %7C en la URL.
-const BROWSE_PLATFORMS = [
-  { param: "XboxSeriesX%7CS", consoles: [TAG_SERIES] },
-  { param: "XboxOne", consoles: [TAG_ONE] },
+// Listas computadas de Microsoft Store (reco-public). Es la MISMA API que usa
+// la app de Microsoft Store / xbox.com para sus carruseles. Devuelve IDs de
+// producto (BigIds) por lista, sin auth. Reemplaza al browse de gamepass (daba
+// 409) y al scraping de xbox.com (las páginas ya no traen __NEXT_DATA__).
+// Agregando varias listas (top pagos, gratis, mejor valorados, nuevos, ofertas,
+// próximos) cubrimos casi todo el catálogo comprable de Xbox, no solo Game Pass.
+const RECO_BASE = "https://reco-public.rec.mp.microsoft.com/channels/Reco/V8.0/Lists/Computed";
+const RECO_LISTS = [
+  "TopPaid",
+  "TopFree",
+  "BestRated",
+  "NewReleases",
+  "MostPlayed",
+  "ComingSoon",
+  "Deal",
+  "TopGrossing",
 ];
 
 const SIGL_BASE = "https://catalog.gamepass.com/sigls/v2";
-const BROWSE_BASE = "https://catalog.gamepass.com/browse";
 const CATALOG_URL = "https://displaycatalog.mp.microsoft.com/v7.0/products";
-const BATCH_SIZE = 20;    // IDs por request al displaycatalog
-const CONCURRENT = 5;     // Batches en paralelo
-const BROWSE_COUNT = 100; // Items por página de browse
-const BROWSE_MAX_PAGES = parseInt(process.env.BROWSE_PAGES || "80", 10);
+const BATCH_SIZE = 20;     // IDs por request al displaycatalog
+const CONCURRENT = 5;      // Batches en paralelo
+const RECO_COUNT = parseInt(process.env.RECO_COUNT || "1000", 10); // Items por lista
 const OUTPUT_FILE = "xbox-catalog.json";
 const GITHUB_API = "https://api.github.com";
-
-// Headers de navegador para páginas HTML (evita bloqueos por bot-detection)
-const BROWSER_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-  "Cache-Control": "no-cache",
-};
 
 const API_HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/2.0)",
@@ -73,20 +65,14 @@ const API_HEADERS = {
 
 async function main() {
   console.log("[sync-xbox] Iniciando sincronización multi-fuente del catálogo Xbox...");
-  console.log(`[sync-xbox] BROWSE_PAGES=${BROWSE_MAX_PAGES} BATCH_SIZE=${BATCH_SIZE}`);
+  console.log(`[sync-xbox] RECO_COUNT=${RECO_COUNT} BATCH_SIZE=${BATCH_SIZE}`);
 
   const allIds = new Set();
-  // id (mayúsculas, sin prefijo) → Set de etiquetas de consola ("Xbox One",
-  // "Xbox Series X|S"). Se llena según el filtro de plataforma de la fuente.
+  // platformTags queda como mecanismo opcional; las etiquetas de consola las
+  // deriva normalize() de los datos del producto (no de la fuente).
   const platformTags = new Map();
-  const tag = (id, labels) => {
-    if (!labels || !labels.length) return;
-    const key = id.toUpperCase();
-    if (!platformTags.has(key)) platformTags.set(key, new Set());
-    labels.forEach(l => platformTags.get(key).add(l));
-  };
 
-  // ── Fase 1: SIGLs de Game Pass (fuente original, fiable) ──────────────────
+  // ── Fase 1: SIGLs de Game Pass (catálogo Game Pass / Xbox) ────────────────
   for (const siglId of SIGL_IDS) {
     try {
       const ids = await withRetry(() => fetchSigl(siglId), `SIGL ${siglId}`);
@@ -98,23 +84,21 @@ async function main() {
   }
   console.log(`[sync-xbox] Fase 1 — ${allIds.size} IDs únicos`);
 
-  // ── Fase 2: catalog.gamepass.com/browse paginado por plataforma ───────────
-  for (const { param, consoles } of BROWSE_PLATFORMS) {
-    const ids = await browseCatalogByPlatform(param);
-    console.log(`[sync-xbox] Browse ${decodeURIComponent(param)}: ${ids.length} IDs`);
-    ids.forEach(id => { allIds.add(id); tag(id, consoles); });
+  // ── Fase 2: Listas computadas de Microsoft Store (reco-public) ────────────
+  //    Cada lista (top pagos/gratis/mejor valorados/nuevos/ofertas/próximos)
+  //    aporta cientos de IDs del catálogo COMPRABLE, no solo Game Pass.
+  for (const list of RECO_LISTS) {
+    try {
+      const ids = await withRetry(() => fetchRecoList(list), `reco ${list}`);
+      let added = 0;
+      ids.forEach(id => { if (!allIds.has(id)) { allIds.add(id); added++; } });
+      console.log(`[sync-xbox] reco ${list}: ${ids.length} IDs (+${added}) — acumulado ${allIds.size}`);
+    } catch (e) {
+      console.warn(`[sync-xbox] reco ${list} agotó reintentos: ${e.message}`);
+    }
+    await sleep(250);
   }
   console.log(`[sync-xbox] Fase 2 — ${allIds.size} IDs únicos`);
-
-  // ── Fase 3: Páginas HTML del Xbox Store turco ─────────────────────────────
-  for (const { url, consoles } of XBOX_HTML_PAGES) {
-    const ids = await extractIdsFromPage(url);
-    const label = url.split("?")[0].split("/").slice(-2).join("/");
-    console.log(`[sync-xbox] HTML ${label}: ${ids.length} IDs`);
-    ids.forEach(id => { allIds.add(id); tag(id, consoles); });
-    await sleep(400);
-  }
-  console.log(`[sync-xbox] Fase 3 — ${allIds.size} IDs únicos`);
 
   const ids = [...allIds];
   if (!ids.length) {
@@ -122,7 +106,7 @@ async function main() {
     process.exit(1);
   }
 
-  // ── Fase 4: Fetchear datos de productos en batches ────────────────────────
+  // ── Fase 3: Fetchear datos de productos en batches ────────────────────────
   const batches = chunk(ids, BATCH_SIZE);
   const allProducts = [];
 
@@ -144,7 +128,7 @@ async function main() {
     if (i + CONCURRENT < batches.length) await sleep(300);
   }
 
-  // ── Fase 5: Normalizar, deduplicar, ordenar ───────────────────────────────
+  // ── Fase 4: Normalizar, deduplicar, ordenar ───────────────────────────────
   const seen = new Set();
   const games = allProducts
     .map(p => normalize(p, platformTags))
@@ -185,80 +169,24 @@ async function fetchSigl(siglId) {
   return data.map(x => (typeof x === "string" ? x : x.id)).filter(Boolean);
 }
 
-// ===== catalog.gamepass.com/browse =====
+// ===== Microsoft Store reco-public (listas computadas) =====
 
-async function browseCatalogByPlatform(platformEncoded) {
-  const ids = [];
-  for (let page = 0; page < BROWSE_MAX_PAGES; page++) {
-    const skipItems = page * BROWSE_COUNT;
-    const url = `${BROWSE_BASE}?market=${MARKET}&language=${LANGUAGE}&platformFilters=${platformEncoded}&mediaType=game&count=${BROWSE_COUNT}&skipItems=${skipItems}`;
-
-    try {
-      const r = await fetch(url, { headers: API_HEADERS });
-      if (!r.ok) {
-        if (r.status === 404 || r.status === 400) break; // Endpoint no existe para este parámetro
-        console.warn(`[sync-xbox] browse ${decodeURIComponent(platformEncoded)} p${page}: HTTP ${r.status}`);
-        break;
-      }
-      const data = await r.json();
-
-      // catalog.gamepass.com/browse puede devolver distintas shapes
-      const items = data.results || data.Products || data.items || data.ids || [];
-      if (!Array.isArray(items) || !items.length) break;
-
-      const pageIds = items
-        .map(i => (typeof i === "string" ? i : (i.id || i.ProductId || i.bigId || i.BigId)))
-        .filter(id => id && /^[A-Z0-9]{9,16}$/i.test(id));
-
-      ids.push(...pageIds);
-      if (pageIds.length < BROWSE_COUNT) break; // Última página
-      await sleep(250);
-    } catch (e) {
-      console.warn(`[sync-xbox] browse ${decodeURIComponent(platformEncoded)} p${page}: ${e.message}`);
-      break;
-    }
-  }
-  return ids;
-}
-
-// ===== HTML scraping (Xbox Store __NEXT_DATA__) =====
-
-async function extractIdsFromPage(url) {
-  try {
-    const r = await fetch(url, { headers: BROWSER_HEADERS });
-    if (!r.ok) return [];
-    const html = await r.text();
-
-    // Xbox Store (Next.js SSR) embebe los datos en __NEXT_DATA__
-    const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!m) return [];
-
-    const data = JSON.parse(m[1]);
-    const ids = [];
-    collectProductIds(data, ids, 0);
-    return [...new Set(ids)];
-  } catch (e) {
-    console.warn(`[sync-xbox] extractIdsFromPage ${url.split("?")[0]}: ${e.message}`);
-    return [];
-  }
-}
-
-// Busca recursivamente campos ProductId / productId / BigId / bigId en el JSON.
-// Los ProductIds de Xbox son strings de 9-16 caracteres alfanuméricos mayúsculas.
-function collectProductIds(obj, ids, depth) {
-  if (depth > 14 || !obj || typeof obj !== "object") return;
-  if (Array.isArray(obj)) {
-    for (const item of obj) collectProductIds(item, ids, depth + 1);
-    return;
-  }
-  for (const [key, val] of Object.entries(obj)) {
-    if ((key === "ProductId" || key === "productId" || key === "BigId" || key === "bigId") &&
-        typeof val === "string" && /^[A-Z0-9]{9,16}$/i.test(val)) {
-      ids.push(val.toUpperCase());
-    } else if (val && typeof val === "object") {
-      collectProductIds(val, ids, depth + 1);
-    }
-  }
+// Trae los ProductIds (BigIds) de una lista computada de Microsoft Store para
+// la familia de dispositivos Xbox. Devuelve un array de IDs en mayúsculas.
+async function fetchRecoList(listName) {
+  const url = `${RECO_BASE}/${listName}` +
+    `?Market=${MARKET}&Language=${LANGUAGE}&ItemTypes=Game` +
+    `&Count=${RECO_COUNT}&DeviceFamily=Windows.Xbox`;
+  const r = await fetch(url, { headers: API_HEADERS });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  // Shape esperada: { Items: [ { Id, Type }, ... ] }. Aceptamos variantes.
+  const items = data.Items || data.items || data.Products || [];
+  if (!Array.isArray(items)) return [];
+  return items
+    .map(i => (typeof i === "string" ? i : (i.Id || i.id || i.ProductId || i.bigId)))
+    .filter(id => id && /^[A-Z0-9]{9,16}$/i.test(id))
+    .map(id => id.toUpperCase());
 }
 
 // ===== Microsoft Display Catalog API =====

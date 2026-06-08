@@ -1,9 +1,10 @@
 name: Sync Xbox catalog from Microsoft APIs
 
-# Descarga el catálogo completo de Xbox (mercado Turquía) combinando:
+# Descarga el catálogo de Xbox (mercado Turquía) combinando:
 #   1. SIGLs del catálogo Game Pass (IDs directos)
-#   2. catalog.gamepass.com/browse paginado por plataforma (XboxSeriesX|S, XboxOne)
-#   3. Páginas HTML del Xbox Store turco (__NEXT_DATA__): deals, new, coming-soon
+#   2. Listas computadas de Microsoft Store (reco-public): top pagos/gratis,
+#      mejor valorados, nuevos, ofertas, próximos — catálogo comprable amplio.
+# La generación (Xbox One / Series X|S) se deriva de los datos del producto.
 #
 # Commitea el JSON resultante en xbox-catalog.json.
 # Schedule: 5am UTC diario ≈ 11pm Costa Rica.
@@ -13,10 +14,10 @@ on:
     - cron: "0 5 * * *"
   workflow_dispatch:
     inputs:
-      browse_pages:
-        description: "Páginas de browse por plataforma (XboxSeriesX|S y XboxOne)"
+      reco_count:
+        description: "Items a pedir por lista computada de Microsoft Store"
         required: false
-        default: "80"
+        default: "1000"
 
 jobs:
   sync:
@@ -37,5 +38,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
-          BROWSE_PAGES: ${{ inputs.browse_pages || '80' }}
+          RECO_COUNT: ${{ inputs.reco_count || '1000' }}
         run: node scripts/sync-xbox-catalog.js
