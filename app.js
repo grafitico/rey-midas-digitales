@@ -478,7 +478,7 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 async function load() {
   try {
-    const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers] = await Promise.allSettled([
+    const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers, psCat] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/xbox-catalog.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
@@ -494,6 +494,7 @@ async function load() {
       fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
       fetch("/covers.json").then(r => r.json()).catch(() => ({})),
+      fetch("/ps-catalog.json").then(r => r.json()).catch(() => ({})),
     ]);
     // Carátulas cosechadas offline (covers.json): { id de featured → URL del CDN }.
     // Es la fuente PRINCIPAL de portadas del catálogo curado: se resuelve sin tocar
@@ -523,6 +524,16 @@ async function load() {
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
       games.push(...(psn.value.games || []));
+    }
+    // Catálogo PSN completo (ps-catalog.json, generado por GitHub Action sin el
+    // timeout de 30s de Vercel). Trae cientos/miles de juegos que el scrape en
+    // vivo no alcanza a paginar. Mergeamos por ID: el scrape en vivo gana
+    // (precios/preventas más frescos); ps-catalog aporta toda la cobertura extra.
+    if (psCat.status === "fulfilled" && Array.isArray(psCat.value?.games)) {
+      const scrapeIds = new Set(games.map(g => g.id));
+      for (const g of psCat.value.games) {
+        if (!scrapeIds.has(g.id)) { games.push(g); scrapeIds.add(g.id); }
+      }
     }
     if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {
       games.push(...xbox.value.games.filter(g => !g._placeholder));

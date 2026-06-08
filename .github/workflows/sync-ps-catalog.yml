@@ -1,0 +1,51 @@
+name: Sync PlayStation catalog
+
+# Descarga el catálogo COMPLETO de PlayStation Store (es-cr) paginando cientos
+# de páginas y lo commitea en ps-catalog.json.
+#
+# A diferencia de /api/scrape (limitado por el timeout de 30s de Vercel a unas
+# pocas páginas), este script corre en GitHub Actions sin límite de tiempo y
+# pagina el catálogo entero — cientos/miles de juegos.
+#
+# El JSON resultante lo sirve Vercel como archivo estático y el frontend lo
+# mergea con el scrape en vivo, que sigue aportando frescura de precios.
+#
+# Schedule en UTC. "0 6 * * *" = 6am UTC diario ≈ medianoche Costa Rica.
+# GitHub Actions puede demorar hasta ~15 min en disparar un cron programado.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: "Páginas máximas por categoría"
+        required: false
+        default: "400"
+      browse_pages:
+        description: "Páginas de browse por región"
+        required: false
+        default: "60"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Sync PlayStation catalog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+          MAX_PAGES: ${{ inputs.max_pages || '400' }}
+          BROWSE_PAGES: ${{ inputs.browse_pages || '60' }}
+        run: node scripts/sync-ps-catalog.js

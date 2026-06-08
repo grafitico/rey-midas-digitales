@@ -19,21 +19,21 @@
 // Diagnóstico (para confirmar nombres de campo reales contra PSN en vivo):
 //   GET /api/scrape?debug=classification
 
-const PSN_BASE = "https://store.playstation.com/es-cr";
+export const PSN_BASE = "https://store.playstation.com/es-cr";
 
 // Tienda de la que leemos las PREVENTAS. La categoría de próximos lanzamientos
 // existe (con juegos) en la tienda de EE.UU. (en-us); en es-cr (Costa Rica) esa
 // categoría viene VACÍA. Los juegos son los mismos a nivel mundial (mismo ID de
 // producto), así que descubrimos las preventas en en-us. Confirmado en vivo:
 // es-cr devolvía 0 juegos, por eso la sección de Reservaciones estaba vacía.
-const COMING_SOON_BASE = "https://store.playstation.com/en-us";
+export const COMING_SOON_BASE = "https://store.playstation.com/en-us";
 
 // ─── IGDB (Twitch) — enriquece portadas faltantes al final del scrape ─────────
 const IGDB_CLIENT_ID = process.env.IGDB_CLIENT_ID || "";
 const IGDB_CLIENT_SECRET = process.env.IGDB_CLIENT_SECRET || "";
 let _igdbToken = null;
 
-const CATEGORIES = [
+export const CATEGORIES = [
   "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
 ];
 
@@ -53,7 +53,7 @@ const STATIC_PAGES = [
 // en la categoría principal: precio bajo ($2–$5), precio alto ($60–$100) y otros.
 // Se leen desde en-us (igual que las preventas) porque la cobertura es mayor.
 // Las primeras 5 páginas son ~120 juegos; se mergean por ID sin duplicados.
-const BROWSE_PAGES_COUNT = 5;
+export const BROWSE_PAGES_COUNT = 5;
 
 // Búsquedas por género — usamos el buscador de PSN como "discovery" de
 // géneros. Cada query trae ~24-48 juegos clasificados en ese género por
@@ -65,7 +65,7 @@ const BROWSE_PAGES_COUNT = 5;
 // Los tags están normalizados (sin tilde, minúsculas) para matchear
 // fácil contra la búsqueda del cliente. La query usa español porque la
 // tienda es es-cr y devuelve resultados más relevantes.
-const GENRE_SEARCHES = [
+export const GENRE_SEARCHES = [
   { tag: "accion",     query: "acción" },
   { tag: "aventura",   query: "aventura" },
   { tag: "terror",     query: "terror" },
@@ -292,7 +292,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function fetchCategoryPaginated(catId, stats, opts = {}) {
+export async function fetchCategoryPaginated(catId, stats, opts = {}) {
   const all = [];
   const maxPages = opts.maxPages || MAX_PAGES_PER_CATEGORY;
   const base = opts.base || PSN_BASE;
@@ -338,7 +338,7 @@ async function fetchHtml(url) {
   return r.text();
 }
 
-async function fetchAndParse(url, stats, opts = {}) {
+export async function fetchAndParse(url, stats, opts = {}) {
   return parseGames(await fetchHtml(url), stats, opts);
 }
 
