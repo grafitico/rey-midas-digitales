@@ -24,10 +24,15 @@ import {
   fetchAndParse,
   fetchCategoryPaginated,
   CATEGORIES,
+  PS5_CATEGORY,
   GENRE_SEARCHES,
   PSN_BASE,
   COMING_SOON_BASE,
 } from "../api/scrape.js";
+
+// Categorías a paginar: la principal (PS4/CUSA) + la de "All PS5 Games" (PPSA).
+// Sin las dos, el catálogo quedaba 99% PS4 y faltaban los PS5 modernos.
+const SYNC_CATEGORIES = [...CATEGORIES, PS5_CATEGORY];
 
 const MAX_PAGES = parseInt(process.env.MAX_PAGES || "400", 10);
 const BROWSE_PAGES = parseInt(process.env.BROWSE_PAGES || "60", 10);
@@ -62,8 +67,8 @@ async function main() {
   const map = new Map();          // id → juego
   const genreMap = new Map();     // id → Set(tags)
 
-  // 1) Categoría principal, paginada en profundidad (sin timeout).
-  for (const catId of CATEGORIES) {
+  // 1) Categorías principales (PS4 + PS5), paginadas en profundidad (sin timeout).
+  for (const catId of SYNC_CATEGORIES) {
     try {
       const items = await fetchCategoryPaginated(catId, stats, { maxPages: MAX_PAGES });
       for (const g of items) if (!map.has(g.id)) map.set(g.id, g);

@@ -34,8 +34,15 @@ const IGDB_CLIENT_SECRET = process.env.IGDB_CLIENT_SECRET || "";
 let _igdbToken = null;
 
 export const CATEGORIES = [
-  "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo PS5/PS4 principal
+  "44d8bb20-653e-431e-8ad0-c0a365f68d2f", // Catálogo principal (mayormente PS4/CUSA)
 ];
+
+// Categoría "All PS5 Games" de PSN (d71e8e6d…). La categoría principal de arriba
+// es casi toda PS4 (códigos CUSA); los juegos PS5 modernos (códigos PPSA: MK1,
+// 007 First Light, etc.) viven en esta. NO se agrega a CATEGORIES porque el
+// scrape en vivo de Vercel (30s) no alcanza a paginar dos catálogos grandes;
+// la usa SOLO el sync de GitHub Actions (sin timeout) para cobertura PS5 total.
+export const PS5_CATEGORY = "d71e8e6d-0940-4e03-bd02-404fc7d31a31";
 
 // Categorías de PSN que son 100% "próximos lanzamientos". Todo lo que venga
 // de aquí se trata como comingSoon=true sin importar si tiene precio o fecha.
