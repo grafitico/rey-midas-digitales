@@ -2,5 +2,11 @@
   "name": "rey-midas-digitales",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "terser app.js -o app.js --compress --mangle && node scripts/gen-sitemap.mjs"
+  },
+  "devDependencies": {
+    "terser": "^5.48.0"
+  }
 }

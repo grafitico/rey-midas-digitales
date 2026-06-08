@@ -3281,7 +3281,7 @@ function nosotrosHTML() {
             <div class="stat-label">Tiempo de entrega</div>
           </div>
           <div class="stat-card">
-            <div class="stat-num">5 ★</div>
+            <div class="stat-num">${(reviewStats.averageRating || 4.9).toFixed(1)} ★</div>
             <div class="stat-label">Calificación promedio</div>
           </div>
         </div>
