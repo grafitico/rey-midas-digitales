@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-06-07T08:26:21.827Z",
-  "count": 427,
+  "updatedAt": "2026-06-08T09:26:57.866Z",
+  "count": 428,
   "games": [
     {
       "id": "xbox-9N7GCF5SGCXC",
@@ -711,6 +711,18 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9PMBB7NGHV95",
+      "title": "Hellblade II: Senua's Saga",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.34324.14301289549560004.f1ff7c98-dc44-454c-bfda-7a6374c95761.2deaecaf-6762-46d5-adb1-9e42e4de56aa",
+      "url": "https://www.xbox.com/games/store/_/9PMBB7NGHV95",
+      "priceUSD": 10.49,
+      "originalPriceUSD": 41.97,
+      "onSale": true,
+      "discount": 75,
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NCLP4LV5K7Z",
       "title": "Hellblade: Senua's Sacrifice",
       "platform": "Xbox",
@@ -877,18 +889,6 @@
       "onSale": true,
       "discount": 75,
       "isBundle": true
-    },
-    {
-      "id": "xbox-9PMBB7NGHV95",
-      "title": "Senua’s Saga: Hellblade II",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.34324.14301289549560004.f1ff7c98-dc44-454c-bfda-7a6374c95761.2deaecaf-6762-46d5-adb1-9e42e4de56aa",
-      "url": "https://www.xbox.com/games/store/_/9PMBB7NGHV95",
-      "priceUSD": 10.49,
-      "originalPriceUSD": 41.97,
-      "onSale": true,
-      "discount": 75,
-      "isBundle": false
     },
     {
       "id": "xbox-9P7PF6ZP3958",
@@ -1798,6 +1798,18 @@
       "url": "https://www.xbox.com/games/store/_/9NCZ8W65H33V",
       "priceUSD": 8.11,
       "originalPriceUSD": 16.21,
+      "onSale": true,
+      "discount": 50,
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N9X9PC8V9CP",
+      "title": "Wo Long: Fallen Dynasty",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.35756.13524128328401524.c8089ad9-5e75-4246-83e8-2dac88f04afd.c15772fe-d979-45ea-8d13-c81c5a30e4fa",
+      "url": "https://www.xbox.com/games/store/_/9N9X9PC8V9CP",
+      "priceUSD": 24.49,
+      "originalPriceUSD": 48.97,
       "onSale": true,
       "discount": 50,
       "isBundle": false
