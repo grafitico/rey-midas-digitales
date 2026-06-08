@@ -24,10 +24,14 @@ function readJson(filename) {
 }
 
 export default function handler(req, res) {
-  const featuredGames = readJson("featured-games.json") || [];
+  // featured-games.json => { _comment, games: [...] }
+  const featuredGames = (readJson("featured-games.json") || {}).games || [];
+  // xbox-catalog.json => { games: [...] } (algunos son _placeholder)
   const xboxCatalog = readJson("xbox-catalog.json") || {};
-  const xboxGames = Array.isArray(xboxCatalog.games) ? xboxCatalog.games : [];
-  const reservaciones = readJson("reservaciones.json") || [];
+  const xboxGames = (Array.isArray(xboxCatalog.games) ? xboxCatalog.games : [])
+    .filter(g => g && !g._placeholder);
+  // reservaciones.json => { _comentario, items: [...] }
+  const reservaciones = (readJson("reservaciones.json") || {}).items || [];
 
   const staticPages = [
     { loc: "/", priority: "1.0", changefreq: "daily" },
@@ -36,25 +40,32 @@ export default function handler(req, res) {
     { loc: "/plataforma/Xbox", priority: "0.9", changefreq: "daily" },
     { loc: "/plataforma/Switch", priority: "0.8", changefreq: "weekly" },
     { loc: "/ofertas", priority: "0.9", changefreq: "daily" },
-    { loc: "/suscripciones/psplus", priority: "0.8", changefreq: "weekly" },
-    { loc: "/suscripciones/gamepass", priority: "0.8", changefreq: "weekly" },
+    { loc: "/playstation-plus", priority: "0.8", changefreq: "weekly" },
+    { loc: "/game-pass", priority: "0.8", changefreq: "weekly" },
     { loc: "/bundles/PS", priority: "0.7", changefreq: "weekly" },
     { loc: "/bundles/Xbox", priority: "0.7", changefreq: "weekly" },
-    { loc: "/bundles/Nintendo", priority: "0.7", changefreq: "weekly" },
     { loc: "/reservaciones", priority: "0.7", changefreq: "daily" },
     { loc: "/resenas", priority: "0.6", changefreq: "monthly" },
     { loc: "/faq", priority: "0.6", changefreq: "monthly" },
+    { loc: "/como-comprar", priority: "0.5", changefreq: "monthly" },
+    { loc: "/garantia", priority: "0.5", changefreq: "monthly" },
+    { loc: "/nosotros", priority: "0.4", changefreq: "monthly" },
   ];
 
-  const gameEntries = [
-    ...featuredGames.map(g => g.psnId ? `/producto/${encodeURIComponent(g.psnId)}` : null).filter(Boolean),
-    ...xboxGames.map(g => g.id ? `/producto/xbox-${encodeURIComponent(g.id)}` : null).filter(Boolean),
-    ...reservaciones.map(r => r.id ? `/reserva/${encodeURIComponent(r.id)}` : null).filter(Boolean),
-  ];
+  // El id del juego es el mismo que usa la ruta /producto/:id (allGames.find por id).
+  // Featured: id tipo "feat-...". Xbox: id ya incluye prefijo "xbox-".
+  const gamePaths = new Set();
+  for (const g of featuredGames) if (g && g.id) gamePaths.add(`/producto/${encodeURIComponent(g.id)}`);
+  for (const g of xboxGames) if (g && g.id) gamePaths.add(`/producto/${encodeURIComponent(g.id)}`);
+
+  const reservaPaths = reservaciones
+    .map(r => (r && r.id) ? `/reserva/${encodeURIComponent(r.id)}` : null)
+    .filter(Boolean);
 
   const urls = [
     ...staticPages.map(p => urlEntry(BASE_URL + p.loc, p.priority, p.changefreq)),
-    ...gameEntries.map(path => urlEntry(BASE_URL + path, "0.7", "weekly")),
+    ...[...gamePaths].map(path => urlEntry(BASE_URL + path, "0.7", "weekly")),
+    ...reservaPaths.map(path => urlEntry(BASE_URL + path, "0.7", "weekly")),
   ];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

@@ -1029,7 +1029,8 @@ function renderProduct(id) {
 
   setPageMeta(
     `${g.title} — Rey Midas Digitales`,
-    `Comprá ${g.title} para ${g.platform} en Costa Rica. ${principal != null ? `Desde ${formatCRC(principal)}.` : ""} Entrega inmediata por WhatsApp.`
+    `Comprá ${g.title} para ${g.platform} en Costa Rica. ${principal != null ? `Desde ${formatCRC(principal)}.` : ""} Entrega inmediata por WhatsApp.`,
+    g.imageUrl || undefined
   );
   setJsonLd({
     "@context": "https://schema.org",
@@ -4436,18 +4437,38 @@ function formatCRC(amount) {
 }
 
 // Actualiza <title> y las meta tags og:title / description / og:url de la página.
-function setPageMeta(title, description) {
+function setPageMeta(title, description, image) {
   document.title = title;
   const ogTitle = document.querySelector('meta[property="og:title"]');
   if (ogTitle) ogTitle.setAttribute("content", title);
+  const twTitle = document.querySelector('meta[name="twitter:title"]');
+  if (twTitle) twTitle.setAttribute("content", title);
   if (description) {
     const desc = document.querySelector('meta[name="description"]');
     if (desc) desc.setAttribute("content", description);
     const ogDesc = document.querySelector('meta[property="og:description"]');
     if (ogDesc) ogDesc.setAttribute("content", description);
+    const twDesc = document.querySelector('meta[name="twitter:description"]');
+    if (twDesc) twDesc.setAttribute("content", description);
   }
+  // URL canónica + og:url limpios (sin query/hash) por ruta.
+  const canonicalUrl = location.origin + location.pathname;
   const ogUrl = document.querySelector('meta[property="og:url"]');
-  if (ogUrl) ogUrl.setAttribute("content", location.href);
+  if (ogUrl) ogUrl.setAttribute("content", canonicalUrl);
+  let canonical = document.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.rel = "canonical";
+    document.head.appendChild(canonical);
+  }
+  canonical.setAttribute("href", canonicalUrl);
+  // og:image / twitter:image por página (cae al logo si no se pasa imagen).
+  const imgSrc = image || "/assets/logo.png?v=2";
+  const abs = /^https?:\/\//.test(imgSrc) ? imgSrc : (location.origin + imgSrc);
+  const ogImg = document.querySelector('meta[property="og:image"]');
+  if (ogImg) ogImg.setAttribute("content", abs);
+  const twImg = document.querySelector('meta[name="twitter:image"]');
+  if (twImg) twImg.setAttribute("content", abs);
 }
 
 // Inyecta (o reemplaza) el bloque JSON-LD principal del documento.
