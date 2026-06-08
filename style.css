@@ -4146,3 +4146,60 @@ html { scroll-behavior: smooth; }
   .cyber-traffic-grid { gap: 0.5rem; }
   .cyber-traffic-num { font-size: 1.4rem; }
 }
+
+/* === Comparativa PSN === */
+.psn-comparison {
+  margin: 1.2rem 0 0.5rem;
+  padding: 1rem 1.2rem;
+  background: rgba(0,217,126,0.06);
+  border: 1px solid rgba(0,217,126,0.25);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.psn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+}
+.psn-label {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+.psn-price--original {
+  color: var(--text-dim);
+  text-decoration: line-through;
+  font-size: 0.88rem;
+}
+.psn-row--ours .psn-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.psn-price--ours {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.psn-savings {
+  margin-top: 0.5rem;
+  color: var(--green);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+/* === Sort select === */
+.sort-select {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.sort-select:focus {
+  outline: none;
+  border-color: var(--gold);
+}

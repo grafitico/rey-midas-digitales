@@ -874,6 +874,25 @@ function render() {
 }
 
 function renderHome(page = 1) {
+  setPageMeta(
+    "Rey Midas Digitales — Juegos PS5 / PS4 / Xbox / Switch en Costa Rica",
+    "Comprá juegos digitales PS5, PS4, Xbox y Nintendo Switch en Costa Rica. Entrega inmediata por WhatsApp. Pagá con SINPE Móvil o transferencia."
+  );
+  setJsonLd({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Rey Midas Digitales",
+    "url": "https://reymidascr.com",
+    "logo": "https://reymidascr.com/assets/logo.png",
+    "description": "Tienda de juegos digitales para PS5, PS4, Xbox y Nintendo Switch en Costa Rica.",
+    "areaServed": { "@type": "Country", "name": "CR" },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": `+${CONFIG.whatsapp}`,
+      "contactType": "customer service",
+      "availableLanguage": "Spanish"
+    }
+  });
   app.innerHTML = `
     ${heroHTML()}
     ${trustBarHTML()}
@@ -898,6 +917,10 @@ function renderHome(page = 1) {
 }
 
 function renderPlatform(platform, page = 1) {
+  setPageMeta(
+    `Juegos ${platform} en Costa Rica | Rey Midas Digitales`,
+    `Comprá juegos digitales de ${platform} en Costa Rica. Entrega inmediata por WhatsApp. Pago con SINPE Móvil o transferencia bancaria.`
+  );
   const active = CONFIG.activePlatforms.includes(platform);
   if (!active) {
     app.innerHTML = `
@@ -992,9 +1015,57 @@ function renderProduct(id) {
   }
   const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
   const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
+
+  // Similares priorizando mismo género/franquicia
+  const gameGenres = new Set(g.genres || []);
   const similars = (allGames || [])
     .filter(x => x.platform === g.platform && String(x.id) !== String(g.id))
+    .sort((a, b) => {
+      const aScore = (a.genres || []).filter(t => gameGenres.has(t)).length;
+      const bScore = (b.genres || []).filter(t => gameGenres.has(t)).length;
+      return bScore - aScore;
+    })
     .slice(0, 4);
+
+  setPageMeta(
+    `${g.title} — Rey Midas Digitales`,
+    `Comprá ${g.title} para ${g.platform} en Costa Rica. ${principal != null ? `Desde ${formatCRC(principal)}.` : ""} Entrega inmediata por WhatsApp.`
+  );
+  setJsonLd({
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": g.title,
+    "description": `Juego digital ${g.title} para ${g.platform}. Entrega inmediata por WhatsApp en Costa Rica.`,
+    ...(g.imageUrl ? { "image": g.imageUrl } : {}),
+    "brand": { "@type": "Brand", "name": g.platform.startsWith("Xbox") ? "Xbox" : "PlayStation" },
+    "offers": principal != null ? {
+      "@type": "Offer",
+      "priceCurrency": "CRC",
+      "price": String(principal),
+      "availability": g.comingSoon ? "https://schema.org/PreOrder" : "https://schema.org/InStock",
+      "seller": { "@type": "Organization", "name": "Rey Midas Digitales" }
+    } : undefined
+  });
+
+  // Precio comparativo vs PSN (solo si hay precio original en USD)
+  const origUSD = Number(g.originalPriceUSD) || Number(g.priceUSD) || 0;
+  const psnCRC = origUSD > 0 ? Math.round(origUSD * CONFIG.pricing.exchangeRate) : 0;
+  const savings = (psnCRC > 0 && principal != null && psnCRC > principal) ? psnCRC - principal : 0;
+  const savingsPct = savings > 0 ? Math.round((savings / psnCRC) * 100) : 0;
+  const psnComparisonHTML = savings > 0 && /PS/i.test(g.platform) ? `
+    <div class="psn-comparison">
+      <div class="psn-row">
+        <span class="psn-label">En PSN</span>
+        <span class="psn-price psn-price--original">${formatCRC(psnCRC)}</span>
+      </div>
+      <div class="psn-row psn-row--ours">
+        <span class="psn-label">Acá</span>
+        <span class="psn-price psn-price--ours">${formatCRC(principal)}</span>
+      </div>
+      <div class="psn-savings">Ahorrás ${formatCRC(savings)} (${savingsPct}%)</div>
+    </div>
+  ` : "";
+
   app.innerHTML = `
     <section class="container product-page">
       <nav class="breadcrumb" aria-label="Migas de pan">
@@ -1057,6 +1128,8 @@ function renderProduct(id) {
               </div>
             ` : ""}
           </div>
+
+          ${psnComparisonHTML}
 
           <a class="cta-wa product-wa-link" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, me interesa el juego " + g.title + " (" + g.platform + "). ¿Sigue disponible?")}" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.52 3.48A12 12 0 0 0 2.05 18.31L1 23l4.81-1.26A12 12 0 1 0 20.52 3.48zM12 21a9 9 0 0 1-4.59-1.26l-.33-.2-3.07.8.82-3-.21-.34A9 9 0 1 1 12 21zm5.07-6.74c-.28-.14-1.65-.81-1.9-.9s-.44-.14-.62.14-.71.9-.87 1.08-.32.21-.6.07a7.4 7.4 0 0 1-2.18-1.35 8.19 8.19 0 0 1-1.51-1.88c-.16-.28 0-.43.12-.57s.28-.32.42-.49a1.94 1.94 0 0 0 .28-.46.51.51 0 0 0 0-.49c-.07-.14-.62-1.51-.85-2.06s-.46-.46-.62-.47h-.53a1 1 0 0 0-.74.35 3.13 3.13 0 0 0-1 2.32 5.39 5.39 0 0 0 1.14 2.86 12.51 12.51 0 0 0 4.79 4.21 16.39 16.39 0 0 0 1.6.59 3.85 3.85 0 0 0 1.77.11 2.89 2.89 0 0 0 1.89-1.33 2.31 2.31 0 0 0 .17-1.33c-.07-.12-.26-.19-.54-.33z"/></svg>
@@ -1129,7 +1202,7 @@ function renderProduct(id) {
 
       ${similars.length ? `
         <section class="product-section">
-          <h2 class="product-section-title">Otros juegos de ${escapeHtml(g.platform)}</h2>
+          <h2 class="product-section-title">Juegos similares</h2>
           <div class="grid similars-grid">
             ${similars.map(cardHTML).join("")}
           </div>
@@ -2129,6 +2202,8 @@ function renderNintendoBundleGrid() {
 }
 
 async function renderSwitch() {
+  setPageMeta("Nintendo Switch | Rey Midas Digitales",
+    "Bundles de Nintendo Switch en Costa Rica. Pago con SINPE Móvil. Entrega por WhatsApp.");
   // nintendo-bundles.json (~2.9 MB) se carga AQUI, no en el arranque. Mostramos el
   // shell con un loader mientras baja la primera vez.
   if (!nintendo.bundles.length) {
@@ -2208,6 +2283,8 @@ function renderBundlesList(platform) {
     PS: { source: psBundles, title: "Bundles PlayStation", subtitle: "Bundles de PS5/PS4 con varios juegos por un solo precio.", type: "ps" },
     Xbox: { source: xboxBundles, title: "Bundles Xbox", subtitle: "Bundles de Xbox con varios juegos por un solo precio.", type: "xbox" },
   }[platform];
+  setPageMeta(`Bundles ${platform || ""} | Rey Midas Digitales`,
+    `Bundles de juegos digitales ${platform || ""} en Costa Rica. Varios juegos a un solo precio.`);
   if (!cfg) {
     app.innerHTML = `<section class="container empty-state"><h2>Plataforma no encontrada</h2><a class="cta" href="/">Inicio</a></section>`;
     return;
@@ -2256,6 +2333,7 @@ function gameMatchesQuery(g, q) {
 }
 
 function renderBusqueda(term, page = 1) {
+  setPageMeta(`Búsqueda: ${term} | Rey Midas Digitales`);
   const list = (allGames || []).filter(g => gameMatchesQuery(g, term));
   app.innerHTML = `
     ${heroSlimHTML(`Resultados para "${term}"`)}
@@ -2277,6 +2355,8 @@ function renderBusqueda(term, page = 1) {
 // ocultos) y deja las tarjetas de plataforma/oferta para refinar.
 function renderCategoria(genre, page = 1) {
   const label = GENRE_LABELS[genre] || (genre ? genre[0].toUpperCase() + genre.slice(1) : "Categoría");
+  setPageMeta(`${label} — Juegos en Costa Rica | Rey Midas Digitales`,
+    `Juegos de ${label} para PS5, PS4 y Xbox en Costa Rica. Entrega por WhatsApp.`);
   const list = (allGames || []).filter(g => Array.isArray(g.genres) && g.genres.includes(genre));
   app.innerHTML = `
     ${heroSlimHTML(label)}
@@ -2295,6 +2375,8 @@ function renderCategoria(genre, page = 1) {
 }
 
 function renderOfertas(page = 1) {
+  setPageMeta("Ofertas y descuentos | Rey Midas Digitales",
+    "Los mejores descuentos en juegos PS5, PS4, Xbox y Switch en Costa Rica. Actualizados diariamente.");
   const list = (allGames || []).filter(g => g.onSale);
   app.innerHTML = `
     ${heroSlimHTML("Ofertas")}
@@ -2315,6 +2397,9 @@ function renderOfertas(page = 1) {
 // Suscripciones (PS Plus / Game Pass)
 // ============================================================
 function renderSubscriptions(service) {
+  const serviceTitle = service === "psplus" ? "PlayStation Plus" : service === "gamepass" ? "Xbox Game Pass" : "Suscripciones";
+  setPageMeta(`${serviceTitle} en Costa Rica | Rey Midas Digitales`,
+    `Comprá ${serviceTitle} en Costa Rica. Pago con SINPE Móvil. Entrega inmediata por WhatsApp.`);
   const cfg = {
     psplus: {
       plans: psPlusPlans,
@@ -2388,6 +2473,8 @@ function planCardHTML(p, serviceTitle) {
 // Reservaciones (pre-orders)
 // ============================================================
 function renderReservaciones() {
+  setPageMeta("Reservaciones y preventas | Rey Midas Digitales",
+    "Reservá tus juegos antes del lanzamiento en Costa Rica. Asegurá tu copia desde el día 1.");
   // Reservas manuales curadas (reservaciones.json, con señal/depósito) + TODOS
   // los juegos del catálogo que todavía no salieron a la venta (comingSoon =
   // releaseDate futuro). Deduplicamos por título para no repetir un mismo juego.
@@ -2786,6 +2873,7 @@ function bindAddButtons(game) {
 // Carrito (vista)
 // ============================================================
 function renderCart() {
+  setPageMeta("Carrito | Rey Midas Digitales");
   const items = loadCart();
   if (!items.length) {
     app.innerHTML = `
@@ -2961,6 +3049,7 @@ function renderInfoPage(slug) {
     app.innerHTML = `<section class="container empty-state"><h2>Página no encontrada</h2><a class="cta" href="/">Volver al inicio</a></section>`;
     return;
   }
+  setPageMeta(`${p.title} | Rey Midas Digitales`);
   app.innerHTML = `
     ${heroSlimHTML(p.title)}
     ${p.body}
@@ -3544,6 +3633,8 @@ function mountCyberStats() {
 // Página completa de reseñas
 // ============================================================
 function renderResenas() {
+  setPageMeta("Reseñas de clientes | Rey Midas Digitales",
+    "Lee lo que opinan nuestros clientes sobre Rey Midas Digitales. Más de 100 compras verificadas en Costa Rica.");
   if (!testimonials.length) {
     app.innerHTML = `<section class="container empty-state"><h2>Sin reseñas todavía</h2><a class="cta" href="/">Volver al inicio</a></section>`;
     return;
@@ -3592,6 +3683,19 @@ function renderResenas() {
 function faqInlineHTML(limit) {
   if (!faqs.length) return "";
   const items = limit ? faqs.slice(0, limit) : faqs;
+  if (!limit) {
+    setPageMeta("Preguntas frecuentes | Rey Midas Digitales",
+      "Respondemos las dudas más comunes sobre cómo comprar juegos digitales en Rey Midas Digitales.");
+    setJsonLd({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqs.map(f => ({
+        "@type": "Question",
+        "name": f.q,
+        "acceptedAnswer": { "@type": "Answer", "text": f.a }
+      }))
+    });
+  }
   return `
     <section class="faq-section">
       <div class="container">
@@ -3981,7 +4085,8 @@ function howToHTML() {
 function toolbarHTML(showPlatformFilters = true) {
   return `
     <div class="toolbar">
-      <input id="search" type="search" placeholder="Buscar juego..." autocomplete="off">
+      <input id="search" type="search" placeholder="Buscar juego..." autocomplete="off" list="search-suggestions">
+      <datalist id="search-suggestions"></datalist>
       ${showPlatformFilters ? `
         <div class="filters">
           <button class="filter active" data-platform="all">Todos</button>
@@ -3998,6 +4103,13 @@ function toolbarHTML(showPlatformFilters = true) {
           <button class="filter active" data-aaa="true" title="Filtrar indies y juegos baratos">Solo AAA</button>
         </div>
       `}
+      <select id="sort-select" class="sort-select" aria-label="Ordenar por">
+        <option value="">Ordenar por...</option>
+        <option value="discount-desc">Mayor descuento</option>
+        <option value="price-asc">Precio: menor a mayor</option>
+        <option value="price-desc">Precio: mayor a menor</option>
+        <option value="alpha-asc">Nombre A–Z</option>
+      </select>
     </div>
   `;
 }
@@ -4005,7 +4117,7 @@ function toolbarHTML(showPlatformFilters = true) {
 // ============================================================
 // Grid + filtros + paginación
 // ============================================================
-const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true, genre: null };
+const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true, genre: null, sort: "" };
 let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
@@ -4016,9 +4128,26 @@ function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
   localFilters.q = "";
   localFilters.aaaOnly = aaaDefault;
   localFilters.genre = null;
+  localFilters.sort = "";
   localList = baseList || allGames;
   currentPage = page;
   currentRouteBase = routeBase;
+
+  // Autocompletado: alimentar el datalist con los títulos del listado actual
+  const datalist = document.getElementById("search-suggestions");
+  if (datalist) {
+    const titles = (localList || []).slice(0, 200).map(g => g.title);
+    datalist.innerHTML = titles.map(t => `<option value="${escapeAttr(t)}">`).join("");
+  }
+
+  const sortSel = document.getElementById("sort-select");
+  if (sortSel) {
+    sortSel.addEventListener("change", () => {
+      localFilters.sort = sortSel.value;
+      currentPage = 1;
+      applyFilters();
+    });
+  }
 
   const search = document.getElementById("search");
   if (search) {
@@ -4080,17 +4209,40 @@ function applyFilters() {
   if (localFilters.q) {
     list = list.filter(g => gameMatchesQuery(g, localFilters.q));
   }
-  // En páginas de plataforma: títulos prioritarios primero, luego AAA, indie al final.
-  // En otras páginas (home, búsqueda): solo indie al final cuando se ven todos.
-  const onPlatformPage = /\/plataforma\//.test(window.location.pathname);
-  if (onPlatformPage) {
+  // Ordenamiento manual (sort selector) tiene prioridad sobre el orden por defecto
+  if (localFilters.sort) {
     list = list.slice().sort((a, b) => {
-      const pa = priorityScore(a), pb = priorityScore(b);
-      if (pa !== pb) return pa - pb;
-      return (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1);
+      if (localFilters.sort === "discount-desc") {
+        return (b.discount || 0) - (a.discount || 0);
+      }
+      if (localFilters.sort === "price-asc") {
+        const pa = a._manualPrices ? a.priceCRC_principal : (principalCRC(a.priceUSD, a.platform) || Infinity);
+        const pb = b._manualPrices ? b.priceCRC_principal : (principalCRC(b.priceUSD, b.platform) || Infinity);
+        return pa - pb;
+      }
+      if (localFilters.sort === "price-desc") {
+        const pa = a._manualPrices ? a.priceCRC_principal : (principalCRC(a.priceUSD, a.platform) || 0);
+        const pb = b._manualPrices ? b.priceCRC_principal : (principalCRC(b.priceUSD, b.platform) || 0);
+        return pb - pa;
+      }
+      if (localFilters.sort === "alpha-asc") {
+        return String(a.title).localeCompare(String(b.title), "es");
+      }
+      return 0;
     });
-  } else if (!localFilters.aaaOnly) {
-    list = list.slice().sort((a, b) => (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1));
+  } else {
+    // En páginas de plataforma: títulos prioritarios primero, luego AAA, indie al final.
+    // En otras páginas (home, búsqueda): solo indie al final cuando se ven todos.
+    const onPlatformPage = /\/plataforma\//.test(window.location.pathname);
+    if (onPlatformPage) {
+      list = list.slice().sort((a, b) => {
+        const pa = priorityScore(a), pb = priorityScore(b);
+        if (pa !== pb) return pa - pb;
+        return (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1);
+      });
+    } else if (!localFilters.aaaOnly) {
+      list = list.slice().sort((a, b) => (isAAA(a) ? 0 : 1) - (isAAA(b) ? 0 : 1));
+    }
   }
   renderGrid(list);
   renderPagination(list.length);
@@ -4282,6 +4434,33 @@ function formatCRC(amount) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+// Actualiza <title> y las meta tags og:title / description / og:url de la página.
+function setPageMeta(title, description) {
+  document.title = title;
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  if (ogTitle) ogTitle.setAttribute("content", title);
+  if (description) {
+    const desc = document.querySelector('meta[name="description"]');
+    if (desc) desc.setAttribute("content", description);
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute("content", description);
+  }
+  const ogUrl = document.querySelector('meta[property="og:url"]');
+  if (ogUrl) ogUrl.setAttribute("content", location.href);
+}
+
+// Inyecta (o reemplaza) el bloque JSON-LD principal del documento.
+function setJsonLd(data) {
+  let el = document.getElementById("jsonld-main");
+  if (!el) {
+    el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.id = "jsonld-main";
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(data);
+}
 function formatPhone(p) {
   if (p.startsWith("506") && p.length === 11) {
     return `+506 ${p.slice(3, 7)}-${p.slice(7)}`;
@@ -4322,6 +4501,7 @@ function placeholderHTML() {
 // Login / Mi cuenta / Admin
 // ============================================================
 function renderLogin() {
+  setPageMeta("Iniciar sesión | Rey Midas Digitales");
   if (currentUser) { navigate("/mi-cuenta"); return; }
 
   // Si NO existe ningún usuario todavía, mostramos el form de "Crear primer admin".
@@ -4407,6 +4587,7 @@ function renderLogin() {
 }
 
 async function renderMyAccount() {
+  setPageMeta("Mi cuenta | Rey Midas Digitales");
   if (!currentUser) { navigate("/login"); return; }
   app.innerHTML = `
     <section class="container account-page">
@@ -4501,6 +4682,7 @@ document.addEventListener("click", (e) => {
 });
 
 async function renderAdmin() {
+  setPageMeta("Admin | Rey Midas Digitales");
   if (!currentUser) { navigate("/login"); return; }
   if (!currentUser.is_admin) {
     app.innerHTML = `
@@ -5330,39 +5512,38 @@ function startLiveActivity() {
   const dismissed = parseInt(localStorage.getItem(LIVE_ACTIVITY_DISMISSED_KEY) || "0", 10);
   if (dismissed && Date.now() - dismissed < 24 * 60 * 60 * 1000) return;
 
-  const names = ["Carlos", "María", "José", "Ana", "Luis", "Patricia", "Andrés", "Adriana", "Mauricio", "Marcela", "Diego", "Valeria", "Fernando", "Sofía", "Roberto", "Camila", "Daniel", "Karla", "Pablo", "Natalia"];
-  const cities = ["San José", "Heredia", "Cartago", "Alajuela", "Limón", "Puntarenas", "Guanacaste", "Pérez Zeledón", "Liberia"];
-  const titles = (allGames || []).slice(0, 80).filter(g => g.title && g.title.length < 40).map(g => g.title);
-  const fallbackTitles = ["GTA V", "FIFA 24", "EA Sports FC 25", "Spider-Man 2", "NBA 2K25", "Call of Duty Modern Warfare", "Hogwarts Legacy", "Forza Horizon 5", "God of War Ragnarok"];
-  const list = titles.length ? titles : fallbackTitles;
+  const totalGames = (allGames || []).length;
+  const platforms = CONFIG.activePlatforms.length;
+  const onSaleCount = (allGames || []).filter(g => g.onSale).length;
+
+  const facts = [
+    {
+      type: "viewing",
+      text: `<strong>${totalGames}+ juegos</strong><br>disponibles en el catálogo`,
+      time: "actualizado hoy",
+    },
+    {
+      type: "delivered",
+      text: `<strong>${platforms} plataformas</strong><br>PS5, PS4, Xbox y Switch`,
+      time: "disponibles",
+    },
+    {
+      type: "delivered",
+      text: `<strong>${onSaleCount} juegos en oferta</strong><br>con descuentos reales`,
+      time: "hoy",
+    },
+    {
+      type: "viewing",
+      text: `<strong>Entrega en &lt;10 min</strong><br>por WhatsApp tras el pago`,
+      time: "siempre",
+    },
+  ];
+  let factIdx = 0;
 
   function buildActivity() {
-    const r = Math.random();
-    if (r < 0.7) {
-      const name = names[Math.floor(Math.random() * names.length)];
-      const city = cities[Math.floor(Math.random() * cities.length)];
-      const title = list[Math.floor(Math.random() * list.length)];
-      const minsAgo = Math.floor(Math.random() * 50) + 1;
-      return {
-        type: "purchase",
-        text: `<strong>${escapeHtml(name)}</strong> de ${escapeHtml(city)} compró<br><em>${escapeHtml(title.length > 32 ? title.slice(0, 32) + "…" : title)}</em>`,
-        time: `hace ${minsAgo} min`,
-      };
-    }
-    if (r < 0.85) {
-      const viewers = Math.floor(Math.random() * 25) + 6;
-      return {
-        type: "viewing",
-        text: `<strong>${viewers} personas</strong><br>viendo el sitio ahora`,
-        time: "en vivo",
-      };
-    }
-    const delivered = Math.floor(Math.random() * 10) + 4;
-    return {
-      type: "delivered",
-      text: `<strong>${delivered} cuentas</strong><br>entregadas en las últimas 2h`,
-      time: "hoy",
-    };
+    const f = facts[factIdx % facts.length];
+    factIdx++;
+    return f;
   }
 
   function showNext() {
