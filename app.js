@@ -674,7 +674,7 @@ async function enrichFeaturedCovers() {
 // Reemplaza el placeholder por la imagen real en las tarjetas y/o en la ficha
 // del juego, sin re-renderizar (mantiene scroll y filtros activos).
 function applyGameCoverUpdate(g) {
-  const href = `#/producto/${encodeURIComponent(g.id)}`;
+  const href = `/producto/${encodeURIComponent(g.id)}`;
   document.querySelectorAll(`a[href="${CSS.escape(href)}"] .card-image`).forEach(box => {
     const ph = box.querySelector(".placeholder");
     if (!ph) return;
@@ -924,7 +924,7 @@ function renderPlatform(platform, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/plataforma/${platform}`, true);
+  mountToolbar(list, page, `/plataforma/${platform}`, false);
   if (platform === 'PS4') { const v = document.querySelector('.ps4-arcade-video'); if (v) v.play().catch(()=>{}); }
   if (platform === 'PS5') { const v = document.querySelector('.ps5-banner-video'); if (v) v.play().catch(()=>{}); }
 }
@@ -2291,7 +2291,7 @@ function renderCategoria(genre, page = 1) {
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/categoria/${encodeURIComponent(genre)}`, true);
+  mountToolbar(list, page, `/categoria/${encodeURIComponent(genre)}`, false);
 }
 
 function renderOfertas(page = 1) {
@@ -4005,12 +4005,12 @@ function toolbarHTML(showPlatformFilters = true) {
 // ============================================================
 // Grid + filtros + paginación
 // ============================================================
-const localFilters = { platform: "all", sale: false, q: "", aaaOnly: true, genre: null };
+const localFilters = { platform: "all", sale: false, q: "", aaaOnly: false, genre: null };
 let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
 
-function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
+function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = false) {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";

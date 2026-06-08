@@ -49,6 +49,12 @@ const STATIC_PAGES = [
   "/pages/latest",
 ];
 
+// Páginas de browse general de PSN (en-us). Capturan juegos que no aparecen
+// en la categoría principal: precio bajo ($2–$5), precio alto ($60–$100) y otros.
+// Se leen desde en-us (igual que las preventas) porque la cobertura es mayor.
+// Las primeras 5 páginas son ~120 juegos; se mergean por ID sin duplicados.
+const BROWSE_PAGES_COUNT = 5;
+
 // Búsquedas por género — usamos el buscador de PSN como "discovery" de
 // géneros. Cada query trae ~24-48 juegos clasificados en ese género por
 // PSN. Después taggeamos cada juego del catálogo con sus géneros para
@@ -143,6 +149,8 @@ export default async function handler(req, res) {
       addonsExcluded: 0,
       pcExcluded: 0,
       igdbEnriched: 0,
+      browsePages: 0,
+      browseFound: 0,
     };
 
     const categoryWork = CATEGORIES.map(async (catId) => {
@@ -214,7 +222,23 @@ export default async function handler(req, res) {
       }
     });
 
-    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork]);
+    // Páginas de browse general (en-us) — captura juegos que la categoría principal omite.
+    const browseWork = Array.from({ length: BROWSE_PAGES_COUNT }, (_, i) => i + 1).map(async (n) => {
+      try {
+        const games = await fetchAndParse(`${COMING_SOON_BASE}/pages/browse/${n}`, stats);
+        stats.browsePages++;
+        for (const g of games) {
+          if (!map.has(g.id)) {
+            map.set(g.id, g);
+            stats.browseFound++;
+          }
+        }
+      } catch {
+        stats.pagesFailed++;
+      }
+    });
+
+    await Promise.all([...categoryWork, ...staticWork, ...genreWork, ...comingSoonWork, ...comingSoonCatWork, ...browseWork]);
 
     let taggedDirect = 0;
     let taggedSearch = 0;
