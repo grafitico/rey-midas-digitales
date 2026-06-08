@@ -1117,6 +1117,7 @@ function renderProduct(id) {
         <div class="product-info">
           <span class="product-platform">${escapeHtml(g.platform)}</span>
           <h1>${escapeHtml(g.title)}</h1>
+          ${consolesHTML(g)}
           ${productFacetsHTML(g)}
 
           <div class="product-tags">
@@ -4367,6 +4368,17 @@ function goToPage(p) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+// Chips de generación de consola (solo Xbox). El catálogo Xbox taggea cada
+// juego con las generaciones que soporta ("Xbox One", "Xbox Series X|S") según
+// el filtro de plataforma de Microsoft. Si el array viene vacío, no mostramos
+// nada (generación desconocida).
+function consolesHTML(g) {
+  if (!Array.isArray(g.consoles) || !g.consoles.length) return "";
+  return `<div class="card-consoles">${g.consoles
+    .map(c => `<span class="console-chip">${escapeHtml(c)}</span>`)
+    .join("")}</div>`;
+}
+
 function cardHTML(g) {
   const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
   const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
@@ -4383,6 +4395,7 @@ function cardHTML(g) {
       </div>
       <div class="card-body">
         <div class="card-title">${escapeHtml(g.title)}</div>
+        ${consolesHTML(g)}
         <div class="price-rows">
           ${principal != null ? `
             <div class="price-row">

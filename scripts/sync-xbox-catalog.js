@@ -22,20 +22,29 @@ const SIGL_IDS = [
   "fdd9e2a7-0fee-49f6-ad69-4354098401ff", // Catálogo principal Xbox/Game Pass TR
 ];
 
+// Etiquetas de generación de consola. Se adjuntan a cada juego según la fuente
+// (filtro de plataforma de la propia Microsoft) de donde salió su ProductId.
+const TAG_SERIES = "Xbox Series X|S";
+const TAG_ONE = "Xbox One";
+
 // Páginas HTML del Xbox Store turco. El scraper extrae ProductIds embebidos
-// en __NEXT_DATA__ (Next.js SSR). Captura juegos de deals y por plataforma.
+// en __NEXT_DATA__ (Next.js SSR). `consoles` indica con qué etiqueta marcar
+// los IDs hallados en esa página (null = página mixta, sin etiqueta de gen).
 const XBOX_HTML_PAGES = [
-  "https://www.xbox.com/tr-TR/games/browse/DynamicChannel.GameDeals",
-  "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxSeriesX%7CS&TechnicalFeatures=ConsoleGen9Optimized",
-  "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxOne",
-  "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxSeriesX%7CS",
-  "https://www.xbox.com/tr-TR/games/browse/new",
-  "https://www.xbox.com/tr-TR/games/browse/coming-soon",
+  { url: "https://www.xbox.com/tr-TR/games/browse/DynamicChannel.GameDeals", consoles: null },
+  { url: "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxSeriesX%7CS&TechnicalFeatures=ConsoleGen9Optimized", consoles: [TAG_SERIES] },
+  { url: "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxOne", consoles: [TAG_ONE] },
+  { url: "https://www.xbox.com/tr-TR/games/all-games/console?PlayWith=XboxSeriesX%7CS", consoles: [TAG_SERIES] },
+  { url: "https://www.xbox.com/tr-TR/games/browse/new", consoles: null },
+  { url: "https://www.xbox.com/tr-TR/games/browse/coming-soon", consoles: null },
 ];
 
-// Plataformas a usar en catalog.gamepass.com/browse.
+// Plataformas a usar en catalog.gamepass.com/browse, con su etiqueta de gen.
 // El pipe (|) se codifica como %7C en la URL.
-const BROWSE_PLATFORMS = ["XboxSeriesX%7CS", "XboxOne"];
+const BROWSE_PLATFORMS = [
+  { param: "XboxSeriesX%7CS", consoles: [TAG_SERIES] },
+  { param: "XboxOne", consoles: [TAG_ONE] },
+];
 
 const SIGL_BASE = "https://catalog.gamepass.com/sigls/v2";
 const BROWSE_BASE = "https://catalog.gamepass.com/browse";
@@ -67,6 +76,15 @@ async function main() {
   console.log(`[sync-xbox] BROWSE_PAGES=${BROWSE_MAX_PAGES} BATCH_SIZE=${BATCH_SIZE}`);
 
   const allIds = new Set();
+  // id (mayúsculas, sin prefijo) → Set de etiquetas de consola ("Xbox One",
+  // "Xbox Series X|S"). Se llena según el filtro de plataforma de la fuente.
+  const platformTags = new Map();
+  const tag = (id, labels) => {
+    if (!labels || !labels.length) return;
+    const key = id.toUpperCase();
+    if (!platformTags.has(key)) platformTags.set(key, new Set());
+    labels.forEach(l => platformTags.get(key).add(l));
+  };
 
   // ── Fase 1: SIGLs de Game Pass (fuente original, fiable) ──────────────────
   for (const siglId of SIGL_IDS) {
@@ -81,19 +99,19 @@ async function main() {
   console.log(`[sync-xbox] Fase 1 — ${allIds.size} IDs únicos`);
 
   // ── Fase 2: catalog.gamepass.com/browse paginado por plataforma ───────────
-  for (const platform of BROWSE_PLATFORMS) {
-    const ids = await browseCatalogByPlatform(platform);
-    console.log(`[sync-xbox] Browse ${decodeURIComponent(platform)}: ${ids.length} IDs`);
-    ids.forEach(id => allIds.add(id));
+  for (const { param, consoles } of BROWSE_PLATFORMS) {
+    const ids = await browseCatalogByPlatform(param);
+    console.log(`[sync-xbox] Browse ${decodeURIComponent(param)}: ${ids.length} IDs`);
+    ids.forEach(id => { allIds.add(id); tag(id, consoles); });
   }
   console.log(`[sync-xbox] Fase 2 — ${allIds.size} IDs únicos`);
 
   // ── Fase 3: Páginas HTML del Xbox Store turco ─────────────────────────────
-  for (const url of XBOX_HTML_PAGES) {
+  for (const { url, consoles } of XBOX_HTML_PAGES) {
     const ids = await extractIdsFromPage(url);
     const label = url.split("?")[0].split("/").slice(-2).join("/");
     console.log(`[sync-xbox] HTML ${label}: ${ids.length} IDs`);
-    ids.forEach(id => allIds.add(id));
+    ids.forEach(id => { allIds.add(id); tag(id, consoles); });
     await sleep(400);
   }
   console.log(`[sync-xbox] Fase 3 — ${allIds.size} IDs únicos`);
@@ -129,7 +147,7 @@ async function main() {
   // ── Fase 5: Normalizar, deduplicar, ordenar ───────────────────────────────
   const seen = new Set();
   const games = allProducts
-    .map(normalize)
+    .map(p => normalize(p, platformTags))
     .filter(g => {
       if (!g) return false;
       if (seen.has(g.id)) return false;
@@ -260,7 +278,7 @@ async function fetchCatalogBatch(ids) {
 
 // ===== Normalización =====
 
-function normalize(p) {
+function normalize(p, platformTags) {
   const id = p.ProductId;
   if (!id) return null;
 
@@ -271,6 +289,17 @@ function normalize(p) {
   // Filtrar juegos PC-only (Game Pass for PC sin soporte en consola Xbox).
   const props = p.Properties || {};
   if (props.XboxTitle === false && props.IsXboxPlayAnywhere !== true) return null;
+
+  // Generación de consola. Primario: las etiquetas que vienen de la fuente
+  // (filtro PlayWith=XboxOne / XboxSeriesX|S de la propia Microsoft). Fallback:
+  // los arrays de gen del producto (ConsoleGen8 = Xbox One, ConsoleGen9 = Series).
+  const consoles = new Set(platformTags?.get(id.toUpperCase()) || []);
+  const genArrays = [
+    ...(props.XboxConsoleGenCompatible || []),
+    ...(props.XboxConsoleGenOptimized || []),
+  ].map(String);
+  if (genArrays.some(g => /9/.test(g))) consoles.add("Xbox Series X|S");
+  if (genArrays.some(g => /[78]/.test(g))) consoles.add("Xbox One");
 
   // Imagen: Poster > BoxArt > SuperHeroArt > Tile > primera disponible
   let imageUrl = "";
@@ -315,6 +344,8 @@ function normalize(p) {
     originalPriceUSD: original,
     onSale,
     discount: onSale ? Math.round((1 - listPrice / original) * 100) : 0,
+    // Generaciones soportadas, ordenadas: Series primero. [] = desconocido.
+    consoles: ["Xbox Series X|S", "Xbox One"].filter(c => consoles.has(c)),
     isBundle: /bundle|edition|collection|pack|deluxe|ultimate|gold|premium|definitive|remaster/i.test(title),
   };
 }
