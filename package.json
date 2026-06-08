@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/gen-sitemap.mjs && npx terser app.js --compress --mangle --output app.js",
+    "build": "terser app.js -o app.js --compress --mangle && node scripts/gen-sitemap.mjs",
     "build:sitemap": "node scripts/gen-sitemap.mjs"
   },
   "devDependencies": {
-    "terser": "^5.31.0"
+    "terser": "^5.48.0"
   }
 }
