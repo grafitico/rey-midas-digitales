@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rey Midas - Gestor de Ofertas</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #07071a;
+      --bg2: #0c0c22;
+      --m: #cc00ff;
+      --c: #00cfff;
+      --g: #00ff41;
+      --y: #ffcc00;
+      --p: #9933ff;
+      --t: #fff;
+      --t2: #7788aa;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: 'Rajdhani', Arial, sans-serif;
+      color: var(--t);
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* HEADER */
+    .header {
+      background: linear-gradient(135deg, #0c0c28, #14093a);
+      border: 2px solid var(--m);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 20px rgba(204, 0, 255, .25);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      color: var(--m);
+      text-shadow: 0 0 10px var(--m);
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-label {
+      color: var(--t2);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      color: var(--y);
+      font-weight: 900;
+      margin-top: 5px;
+    }
+
+    /* FORM */
+    .form-section {
+      background: linear-gradient(160deg, #0c0c24, #08081a);
+      border: 2px solid var(--m);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 20px rgba(204, 0, 255, .15);
+    }
+
+    .form-section h2 {
+      color: var(--m);
+      font-size: 16px;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      color: var(--t2);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      font-weight: 700;
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 10px 12px;
+      background: var(--bg2);
+      border: 1.5px solid rgba(204, 0, 255, .4);
+      border-radius: 8px;
+      color: var(--t);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      transition: .2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--c);
+      box-shadow: 0 0 10px rgba(0, 207, 255, .3);
+    }
+
+    /* PRICE PREVIEW */
+    .price-preview {
+      background: rgba(0, 255, 65, .05);
+      border: 1px solid var(--g);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--g);
+      display: none;
+      grid-column: 1/-1;
+    }
+
+    .price-preview.show {
+      display: block;
+      animation: slideIn .3s ease;
+    }
+
+    .price-preview-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* BUTTONS */
+    .button-group {
+      display: flex;
+      gap: 10px;
+      grid-column: 1/-1;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #cc00ff, #9933ff);
+      color: #fff;
+      border: 2px solid var(--m);
+      box-shadow: 0 0 12px rgba(204, 0, 255, .4);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 22px rgba(204, 0, 255, .6);
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--t2);
+      border: 1.5px solid var(--t2);
+    }
+
+    .btn-secondary:hover {
+      color: var(--c);
+      border-color: var(--c);
+    }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    /* TABLE */
+    .offers-section {
+      background: linear-gradient(160deg, #0c0c24, #08081a);
+      border: 2px solid var(--c);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0, 207, 255, .15);
+    }
+
+    .offers-section h2 {
+      color: var(--c);
+      font-size: 16px;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .offers-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-bottom: 15px;
+    }
+
+    .offers-table th {
+      padding: 10px;
+      text-align: left;
+      color: var(--t2);
+      font-size: 10px;
+      text-transform: uppercase;
+      border-bottom: 2px solid rgba(0, 207, 255, .3);
+      font-weight: 700;
+    }
+
+    .offers-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, .04);
+    }
+
+    .offers-table tr:hover {
+      background: rgba(204, 0, 255, .05);
+    }
+
+    .offer-price {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      color: var(--y);
+    }
+
+    .offer-platform {
+      font-size: 10px;
+      color: var(--c);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .btn-delete {
+      background: #ff0066;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 10px;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    .btn-delete:hover {
+      background: #cc0052;
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--t2);
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    /* TOAST */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      animation: slideInRight .3s ease;
+      z-index: 1000;
+    }
+
+    .toast-success {
+      background: rgba(0, 255, 65, .1);
+      border: 1px solid var(--g);
+      color: var(--g);
+    }
+
+    .toast-error {
+      background: rgba(255, 0, 102, .1);
+      border: 1px solid #ff0066;
+      color: #ff0066;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(400px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(204, 0, 255, .2);
+    }
+
+    .tab-btn {
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      color: var(--t2);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-bottom: 2px solid transparent;
+      transition: .2s;
+    }
+
+    .tab-btn.active {
+      color: var(--m);
+      border-bottom-color: var(--m);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1024px) {
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .header-stats {
+        flex-wrap: wrap;
+      }
+
+      .offers-table {
+        font-size: 11px;
+      }
+
+      .offers-table th,
+      .offers-table td {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- HEADER -->
+    <div class="header">
+      <div>
+        <h1>💰 GESTOR DE OFERTAS</h1>
+        <p style="font-size: 11px; color: var(--t2); margin-top: 5px;">Publica ofertas y convierte precios automáticamente</p>
+      </div>
+      <div class="header-stats">
+        <div class="stat">
+          <div class="stat-label">Total Ofertas</div>
+          <div class="stat-value" id="totalOffers">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Total CRC</div>
+          <div class="stat-value" id="totalCRC">₡0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM -->
+    <div class="form-section">
+      <h2>✨ Nueva Oferta</h2>
+      <form id="offerForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre del Juego</label>
+            <input type="text" id="gameTitle" placeholder="ej: Baldur's Gate 3" required>
+          </div>
+
+          <div class="form-group">
+            <label>Plataforma</label>
+            <select id="platform" required>
+              <option value="PS5">PlayStation 5</option>
+              <option value="PS4">PlayStation 4</option>
+              <option value="Xbox">Xbox Series X/S</option>
+              <option value="Switch">Nintendo Switch</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Precio USD</label>
+            <input type="number" id="priceUSD" placeholder="19.99" step="0.01" min="0" required>
+          </div>
+
+          <div class="form-group">
+            <label>Descuento (%)</label>
+            <input type="number" id="discount" placeholder="0" min="0" max="100" value="0">
+          </div>
+
+          <div class="price-preview" id="pricePreview">
+            <strong>💰 Precios en CRC:</strong>
+            <div class="price-preview-row">
+              <span>💳 Principal:</span>
+              <strong id="previewPrincipal">-</strong>
+            </div>
+            <div class="price-preview-row">
+              <span>🎟️ Secundaria:</span>
+              <strong id="previewSecundaria">-</strong>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button type="submit" class="btn btn-primary">
+              📌 Crear Oferta
+            </button>
+            <button type="reset" class="btn btn-secondary">
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- OFFERS TABLE -->
+    <div class="offers-section">
+      <h2>📋 Mis Ofertas</h2>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="all">Todas</button>
+        <button class="tab-btn" data-tab="ps">PlayStation</button>
+        <button class="tab-btn" data-tab="xbox">Xbox</button>
+        <button class="tab-btn" data-tab="switch">Switch</button>
+      </div>
+
+      <div id="all" class="tab-content active">
+        <table class="offers-table" id="offersTable">
+          <thead>
+            <tr>
+              <th>Juego</th>
+              <th>Plataforma</th>
+              <th>USD Original</th>
+              <th>Principal CRC</th>
+              <th>Secundaria CRC</th>
+              <th>Descuento</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="offersTableBody">
+            <tr class="empty-state">
+              <td colspan="7">
+                <div class="empty-state-icon">📦</div>
+                <div>No hay ofertas aún. Crea tu primera oferta arriba.</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="ps" class="tab-content">
+        <table class="offers-table" id="offersTablePS">
+          <thead>
+            <tr>
+              <th>Juego</th>
+              <th>USD</th>
+              <th>Principal CRC</th>
+              <th>Secundaria CRC</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="offersTablePSBody">
+          </tbody>
+        </table>
+      </div>
+
+      <div id="xbox" class="tab-content">
+        <table class="offers-table" id="offersTableXbox">
+          <thead>
+            <tr>
+              <th>Juego</th>
+              <th>USD</th>
+              <th>Principal CRC</th>
+              <th>Secundaria CRC</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="offersTableXboxBody">
+          </tbody>
+        </table>
+      </div>
+
+      <div id="switch" class="tab-content">
+        <table class="offers-table" id="offersTableSwitch">
+          <thead>
+            <tr>
+              <th>Juego</th>
+              <th>USD</th>
+              <th>Principal CRC</th>
+              <th>Secundaria CRC</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="offersTableSwitchBody">
+          </tbody>
+        </table>
+      </div>
+
+      <button class="btn btn-secondary" id="exportBtn" style="margin-top: 20px;">
+        📥 Exportar a JSON
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // CONVERSIÓN DE PRECIOS (integrado)
+    // ============================================================
+    const CONFIG = {
+      exchangeRate: 530,
+      table: [
+        [10, 4000, 2500],
+        [20, 6000, 3000],
+        [30, 11000, 5500],
+        [40, 17000, 7000],
+        [50, 21000, 9000],
+        [60, 26000, 13000],
+        [70, 28500, 15000],
+        [80, 36000, 14000],
+      ],
+    };
+
+    function interpolateCRC(usd, colIdx) {
+      if (!usd || usd <= 0) return 0;
+      const tbl = CONFIG.table;
+      const col = (row) => row[colIdx + 1];
+
+      if (usd <= tbl[0][0]) {
+        const t = (usd - tbl[0][0]) / (tbl[1][0] - tbl[0][0]);
+        return Math.max(0, Math.round(col(tbl[0]) + t * (col(tbl[1]) - col(tbl[0]))));
+      }
+
+      const last = tbl.length - 1;
+      if (usd >= tbl[last][0]) {
+        const t = (usd - tbl[last - 1][0]) / (tbl[last][0] - tbl[last - 1][0]);
+        return Math.round(col(tbl[last - 1]) + t * (col(tbl[last]) - col(tbl[last - 1])));
+      }
+
+      for (let i = 0; i < tbl.length - 1; i++) {
+        if (usd >= tbl[i][0] && usd <= tbl[i + 1][0]) {
+          const t = (usd - tbl[i][0]) / (tbl[i + 1][0] - tbl[i][0]);
+          return Math.round(col(tbl[i]) + t * (col(tbl[i + 1]) - col(tbl[i])));
+        }
+      }
+      return 0;
+    }
+
+    function principalCRC(usd, platform = "") {
+      if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
+      return Math.round(usd * CONFIG.exchangeRate * 0.75);
+    }
+
+    function secundariaCRC(usd, platform = "") {
+      if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 1);
+      return Math.round(usd * CONFIG.exchangeRate * 0.35);
+    }
+
+    function formatCRC(amount) {
+      if (!amount) return "₡0";
+      return "₡" + Math.round(amount).toLocaleString("es-CR");
+    }
+
+    // ============================================================
+    // ESTADO GLOBAL
+    // ============================================================
+    let offers = JSON.parse(localStorage.getItem("offers")) || [];
+
+    // ============================================================
+    // FUNCIONES
+    // ============================================================
+    function updatePreview() {
+      const usd = Number(document.getElementById("priceUSD").value);
+      const platform = document.getElementById("platform").value;
+      const preview = document.getElementById("pricePreview");
+
+      if (usd <= 0) {
+        preview.classList.remove("show");
+        return;
+      }
+
+      const principal = principalCRC(usd, platform);
+      const secundaria = secundariaCRC(usd, platform);
+
+      document.getElementById("previewPrincipal").textContent = formatCRC(principal);
+      document.getElementById("previewSecundaria").textContent = formatCRC(secundaria);
+      preview.classList.add("show");
+    }
+
+    function addOffer(e) {
+      e.preventDefault();
+
+      const title = document.getElementById("gameTitle").value.trim();
+      const platform = document.getElementById("platform").value;
+      const priceUSD = Number(document.getElementById("priceUSD").value);
+      const discount = Number(document.getElementById("discount").value) || 0;
+
+      if (!title || priceUSD <= 0) {
+        showToast("❌ Datos incompletos", "error");
+        return;
+      }
+
+      const principal = principalCRC(priceUSD, platform);
+      const secundaria = secundariaCRC(priceUSD, platform);
+
+      const offer = {
+        id: Date.now(),
+        title,
+        platform,
+        priceUSD,
+        priceCRC_principal: principal,
+        priceCRC_secundaria: secundaria,
+        discount,
+        createdAt: new Date().toLocaleString("es-CR"),
+      };
+
+      offers.push(offer);
+      localStorage.setItem("offers", JSON.stringify(offers));
+
+      showToast(`✅ Oferta "${title}" creada`, "success");
+      document.getElementById("offerForm").reset();
+      document.getElementById("pricePreview").classList.remove("show");
+      renderOffers();
+      updateStats();
+    }
+
+    function deleteOffer(id) {
+      if (confirm("¿Eliminar esta oferta?")) {
+        offers = offers.filter((o) => o.id !== id);
+        localStorage.setItem("offers", JSON.stringify(offers));
+        renderOffers();
+        updateStats();
+        showToast("✅ Oferta eliminada", "success");
+      }
+    }
+
+    function renderOffers() {
+      // Tabla "Todas"
+      const allBody = document.getElementById("offersTableBody");
+      const psBody = document.getElementById("offersTablePSBody");
+      const xboxBody = document.getElementById("offersTableXboxBody");
+      const switchBody = document.getElementById("offersTableSwitchBody");
+
+      [allBody, psBody, xboxBody, switchBody].forEach((body) => (body.innerHTML = ""));
+
+      if (offers.length === 0) {
+        allBody.innerHTML = `
+          <tr class="empty-state">
+            <td colspan="7">
+              <div class="empty-state-icon">📦</div>
+              <div>No hay ofertas aún.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      offers.forEach((offer) => {
+        const row = `
+          <tr>
+            <td><strong>${offer.title}</strong></td>
+            <td><span class="offer-platform">${offer.platform}</span></td>
+            <td>$${offer.priceUSD}</td>
+            <td><span class="offer-price">${formatCRC(offer.priceCRC_principal)}</span></td>
+            <td><span class="offer-price">${formatCRC(offer.priceCRC_secundaria)}</span></td>
+            <td>${offer.discount > 0 ? `<strong style="color: var(--g);">-${offer.discount}%</strong>` : "-"}</td>
+            <td><button class="btn-delete" onclick="deleteOffer(${offer.id})">🗑️ Borrar</button></td>
+          </tr>
+        `;
+
+        allBody.innerHTML += row;
+
+        if (offer.platform.includes("PS")) {
+          const simpleRow = `
+            <tr>
+              <td><strong>${offer.title}</strong></td>
+              <td>$${offer.priceUSD}</td>
+              <td><span class="offer-price">${formatCRC(offer.priceCRC_principal)}</span></td>
+              <td><span class="offer-price">${formatCRC(offer.priceCRC_secundaria)}</span></td>
+              <td><button class="btn-delete" onclick="deleteOffer(${offer.id})">🗑️ Borrar</button></td>
+            </tr>
+          `;
+          psBody.innerHTML += simpleRow;
+        }
+
+        if (offer.platform.includes("Xbox")) {
+          const simpleRow = `
+            <tr>
+              <td><strong>${offer.title}</strong></td>
+              <td>$${offer.priceUSD}</td>
+              <td><span class="offer-price">${formatCRC(offer.priceCRC_principal)}</span></td>
+              <td><span class="offer-price">${formatCRC(offer.priceCRC_secundaria)}</span></td>
+              <td><button class="btn-delete" onclick="deleteOffer(${offer.id})">🗑️ Borrar</button></td>
+            </tr>
+          `;
+          xboxBody.innerHTML += simpleRow;
+        }
+
+        if (offer.platform.includes("Switch")) {
+          const simpleRow = `
+            <tr>
+              <td><strong>${offer.title}</strong></td>
+              <td>$${offer.priceUSD}</td>
+              <td><span class="offer-price">${formatCRC(offer.priceCRC_principal)}</span></td>
+              <td><span class="offer-price">${formatCRC(offer.priceCRC_secundaria)}</span></td>
+              <td><button class="btn-delete" onclick="deleteOffer(${offer.id})">🗑️ Borrar</button></td>
+            </tr>
+          `;
+          switchBody.innerHTML += simpleRow;
+        }
+      });
+
+      // Mostrar mensaje si no hay en cada tab
+      if (psBody.innerHTML === "") {
+        psBody.innerHTML = `<tr class="empty-state"><td colspan="5">Sin ofertas de PlayStation</td></tr>`;
+      }
+      if (xboxBody.innerHTML === "") {
+        xboxBody.innerHTML = `<tr class="empty-state"><td colspan="5">Sin ofertas de Xbox</td></tr>`;
+      }
+      if (switchBody.innerHTML === "") {
+        switchBody.innerHTML = `<tr class="empty-state"><td colspan="5">Sin ofertas de Switch</td></tr>`;
+      }
+    }
+
+    function updateStats() {
+      document.getElementById("totalOffers").textContent = offers.length;
+      const total = offers.reduce((sum, o) => sum + o.priceCRC_principal, 0);
+      document.getElementById("totalCRC").textContent = formatCRC(total);
+    }
+
+    function showToast(message, type = "success") {
+      const toast = document.createElement("div");
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function exportToJSON() {
+      if (offers.length === 0) {
+        showToast("❌ Sin ofertas para exportar", "error");
+        return;
+      }
+
+      const json = JSON.stringify(offers, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `ofertas-${Date.now()}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast("✅ Ofertas exportadas", "success");
+    }
+
+    // ============================================================
+    // EVENT LISTENERS
+    // ============================================================
+    document.getElementById("offerForm").addEventListener("submit", addOffer);
+    document.getElementById("priceUSD").addEventListener("input", updatePreview);
+    document.getElementById("platform").addEventListener("change", updatePreview);
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        // Actualizar botones
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        // Actualizar contenido
+        document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+        const tabId = btn.dataset.tab;
+        if (tabId === "all") {
+          document.getElementById("all").classList.add("active");
+        } else if (tabId === "ps") {
+          document.getElementById("ps").classList.add("active");
+        } else if (tabId === "xbox") {
+          document.getElementById("xbox").classList.add("active");
+        } else if (tabId === "switch") {
+          document.getElementById("switch").classList.add("active");
+        }
+      });
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", exportToJSON);
+
+    // ============================================================
+    // INICIALIZACIÓN
+    // ============================================================
+    renderOffers();
+    updateStats();
+  </script>
+</body>
+</html>
