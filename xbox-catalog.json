@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-06-09T08:35:36.624Z",
-  "count": 431,
+  "updatedAt": "2026-06-10T08:55:24.924Z",
+  "count": 432,
   "games": [
     {
       "id": "xbox-9N7GCF5SGCXC",
@@ -2016,6 +2016,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P8LR42PTRGJ",
+      "title": "33 Immortals (Oyun ön izleme)",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.15502.14090162823233215.13794def-6f5d-4292-86b7-5b23a5e557e5.4b1f2923-cdcf-4c1a-8beb-285b55bd041f",
+      "url": "https://www.xbox.com/games/store/_/9P8LR42PTRGJ",
+      "priceUSD": 5.6,
+      "originalPriceUSD": 11.2,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NPKGVXPFRSX",
       "title": "Age of Mythology: Retold",
       "platform": "Xbox",
@@ -2759,21 +2775,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NV3L234VGXD",
-      "title": "REPLACED",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.58338.14406403719631483.bd276ac9-ac6a-4f3c-83e2-24c925976919.b4898e50-c382-48be-87da-eec53ccebeff",
-      "url": "https://www.xbox.com/games/store/_/9NV3L234VGXD",
-      "priceUSD": 18.35,
-      "originalPriceUSD": 22.93,
-      "onSale": true,
-      "discount": 20,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NCJSXWZTP88",
       "title": "Starfield",
       "platform": "Xbox",
@@ -2815,22 +2816,6 @@
       "discount": 0,
       "consoles": [
         "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P8LR42PTRGJ",
-      "title": "33 Immortals (Oyun ön izleme)",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.15502.14090162823233215.13794def-6f5d-4292-86b7-5b23a5e557e5.4b1f2923-cdcf-4c1a-8beb-285b55bd041f",
-      "url": "https://www.xbox.com/games/store/_/9P8LR42PTRGJ",
-      "priceUSD": 11.2,
-      "originalPriceUSD": 11.2,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
       ],
       "isBundle": false
     },
@@ -3130,6 +3115,22 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N4X39HZ1CSQ",
+      "title": "Beatdown City Survivors",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.35916.13974767451247837.21624abd-f153-4727-ae96-06f91edb67e8.ccb7b53a-f2d5-41d0-9acd-46d7f5777c3e",
+      "url": "https://www.xbox.com/games/store/_/9N4X39HZ1CSQ",
+      "priceUSD": 11.45,
+      "originalPriceUSD": 11.45,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
       "isBundle": false
     },
     {
@@ -5354,6 +5355,21 @@
         "Xbox Series X|S"
       ],
       "isBundle": true
+    },
+    {
+      "id": "xbox-9NV3L234VGXD",
+      "title": "REPLACED",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.58338.14406403719631483.bd276ac9-ac6a-4f3c-83e2-24c925976919.b4898e50-c382-48be-87da-eec53ccebeff",
+      "url": "https://www.xbox.com/games/store/_/9NV3L234VGXD",
+      "priceUSD": 22.93,
+      "originalPriceUSD": 22.93,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
     },
     {
       "id": "xbox-9NBLGGH4SPK6",
