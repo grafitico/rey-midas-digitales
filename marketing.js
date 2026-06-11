@@ -17,7 +17,7 @@
 // de Google y Meta están habilitados en vercel.json.
 // ============================================================
 (function () {
-  var GA4_ID = "";        // ej: "G-XXXXXXXXXX"
+  var GA4_ID = "G-G5P9Y5XPNN";
   var META_PIXEL_ID = "";  // ej: "123456789012345"
 
   // ---- Google Analytics 4 ----
