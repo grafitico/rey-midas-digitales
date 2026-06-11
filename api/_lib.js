@@ -43,6 +43,55 @@ export async function sb(path, options = {}) {
   return data;
 }
 
+// ===== Rate limiting =====
+// Identifica al cliente por IP. Vercel coloca la IP real del visitante en
+// x-forwarded-for (puede traer una lista "ip-cliente, proxy1, proxy2"; nos
+// quedamos con la primera). x-real-ip es el respaldo.
+export function getClientIp(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  if (fwd) return String(fwd).split(",")[0].trim();
+  return req.headers["x-real-ip"] || req.socket?.remoteAddress || "unknown";
+}
+
+// Rate limit persistente vía Supabase (RPC atómico check_rate_limit).
+// Sirve para endpoints sensibles de bajo volumen (login, newsletter) donde
+// la corrección importa y el costo de 1 consulta extra es despreciable.
+// Falla "abierto": si la DB no responde, NO bloqueamos (no queremos tirar
+// el sitio por un problema de la base).
+export async function rateLimit(req, { action, limit, windowSec }) {
+  const key = `${action}:${getClientIp(req)}`;
+  try {
+    const allowed = await sb("rpc/check_rate_limit", {
+      method: "POST",
+      body: JSON.stringify({ p_key: key, p_limit: limit, p_window_sec: windowSec }),
+    });
+    return allowed === true;
+  } catch {
+    return true;
+  }
+}
+
+// Rate limit en memoria, por instancia del serverless. No es compartido
+// entre instancias ni sobrevive a un cold start, pero es gratis (sin DB) y
+// frena los floods evidentes. Pensado para endpoints de alto volumen como
+// analytics, donde una consulta extra a la DB por request sería peor que
+// el abuso que queremos frenar.
+const _memBuckets = new Map();
+export function memoryRateLimit(key, limit, windowMs) {
+  const now = Date.now();
+  // Limpieza ocasional para que el Map no crezca sin límite.
+  if (_memBuckets.size > 5000) {
+    for (const [k, b] of _memBuckets) if (now - b.start > windowMs) _memBuckets.delete(k);
+  }
+  const b = _memBuckets.get(key);
+  if (!b || now - b.start > windowMs) {
+    _memBuckets.set(key, { start: now, count: 1 });
+    return true;
+  }
+  b.count++;
+  return b.count <= limit;
+}
+
 // Devuelve el count total de una query sin transferir filas.
 // Usa el header Content-Range que Supabase retorna con Prefer: count=exact.
 export async function sbCount(path) {

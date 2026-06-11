@@ -6,7 +6,7 @@
 import {
   sb, hashPassword, verifyPassword, makeSessionToken,
   requireAuth, handleError, readJson, checkConfig,
-  setSessionCookie, clearSessionCookie,
+  setSessionCookie, clearSessionCookie, rateLimit,
 } from "./_lib.js";
 
 export default async function handler(req, res) {
@@ -30,6 +30,11 @@ export default async function handler(req, res) {
 }
 
 async function login(req, res, body) {
+  // Freno anti fuerza-bruta: máx. 8 intentos por IP cada 5 minutos.
+  const ok = await rateLimit(req, { action: "login", limit: 8, windowSec: 300 });
+  if (!ok) {
+    return res.status(429).json({ error: "Demasiados intentos. Esperá unos minutos e intentá de nuevo." });
+  }
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   if (!email || !password) {
