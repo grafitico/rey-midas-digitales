@@ -4443,23 +4443,26 @@ function showToast(text, type = "success") {
 // ============================================================
 // Helpers
 // ============================================================
+function roundTo500(n) {
+  return Math.round(n / 500) * 500;
+}
 function interpolateCRC(usd, colIdx) {
   const tbl = CONFIG.pricing.table;
   if (!usd || usd <= 0) return 0;
   const col = (row) => row[colIdx + 1]; // row[0]=usd, then 4 price columns
   if (usd <= tbl[0][0]) {
     const t = (usd - tbl[0][0]) / (tbl[1][0] - tbl[0][0]);
-    return Math.max(0, Math.round(col(tbl[0]) + t * (col(tbl[1]) - col(tbl[0]))));
+    return Math.max(0, roundTo500(col(tbl[0]) + t * (col(tbl[1]) - col(tbl[0]))));
   }
   const last = tbl.length - 1;
   if (usd >= tbl[last][0]) {
     const t = (usd - tbl[last - 1][0]) / (tbl[last][0] - tbl[last - 1][0]);
-    return Math.round(col(tbl[last - 1]) + t * (col(tbl[last]) - col(tbl[last - 1])));
+    return roundTo500(col(tbl[last - 1]) + t * (col(tbl[last]) - col(tbl[last - 1])));
   }
   for (let i = 0; i < tbl.length - 1; i++) {
     if (usd >= tbl[i][0] && usd <= tbl[i + 1][0]) {
       const t = (usd - tbl[i][0]) / (tbl[i + 1][0] - tbl[i][0]);
-      return Math.round(col(tbl[i]) + t * (col(tbl[i + 1]) - col(tbl[i])));
+      return roundTo500(col(tbl[i]) + t * (col(tbl[i + 1]) - col(tbl[i])));
     }
   }
   return 0;
