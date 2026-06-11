@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-10T08:55:24.924Z",
+  "updatedAt": "2026-06-11T09:17:40.926Z",
   "count": 432,
   "games": [
     {
@@ -1894,6 +1894,38 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P1Z43KRNQD4",
+      "title": "Quake",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21484.14497943460299347.3ad06bb4-d442-43a2-99e0-f41399a5b03e.e735bdbc-b062-401b-88e7-653b6859fe81",
+      "url": "https://www.xbox.com/games/store/_/9P1Z43KRNQD4",
+      "priceUSD": 1.06,
+      "originalPriceUSD": 2.66,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9P7L9H478GGV",
+      "title": "Quake II",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55631.14105366677060737.2503bfc2-efe7-4772-9a81-c5a231a5057d.d8daf983-c810-4800-982e-84b31ab8946f",
+      "url": "https://www.xbox.com/games/store/_/9P7L9H478GGV",
+      "priceUSD": 1.93,
+      "originalPriceUSD": 4.83,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9PKF2LDFPXTN",
       "title": "RoboCop: Rogue City",
       "platform": "Xbox",
@@ -2107,6 +2139,21 @@
         "Xbox One"
       ],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9N8Q6DRTG22H",
+      "title": "Little Nightmares Enhanced Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21849.14040297946202100.6fa86a09-9303-48d5-9ee2-31fcb012aba5.8af927a3-bb64-4e18-b8d3-f12f179edacc",
+      "url": "https://www.xbox.com/games/store/_/9N8Q6DRTG22H",
+      "priceUSD": 11.89,
+      "originalPriceUSD": 23.77,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9N51FH42VQDS",
@@ -2368,7 +2415,7 @@
       "id": "xbox-9N5K7HWXL4Q6",
       "title": "REMATCH",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.51500.14036668029170653.97838000-87b6-4a56-9c79-e4eddcea3b6f.af638a10-8481-45d3-9a46-0be4a02a01d5",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.56880.14036668029170653.4554f7c2-4515-49d2-8ebb-f9d385d870e2.8eed1f1e-64bd-423a-bf04-52ef4d89248a",
       "url": "https://www.xbox.com/games/store/_/9N5K7HWXL4Q6",
       "priceUSD": 10.06,
       "originalPriceUSD": 16.77,
@@ -2406,6 +2453,22 @@
       "discount": 40,
       "consoles": [
         "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N926481VT1Z",
+      "title": "Tony Hawk's™ Pro Skater™ 3 + 4 - Cross-Gen Sürüm",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.40.13545870293609016.82216e19-d3ac-41e6-877a-04dfdefd5e6e.e92b2e2f-1207-4f8f-9591-fd8b72fee93f",
+      "url": "https://www.xbox.com/games/store/_/9N926481VT1Z",
+      "priceUSD": 30.24,
+      "originalPriceUSD": 50.4,
+      "onSale": true,
+      "discount": 40,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -2527,6 +2590,22 @@
       "discount": 33,
       "consoles": [
         "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NC7NRD0CM11",
+      "title": "Heretic + Hexen",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45242.13568632792554292.fea70ec4-25b5-4014-996b-52c5abc58b71.3631a6a8-0f15-49b7-8ffc-b7ddb5d0dd2a",
+      "url": "https://www.xbox.com/games/store/_/9NC7NRD0CM11",
+      "priceUSD": 9.85,
+      "originalPriceUSD": 14.7,
+      "onSale": true,
+      "discount": 33,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -4253,22 +4332,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NC7NRD0CM11",
-      "title": "Heretic + Hexen",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45242.13568632792554292.fea70ec4-25b5-4014-996b-52c5abc58b71.3631a6a8-0f15-49b7-8ffc-b7ddb5d0dd2a",
-      "url": "https://www.xbox.com/games/store/_/9NC7NRD0CM11",
-      "priceUSD": 14.7,
-      "originalPriceUSD": 14.7,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9P96BJ164SL8",
       "title": "Heroes of Might and Magic 3 - Tam Sürüm",
       "platform": "Xbox",
@@ -4657,21 +4720,6 @@
         "Xbox One"
       ],
       "isBundle": false
-    },
-    {
-      "id": "xbox-9N8Q6DRTG22H",
-      "title": "Little Nightmares Enhanced Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21849.14040297946202100.6fa86a09-9303-48d5-9ee2-31fcb012aba5.8af927a3-bb64-4e18-b8d3-f12f179edacc",
-      "url": "https://www.xbox.com/games/store/_/9N8Q6DRTG22H",
-      "priceUSD": 23.77,
-      "originalPriceUSD": 23.77,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
     },
     {
       "id": "xbox-9PBM67RXX3V8",
@@ -5241,22 +5289,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9P1Z43KRNQD4",
-      "title": "Quake",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21484.14497943460299347.3ad06bb4-d442-43a2-99e0-f41399a5b03e.e735bdbc-b062-401b-88e7-653b6859fe81",
-      "url": "https://www.xbox.com/games/store/_/9P1Z43KRNQD4",
-      "priceUSD": 2.66,
-      "originalPriceUSD": 2.66,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9P2JXK37PFLZ",
       "title": "Quake 4",
       "platform": "Xbox",
@@ -5267,22 +5299,6 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P7L9H478GGV",
-      "title": "Quake II",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55631.14105366677060737.2503bfc2-efe7-4772-9a81-c5a231a5057d.d8daf983-c810-4800-982e-84b31ab8946f",
-      "url": "https://www.xbox.com/games/store/_/9P7L9H478GGV",
-      "priceUSD": 4.83,
-      "originalPriceUSD": 4.83,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
       "isBundle": false
     },
     {
@@ -5945,22 +5961,6 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N926481VT1Z",
-      "title": "Tony Hawk's™ Pro Skater™ 3 + 4 - Cross-Gen Sürüm",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.40.13545870293609016.82216e19-d3ac-41e6-877a-04dfdefd5e6e.e92b2e2f-1207-4f8f-9591-fd8b72fee93f",
-      "url": "https://www.xbox.com/games/store/_/9N926481VT1Z",
-      "priceUSD": 50.4,
-      "originalPriceUSD": 50.4,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
       "isBundle": false
     },
     {
