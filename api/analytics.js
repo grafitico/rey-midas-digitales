@@ -2,7 +2,7 @@
 // POST /api/analytics  — registra una visita (page_path + session ID)
 // GET  /api/analytics  — devuelve estadísticas: total, hoy, en línea ahora
 
-import { sb, sbCount, readJson, checkConfig } from "./_lib.js";
+import { sb, sbCount, readJson, checkConfig, getClientIp, memoryRateLimit } from "./_lib.js";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -34,6 +34,11 @@ export default async function handler(req, res) {
   // POST — registrar visita
   if (req.method === "POST") {
     res.setHeader("Cache-Control", "no-store");
+    // Freno anti-flood por instancia: máx. 40 visitas por IP por minuto.
+    // Evita que inflen las métricas sin cargar la DB con consultas extra.
+    if (!memoryRateLimit(`analytics:${getClientIp(req)}`, 40, 60 * 1000)) {
+      return res.status(200).json({ ok: false });
+    }
     try {
       const body = await readJson(req);
       await sb("page_views", {

@@ -320,6 +320,11 @@ function addToCart(game, modality) {
   });
   saveCart(items);
   updateCartBadge(true); // con bump
+  track("add_to_cart", {
+    currency: "CRC",
+    value: price,
+    items: [{ item_id: game.id, item_name: game.title, item_category: game.platform, price }],
+  });
   return true;
 }
 function removeFromCart(id, modality) {
@@ -862,6 +867,14 @@ function applyCoverUpdates(bundleIds) {
 // ============================================================
 // Render principal
 // ============================================================
+// Envoltura segura sobre rmTrack (definido en /marketing.js). Si los IDs de
+// GA4/Pixel no están configurados o el script aún no cargó, no hace nada.
+function track(name, params) {
+  try {
+    if (typeof window.rmTrack === "function") window.rmTrack(name, params || {});
+  } catch { /* la medición nunca debe romper la app */ }
+}
+
 function trackPageView() {
   let sid = sessionStorage.getItem("rmd_sid");
   if (!sid) {
@@ -1046,6 +1059,12 @@ function renderProduct(id) {
   }
   const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
   const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
+
+  track("view_item", {
+    currency: "CRC",
+    value: principal || secundaria || undefined,
+    items: [{ item_id: g.id, item_name: g.title, item_category: g.platform, price: principal || secundaria }],
+  });
 
   // Similares priorizando mismo género/franquicia
   const gameGenres = new Set(g.genres || []);
@@ -3008,13 +3027,31 @@ function bindCartActions() {
     renderCart();
   });
   const applyCodeForm = document.getElementById("applyCodeForm");
-  if (applyCodeForm) applyCodeForm.addEventListener("submit", (e) => {
+  if (applyCodeForm) applyCodeForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const code = e.target.querySelector("input").value.trim().toUpperCase();
     if (!code) return;
-    localStorage.setItem(DISCOUNT_KEY, code);
-    showToast(`Código ${code} aplicado ✓`, "success");
-    renderCart();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Validando..."; }
+    try {
+      const res = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "validate-code", code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Aplicar"; }
+        showToast("Ese código no es válido. Suscribite para obtener uno.", "error");
+        return;
+      }
+      localStorage.setItem(DISCOUNT_KEY, code);
+      showToast(`Código ${code} aplicado ✓`, "success");
+      renderCart();
+    } catch {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Aplicar"; }
+      showToast("No se pudo validar el código. Probá de nuevo.", "error");
+    }
   });
   const openPopupBtn = document.getElementById("openPopupFromCart");
   if (openPopupBtn) openPopupBtn.addEventListener("click", (e) => {
@@ -3044,6 +3081,12 @@ function checkout() {
     "",
     "¿Me confirman disponibilidad y datos de pago? Gracias.",
   ].join("\n");
+  track("begin_checkout", {
+    currency: "CRC",
+    value: total,
+    coupon: code || undefined,
+    items: items.map(i => ({ item_id: i.id, item_name: i.title, item_category: i.platform, price: i.priceCRC })),
+  });
   window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
 }
 
@@ -5539,6 +5582,7 @@ async function handleNewsletterSubmit(e, form, source) {
 
     // Guardar código localmente
     if (data.code) localStorage.setItem(DISCOUNT_KEY, data.code);
+    if (!data.alreadySubscribed) track("generate_lead", { method: source });
 
     if (source === "popup") {
       // Mostrar pantalla de éxito en el popup

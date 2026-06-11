@@ -1,7 +1,7 @@
 // Newsletter: suscripción pública + lista de suscriptores para admin.
 // POST /api/newsletter con { action: "subscribe" | "list", ... }
 
-import { sb, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
+import { sb, requireAdmin, handleError, readJson, checkConfig, rateLimit } from "./_lib.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     checkConfig();
     const body = await readJson(req);
     if (body.action === "subscribe") return await subscribe(req, res, body);
+    if (body.action === "validate-code") return await validateCode(req, res, body);
     if (body.action === "list") return await list(req, res);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
@@ -17,6 +18,11 @@ export default async function handler(req, res) {
 }
 
 async function subscribe(req, res, body) {
+  // Anti-spam: máx. 5 suscripciones por IP cada 10 minutos.
+  const ok = await rateLimit(req, { action: "newsletter", limit: 5, windowSec: 600 });
+  if (!ok) {
+    return res.status(429).json({ error: "Demasiadas solicitudes. Probá de nuevo en unos minutos." });
+  }
   const email = String(body.email || "").trim().toLowerCase();
   const source = String(body.source || "unknown").slice(0, 30);
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -45,6 +51,23 @@ async function subscribe(req, res, body) {
     }),
   });
   res.status(200).json({ ok: true, code: inserted[0].discount_code });
+}
+
+// Valida un código de descuento contra los códigos reales emitidos a
+// suscriptores. Evita que cualquier texto al azar active el 10% en el
+// carrito. Devuelve { valid, discountPct }.
+async function validateCode(req, res, body) {
+  const ok = await rateLimit(req, { action: "validate-code", limit: 20, windowSec: 300 });
+  if (!ok) {
+    return res.status(429).json({ error: "Demasiados intentos. Esperá unos minutos." });
+  }
+  const code = String(body.code || "").trim().toUpperCase().slice(0, 40);
+  if (!code) return res.status(400).json({ valid: false, error: "Falta el código" });
+  const rows = await sb(`newsletter_subscribers?discount_code=eq.${encodeURIComponent(code)}&select=discount_code&limit=1`);
+  if (rows.length) {
+    return res.status(200).json({ valid: true, discountPct: 10 });
+  }
+  return res.status(200).json({ valid: false });
 }
 
 async function list(req, res) {
