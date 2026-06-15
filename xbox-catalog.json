@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-14T08:45:20.136Z",
+  "updatedAt": "2026-06-15T10:59:41.856Z",
   "count": 435,
   "games": [
     {
@@ -17,21 +17,6 @@
         "Xbox One"
       ],
       "isBundle": false
-    },
-    {
-      "id": "xbox-9PMQDM08SNK9",
-      "title": "Microsoft Flight Simulator (2020) Standard 40th Anniversary Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.37136.14293123921570736.739af26b-0b56-4d3a-8d57-149d26c2cc05.73830409-618c-48cc-a4fc-4f6fbc18b7f9",
-      "url": "https://www.xbox.com/games/store/_/9PMQDM08SNK9",
-      "priceUSD": 9.8,
-      "originalPriceUSD": 28,
-      "onSale": true,
-      "discount": 65,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
     },
     {
       "id": "xbox-9MSVVM5NS9L6",
@@ -219,21 +204,6 @@
         "Xbox One"
       ],
       "isBundle": false
-    },
-    {
-      "id": "xbox-9P2VGCTBMM52",
-      "title": "Microsoft Flight Simulator 2024 - Standard Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.59000.14550648823552491.458517e5-6b50-4124-b28b-b87004bdb3d1.961d2dcc-23a2-4997-a317-7237e2d47bbc",
-      "url": "https://www.xbox.com/games/store/_/9P2VGCTBMM52",
-      "priceUSD": 42,
-      "originalPriceUSD": 56,
-      "onSale": true,
-      "discount": 25,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
     },
     {
       "id": "xbox-9NPDN9R45JX4",
@@ -3502,6 +3472,36 @@
         "Xbox Series X|S"
       ],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9PMQDM08SNK9",
+      "title": "Microsoft Flight Simulator (2020) Standard 40th Anniversary Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.37136.14293123921570736.739af26b-0b56-4d3a-8d57-149d26c2cc05.73830409-618c-48cc-a4fc-4f6fbc18b7f9",
+      "url": "https://www.xbox.com/games/store/_/9PMQDM08SNK9",
+      "priceUSD": 28,
+      "originalPriceUSD": 28,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
+    },
+    {
+      "id": "xbox-9P2VGCTBMM52",
+      "title": "Microsoft Flight Simulator 2024 - Standard Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.59000.14550648823552491.458517e5-6b50-4124-b28b-b87004bdb3d1.961d2dcc-23a2-4997-a317-7237e2d47bbc",
+      "url": "https://www.xbox.com/games/store/_/9P2VGCTBMM52",
+      "priceUSD": 56,
+      "originalPriceUSD": 56,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9NRL00D96M3R",
