@@ -1,21 +1,65 @@
 {
-  "updatedAt": "2026-06-15T10:59:41.856Z",
-  "count": 435,
+  "updatedAt": "2026-06-16T10:16:24.714Z",
+  "count": 432,
   "games": [
     {
-      "id": "xbox-C37XBX7DCBZ0",
-      "title": "Descenders",
+      "id": "xbox-9P8XJRLCLH2P",
+      "title": "Moonlighter",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24333.65934155925401073.cdde9208-c05c-4015-852b-3c48d95ed87b.52e0d392-5541-4ba1-84b8-656727390fd5",
-      "url": "https://www.xbox.com/games/store/_/C37XBX7DCBZ0",
-      "priceUSD": 4.38,
-      "originalPriceUSD": 17.5,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.27309.14078999020725962.f9f4d516-290a-4fec-820e-f71d575013d8.781a4a00-3d6d-477f-987a-a7b734ab1fd1",
+      "url": "https://www.xbox.com/games/store/_/9P8XJRLCLH2P",
+      "priceUSD": 0.09,
+      "originalPriceUSD": 0.91,
       "onSale": true,
-      "discount": 75,
+      "discount": 90,
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
       ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PG0PMB5Q0GT",
+      "title": "The Casting of Frank Stone™",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57876.14194909325684282.4555d428-db78-49a6-b09e-ad174d55ec29.fef64c0a-42a2-41ec-94db-06a33a017716",
+      "url": "https://www.xbox.com/games/store/_/9PG0PMB5Q0GT",
+      "priceUSD": 3.22,
+      "originalPriceUSD": 16.1,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NCNBWZSHZR5",
+      "title": "Baldur's Gate and Baldur's Gate II: Enhanced Editions",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.12371.13560318840337204.7fb799bf-0c83-4102-a67b-891603f5661f.2f7ad583-ffde-4899-9aca-40397ee33c42",
+      "url": "https://www.xbox.com/games/store/_/9NCNBWZSHZR5",
+      "priceUSD": 1.63,
+      "originalPriceUSD": 4.67,
+      "onSale": true,
+      "discount": 65,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": true
+    },
+    {
+      "id": "xbox-9NMS4SFNBGBH",
+      "title": "Dead by Daylight Windows",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.20813.13756572830160292.bd4ae2ab-caa8-4527-a2e2-3c5b78386166.e184d805-5ac0-4ce5-a0f9-d0c1e69778f2",
+      "url": "https://www.xbox.com/games/store/_/9NMS4SFNBGBH",
+      "priceUSD": 6.71,
+      "originalPriceUSD": 16.77,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [],
       "isBundle": false
     },
     {
@@ -174,31 +218,15 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9N66JJQFX3RX",
-      "title": "Descenders Next (Oyun ön izleme)",
+      "id": "xbox-9NJ67TQQ51Z0",
+      "title": "Super Meat Boy 3D",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.19201.14024037955784685.f1298079-5f9c-4427-8bdd-d0232cc70ebf.c7006c42-a4fc-4315-9083-fae72b5443b8",
-      "url": "https://www.xbox.com/games/store/_/9N66JJQFX3RX",
-      "priceUSD": 14.21,
-      "originalPriceUSD": 20.3,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45499.13682468967165125.f6cc8af7-98b7-44e0-b9cb-cf7be3ecd662.04945db8-f776-4bce-aaa1-1d4b163639dd",
+      "url": "https://www.xbox.com/games/store/_/9NJ67TQQ51Z0",
+      "priceUSD": 23.05,
+      "originalPriceUSD": 28.81,
       "onSale": true,
-      "discount": 30,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N3M5D5ZSW34",
-      "title": "Little Rocket Lab",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.32936.14000344005974621.9729934f-27d2-4900-8aa2-53049eb44202.5ca80ddb-fffd-4d9b-9fde-76a41b9f9201",
-      "url": "https://www.xbox.com/games/store/_/9N3M5D5ZSW34",
-      "priceUSD": 9.8,
-      "originalPriceUSD": 14,
-      "onSale": true,
-      "discount": 30,
+      "discount": 20,
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
@@ -738,22 +766,6 @@
         "Xbox One"
       ],
       "isBundle": false
-    },
-    {
-      "id": "xbox-9NCNBWZSHZR5",
-      "title": "Baldur's Gate and Baldur's Gate II: Enhanced Editions",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.12371.13560318840337204.7fb799bf-0c83-4102-a67b-891603f5661f.2f7ad583-ffde-4899-9aca-40397ee33c42",
-      "url": "https://www.xbox.com/games/store/_/9NCNBWZSHZR5",
-      "priceUSD": 4.67,
-      "originalPriceUSD": 4.67,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": true
     },
     {
       "id": "xbox-9MWXF3SRD7QN",
@@ -1444,19 +1456,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NMS4SFNBGBH",
-      "title": "Dead by Daylight Windows",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.20813.13756572830160292.bd4ae2ab-caa8-4527-a2e2-3c5b78386166.e184d805-5ac0-4ce5-a0f9-d0c1e69778f2",
-      "url": "https://www.xbox.com/games/store/_/9NMS4SFNBGBH",
-      "priceUSD": 16.77,
-      "originalPriceUSD": 16.77,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NKVX66J0ZSK",
       "title": "Dead Cells",
       "platform": "Xbox",
@@ -1571,6 +1570,38 @@
       "discount": 0,
       "consoles": [
         "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-C37XBX7DCBZ0",
+      "title": "Descenders",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24333.65934155925401073.cdde9208-c05c-4015-852b-3c48d95ed87b.52e0d392-5541-4ba1-84b8-656727390fd5",
+      "url": "https://www.xbox.com/games/store/_/C37XBX7DCBZ0",
+      "priceUSD": 17.5,
+      "originalPriceUSD": 17.5,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N66JJQFX3RX",
+      "title": "Descenders Next (Oyun ön izleme)",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.19201.14024037955784685.f1298079-5f9c-4427-8bdd-d0232cc70ebf.c7006c42-a4fc-4315-9083-fae72b5443b8",
+      "url": "https://www.xbox.com/games/store/_/9N66JJQFX3RX",
+      "priceUSD": 20.3,
+      "originalPriceUSD": 20.3,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -3060,18 +3091,17 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9MWHMJ0SRBXV",
-      "title": "Jurassic World Evolution 2",
+      "id": "xbox-9NZPKBFF0CV9",
+      "title": "Junkster",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.1077.13843646153700405.faf0a0ab-da0c-4a73-a182-1b5794b3f805.46323daa-e6c1-4bdd-a1e4-2c78222de22e",
-      "url": "https://www.xbox.com/games/store/_/9MWHMJ0SRBXV",
-      "priceUSD": 12.6,
-      "originalPriceUSD": 12.6,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.25795.14476298347695766.e0224d1c-bba4-4797-aea1-4547d8059308.812c0364-a316-46b6-9262-7dc10eb26839",
+      "url": "https://www.xbox.com/games/store/_/9NZPKBFF0CV9",
+      "priceUSD": 11.45,
+      "originalPriceUSD": 11.45,
       "onSale": false,
       "discount": 0,
       "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
+        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -3327,17 +3357,18 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9N72G399183F",
-      "title": "Lost in Random: The Eternal Die",
+      "id": "xbox-9N3M5D5ZSW34",
+      "title": "Little Rocket Lab",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.3325.14006964332473416.10d59252-1152-47fd-84d5-bff9655a949d.66800450-ad18-407b-b6d7-cb091dd50358",
-      "url": "https://www.xbox.com/games/store/_/9N72G399183F",
-      "priceUSD": 17.61,
-      "originalPriceUSD": 17.61,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.32936.14000344005974621.9729934f-27d2-4900-8aa2-53049eb44202.5ca80ddb-fffd-4d9b-9fde-76a41b9f9201",
+      "url": "https://www.xbox.com/games/store/_/9N3M5D5ZSW34",
+      "priceUSD": 14,
+      "originalPriceUSD": 14,
       "onSale": false,
       "discount": 0,
       "consoles": [
-        "Xbox Series X|S"
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -3628,22 +3659,6 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P8XJRLCLH2P",
-      "title": "Moonlighter",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.27309.14078999020725962.f9f4d516-290a-4fec-820e-f71d575013d8.781a4a00-3d6d-477f-987a-a7b734ab1fd1",
-      "url": "https://www.xbox.com/games/store/_/9P8XJRLCLH2P",
-      "priceUSD": 0.91,
-      "originalPriceUSD": 0.91,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
       "isBundle": false
     },
     {
@@ -5111,22 +5126,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NJ67TQQ51Z0",
-      "title": "Super Meat Boy 3D",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45499.13682468967165125.f6cc8af7-98b7-44e0-b9cb-cf7be3ecd662.04945db8-f776-4bce-aaa1-1d4b163639dd",
-      "url": "https://www.xbox.com/games/store/_/9NJ67TQQ51Z0",
-      "priceUSD": 28.81,
-      "originalPriceUSD": 28.81,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NRH78B682L8",
       "title": "SUPERHOT: MIND CONTROL DELETE",
       "platform": "Xbox",
@@ -5237,22 +5236,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NS3673HVH41",
-      "title": "Teenage Mutant Ninja Turtles: Shredder's Revenge",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24069.14375592271313618.8101bdfc-97e9-473f-8ca0-07fc83b1846b.3a823b7b-76b8-4aa2-a69f-cf9fed93aab9",
-      "url": "https://www.xbox.com/games/store/_/9NS3673HVH41",
-      "priceUSD": 14.08,
-      "originalPriceUSD": 14.08,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9P6X0VL8BXZF",
       "title": "Tempopo",
       "platform": "Xbox",
@@ -5343,21 +5326,6 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9PG0PMB5Q0GT",
-      "title": "The Casting of Frank Stone™",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57876.14194909325684282.4555d428-db78-49a6-b09e-ad174d55ec29.fef64c0a-42a2-41ec-94db-06a33a017716",
-      "url": "https://www.xbox.com/games/store/_/9PG0PMB5Q0GT",
-      "priceUSD": 16.1,
-      "originalPriceUSD": 16.1,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -6026,21 +5994,6 @@
         "Xbox Series X|S"
       ],
       "isBundle": false
-    },
-    {
-      "id": "xbox-9NDS24HS4N02",
-      "title": "Warhammer 40,000: Space Marine - Master Crafted Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.15013.13608813797993653.5fea78ce-699f-4781-940d-07bc51037d8a.31ba3fd2-c17f-4c62-b283-aed519145a16",
-      "url": "https://www.xbox.com/games/store/_/9NDS24HS4N02",
-      "priceUSD": 39.17,
-      "originalPriceUSD": 39.17,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
     },
     {
       "id": "xbox-9N9PCZWHVP2L",
