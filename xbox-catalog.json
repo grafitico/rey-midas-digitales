@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-18T09:22:02.971Z",
+  "updatedAt": "2026-06-19T09:49:05.010Z",
   "count": 433,
   "games": [
     {
@@ -214,38 +214,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9P1Z43KRNQD4",
-      "title": "Quake",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21484.14497943460299347.3ad06bb4-d442-43a2-99e0-f41399a5b03e.e735bdbc-b062-401b-88e7-653b6859fe81",
-      "url": "https://www.xbox.com/games/store/_/9P1Z43KRNQD4",
-      "priceUSD": 1.06,
-      "originalPriceUSD": 2.66,
-      "onSale": true,
-      "discount": 60,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P7L9H478GGV",
-      "title": "Quake II",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55631.14105366677060737.2503bfc2-efe7-4772-9a81-c5a231a5057d.d8daf983-c810-4800-982e-84b31ab8946f",
-      "url": "https://www.xbox.com/games/store/_/9P7L9H478GGV",
-      "priceUSD": 1.93,
-      "originalPriceUSD": 4.83,
-      "onSale": true,
-      "discount": 60,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NQ6Z171XZX8",
       "title": "Undisputed",
       "platform": "Xbox",
@@ -299,53 +267,6 @@
       "originalPriceUSD": 55.97,
       "onSale": true,
       "discount": 50,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N8Q6DRTG22H",
-      "title": "Little Nightmares Enhanced Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21849.14040297946202100.6fa86a09-9303-48d5-9ee2-31fcb012aba5.8af927a3-bb64-4e18-b8d3-f12f179edacc",
-      "url": "https://www.xbox.com/games/store/_/9N8Q6DRTG22H",
-      "priceUSD": 11.89,
-      "originalPriceUSD": 23.77,
-      "onSale": true,
-      "discount": 50,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
-    },
-    {
-      "id": "xbox-9N926481VT1Z",
-      "title": "Tony Hawk's™ Pro Skater™ 3 + 4 - Cross-Gen Sürüm",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.40.13545870293609016.82216e19-d3ac-41e6-877a-04dfdefd5e6e.e92b2e2f-1207-4f8f-9591-fd8b72fee93f",
-      "url": "https://www.xbox.com/games/store/_/9N926481VT1Z",
-      "priceUSD": 30.24,
-      "originalPriceUSD": 50.4,
-      "onSale": true,
-      "discount": 40,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9NC7NRD0CM11",
-      "title": "Heretic + Hexen",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45242.13568632792554292.fea70ec4-25b5-4014-996b-52c5abc58b71.3631a6a8-0f15-49b7-8ffc-b7ddb5d0dd2a",
-      "url": "https://www.xbox.com/games/store/_/9NC7NRD0CM11",
-      "priceUSD": 9.85,
-      "originalPriceUSD": 14.7,
-      "onSale": true,
-      "discount": 33,
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
@@ -2770,7 +2691,7 @@
     },
     {
       "id": "xbox-9P77PG7DK0W2",
-      "title": "Grounded 2",
+      "title": "Grounded 2 (Game Preview)",
       "platform": "Xbox",
       "imageUrl": "https://store-images.s-microsoft.com/image/apps.54353.14609679373210979.beb28026-7f6b-4b1f-b526-43d0d04b269b.6dcfd9cd-f291-4121-b9d8-a09dd620a5c3",
       "url": "https://www.xbox.com/games/store/_/9P77PG7DK0W2",
@@ -2950,6 +2871,22 @@
       "discount": 0,
       "consoles": [
         "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NC7NRD0CM11",
+      "title": "Heretic + Hexen",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45242.13568632792554292.fea70ec4-25b5-4014-996b-52c5abc58b71.3631a6a8-0f15-49b7-8ffc-b7ddb5d0dd2a",
+      "url": "https://www.xbox.com/games/store/_/9NC7NRD0CM11",
+      "priceUSD": 14.7,
+      "originalPriceUSD": 14.7,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -3413,6 +3350,21 @@
         "Xbox One"
       ],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9N8Q6DRTG22H",
+      "title": "Little Nightmares Enhanced Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21849.14040297946202100.6fa86a09-9303-48d5-9ee2-31fcb012aba5.8af927a3-bb64-4e18-b8d3-f12f179edacc",
+      "url": "https://www.xbox.com/games/store/_/9N8Q6DRTG22H",
+      "priceUSD": 23.77,
+      "originalPriceUSD": 23.77,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9PBM67RXX3V8",
@@ -4362,6 +4314,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P1Z43KRNQD4",
+      "title": "Quake",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21484.14497943460299347.3ad06bb4-d442-43a2-99e0-f41399a5b03e.e735bdbc-b062-401b-88e7-653b6859fe81",
+      "url": "https://www.xbox.com/games/store/_/9P1Z43KRNQD4",
+      "priceUSD": 2.66,
+      "originalPriceUSD": 2.66,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9P2JXK37PFLZ",
       "title": "Quake 4",
       "platform": "Xbox",
@@ -4372,6 +4340,22 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9P7L9H478GGV",
+      "title": "Quake II",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55631.14105366677060737.2503bfc2-efe7-4772-9a81-c5a231a5057d.d8daf983-c810-4800-982e-84b31ab8946f",
+      "url": "https://www.xbox.com/games/store/_/9P7L9H478GGV",
+      "priceUSD": 4.83,
+      "originalPriceUSD": 4.83,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
       "isBundle": false
     },
     {
@@ -5689,6 +5673,22 @@
       "isBundle": true
     },
     {
+      "id": "xbox-9N926481VT1Z",
+      "title": "Tony Hawk's™ Pro Skater™ 3 + 4 - Cross-Gen Sürüm",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.40.13545870293609016.82216e19-d3ac-41e6-877a-04dfdefd5e6e.e92b2e2f-1207-4f8f-9591-fd8b72fee93f",
+      "url": "https://www.xbox.com/games/store/_/9N926481VT1Z",
+      "priceUSD": 50.4,
+      "originalPriceUSD": 50.4,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NC0071DJ6XC",
       "title": "Torment: Tides of Numenera",
       "platform": "Xbox",
@@ -6280,16 +6280,19 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9PBF1FL7K192",
+      "id": "xbox-9PLCL2VB2SC0",
       "title": "World War Z: Aftermath",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.52097.14124816078460443.a6dec9dc-b4f7-4744-94f3-470e02e1dd63.eda5ab58-b829-43e1-9e83-53d108036961",
-      "url": "https://www.xbox.com/games/store/_/9PBF1FL7K192",
-      "priceUSD": 3.19,
-      "originalPriceUSD": 3.19,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.52097.14315814591543581.e259272c-6394-43a0-9fcb-744c0a35683f.74727990-a7ec-4dbd-8bc9-29b0b83eebee",
+      "url": "https://www.xbox.com/games/store/_/9PLCL2VB2SC0",
+      "priceUSD": 14.56,
+      "originalPriceUSD": 14.56,
       "onSale": false,
       "discount": 0,
-      "consoles": [],
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
       "isBundle": false
     },
     {
