@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-22T10:46:21.045Z",
+  "updatedAt": "2026-06-23T08:33:43.745Z",
   "count": 433,
   "games": [
     {
@@ -270,6 +270,36 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N0KN24FWP6B",
+      "title": "Frostpunk 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.4430.13923668312910701.01edfea1-db44-49e5-8fd9-8f546040b4b7.9bb1a96f-07fb-4b50-9506-21ef028813fc",
+      "url": "https://www.xbox.com/games/store/_/9N0KN24FWP6B",
+      "priceUSD": 8.75,
+      "originalPriceUSD": 17.5,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9MZZZCHZ26NK",
+      "title": "The Thaumaturge",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.23276.13864939885830854.7740e640-fe7b-4e1c-b519-69083e646b25.bb5a65d2-3437-4500-823a-2eb3a41e814e",
+      "url": "https://www.xbox.com/games/store/_/9MZZZCHZ26NK",
+      "priceUSD": 7,
+      "originalPriceUSD": 14,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -2442,21 +2472,6 @@
       "url": "https://www.xbox.com/games/store/_/9N16RZ0S50V2",
       "priceUSD": 9.24,
       "originalPriceUSD": 9.24,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N0KN24FWP6B",
-      "title": "Frostpunk 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.4430.13923668312910701.01edfea1-db44-49e5-8fd9-8f546040b4b7.9bb1a96f-07fb-4b50-9506-21ef028813fc",
-      "url": "https://www.xbox.com/games/store/_/9N0KN24FWP6B",
-      "priceUSD": 17.5,
-      "originalPriceUSD": 17.5,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -5539,21 +5554,6 @@
       "url": "https://www.xbox.com/games/store/_/9N7P8GVMF6SS",
       "priceUSD": 7.84,
       "originalPriceUSD": 7.84,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9MZZZCHZ26NK",
-      "title": "The Thaumaturge",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.23276.13864939885830854.7740e640-fe7b-4e1c-b519-69083e646b25.bb5a65d2-3437-4500-823a-2eb3a41e814e",
-      "url": "https://www.xbox.com/games/store/_/9MZZZCHZ26NK",
-      "priceUSD": 14,
-      "originalPriceUSD": 14,
       "onSale": false,
       "discount": 0,
       "consoles": [
