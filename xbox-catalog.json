@@ -1,23 +1,7 @@
 {
-  "updatedAt": "2026-06-23T08:33:43.745Z",
+  "updatedAt": "2026-06-24T08:27:48.173Z",
   "count": 433,
   "games": [
-    {
-      "id": "xbox-9P8XJRLCLH2P",
-      "title": "Moonlighter",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.27309.14078999020725962.f9f4d516-290a-4fec-820e-f71d575013d8.781a4a00-3d6d-477f-987a-a7b734ab1fd1",
-      "url": "https://www.xbox.com/games/store/_/9P8XJRLCLH2P",
-      "priceUSD": 0.09,
-      "originalPriceUSD": 0.91,
-      "onSale": true,
-      "discount": 90,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
     {
       "id": "xbox-9PG0PMB5Q0GT",
       "title": "The Casting of Frank Stone™",
@@ -345,22 +329,6 @@
       "discount": 25,
       "consoles": [
         "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9NJ67TQQ51Z0",
-      "title": "Super Meat Boy 3D",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45499.13682468967165125.f6cc8af7-98b7-44e0-b9cb-cf7be3ecd662.04945db8-f776-4bce-aaa1-1d4b163639dd",
-      "url": "https://www.xbox.com/games/store/_/9NJ67TQQ51Z0",
-      "priceUSD": 23.05,
-      "originalPriceUSD": 28.81,
-      "onSale": true,
-      "discount": 20,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
       ],
       "isBundle": false
     },
@@ -3700,6 +3668,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P8XJRLCLH2P",
+      "title": "Moonlighter",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.27309.14078999020725962.f9f4d516-290a-4fec-820e-f71d575013d8.781a4a00-3d6d-477f-987a-a7b734ab1fd1",
+      "url": "https://www.xbox.com/games/store/_/9P8XJRLCLH2P",
+      "priceUSD": 0.91,
+      "originalPriceUSD": 0.91,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NDJX252Q5BW",
       "title": "Moonlighter 2: The Endless Vault (Game Preview)",
       "platform": "Xbox",
@@ -5148,6 +5132,22 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NJ67TQQ51Z0",
+      "title": "Super Meat Boy 3D",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45499.13682468967165125.f6cc8af7-98b7-44e0-b9cb-cf7be3ecd662.04945db8-f776-4bce-aaa1-1d4b163639dd",
+      "url": "https://www.xbox.com/games/store/_/9NJ67TQQ51Z0",
+      "priceUSD": 28.81,
+      "originalPriceUSD": 28.81,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
       "isBundle": false
     },
     {
