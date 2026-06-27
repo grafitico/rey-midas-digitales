@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-26T08:34:31.070Z",
+  "updatedAt": "2026-06-27T07:53:56.265Z",
   "count": 434,
   "games": [
     {
@@ -311,6 +311,37 @@
       "originalPriceUSD": 17.33,
       "onSale": true,
       "discount": 25,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PKWJSJ4NWC7",
+      "title": "Back to the Dawn",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45022.14254385379777466.e15db0ce-790e-43a8-a09e-22a73a0d87f5.6a27eef5-7875-4e4f-8814-ec82869ba85f",
+      "url": "https://www.xbox.com/games/store/_/9PKWJSJ4NWC7",
+      "priceUSD": 11.76,
+      "originalPriceUSD": 14.7,
+      "onSale": true,
+      "discount": 20,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N17PD34G54M",
+      "title": "Echo Generation 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24767.13910585715840872.59f91350-304f-4d12-aec0-2cd70d8a7740.dc46ad09-f936-43ba-9eef-416ba2ae9f42",
+      "url": "https://www.xbox.com/games/store/_/9N17PD34G54M",
+      "priceUSD": 25.93,
+      "originalPriceUSD": 28.81,
+      "onSale": true,
+      "discount": 10,
       "consoles": [
         "Xbox Series X|S"
       ],
@@ -804,22 +835,6 @@
         "Xbox Series X|S"
       ],
       "isBundle": true
-    },
-    {
-      "id": "xbox-9PKWJSJ4NWC7",
-      "title": "Back to the Dawn",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45022.14254385379777466.e15db0ce-790e-43a8-a09e-22a73a0d87f5.6a27eef5-7875-4e4f-8814-ec82869ba85f",
-      "url": "https://www.xbox.com/games/store/_/9PKWJSJ4NWC7",
-      "priceUSD": 14.7,
-      "originalPriceUSD": 14.7,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-9PK087LNGJC5",
@@ -1987,21 +2002,6 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N17PD34G54M",
-      "title": "Echo Generation 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24767.13910585715840872.59f91350-304f-4d12-aec0-2cd70d8a7740.dc46ad09-f936-43ba-9eef-416ba2ae9f42",
-      "url": "https://www.xbox.com/games/store/_/9N17PD34G54M",
-      "priceUSD": 28.81,
-      "originalPriceUSD": 28.81,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -4880,7 +4880,7 @@
     },
     {
       "id": "xbox-9NP6WL1XQDBW",
-      "title": "SnowRunner (Windows 10)",
+      "title": "SnowRunner - Windows",
       "platform": "Xbox",
       "imageUrl": "https://store-images.s-microsoft.com/image/apps.25998.13728552621924096.0f7a693b-b178-499b-ac11-0ea8578f8480.88e6f480-29a4-44c0-8a97-cece69dc489e",
       "url": "https://www.xbox.com/games/store/_/9NP6WL1XQDBW",
