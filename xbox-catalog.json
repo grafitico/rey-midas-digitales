@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-06-29T09:54:32.430Z",
-  "count": 434,
+  "updatedAt": "2026-06-30T08:34:50.688Z",
+  "count": 435,
   "games": [
     {
       "id": "xbox-9PG0PMB5Q0GT",
@@ -114,6 +114,21 @@
       "url": "https://www.xbox.com/games/store/_/9N7271QN4SGB",
       "priceUSD": 14.69,
       "originalPriceUSD": 48.97,
+      "onSale": true,
+      "discount": 70,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N9PCZWHVP2L",
+      "title": "Warhammer 40,000: Space Marine 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.939.13528912654162373.752dd58c-93b6-40eb-ba0f-2d5ce3229dff.c6499c2f-2c1f-4613-9031-089cbe7d35d9",
+      "url": "https://www.xbox.com/games/store/_/9N9PCZWHVP2L",
+      "priceUSD": 25.19,
+      "originalPriceUSD": 83.97,
       "onSale": true,
       "discount": 70,
       "consoles": [
@@ -4735,6 +4750,21 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9MW79BJVF3QX",
+      "title": "RV There Yet?",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.43618.13849049999937427.08ca38e2-492d-4664-a38e-ec1c2c596034.11ee6717-4886-41d7-b9b5-93bd1669fa11",
+      "url": "https://www.xbox.com/games/store/_/9MW79BJVF3QX",
+      "priceUSD": 9.24,
+      "originalPriceUSD": 9.24,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9P2N57MC619K",
       "title": "Sea of Thieves: 2026 Edition",
       "platform": "Xbox",
@@ -6016,21 +6046,6 @@
       "url": "https://www.xbox.com/games/store/_/9P30BFHZ1BKN",
       "priceUSD": 19.6,
       "originalPriceUSD": 19.6,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N9PCZWHVP2L",
-      "title": "Warhammer 40,000: Space Marine 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.939.13528912654162373.752dd58c-93b6-40eb-ba0f-2d5ce3229dff.c6499c2f-2c1f-4613-9031-089cbe7d35d9",
-      "url": "https://www.xbox.com/games/store/_/9N9PCZWHVP2L",
-      "priceUSD": 83.97,
-      "originalPriceUSD": 83.97,
       "onSale": false,
       "discount": 0,
       "consoles": [
