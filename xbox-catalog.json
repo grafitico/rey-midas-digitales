@@ -1,7 +1,39 @@
 {
-  "updatedAt": "2026-07-06T09:05:28.541Z",
+  "updatedAt": "2026-07-07T08:29:03.912Z",
   "count": 430,
   "games": [
+    {
+      "id": "xbox-9P008L2LS87F",
+      "title": "The Gunk",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24811.14466083566107896.f1b98327-0240-4097-b759-cc5bd89ee66e.7f76a634-3f78-48bd-b338-146a5dc86c44",
+      "url": "https://www.xbox.com/games/store/_/9P008L2LS87F",
+      "priceUSD": 0.98,
+      "originalPriceUSD": 9.83,
+      "onSale": true,
+      "discount": 90,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N732VFPMWKT",
+      "title": "Ni no Kuni II: Revenant Kingdom PRINCE’S EDITION",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.38604.14006829741600892.0ff866dd-53ca-4875-b82a-a1e430a3ba20.dd7f11cd-c59d-4f78-b025-c35aa8ec4538",
+      "url": "https://www.xbox.com/games/store/_/9N732VFPMWKT",
+      "priceUSD": 3.31,
+      "originalPriceUSD": 22.09,
+      "onSale": true,
+      "discount": 85,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": true
+    },
     {
       "id": "xbox-9NKHKBQJSSC3",
       "title": "Clone Drone in the Danger Zone",
@@ -17,6 +49,22 @@
         "Xbox One"
       ],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9P7SL78VHVMF",
+      "title": "Ni no Kuni Wrath of the White Witch™ Remastered",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.14840.14101239125163632.01de9600-be68-4ca2-ad44-3bd38be94a52.fc5d1cb8-3a43-4499-a7e7-024c7e199eb7",
+      "url": "https://www.xbox.com/games/store/_/9P7SL78VHVMF",
+      "priceUSD": 2.35,
+      "originalPriceUSD": 11.73,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9PG0PMB5Q0GT",
@@ -72,6 +120,22 @@
       "url": "https://www.xbox.com/games/store/_/9NBLGGH43KZB",
       "priceUSD": 1.96,
       "originalPriceUSD": 7.85,
+      "onSale": true,
+      "discount": 75,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-BX03760D0QGN",
+      "title": "DRAGON BALL XENOVERSE 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.32513.63336639312113079.ceb7d6d9-5c03-4721-ab3f-09019902f961.e4eb532e-0d8b-41c0-ac6a-dbeb6ff4e9dd",
+      "url": "https://www.xbox.com/games/store/_/BX03760D0QGN",
+      "priceUSD": 0.62,
+      "originalPriceUSD": 2.49,
       "onSale": true,
       "discount": 75,
       "consoles": [
@@ -1850,22 +1914,6 @@
       "discount": 0,
       "consoles": [
         "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-BX03760D0QGN",
-      "title": "DRAGON BALL XENOVERSE 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.32513.63336639312113079.ceb7d6d9-5c03-4721-ab3f-09019902f961.e4eb532e-0d8b-41c0-ac6a-dbeb6ff4e9dd",
-      "url": "https://www.xbox.com/games/store/_/BX03760D0QGN",
-      "priceUSD": 2.49,
-      "originalPriceUSD": 2.49,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
       ],
       "isBundle": false
     },
@@ -3884,38 +3932,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9N732VFPMWKT",
-      "title": "Ni no Kuni II: Revenant Kingdom PRINCE’S EDITION",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.38604.14006829741600892.0ff866dd-53ca-4875-b82a-a1e430a3ba20.dd7f11cd-c59d-4f78-b025-c35aa8ec4538",
-      "url": "https://www.xbox.com/games/store/_/9N732VFPMWKT",
-      "priceUSD": 22.09,
-      "originalPriceUSD": 22.09,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": true
-    },
-    {
-      "id": "xbox-9P7SL78VHVMF",
-      "title": "Ni no Kuni Wrath of the White Witch™ Remastered",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.14840.14101239125163632.01de9600-be68-4ca2-ad44-3bd38be94a52.fc5d1cb8-3a43-4499-a7e7-024c7e199eb7",
-      "url": "https://www.xbox.com/games/store/_/9P7SL78VHVMF",
-      "priceUSD": 11.73,
-      "originalPriceUSD": 11.73,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": true
-    },
-    {
       "id": "xbox-9PN0LC4CNLPT",
       "title": "Nickelodeon All-Star Brawl 2",
       "platform": "Xbox",
@@ -4178,8 +4194,8 @@
       "platform": "Xbox",
       "imageUrl": "https://store-images.s-microsoft.com/image/apps.61424.14218490899188575.a8c726f9-aa48-4378-bee2-0dffc21a7089.af88412e-ac16-457c-9332-9db6d9b912bf",
       "url": "https://www.xbox.com/games/store/_/9N8N7NZSVTG3",
-      "priceUSD": 4.76,
-      "originalPriceUSD": 4.76,
+      "priceUSD": 41.97,
+      "originalPriceUSD": 41.97,
       "onSale": false,
       "discount": 0,
       "consoles": [],
@@ -4191,8 +4207,8 @@
       "platform": "Xbox",
       "imageUrl": "https://store-images.s-microsoft.com/image/apps.34851.13901718808565748.bd4d392b-4244-482f-a55e-94b9251f086f.f7b98e95-65fd-445b-992a-af4e5edcc45c",
       "url": "https://www.xbox.com/games/store/_/9N1P6T7ZQ2KF",
-      "priceUSD": 3.19,
-      "originalPriceUSD": 3.19,
+      "priceUSD": 41.97,
+      "originalPriceUSD": 41.97,
       "onSale": false,
       "discount": 0,
       "consoles": [],
@@ -5494,22 +5510,6 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P008L2LS87F",
-      "title": "The Gunk",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24811.14466083566107896.f1b98327-0240-4097-b759-cc5bd89ee66e.7f76a634-3f78-48bd-b338-146a5dc86c44",
-      "url": "https://www.xbox.com/games/store/_/9P008L2LS87F",
-      "priceUSD": 9.83,
-      "originalPriceUSD": 9.83,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
       "isBundle": false
     },
     {
