@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-07T08:29:03.912Z",
+  "updatedAt": "2026-07-08T07:34:33.862Z",
   "count": 430,
   "games": [
     {
@@ -177,21 +177,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9N9PCZWHVP2L",
-      "title": "Warhammer 40,000: Space Marine 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.939.13528912654162373.752dd58c-93b6-40eb-ba0f-2d5ce3229dff.c6499c2f-2c1f-4613-9031-089cbe7d35d9",
-      "url": "https://www.xbox.com/games/store/_/9N9PCZWHVP2L",
-      "priceUSD": 25.19,
-      "originalPriceUSD": 83.97,
-      "onSale": true,
-      "discount": 70,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NBZ7Z3JRXQ8",
       "title": "Firefighting Simulator - The Squad",
       "platform": "Xbox",
@@ -252,21 +237,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9N0KN24FWP6B",
-      "title": "Frostpunk 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.4430.13923668312910701.01edfea1-db44-49e5-8fd9-8f546040b4b7.9bb1a96f-07fb-4b50-9506-21ef028813fc",
-      "url": "https://www.xbox.com/games/store/_/9N0KN24FWP6B",
-      "priceUSD": 8.75,
-      "originalPriceUSD": 17.5,
-      "onSale": true,
-      "discount": 50,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9MXRG5GCRPXZ",
       "title": "Sniper Elite: Resistance",
       "platform": "Xbox",
@@ -294,6 +264,22 @@
       "discount": 30,
       "consoles": [
         "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NRL00D96M3R",
+      "title": "Minami Lane",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7151.14385535525236346.6b91828b-0da4-4a9d-a72a-7686dfd21a21.602c9a5f-f320-4216-9947-79c7fab163a9",
+      "url": "https://www.xbox.com/games/store/_/9NRL00D96M3R",
+      "priceUSD": 3.92,
+      "originalPriceUSD": 5.6,
+      "onSale": true,
+      "discount": 30,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -1167,11 +1153,11 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9PNCL2R6G8D0",
+      "id": "xbox-9MZ1RZTJTZKB",
       "title": "Call of Duty®: Black Ops 6 - Standart Sürüm (Windows)",
       "platform": "Xbox",
       "imageUrl": "https://store-images.s-microsoft.com/image/apps.10491.14346543607136639.d932bf87-6edc-4da6-bbd5-c944ad33bc0d.f78757c0-6542-410f-a0cc-52fc592d79f1",
-      "url": "https://www.xbox.com/games/store/_/9PNCL2R6G8D0",
+      "url": "https://www.xbox.com/games/store/_/9MZ1RZTJTZKB",
       "priceUSD": 78.4,
       "originalPriceUSD": 78.4,
       "onSale": false,
@@ -2454,6 +2440,21 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9N0KN24FWP6B",
+      "title": "Frostpunk 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.4430.13923668312910701.01edfea1-db44-49e5-8fd9-8f546040b4b7.9bb1a96f-07fb-4b50-9506-21ef028813fc",
+      "url": "https://www.xbox.com/games/store/_/9N0KN24FWP6B",
+      "priceUSD": 17.5,
+      "originalPriceUSD": 17.5,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9P3ZRGNQVC7D",
       "title": "Full Throttle Remastered",
       "platform": "Xbox",
@@ -3592,22 +3593,6 @@
         "Xbox Series X|S"
       ],
       "isBundle": true
-    },
-    {
-      "id": "xbox-9NRL00D96M3R",
-      "title": "Minami Lane",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7151.14385535525236346.6b91828b-0da4-4a9d-a72a-7686dfd21a21.602c9a5f-f320-4216-9947-79c7fab163a9",
-      "url": "https://www.xbox.com/games/store/_/9NRL00D96M3R",
-      "priceUSD": 5.6,
-      "originalPriceUSD": 5.6,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-9NB6BVL3MTG4",
@@ -5957,6 +5942,21 @@
       "url": "https://www.xbox.com/games/store/_/9P30BFHZ1BKN",
       "priceUSD": 19.6,
       "originalPriceUSD": 19.6,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N9PCZWHVP2L",
+      "title": "Warhammer 40,000: Space Marine 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.939.13528912654162373.752dd58c-93b6-40eb-ba0f-2d5ce3229dff.c6499c2f-2c1f-4613-9031-089cbe7d35d9",
+      "url": "https://www.xbox.com/games/store/_/9N9PCZWHVP2L",
+      "priceUSD": 83.97,
+      "originalPriceUSD": 83.97,
       "onSale": false,
       "discount": 0,
       "consoles": [
