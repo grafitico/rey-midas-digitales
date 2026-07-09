@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-07-08T07:34:33.862Z",
-  "count": 430,
+  "updatedAt": "2026-07-09T08:39:14.193Z",
+  "count": 432,
   "games": [
     {
       "id": "xbox-9P008L2LS87F",
@@ -249,6 +249,21 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N0P25WJHM8C",
+      "title": "The Alters",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7753.13917104365848520.a4bd4730-c578-4118-a439-d16f88dde25a.b8d20204-e6cf-4c18-a714-53e1fbb53591",
+      "url": "https://www.xbox.com/games/store/_/9N0P25WJHM8C",
+      "priceUSD": 9.8,
+      "originalPriceUSD": 19.6,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -1144,6 +1159,22 @@
       "url": "https://www.xbox.com/games/store/_/9P9VNSQK1W3K",
       "priceUSD": 0.39,
       "originalPriceUSD": 0.39,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9P5B8CPQ9S7F",
+      "title": "Buckshot Roulette",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.40973.14572562994901136.49cdcd3b-62a2-4cc7-977e-e23a6d5ae650.6136ed80-c9f6-431b-8aba-5514de900cef",
+      "url": "https://www.xbox.com/games/store/_/9P5B8CPQ9S7F",
+      "priceUSD": 1.68,
+      "originalPriceUSD": 1.68,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -5237,6 +5268,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P43RGDPJ62T",
+      "title": "Tamashika",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.34746.14600836934234842.a1fef063-58e5-4e0f-8578-d98cf1b258e2.a65b169b-619e-425b-abd8-7581804b16a5",
+      "url": "https://www.xbox.com/games/store/_/9P43RGDPJ62T",
+      "priceUSD": 8.12,
+      "originalPriceUSD": 8.12,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9P9GX5D8H9DW",
       "title": "TCG Card Shop Simulator (Game Preview)",
       "platform": "Xbox",
@@ -5292,21 +5339,6 @@
       "url": "https://www.xbox.com/games/store/_/9NG66K0Z31LH",
       "priceUSD": 11.45,
       "originalPriceUSD": 11.45,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N0P25WJHM8C",
-      "title": "The Alters",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7753.13917104365848520.a4bd4730-c578-4118-a439-d16f88dde25a.b8d20204-e6cf-4c18-a714-53e1fbb53591",
-      "url": "https://www.xbox.com/games/store/_/9N0P25WJHM8C",
-      "priceUSD": 19.6,
-      "originalPriceUSD": 19.6,
       "onSale": false,
       "discount": 0,
       "consoles": [
