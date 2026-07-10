@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-07-09T09:42:46.592Z",
-  "count": 16674,
+  "updatedAt": "2026-07-10T09:38:26.387Z",
+  "count": 16693,
   "games": [
     {
       "id": "UP0743-CUSA30808_00-5682277836538636",
@@ -1872,6 +1872,25 @@
       "onSale": true,
       "discount": 90,
       "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
+      "id": "UP2047-PPSA03098_00-DI2GEDITPS5SIEA0",
+      "title": "Dead Island 2 Ultimate Edition",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202409/1809/d9d5d136a4a1cc2c3acef192d44eabe5a751c727c8a26c21.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA03098_00-DI2GEDITPS5SIEA0",
+      "priceUSD": 6.99,
+      "originalPriceUSD": 69.99,
+      "onSale": true,
+      "discount": 90,
+      "type": "edition",
       "releaseDate": "",
       "comingSoon": false,
       "ageRating": "",
@@ -4008,6 +4027,23 @@
       ]
     },
     {
+      "id": "UP2047-PPSA02395_00-METROEXODUS0GEN9",
+      "title": "Metro Exodus",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/img/rnd/202010/2814/jhNIE3yH1SNEe9CmxTVHAdme.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA02395_00-METROEXODUS0GEN9",
+      "priceUSD": 4.49,
+      "originalPriceUSD": 29.99,
+      "onSale": true,
+      "discount": 85,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
       "id": "UP0082-PPSA02057_00-BALANWW5A0000001",
       "title": "BALAN WONDERWORLD PS4 & PS5",
       "platform": "PS5/PS4",
@@ -4035,6 +4071,25 @@
       "onSale": true,
       "discount": 85,
       "type": "edition",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
+      "id": "UP2047-CUSA11408_00-METROSAGABUNDLE0",
+      "title": "Paquete de la saga Metro",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202102/2215/zt3FcAh6QaR3B5oysX5TWDek.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-CUSA11408_00-METROSAGABUNDLE0",
+      "priceUSD": 8.99,
+      "originalPriceUSD": 59.99,
+      "onSale": true,
+      "discount": 85,
+      "type": "bundle",
       "releaseDate": "",
       "comingSoon": false,
       "ageRating": "",
@@ -4144,6 +4199,7 @@
       "ageRating": "",
       "isBundle": true,
       "genres": [
+        "estrategia",
         "edicion"
       ]
     },
@@ -6331,6 +6387,23 @@
       "platform": "PS4",
       "imageUrl": "https://image.api.playstation.com/cdn/UP4389/CUSA06980_00/zX7dEubjJ43mKp9M048iHO9aJTtlrOjp.png",
       "url": "https://store.playstation.com/es-cr/product/UP4389-CUSA06980_00-MXVSATVNEXTUS001",
+      "priceUSD": 5.99,
+      "originalPriceUSD": 29.99,
+      "onSale": true,
+      "discount": 80,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP2047-CUSA07238_00-KCDGAME010000000",
+      "title": "Kingdom Come: Deliverance",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/cdn/UP2047/CUSA07238_00/zVvXuBZKAcMNvmdgYsp4JSwiGCkVLLqb.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-CUSA07238_00-KCDGAME010000000",
       "priceUSD": 5.99,
       "originalPriceUSD": 29.99,
       "onSale": true,
@@ -13856,23 +13929,6 @@
       ]
     },
     {
-      "id": "UP4293-PPSA02527_00-5705474204787542",
-      "title": "Kitaria Fables",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/img/rnd/202108/1912/y52EKGSbGRjnh87ObkBc5Grv.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4293-PPSA02527_00-5705474204787542",
-      "priceUSD": 4.99,
-      "originalPriceUSD": 19.99,
-      "onSale": true,
-      "discount": 75,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
       "id": "UP4293-PPSA02525_00-TORMENTEDSIEAPS5",
       "title": "Tormented Souls",
       "platform": "PS5/PS4",
@@ -16875,6 +16931,25 @@
       ]
     },
     {
+      "id": "UP4133-PPSA10696_00-ATOMICHEARTULTIM",
+      "title": "Atomic Heart - Ultimate Edition",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202604/0713/3c4732ba6bad2bc03e092fa09fa450ae405039fe8bf88ab5.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA10696_00-ATOMICHEARTULTIM",
+      "priceUSD": 32.99,
+      "originalPriceUSD": 109.99,
+      "onSale": true,
+      "discount": 70,
+      "type": "edition",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "UB0245-PPSA33908_00-0218409991146920",
       "title": "Don't Mess With Bober",
       "platform": "PS5",
@@ -18344,6 +18419,23 @@
       "url": "https://store.playstation.com/es-cr/product/UP1440-PPSA19584_00-EDGEOFSANITYNPS5",
       "priceUSD": 5.99,
       "originalPriceUSD": 19.99,
+      "onSale": true,
+      "discount": 70,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP4133-PPSA04452_00-SPACEMARINESII00",
+      "title": "Warhammer 40,000: Space Marine 2",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202212/0711/MKweDX2LQpXiPcU6Jitg9KAg.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA04452_00-SPACEMARINESII00",
+      "priceUSD": 20.99,
+      "originalPriceUSD": 69.99,
       "onSale": true,
       "discount": 70,
       "type": "full-game",
@@ -20072,6 +20164,23 @@
       "url": "https://store.playstation.com/es-cr/product/UP2005-PPSA10994_00-TWICEREBORN00000",
       "priceUSD": 4.49,
       "originalPriceUSD": 14.99,
+      "onSale": true,
+      "discount": 70,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP4133-PPSA10696_00-ATOMICHEARTGAME0",
+      "title": "Atomic Heart (PS4 & PS5)",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202209/2815/SSru3b0CYWviMXfW6bYgaWlX.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA10696_00-ATOMICHEARTGAME0",
+      "priceUSD": 20.99,
+      "originalPriceUSD": 69.99,
       "onSale": true,
       "discount": 70,
       "type": "full-game",
@@ -23071,6 +23180,25 @@
       "genres": []
     },
     {
+      "id": "UP3643-PPSA06464_00-0874137573989438",
+      "title": "Cult of the Lamb: Unholy Edition",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202410/1420/f3bbff136644fe4f445b19c34b24cddc357205e465c1e514.png",
+      "url": "https://store.playstation.com/es-cr/product/UP3643-PPSA06464_00-0874137573989438",
+      "priceUSD": 15.74,
+      "originalPriceUSD": 44.99,
+      "onSale": true,
+      "discount": 65,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "UP4556-PPSA22541_00-0012216031518646",
       "title": "DARKNESS ROLLERCOASTER - PSVR2 ENCHANTED VERSION",
       "platform": "PS5",
@@ -23103,6 +23231,25 @@
       "ageRating": "",
       "isBundle": false,
       "genres": []
+    },
+    {
+      "id": "UP3643-PPSA06464_00-0518549670578205",
+      "title": "Cult of the Lamb: Sinful Edition",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202407/0822/758376cb601bedee03006d30dc895b0424260bbcca6c0bbb.png",
+      "url": "https://store.playstation.com/es-cr/product/UP3643-PPSA06464_00-0518549670578205",
+      "priceUSD": 13.99,
+      "originalPriceUSD": 39.99,
+      "onSale": true,
+      "discount": 65,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
     },
     {
       "id": "UP6171-PPSA21456_00-EMPTYSHELSIEAPS5",
@@ -26032,6 +26179,25 @@
       "genres": []
     },
     {
+      "id": "UP2047-PPSA21705_00-KCDSAGAGAMEBSIEA",
+      "title": "Kingdom Come: Deliverance - Saga Bundle",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202510/2312/df6288df60198041f45b00b1900a2e892f84a0d0b526634b.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA21705_00-KCDSAGAGAMEBSIEA",
+      "priceUSD": 39.99,
+      "originalPriceUSD": 99.99,
+      "onSale": true,
+      "discount": 60,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "JB0500-PPSA31797_00-0004842752856419",
       "title": "Bokeh Adventure",
       "platform": "PS5",
@@ -26461,6 +26627,23 @@
       "url": "https://store.playstation.com/es-cr/product/UP2005-PPSA27070_00-SUPERJAGGERBOMB2",
       "priceUSD": 1.99,
       "originalPriceUSD": 4.99,
+      "onSale": true,
+      "discount": 60,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP2047-PPSA21705_00-KCD2MAINGAMEDSUS",
+      "title": "Kingdom Come: Deliverance II",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202408/1208/05a84ce968125d79fa36484c5a756a1c8d9b05622aae21c1.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA21705_00-KCD2MAINGAMEDSUS",
+      "priceUSD": 27.99,
+      "originalPriceUSD": 69.99,
       "onSale": true,
       "discount": 60,
       "type": "full-game",
@@ -27804,6 +27987,25 @@
       "genres": []
     },
     {
+      "id": "UP0082-PPSA10664_00-FF16SIEA00000002",
+      "title": "FINAL FANTASY XVI",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202211/3007/lgFVhRm5BfoX02pRUt3lSmLV.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0082-PPSA10664_00-FF16SIEA00000002",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 49.99,
+      "onSale": true,
+      "discount": 60,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "UP2005-PPSA15222_00-BRAVESOLDIER0000",
       "title": "Brave Soldier - Invasion of Cyborgs PS4 & PS5",
       "platform": "PS5/PS4",
@@ -28306,6 +28508,23 @@
       "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA08981_00-RATALAIKACATMAZE",
       "priceUSD": 3.99,
       "originalPriceUSD": 9.99,
+      "onSale": true,
+      "discount": 60,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP3643-PPSA06464_00-6576653892496327",
+      "title": "Cult of the Lamb",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202512/1518/ea3296f59652aea59db01dd6668c93f1dd23102f84d18807.png",
+      "url": "https://store.playstation.com/es-cr/product/UP3643-PPSA06464_00-6576653892496327",
+      "priceUSD": 9.99,
+      "originalPriceUSD": 24.99,
       "onSale": true,
       "discount": 60,
       "type": "full-game",
@@ -36388,6 +36607,25 @@
       ]
     },
     {
+      "id": "JP0177-PPSA08804_00-DDXEDITION000000",
+      "title": "Sonic Racing: CrossWorlds - Edición digital Deluxe PS4 y PS5",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202511/1807/ae75bea0a40eecfeb2610d970cc4e5b344153bc314b2d546.png",
+      "url": "https://store.playstation.com/es-cr/product/JP0177-PPSA08804_00-DDXEDITION000000",
+      "priceUSD": 44.99,
+      "originalPriceUSD": 89.99,
+      "onSale": true,
+      "discount": 50,
+      "type": "edition",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "EP6880-PPSA26254_00-0878965860326142",
       "title": "Electrician Simulator VR Complete Edition",
       "platform": "PS5",
@@ -36738,11 +36976,11 @@
       ]
     },
     {
-      "id": "UP6927-PPSA06267_00-0683046013146601",
+      "id": "UP6927-CUSA37752_00-0190023533821605",
       "title": "6 in 1 Power Bundle",
-      "platform": "PS5",
+      "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202507/3009/01cfade281c4ff61a7e2a22984f696a109da0f3be238c401.png",
-      "url": "https://store.playstation.com/es-cr/product/UP6927-PPSA06267_00-0683046013146601",
+      "url": "https://store.playstation.com/es-cr/product/UP6927-CUSA37752_00-0190023533821605",
       "priceUSD": 9.99,
       "originalPriceUSD": 19.99,
       "onSale": true,
@@ -36757,11 +36995,11 @@
       ]
     },
     {
-      "id": "UP6927-CUSA37752_00-0190023533821605",
+      "id": "UP6927-PPSA06267_00-0683046013146601",
       "title": "6 in 1 Power Bundle",
-      "platform": "PS5/PS4",
+      "platform": "PS5",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202507/3009/01cfade281c4ff61a7e2a22984f696a109da0f3be238c401.png",
-      "url": "https://store.playstation.com/es-cr/product/UP6927-CUSA37752_00-0190023533821605",
+      "url": "https://store.playstation.com/es-cr/product/UP6927-PPSA06267_00-0683046013146601",
       "priceUSD": 9.99,
       "originalPriceUSD": 19.99,
       "onSale": true,
@@ -37477,6 +37715,23 @@
       "url": "https://store.playstation.com/es-cr/product/UB1012-PPSA29566_00-0842837215354237",
       "priceUSD": 9.99,
       "originalPriceUSD": 19.99,
+      "onSale": true,
+      "discount": 50,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP4133-PPSA09845_00-ROADBUILDERGAME0",
+      "title": "RoadCraft",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202501/2815/df37826fe46f3e622a6132b50e5f3d7e260bd1594dff35c2.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA09845_00-ROADBUILDERGAME0",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 39.99,
       "onSale": true,
       "discount": 50,
       "type": "full-game",
@@ -38913,6 +39168,23 @@
       "genres": []
     },
     {
+      "id": "UP2047-PPSA21915_00-UNDISPUTEDPS5NA1",
+      "title": "Undisputed",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202404/2409/3c1a52a8c2497b76cbd89813c9f8f0abe5d224a23fbc29ad.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA21915_00-UNDISPUTEDPS5NA1",
+      "priceUSD": 24.99,
+      "originalPriceUSD": 49.99,
+      "onSale": true,
+      "discount": 50,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
       "id": "UP6459-PPSA21612_00-0917820743584799",
       "title": "El Paso, Elsewhere",
       "platform": "PS5",
@@ -39240,7 +39512,6 @@
       "ageRating": "",
       "isBundle": true,
       "genres": [
-        "estrategia",
         "edicion"
       ]
     },
@@ -44360,6 +44631,25 @@
       "genres": []
     },
     {
+      "id": "JP0082-PPSA21783_00-0607198398321785",
+      "title": "FINAL FANTASY TACTICS - The Ivalice Chronicles Deluxe Edition [PS4 & PS5]",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202509/1611/bdb7ca2a4018e478c447a460fa2f91380484af3bece8c18b.png",
+      "url": "https://store.playstation.com/es-cr/product/JP0082-PPSA21783_00-0607198398321785",
+      "priceUSD": 35.99,
+      "originalPriceUSD": 59.99,
+      "onSale": true,
+      "discount": 40,
+      "type": "edition",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "UP7907-PPSA29907_00-0725738150583659",
       "title": "Mystery Hotel: Hidden Objects",
       "platform": "PS5/PS4",
@@ -45054,6 +45344,25 @@
       "genres": []
     },
     {
+      "id": "UP0700-PPSA03639_00-BROS0DLXEDITION0",
+      "title": "BLEACH Rebirth of Souls Edición Deluxe PS4 y PS5",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202410/2323/ccb808e1a903434c698991b0d8d1d06b7f7cef6a25a72b5a.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0700-PPSA03639_00-BROS0DLXEDITION0",
+      "priceUSD": 50.99,
+      "originalPriceUSD": 84.99,
+      "onSale": true,
+      "discount": 40,
+      "type": "edition",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "EB0310-PPSA28908_00-KINNIKUNEKO00000",
       "title": "KinnikuNeko: SUPER MUSCLE CAT",
       "platform": "PS5/PS4",
@@ -45199,7 +45508,7 @@
       "id": "HP6415-PPSA20635_00-0291765651398973",
       "title": "Party Animals",
       "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202602/1108/326bd0e44726b19fbc7729c86c2e66f0517914793f89e829.png",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202607/0703/790f7fc2b251b910d79b164a099c06a57f110d33f9285e1f.png",
       "url": "https://store.playstation.com/es-cr/product/HP6415-PPSA20635_00-0291765651398973",
       "priceUSD": 11.99,
       "originalPriceUSD": 19.99,
@@ -47923,23 +48232,6 @@
       ]
     },
     {
-      "id": "EP6878-PPSA27178_00-0173401033911094",
-      "title": "Cats Ritual",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202504/1401/1db53731766cdb85a4266c8fcbabdec109e6dafa59447843.png",
-      "url": "https://store.playstation.com/es-cr/product/EP6878-PPSA27178_00-0173401033911094",
-      "priceUSD": 2.26,
-      "originalPriceUSD": 3.49,
-      "onSale": true,
-      "discount": 35,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
       "id": "EP6878-CUSA55832_00-CATSRITUALBUNDLE",
       "title": "Cats Ritual",
       "platform": "PS5/PS4",
@@ -47957,6 +48249,23 @@
       "genres": [
         "edicion"
       ]
+    },
+    {
+      "id": "EP6878-PPSA27178_00-0173401033911094",
+      "title": "Cats Ritual",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202504/1401/1db53731766cdb85a4266c8fcbabdec109e6dafa59447843.png",
+      "url": "https://store.playstation.com/es-cr/product/EP6878-PPSA27178_00-0173401033911094",
+      "priceUSD": 2.26,
+      "originalPriceUSD": 3.49,
+      "onSale": true,
+      "discount": 35,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
     },
     {
       "id": "UP8767-PPSA30033_00-0664646499030614",
@@ -53968,7 +54277,7 @@
       "id": "UP9000-PPSA30630_00-MLBTHESHOW26SHIP",
       "title": "MLB® The Show™ 26",
       "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202604/3000/87f3c9eb2b99610c68ce0c914b6c4defd0af5533a9b64756.png",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202607/0816/791b0f1880e27c1d8f52187daea36abfe5fd3b0ff1144007.png",
       "url": "https://store.playstation.com/es-cr/product/UP9000-PPSA30630_00-MLBTHESHOW26SHIP",
       "priceUSD": 49.69,
       "originalPriceUSD": 69.99,
@@ -60494,6 +60803,23 @@
       "genres": []
     },
     {
+      "id": "EP3877-CUSA59028_00-FGAMEESCAPEUMBRA",
+      "title": "Escape from Umbra",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1115/0902244ecb4f8f01976fc39c39a3f0357260ee1292c42d78.png",
+      "url": "https://store.playstation.com/es-cr/product/EP3877-CUSA59028_00-FGAMEESCAPEUMBRA",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 19.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
       "id": "JP0571-CUSA59014_00-HAMPRDC000000001",
       "title": "Arcade Archives HYPER CRASH",
       "platform": "PS4",
@@ -60678,9 +61004,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "deportes"
-      ]
+      "genres": []
     },
     {
       "id": "UB0837-CUSA59211_00-0469724272823898",
@@ -61598,7 +61922,9 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": []
+      "genres": [
+        "shooter"
+      ]
     },
     {
       "id": "UB0008-CUSA59120_00-0976385890970808",
@@ -63810,9 +64136,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "shooter"
-      ]
+      "genres": []
     },
     {
       "id": "UB0706-CUSA57414_00-0185099895383705",
@@ -68317,9 +68641,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "deportes"
-      ]
+      "genres": []
     },
     {
       "id": "UB0487-CUSA56714_00-0054103375412378",
@@ -70322,9 +70644,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "deportes"
-      ]
+      "genres": []
     },
     {
       "id": "UB0111-CUSA55634_00-0088822078239525",
@@ -73590,9 +73910,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "deportes"
-      ]
+      "genres": []
     },
     {
       "id": "UB0245-CUSA52895_00-0599936405414342",
@@ -89224,7 +89542,9 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": []
+      "genres": [
+        "carreras"
+      ]
     },
     {
       "id": "UP0346-CUSA36024_00-MYTHFORCEPS40000",
@@ -144541,23 +144861,6 @@
       ]
     },
     {
-      "id": "UP2047-CUSA07238_00-KCDGAME010000000",
-      "title": "Kingdom Come: Deliverance",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP2047/CUSA07238_00/zVvXuBZKAcMNvmdgYsp4JSwiGCkVLLqb.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-CUSA07238_00-KCDGAME010000000",
-      "priceUSD": 29.99,
-      "originalPriceUSD": 29.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
       "id": "UP4384-CUSA08922_00-MAHJONGCARN0PS4U",
       "title": "Mahjong Carnival",
       "platform": "PS4",
@@ -159166,7 +159469,9 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": []
+      "genres": [
+        "aventura"
+      ]
     },
     {
       "id": "UP0951-CUSA01594_00-00000WARHEDZGAME",
@@ -167657,6 +167962,44 @@
       ]
     },
     {
+      "id": "HP7588-PPSA31219_00-7300000074100001",
+      "title": "ONCE HUMAN (Free to Play) Pack inicial (Paquete de reserva)",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2908/1556d75f784d975c3f693d455fd1beb3d4880f37deaa41be.png",
+      "url": "https://store.playstation.com/es-cr/product/HP7588-PPSA31219_00-7300000074100001",
+      "priceUSD": 9.99,
+      "originalPriceUSD": 9.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
+      "id": "HP7588-PPSA31219_00-7300000074100002",
+      "title": "ONCE HUMAN (Free to Play) Pack Radiance (Paquete de reserva)",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2908/d13eec8c8f9f9636f0a8344b322074427d836746895ea1f1.png",
+      "url": "https://store.playstation.com/es-cr/product/HP7588-PPSA31219_00-7300000074100002",
+      "priceUSD": 14.99,
+      "originalPriceUSD": 14.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "EP3495-PPSA34008_00-0114153686334597",
       "title": "Mortal Shell II",
       "platform": "PS5",
@@ -167674,11 +168017,66 @@
       "genres": []
     },
     {
+      "id": "EP5205-PPSA18543_00-TSC2000000000PS5",
+      "title": "The Sinking City 2",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/0514/ce9a6b7632e0f12a14a33b2b08fb43da30f15b5378cedaed.png",
+      "url": "https://store.playstation.com/es-cr/product/EP5205-PPSA18543_00-TSC2000000000PS5",
+      "priceUSD": 49.99,
+      "originalPriceUSD": 49.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "EP5205-PPSA18543_00-TSC2DELUXE000PS5",
+      "title": "The Sinking City 2 - Edición Deluxe",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2213/4716415a23e0201ab7210d24708ac7586275729c9b6d5680.png",
+      "url": "https://store.playstation.com/es-cr/product/EP5205-PPSA18543_00-TSC2DELUXE000PS5",
+      "priceUSD": 54.99,
+      "originalPriceUSD": 54.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
       "id": "EP3495-PPSA34008_00-0281085410214617",
       "title": "Mortal Shell II: Devout Edition",
       "platform": "PS5",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202607/0510/42b7a5fe53d79df2c65438d6b436374d44839304dca08027.png",
       "url": "https://store.playstation.com/es-cr/product/EP3495-PPSA34008_00-0281085410214617",
+      "priceUSD": 59.99,
+      "originalPriceUSD": 59.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "edition",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
+      "id": "EP5205-PPSA18543_00-TSC2PREMIUM00PS5",
+      "title": "The Sinking City 2 – Edición Prémium",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2214/601a67ac0787ae26a4575d61ba77aa9a4b757c9d33dcc5b9.png",
+      "url": "https://store.playstation.com/es-cr/product/EP5205-PPSA18543_00-TSC2PREMIUM00PS5",
       "priceUSD": 59.99,
       "originalPriceUSD": 59.99,
       "onSale": false,
@@ -168089,6 +168487,127 @@
       ]
     },
     {
+      "id": "UB2202-PPSA38617_00-00000AMAZINGMAZE",
+      "title": "Amazing Maze",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2321/fc8d912597f71201e360b816e6c0f7a1b52676c694a46e4a.png",
+      "url": "https://store.playstation.com/es-cr/product/UB2202-PPSA38617_00-00000AMAZINGMAZE",
+      "priceUSD": 4.99,
+      "originalPriceUSD": 4.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UB0873-PPSA24783_00-0025471040567199",
+      "title": "Dead Estate",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202502/2620/be86d0c6b4fe5eb7c849e0a79e8d8b4bccaa2ac7b61d0c0c.png",
+      "url": "https://store.playstation.com/es-cr/product/UB0873-PPSA24783_00-0025471040567199",
+      "priceUSD": 14.99,
+      "originalPriceUSD": 14.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP1715-PPSA38285_00-0991369598557994",
+      "title": "Educational Family Games",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/0308/ae16cf63f4b0040f4e079196ffa394f846357ea4fbaccaee.png",
+      "url": "https://store.playstation.com/es-cr/product/UP1715-PPSA38285_00-0991369598557994",
+      "priceUSD": 24.99,
+      "originalPriceUSD": 24.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UB0337-PPSA37570_00-0864748880428319",
+      "title": "High Cars 3",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202604/1709/ca1ca1944a61943e2ad2c7fa344b94bbade4be626f11aacc.png",
+      "url": "https://store.playstation.com/es-cr/product/UB0337-PPSA37570_00-0864748880428319",
+      "priceUSD": 2.99,
+      "originalPriceUSD": 2.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UB0383-PPSA36500_00-0269924396702294",
+      "title": "Pawbay: Cat Chaos",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2419/a7a2022590e2ae663fc14d18b3af03f76fa51269af0fcf4f.png",
+      "url": "https://store.playstation.com/es-cr/product/UB0383-PPSA36500_00-0269924396702294",
+      "priceUSD": 21.99,
+      "originalPriceUSD": 21.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
+      "id": "EP0896-PPSA35705_00-QUESTARRESTRATGA",
+      "title": "Quest Arrest",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/0814/afb5a5d55e7f23f4cec53edec1eb1bceb415192823f248f6.png",
+      "url": "https://store.playstation.com/es-cr/product/EP0896-PPSA35705_00-QUESTARRESTRATGA",
+      "priceUSD": 4.99,
+      "originalPriceUSD": 4.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "EP6556-PPSA37557_00-0370294961205980",
+      "title": "Solitaire Legends – Sakura Dreams",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202604/1418/d1d5b7a3292c6da8fbcc7191712a05d7572316a94c270a55.png",
+      "url": "https://store.playstation.com/es-cr/product/EP6556-PPSA37557_00-0370294961205980",
+      "priceUSD": 2.99,
+      "originalPriceUSD": 2.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
       "id": "JP0700-PPSA22969_00-SWORDARTONLINEV0",
       "title": "Echoes of Aincrad",
       "platform": "PS5",
@@ -168144,6 +168663,59 @@
       ]
     },
     {
+      "id": "UP6301-PPSA29132_00-PS5GSSJY000000US",
+      "title": "Gas Station Simulator and Junkyard DLC Bundle",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1509/9125dc6fcf993bf57f464b847c024a951082f46b6b131f35.png",
+      "url": "https://store.playstation.com/es-cr/product/UP6301-PPSA29132_00-PS5GSSJY000000US",
+      "priceUSD": 29.99,
+      "originalPriceUSD": 29.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "edicion"
+      ]
+    },
+    {
+      "id": "EP3877-PPSA37154_00-FGAMEESCAPEUMBRA",
+      "title": "Escape from Umbra",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1115/0902244ecb4f8f01976fc39c39a3f0357260ee1292c42d78.png",
+      "url": "https://store.playstation.com/es-cr/product/EP3877-PPSA37154_00-FGAMEESCAPEUMBRA",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 19.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "EP1549-PPSA32804_00-0098224868648184",
+      "title": "Viking Frontiers",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202511/2111/ec465df9235e8df4c7ec145784684eb4aaccebbf052c3592.png",
+      "url": "https://store.playstation.com/es-cr/product/EP1549-PPSA32804_00-0098224868648184",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 19.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
       "id": "UP0006-PPSA32814_00-COLLEGEFOOTBAL27",
       "title": "EA SPORTS™ College Football 27",
       "platform": "PS5",
@@ -168151,6 +168723,57 @@
       "url": "https://store.playstation.com/es-cr/product/UP0006-PPSA32814_00-COLLEGEFOOTBAL27",
       "priceUSD": 69.99,
       "originalPriceUSD": 69.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UB0788-PPSA33042_00-0315813052436806",
+      "title": "Hell Clock",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1119/e6f7e2a7846c37d96f911e0970f950015dbd73251af472e5.png",
+      "url": "https://store.playstation.com/es-cr/product/UB0788-PPSA33042_00-0315813052436806",
+      "priceUSD": 24.99,
+      "originalPriceUSD": 24.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP0002-PPSA34501_00-CODBO1GAME000001",
+      "title": "Call of Duty®: Black Ops",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2618/ee7d4a20243804f08a3c4a4eb1b4346dbe29dbce0fb59751.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0002-PPSA34501_00-CODBO1GAME000001",
+      "priceUSD": 39.99,
+      "originalPriceUSD": 39.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
+    },
+    {
+      "id": "UP0002-PPSA34502_00-CODBO2GAME000001",
+      "title": "Call of Duty®: Black Ops II",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/2619/c4ce7fe379aa05dd3f6ecc11e8fa38dfea03d4b4a8bad73a.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0002-PPSA34502_00-CODBO2GAME000001",
+      "priceUSD": 39.99,
+      "originalPriceUSD": 39.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -168724,6 +169347,7 @@
       "ageRating": "",
       "isBundle": true,
       "genres": [
+        "deportes",
         "edicion"
       ]
     },
@@ -169868,9 +170492,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "deportes"
-      ]
+      "genres": []
     },
     {
       "id": "HB1312-PPSA37308_00-0559372605998255",
@@ -170690,7 +171312,7 @@
       "id": "UB0711-PPSA24149_00-0904121062386334",
       "title": "COPA CITY",
       "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202603/2408/82d8dd49c7025ff8148a08441b4dade01fa2d9c7bfe1d5a7.png",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202607/0919/da407c43ae1bfd50db896e4f7bf8a630878ac319b18b6a59.png",
       "url": "https://store.playstation.com/es-cr/product/UB0711-PPSA24149_00-0904121062386334",
       "priceUSD": 29.99,
       "originalPriceUSD": 29.99,
@@ -175774,23 +176396,6 @@
       "genres": []
     },
     {
-      "id": "EP7520-PPSA34310_00-THESPELLBRIGADE1",
-      "title": "The Spell Brigade",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202603/2713/c69725b7afddf27853f2f4f048ffda2d30729f00c492a5bf.png",
-      "url": "https://store.playstation.com/es-cr/product/EP7520-PPSA34310_00-THESPELLBRIGADE1",
-      "priceUSD": 12.99,
-      "originalPriceUSD": 12.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
       "id": "EP7520-PPSA34310_00-0884917568038289",
       "title": "The Spell Brigade",
       "platform": "PS5",
@@ -175808,6 +176413,23 @@
       "genres": [
         "edicion"
       ]
+    },
+    {
+      "id": "EP7520-PPSA34310_00-THESPELLBRIGADE1",
+      "title": "The Spell Brigade",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202603/2713/c69725b7afddf27853f2f4f048ffda2d30729f00c492a5bf.png",
+      "url": "https://store.playstation.com/es-cr/product/EP7520-PPSA34310_00-THESPELLBRIGADE1",
+      "priceUSD": 12.99,
+      "originalPriceUSD": 12.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": []
     },
     {
       "id": "UP2660-PPSA34003_00-0185371045862545",
@@ -177089,25 +177711,6 @@
       "ageRating": "",
       "isBundle": false,
       "genres": []
-    },
-    {
-      "id": "UP4133-PPSA10696_00-ATOMICHEARTULTIM",
-      "title": "Atomic Heart - Ultimate Edition",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202604/0713/3c4732ba6bad2bc03e092fa09fa450ae405039fe8bf88ab5.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA10696_00-ATOMICHEARTULTIM",
-      "priceUSD": 109.99,
-      "originalPriceUSD": 109.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "edition",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
     },
     {
       "id": "UP2430-PPSA26578_00-PLYXFUMIMOUSEPS5",
@@ -187204,9 +187807,7 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": [
-        "deportes"
-      ]
+      "genres": []
     },
     {
       "id": "EP1612-PPSA35180_00-ACORNFLAREGAME00",
@@ -192153,25 +192754,6 @@
       "genres": []
     },
     {
-      "id": "UP2047-PPSA21705_00-KCDSAGAGAMEBSIEA",
-      "title": "Kingdom Come: Deliverance - Saga Bundle",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202510/2312/df6288df60198041f45b00b1900a2e892f84a0d0b526634b.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA21705_00-KCDSAGAGAMEBSIEA",
-      "priceUSD": 95.39,
-      "originalPriceUSD": 95.39,
-      "onSale": false,
-      "discount": 0,
-      "type": "bundle",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
-    },
-    {
       "id": "HB1034-PPSA28341_00-0626121825556263",
       "title": "Let Them Come: Onslaught",
       "platform": "PS5",
@@ -194385,6 +194967,7 @@
       "ageRating": "",
       "isBundle": true,
       "genres": [
+        "deportes",
         "edicion"
       ]
     },
@@ -198180,25 +198763,6 @@
       ]
     },
     {
-      "id": "JP0082-PPSA21783_00-0607198398321785",
-      "title": "FINAL FANTASY TACTICS - The Ivalice Chronicles Deluxe Edition [PS4 & PS5]",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202509/1611/bdb7ca2a4018e478c447a460fa2f91380484af3bece8c18b.png",
-      "url": "https://store.playstation.com/es-cr/product/JP0082-PPSA21783_00-0607198398321785",
-      "priceUSD": 59.99,
-      "originalPriceUSD": 59.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "edition",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
-    },
-    {
       "id": "JP0082-PPSA21783_00-FFTACTICS0000000",
       "title": "FINAL FANTASY TACTICS - The Ivalice Chronicles [PS4 & PS5]",
       "platform": "PS5/PS4",
@@ -199183,25 +199747,6 @@
       "ageRating": "",
       "isBundle": false,
       "genres": []
-    },
-    {
-      "id": "JP0177-PPSA08804_00-DDXEDITION000000",
-      "title": "Sonic Racing: CrossWorlds - Edición digital Deluxe PS4 y PS5",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202511/1807/ae75bea0a40eecfeb2610d970cc4e5b344153bc314b2d546.png",
-      "url": "https://store.playstation.com/es-cr/product/JP0177-PPSA08804_00-DDXEDITION000000",
-      "priceUSD": 89.99,
-      "originalPriceUSD": 89.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "edition",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
     },
     {
       "id": "UP1564-PPSA28610_00-CLAB2CMS20250206",
@@ -202200,11 +202745,11 @@
       "genres": []
     },
     {
-      "id": "UP4947-CUSA56142_00-PICABLOCKFULL123",
+      "id": "UP4947-PPSA32224_00-PICABLOCKFULL123",
       "title": "Pic-A-Block",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202508/1417/61c13c8497fe78f621b9f46c02611a2f364c52db166a0d13.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4947-CUSA56142_00-PICABLOCKFULL123",
+      "url": "https://store.playstation.com/es-cr/product/UP4947-PPSA32224_00-PICABLOCKFULL123",
       "priceUSD": 3.99,
       "originalPriceUSD": 3.99,
       "onSale": false,
@@ -202217,11 +202762,11 @@
       "genres": []
     },
     {
-      "id": "UP4947-PPSA32224_00-PICABLOCKFULL123",
+      "id": "UP4947-CUSA56142_00-PICABLOCKFULL123",
       "title": "Pic-A-Block",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202508/1417/61c13c8497fe78f621b9f46c02611a2f364c52db166a0d13.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4947-PPSA32224_00-PICABLOCKFULL123",
+      "url": "https://store.playstation.com/es-cr/product/UP4947-CUSA56142_00-PICABLOCKFULL123",
       "priceUSD": 3.99,
       "originalPriceUSD": 3.99,
       "onSale": false,
@@ -206647,7 +207192,9 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": []
+      "genres": [
+        "deportes"
+      ]
     },
     {
       "id": "UB0008-PPSA30004_00-0312169096618241",
@@ -210961,23 +211508,6 @@
       "genres": []
     },
     {
-      "id": "UP4133-PPSA09845_00-ROADBUILDERGAME0",
-      "title": "RoadCraft",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202501/2815/df37826fe46f3e622a6132b50e5f3d7e260bd1594dff35c2.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA09845_00-ROADBUILDERGAME0",
-      "priceUSD": 39.99,
-      "originalPriceUSD": 39.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
       "id": "UB0383-PPSA28905_00-0054491843851385",
       "title": "Cute Puppy Academy: Legacy Edition",
       "platform": "PS5/PS4",
@@ -214546,7 +215076,9 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": []
+      "genres": [
+        "deportes"
+      ]
     },
     {
       "id": "UB0337-PPSA29266_00-0016867575471285",
@@ -215875,25 +216407,6 @@
       "ageRating": "",
       "isBundle": false,
       "genres": []
-    },
-    {
-      "id": "UP0700-PPSA03639_00-BROS0DLXEDITION0",
-      "title": "BLEACH Rebirth of Souls Edición Deluxe PS4 y PS5",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202410/2323/ccb808e1a903434c698991b0d8d1d06b7f7cef6a25a72b5a.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0700-PPSA03639_00-BROS0DLXEDITION0",
-      "priceUSD": 84.99,
-      "originalPriceUSD": 84.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "edition",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
     },
     {
       "id": "UP0700-PPSA03639_00-BROS0ULTEDITION0",
@@ -217814,25 +218327,6 @@
       "genres": []
     },
     {
-      "id": "UP4433-CUSA00744_00-MINECRATRIPLEBDL",
-      "title": "Lote triple de Minecraft",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202502/1105/bad04e6bd4ffe7607acb9e7d3c692b19ee87a3d976e6b248.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4433-CUSA00744_00-MINECRATRIPLEBDL",
-      "priceUSD": 49.99,
-      "originalPriceUSD": 49.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "bundle",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
-    },
-    {
       "id": "UB0008-PPSA28458_00-0235083856937634",
       "title": "Parking Pro: Top-Down Challenge",
       "platform": "PS5",
@@ -218713,11 +219207,11 @@
       "genres": []
     },
     {
-      "id": "UP8623-PPSA28259_00-0438258082004993",
+      "id": "UP8623-CUSA53292_00-0395348727588822",
       "title": "Ancient Ants Adventure",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202501/2719/3092912ff3bade25c096b8ec84e9e6d2f38c0b5448ea0236.png",
-      "url": "https://store.playstation.com/es-cr/product/UP8623-PPSA28259_00-0438258082004993",
+      "url": "https://store.playstation.com/es-cr/product/UP8623-CUSA53292_00-0395348727588822",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
       "onSale": false,
@@ -218730,11 +219224,11 @@
       "genres": []
     },
     {
-      "id": "UP8623-CUSA53292_00-0395348727588822",
+      "id": "UP8623-PPSA28259_00-0438258082004993",
       "title": "Ancient Ants Adventure",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202501/2719/3092912ff3bade25c096b8ec84e9e6d2f38c0b5448ea0236.png",
-      "url": "https://store.playstation.com/es-cr/product/UP8623-CUSA53292_00-0395348727588822",
+      "url": "https://store.playstation.com/es-cr/product/UP8623-PPSA28259_00-0438258082004993",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
       "onSale": false,
@@ -219772,23 +220266,6 @@
       "url": "https://store.playstation.com/es-cr/product/UP8623-CUSA53270_00-0968587384113884",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
-      "id": "UP2047-PPSA21705_00-KCD2MAINGAMEDSUS",
-      "title": "Kingdom Come: Deliverance II",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202408/1208/05a84ce968125d79fa36484c5a756a1c8d9b05622aae21c1.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA21705_00-KCD2MAINGAMEDSUS",
-      "priceUSD": 66.59,
-      "originalPriceUSD": 66.59,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -226365,25 +226842,6 @@
       ]
     },
     {
-      "id": "UP3643-PPSA06464_00-0874137573989438",
-      "title": "Cult of the Lamb: Unholy Edition",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202410/1420/f3bbff136644fe4f445b19c34b24cddc357205e465c1e514.png",
-      "url": "https://store.playstation.com/es-cr/product/UP3643-PPSA06464_00-0874137573989438",
-      "priceUSD": 42.89,
-      "originalPriceUSD": 42.89,
-      "onSale": false,
-      "discount": 0,
-      "type": "bundle",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
-    },
-    {
       "id": "UP0006-PPSA01390_00-DRAGON4STANDBUND",
       "title": "Dragon Age™: The Veilguard",
       "platform": "PS5",
@@ -226960,7 +227418,9 @@
       "comingSoon": false,
       "ageRating": "",
       "isBundle": false,
-      "genres": []
+      "genres": [
+        "deportes"
+      ]
     },
     {
       "id": "UB0270-PPSA24413_00-0670789077557363",
@@ -228654,23 +229114,6 @@
       "url": "https://store.playstation.com/es-cr/product/UB0008-PPSA25691_00-0614049125359186",
       "priceUSD": 0.99,
       "originalPriceUSD": 0.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
-      "id": "UP2047-PPSA21915_00-UNDISPUTEDPS5NA1",
-      "title": "Undisputed",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202404/2409/3c1a52a8c2497b76cbd89813c9f8f0abe5d224a23fbc29ad.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA21915_00-UNDISPUTEDPS5NA1",
-      "priceUSD": 47.69,
-      "originalPriceUSD": 47.69,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -230440,7 +230883,7 @@
       "id": "UP6360-PPSA23126_00-0112788005082769",
       "title": "Palworld",
       "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202405/2108/a9c0fb99b704bfd04e85512a280acaf9a19901c8548b6792.png",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202607/1002/585fa2ede4c88fa20a773ec44b110e0c84c4a5baeb51ed5b.png",
       "url": "https://store.playstation.com/es-cr/product/UP6360-PPSA23126_00-0112788005082769",
       "priceUSD": 29.99,
       "originalPriceUSD": 29.99,
@@ -231959,23 +232402,6 @@
       "url": "https://store.playstation.com/es-cr/product/UP2097-PPSA15561_00-0859089986686572",
       "priceUSD": 24.99,
       "originalPriceUSD": 24.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
-      "id": "UP4133-PPSA04452_00-SPACEMARINESII00",
-      "title": "Warhammer 40,000: Space Marine 2",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202212/0711/MKweDX2LQpXiPcU6Jitg9KAg.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA04452_00-SPACEMARINESII00",
-      "priceUSD": 69.99,
-      "originalPriceUSD": 69.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -235275,25 +235701,6 @@
       "ageRating": "",
       "isBundle": false,
       "genres": []
-    },
-    {
-      "id": "UP3643-PPSA06464_00-0518549670578205",
-      "title": "Cult of the Lamb: Sinful Edition",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202407/0822/758376cb601bedee03006d30dc895b0424260bbcca6c0bbb.png",
-      "url": "https://store.playstation.com/es-cr/product/UP3643-PPSA06464_00-0518549670578205",
-      "priceUSD": 37.69,
-      "originalPriceUSD": 37.69,
-      "onSale": false,
-      "discount": 0,
-      "type": "bundle",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
     },
     {
       "id": "UP3696-PPSA14677_00-HARVESTDAYSPS5NA",
@@ -259894,25 +260301,6 @@
       "genres": []
     },
     {
-      "id": "UP0082-PPSA10664_00-FF16SIEA00000002",
-      "title": "FINAL FANTASY XVI",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202211/3007/lgFVhRm5BfoX02pRUt3lSmLV.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0082-PPSA10664_00-FF16SIEA00000002",
-      "priceUSD": 49.99,
-      "originalPriceUSD": 49.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "bundle",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
-    },
-    {
       "id": "UP8499-PPSA15590_00-0579807395960850",
       "title": "Masternoid",
       "platform": "PS5",
@@ -262923,25 +263311,6 @@
       "ageRating": "",
       "isBundle": false,
       "genres": []
-    },
-    {
-      "id": "UP2047-PPSA03098_00-DI2GEDITPS5SIEA0",
-      "title": "Dead Island 2 Ultimate Edition",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202409/1809/d9d5d136a4a1cc2c3acef192d44eabe5a751c727c8a26c21.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA03098_00-DI2GEDITPS5SIEA0",
-      "priceUSD": 62.99,
-      "originalPriceUSD": 62.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "edition",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
     },
     {
       "id": "UP2005-PPSA13944_00-MWHGAME000000000",
@@ -266111,23 +266480,6 @@
       ]
     },
     {
-      "id": "UP4133-PPSA10696_00-ATOMICHEARTGAME0",
-      "title": "Atomic Heart (PS4 & PS5)",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202209/2815/SSru3b0CYWviMXfW6bYgaWlX.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4133-PPSA10696_00-ATOMICHEARTGAME0",
-      "priceUSD": 69.99,
-      "originalPriceUSD": 69.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
       "id": "UP1470-PPSA06602_00-SEVENDOORS000000",
       "title": "Seven Doors",
       "platform": "PS5",
@@ -268672,13 +269024,13 @@
       "genres": []
     },
     {
-      "id": "UP2187-PPSA09142_00-2366481701062530",
+      "id": "UP2187-CUSA35431_00-2086570116804380",
       "title": "The Outbound Ghost",
-      "platform": "PS5",
+      "platform": "PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202211/1416/U2o3RMnef5OQSH2iXmnHE8vU.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2187-PPSA09142_00-2366481701062530",
-      "priceUSD": 24.99,
-      "originalPriceUSD": 24.99,
+      "url": "https://store.playstation.com/es-cr/product/UP2187-CUSA35431_00-2086570116804380",
+      "priceUSD": 24.49,
+      "originalPriceUSD": 24.49,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -268689,13 +269041,13 @@
       "genres": []
     },
     {
-      "id": "UP2187-CUSA35431_00-2086570116804380",
+      "id": "UP2187-PPSA09142_00-2366481701062530",
       "title": "The Outbound Ghost",
-      "platform": "PS4",
+      "platform": "PS5",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202211/1416/U2o3RMnef5OQSH2iXmnHE8vU.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2187-CUSA35431_00-2086570116804380",
-      "priceUSD": 24.49,
-      "originalPriceUSD": 24.49,
+      "url": "https://store.playstation.com/es-cr/product/UP2187-PPSA09142_00-2366481701062530",
+      "priceUSD": 24.99,
+      "originalPriceUSD": 24.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -271513,11 +271865,11 @@
       "genres": []
     },
     {
-      "id": "UP0891-PPSA08990_00-RAGROAROFREVENGE",
+      "id": "UP0891-CUSA35228_00-RAGROAROFREVENGE",
       "title": "Roar of Revenge",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202209/0218/MAz8Z2aaAHUtPpAf0HeHbBi2.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA08990_00-RAGROAROFREVENGE",
+      "url": "https://store.playstation.com/es-cr/product/UP0891-CUSA35228_00-RAGROAROFREVENGE",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
       "onSale": false,
@@ -271530,11 +271882,11 @@
       "genres": []
     },
     {
-      "id": "UP0891-CUSA35228_00-RAGROAROFREVENGE",
+      "id": "UP0891-PPSA08990_00-RAGROAROFREVENGE",
       "title": "Roar of Revenge",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202209/0218/MAz8Z2aaAHUtPpAf0HeHbBi2.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0891-CUSA35228_00-RAGROAROFREVENGE",
+      "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA08990_00-RAGROAROFREVENGE",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
       "onSale": false,
@@ -273015,23 +273367,6 @@
       "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA08783_00-RATALAIKAGVOYAGE",
       "priceUSD": 14.99,
       "originalPriceUSD": 14.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
-      "id": "UP3643-PPSA06464_00-6576653892496327",
-      "title": "Cult of the Lamb",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202512/1518/ea3296f59652aea59db01dd6668c93f1dd23102f84d18807.png",
-      "url": "https://store.playstation.com/es-cr/product/UP3643-PPSA06464_00-6576653892496327",
-      "priceUSD": 24.09,
-      "originalPriceUSD": 24.09,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -278203,11 +278538,11 @@
       "genres": []
     },
     {
-      "id": "UP1681-CUSA32048_00-DEMONHUPS422SIEA",
+      "id": "UP1681-PPSA06379_00-DEMONHUPS522SIEA",
       "title": "Demon Hunter: Ascendance",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202201/0307/DabNkS2miaqnY8ZFZaN4H28z.png",
-      "url": "https://store.playstation.com/es-cr/product/UP1681-CUSA32048_00-DEMONHUPS422SIEA",
+      "url": "https://store.playstation.com/es-cr/product/UP1681-PPSA06379_00-DEMONHUPS522SIEA",
       "priceUSD": 14.99,
       "originalPriceUSD": 14.99,
       "onSale": false,
@@ -278220,11 +278555,11 @@
       "genres": []
     },
     {
-      "id": "UP1681-PPSA06379_00-DEMONHUPS522SIEA",
+      "id": "UP1681-CUSA32048_00-DEMONHUPS422SIEA",
       "title": "Demon Hunter: Ascendance",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202201/0307/DabNkS2miaqnY8ZFZaN4H28z.png",
-      "url": "https://store.playstation.com/es-cr/product/UP1681-PPSA06379_00-DEMONHUPS522SIEA",
+      "url": "https://store.playstation.com/es-cr/product/UP1681-CUSA32048_00-DEMONHUPS422SIEA",
       "priceUSD": 14.99,
       "originalPriceUSD": 14.99,
       "onSale": false,
@@ -282776,11 +283111,11 @@
       "genres": []
     },
     {
-      "id": "UP0891-CUSA29109_00-RATALAIKAORBIBOT",
+      "id": "UP0891-PPSA04421_00-RATALAIKAORBIBOT",
       "title": "Orbibot PS4 & PS5",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202107/2710/NeNppbvyIEaC6ptsnqjjdUOT.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0891-CUSA29109_00-RATALAIKAORBIBOT",
+      "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA04421_00-RATALAIKAORBIBOT",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
       "onSale": false,
@@ -282793,11 +283128,11 @@
       "genres": []
     },
     {
-      "id": "UP0891-PPSA04421_00-RATALAIKAORBIBOT",
+      "id": "UP0891-CUSA29109_00-RATALAIKAORBIBOT",
       "title": "Orbibot PS4 & PS5",
       "platform": "PS5/PS4",
       "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202107/2710/NeNppbvyIEaC6ptsnqjjdUOT.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA04421_00-RATALAIKAORBIBOT",
+      "url": "https://store.playstation.com/es-cr/product/UP0891-CUSA29109_00-RATALAIKAORBIBOT",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
       "onSale": false,
@@ -283702,23 +284037,6 @@
       "url": "https://store.playstation.com/es-cr/product/UP0891-PPSA03575_00-RAGACROSSTHEMOON",
       "priceUSD": 4.99,
       "originalPriceUSD": 4.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": []
-    },
-    {
-      "id": "UP2047-PPSA02395_00-METROEXODUS0GEN9",
-      "title": "Metro Exodus",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/img/rnd/202010/2814/jhNIE3yH1SNEe9CmxTVHAdme.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-PPSA02395_00-METROEXODUS0GEN9",
-      "priceUSD": 27.29,
-      "originalPriceUSD": 27.29,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -285507,25 +285825,6 @@
       "genres": []
     },
     {
-      "id": "UP2047-CUSA11408_00-METROSAGABUNDLE0",
-      "title": "Paquete de la saga Metro",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202102/2215/zt3FcAh6QaR3B5oysX5TWDek.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2047-CUSA11408_00-METROSAGABUNDLE0",
-      "priceUSD": 54.29,
-      "originalPriceUSD": 54.29,
-      "onSale": false,
-      "discount": 0,
-      "type": "bundle",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": true,
-      "genres": [
-        "edicion"
-      ]
-    },
-    {
       "id": "UP0177-PPSA02383_00-YLADH00000000000",
       "title": "Yakuza: Like a Dragon Hero Edition PS4 & PS5",
       "platform": "PS5/PS4",
@@ -286680,7 +286979,7 @@
       "id": "UP3509-PPSA02048_00-DEADBYDAYLIGHT00",
       "title": "Dead by Daylight PS4® & PS5®",
       "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1217/b9c4505701e811a5db2925ca064b7e2184ffd6362405eef7.png",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202203/1520/e6VbPQ56CBzVPgKmWdMMrICz.png",
       "url": "https://store.playstation.com/es-cr/product/UP3509-PPSA02048_00-DEADBYDAYLIGHT00",
       "priceUSD": 29.99,
       "originalPriceUSD": 29.99,
@@ -287243,13 +287542,13 @@
       ]
     },
     {
-      "id": "UP4433-CUSA00744_00-KMP0000000000010",
-      "title": "Popurrí Hora de aventura",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP4433/CUSA00744_00/vZbGZn3zuOcAQDflh7SHGtiGOQpQZXtv.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4433-CUSA00744_00-KMP0000000000010",
-      "priceUSD": 5.99,
-      "originalPriceUSD": 5.99,
+      "id": "UP2514-PPSA01736_00-ADVENTUREPACK000",
+      "title": "Planet Coaster: Pack Aventura",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202011/2516/aXrC0AUPc8cctZn89TkRiR7u.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2514-PPSA01736_00-ADVENTUREPACK000",
+      "priceUSD": 9.99,
+      "originalPriceUSD": 9.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287262,13 +287561,13 @@
       ]
     },
     {
-      "id": "UP2514-PPSA01736_00-ADVENTUREPACK000",
-      "title": "Planet Coaster: Pack Aventura",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202011/2516/aXrC0AUPc8cctZn89TkRiR7u.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2514-PPSA01736_00-ADVENTUREPACK000",
-      "priceUSD": 9.99,
-      "originalPriceUSD": 9.99,
+      "id": "UP4433-CUSA00744_00-KMP0000000000010",
+      "title": "Popurrí Hora de aventura",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/cdn/UP4433/CUSA00744_00/vZbGZn3zuOcAQDflh7SHGtiGOQpQZXtv.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4433-CUSA00744_00-KMP0000000000010",
+      "priceUSD": 5.99,
+      "originalPriceUSD": 5.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287357,13 +287656,13 @@
       ]
     },
     {
-      "id": "UP2113-CUSA00325_00-B000000000001238",
-      "title": "Outlast: Bundle of Terror",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP2113/CUSA00325_00/7u2frSEECom7Qfskq7BdSk3CfgA4ys8X.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2113-CUSA00325_00-B000000000001238",
-      "priceUSD": 19.99,
-      "originalPriceUSD": 19.99,
+      "id": "UP4459-PPSA08205_00-0173374836039633",
+      "title": "Sker Ritual - Draigs Terror",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202401/0211/e1f35df7cb1d0d749f3960a6c6018ba064172c4bbf7a2ec3.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4459-PPSA08205_00-0173374836039633",
+      "priceUSD": 3.99,
+      "originalPriceUSD": 3.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287376,13 +287675,13 @@
       ]
     },
     {
-      "id": "UP4459-PPSA08205_00-0173374836039633",
-      "title": "Sker Ritual - Draigs Terror",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202401/0211/e1f35df7cb1d0d749f3960a6c6018ba064172c4bbf7a2ec3.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4459-PPSA08205_00-0173374836039633",
-      "priceUSD": 3.99,
-      "originalPriceUSD": 3.99,
+      "id": "UP2113-CUSA00325_00-B000000000001238",
+      "title": "Outlast: Bundle of Terror",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/cdn/UP2113/CUSA00325_00/7u2frSEECom7Qfskq7BdSk3CfgA4ys8X.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2113-CUSA00325_00-B000000000001238",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 19.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287471,13 +287770,13 @@
       ]
     },
     {
-      "id": "UP9012-CUSA01846_00-USF40HOR070COS0P",
-      "title": "Ultra Street Fighter IV Pack Terror Clásico",
+      "id": "UP9012-CUSA01846_00-USF40HORCOMCOS0P",
+      "title": "Ultra Street Fighter IV Pack Terror Completo",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP9012/CUSA01846_00/D5yGmoySsXKnw6nJY5UOMw6QeR5H9lfF.png",
-      "url": "https://store.playstation.com/es-cr/product/UP9012-CUSA01846_00-USF40HOR070COS0P",
-      "priceUSD": 3.99,
-      "originalPriceUSD": 3.99,
+      "imageUrl": "https://image.api.playstation.com/cdn/UP9012/CUSA01846_00/h5sIQDL4eKmI2SAN2l8Q30zt2Te61ARW.png",
+      "url": "https://store.playstation.com/es-cr/product/UP9012-CUSA01846_00-USF40HORCOMCOS0P",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 19.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287490,13 +287789,13 @@
       ]
     },
     {
-      "id": "UP9012-CUSA01846_00-USF40HORCOMCOS0P",
-      "title": "Ultra Street Fighter IV Pack Terror Completo",
+      "id": "UP9012-CUSA01846_00-USF40HOR070COS0P",
+      "title": "Ultra Street Fighter IV Pack Terror Clásico",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP9012/CUSA01846_00/h5sIQDL4eKmI2SAN2l8Q30zt2Te61ARW.png",
-      "url": "https://store.playstation.com/es-cr/product/UP9012-CUSA01846_00-USF40HORCOMCOS0P",
-      "priceUSD": 19.99,
-      "originalPriceUSD": 19.99,
+      "imageUrl": "https://image.api.playstation.com/cdn/UP9012/CUSA01846_00/D5yGmoySsXKnw6nJY5UOMw6QeR5H9lfF.png",
+      "url": "https://store.playstation.com/es-cr/product/UP9012-CUSA01846_00-USF40HOR070COS0P",
+      "priceUSD": 3.99,
+      "originalPriceUSD": 3.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287701,6 +288000,45 @@
       ]
     },
     {
+      "id": "UP1643-CUSA16009_00-SPTGMECOLJDPS4US",
+      "title": "Sports Games Collection",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202605/1311/50989ba0b7e633dd987e127e3e90fb21aa37852bc64bfbf5.png",
+      "url": "https://store.playstation.com/es-cr/product/UP1643-CUSA16009_00-SPTGMECOLJDPS4US",
+      "priceUSD": 29.99,
+      "originalPriceUSD": 29.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "bundle",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": true,
+      "genres": [
+        "deportes",
+        "edicion"
+      ]
+    },
+    {
+      "id": "UP0001-PPSA01374_00-MADCRCPACK000007",
+      "title": "Pack de inicio de Republic Coins",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202404/0420/d8a94915027eb77c1b466d8226fc38ad37d9292c2c59c652.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0001-PPSA01374_00-MADCRCPACK000007",
+      "priceUSD": 4.99,
+      "originalPriceUSD": 4.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": [
+        "deportes"
+      ]
+    },
+    {
       "id": "UP0082-CUSA01493_00-JC3GUNBOAT000001",
       "title": "Lancha de Carreras con Minigun",
       "platform": "PS4",
@@ -287737,82 +288075,6 @@
       "genres": [
         "carreras",
         "edicion"
-      ]
-    },
-    {
-      "id": "UP0001-CUSA26571_00-TCMCRC4PAC000001",
-      "title": "Paquete Oro de The Crew™ Motorfest (360 000 Crew Credits)",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202308/2120/a3687ec16ddd398682b578be6236acdab67e2a2754bce429.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCRC4PAC000001",
-      "priceUSD": 29.99,
-      "originalPriceUSD": 29.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": [
-        "carreras"
-      ]
-    },
-    {
-      "id": "UP0001-CUSA26571_00-TCMWELCPACK00000",
-      "title": "Audi R8 Spyder Welcome Pack (+220,000 Crew Credits) – The Crew Motorfest",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202403/0716/742d09f9a184982c60d4e38bd49a7607bd3aa19c9db24fe6.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMWELCPACK00000",
-      "priceUSD": 19.99,
-      "originalPriceUSD": 19.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": [
-        "carreras"
-      ]
-    },
-    {
-      "id": "UP0001-CUSA26571_00-TCMCARPACK000001",
-      "title": "The Crew Motorfest | Pack de coches doble BMW",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202510/1515/995438e424e03e750a583424be9ff3bc2378b12a8361a4fc.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCARPACK000001",
-      "priceUSD": 2.99,
-      "originalPriceUSD": 2.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": [
-        "carreras"
-      ]
-    },
-    {
-      "id": "UP0001-CUSA26571_00-TCMCARPACK000008",
-      "title": "The Crew Motorfest | Pack de coches japoneses",
-      "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202601/2815/c87da3ef987d5b6b908836e4d87d1d7272418f55dec26c56.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCARPACK000008",
-      "priceUSD": 6.99,
-      "originalPriceUSD": 6.99,
-      "onSale": false,
-      "discount": 0,
-      "type": "full-game",
-      "releaseDate": "",
-      "comingSoon": false,
-      "ageRating": "",
-      "isBundle": false,
-      "genres": [
-        "carreras"
       ]
     },
     {
@@ -287873,13 +288135,89 @@
       ]
     },
     {
-      "id": "UP0001-CUSA26571_00-TCMCARPACK000007",
-      "title": "The Crew Motorfest | Pack de motos triple",
+      "id": "UP0001-CUSA26571_00-TCMCARPACK000001",
+      "title": "The Crew Motorfest | Pack de coches doble BMW",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202601/2815/b08ddde9703d8a792e4dee3f41e42f732ee00df6c29b8aef.png",
-      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCARPACK000007",
-      "priceUSD": 4.99,
-      "originalPriceUSD": 4.99,
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202510/1515/995438e424e03e750a583424be9ff3bc2378b12a8361a4fc.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCARPACK000001",
+      "priceUSD": 2.99,
+      "originalPriceUSD": 2.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": [
+        "carreras"
+      ]
+    },
+    {
+      "id": "UP0001-CUSA26571_00-TCMCARPACK000008",
+      "title": "The Crew Motorfest | Pack de coches japoneses",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202601/2815/c87da3ef987d5b6b908836e4d87d1d7272418f55dec26c56.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCARPACK000008",
+      "priceUSD": 6.99,
+      "originalPriceUSD": 6.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": [
+        "carreras"
+      ]
+    },
+    {
+      "id": "UP0001-CUSA26571_00-TCMCRC4PAC000001",
+      "title": "Paquete Oro de The Crew™ Motorfest (360 000 Crew Credits)",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202308/2120/a3687ec16ddd398682b578be6236acdab67e2a2754bce429.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCRC4PAC000001",
+      "priceUSD": 29.99,
+      "originalPriceUSD": 29.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": [
+        "carreras"
+      ]
+    },
+    {
+      "id": "UP0001-CUSA26571_00-TCMWELCPACK00000",
+      "title": "Audi R8 Spyder Welcome Pack (+220,000 Crew Credits) – The Crew Motorfest",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202403/0716/742d09f9a184982c60d4e38bd49a7607bd3aa19c9db24fe6.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMWELCPACK00000",
+      "priceUSD": 19.99,
+      "originalPriceUSD": 19.99,
+      "onSale": false,
+      "discount": 0,
+      "type": "full-game",
+      "releaseDate": "",
+      "comingSoon": false,
+      "ageRating": "",
+      "isBundle": false,
+      "genres": [
+        "carreras"
+      ]
+    },
+    {
+      "id": "UP0001-CUSA26571_00-TCMCHASESQUAD000",
+      "title": "The Crew Motorfest | Pack Chase Squad",
+      "platform": "PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202510/1515/53920170c37f1ea797febf1ee42e9fcc4d47583ea269dc2d.png",
+      "url": "https://store.playstation.com/es-cr/product/UP0001-CUSA26571_00-TCMCHASESQUAD000",
+      "priceUSD": 9.99,
+      "originalPriceUSD": 9.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -287988,13 +288326,13 @@
       ]
     },
     {
-      "id": "UP4352-CUSA00056_00-NOBEB0ENV0LUCPS4",
-      "title": "Blast 'Em Bunnies: Paquete Luchador Arena",
+      "id": "UP4352-CUSA00056_00-NOBEB0SKN0LUCPS4",
+      "title": "Blast 'Em Bunnies: Paquete Luchador Skin",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP4352/CUSA00056_00/DLW3qHweWpn3EWAHopDUpNenGwfwpuoL.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4352-CUSA00056_00-NOBEB0ENV0LUCPS4",
-      "priceUSD": 2.99,
-      "originalPriceUSD": 2.99,
+      "imageUrl": "https://image.api.playstation.com/cdn/UP4352/CUSA00056_00/82Ps7x4lThBZ6ZsRrFmf4kWA1M9DsdSC.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4352-CUSA00056_00-NOBEB0SKN0LUCPS4",
+      "priceUSD": 1.99,
+      "originalPriceUSD": 1.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -288007,13 +288345,13 @@
       ]
     },
     {
-      "id": "UP4352-CUSA00056_00-NOBEB0SKN0LUCPS4",
-      "title": "Blast 'Em Bunnies: Paquete Luchador Skin",
+      "id": "UP4352-CUSA00056_00-NOBEB0ENV0LUCPS4",
+      "title": "Blast 'Em Bunnies: Paquete Luchador Arena",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP4352/CUSA00056_00/82Ps7x4lThBZ6ZsRrFmf4kWA1M9DsdSC.png",
-      "url": "https://store.playstation.com/es-cr/product/UP4352-CUSA00056_00-NOBEB0SKN0LUCPS4",
-      "priceUSD": 1.99,
-      "originalPriceUSD": 1.99,
+      "imageUrl": "https://image.api.playstation.com/cdn/UP4352/CUSA00056_00/DLW3qHweWpn3EWAHopDUpNenGwfwpuoL.png",
+      "url": "https://store.playstation.com/es-cr/product/UP4352-CUSA00056_00-NOBEB0ENV0LUCPS4",
+      "priceUSD": 2.99,
+      "originalPriceUSD": 2.99,
       "onSale": false,
       "discount": 0,
       "type": "full-game",
@@ -288045,11 +288383,11 @@
       ]
     },
     {
-      "id": "UP2908-PPSA30568_00-INVINCIBLEVSIMMO",
-      "title": "Invincible VS - Inmortal - Luchador adicional",
-      "platform": "PS5",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1716/30711a12d7e911f1cae2c21c92af603a3caa2e90f2e35244.png",
-      "url": "https://store.playstation.com/es-cr/product/UP2908-PPSA30568_00-INVINCIBLEVSIMMO",
+      "id": "UP1018-PPSA01617_00-DLC2SKINPACK0000",
+      "title": "Paquete de Luchador de Arcade Klásico",
+      "platform": "PS5/PS4",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202009/2418/DbpRdUX7UCuMXweMXOZHtXjs.png",
+      "url": "https://store.playstation.com/es-cr/product/UP1018-PPSA01617_00-DLC2SKINPACK0000",
       "priceUSD": 5.99,
       "originalPriceUSD": 5.99,
       "onSale": false,
@@ -288083,11 +288421,11 @@
       ]
     },
     {
-      "id": "UP1018-PPSA01617_00-DLC2SKINPACK0000",
-      "title": "Paquete de Luchador de Arcade Klásico",
-      "platform": "PS5/PS4",
-      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202009/2418/DbpRdUX7UCuMXweMXOZHtXjs.png",
-      "url": "https://store.playstation.com/es-cr/product/UP1018-PPSA01617_00-DLC2SKINPACK0000",
+      "id": "UP2908-PPSA30568_00-INVINCIBLEVSIMMO",
+      "title": "Invincible VS - Inmortal - Luchador adicional",
+      "platform": "PS5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202606/1716/30711a12d7e911f1cae2c21c92af603a3caa2e90f2e35244.png",
+      "url": "https://store.playstation.com/es-cr/product/UP2908-PPSA30568_00-INVINCIBLEVSIMMO",
       "priceUSD": 5.99,
       "originalPriceUSD": 5.99,
       "onSale": false,
@@ -288159,11 +288497,11 @@
       ]
     },
     {
-      "id": "UP1018-CUSA00133_00-DLCCHALLENGPACK4",
-      "title": "Arkham Knight Pack 4: Desafíos Luchador Contra el Crimen",
+      "id": "UP1018-CUSA00133_00-DLCCHALLENGPACK3",
+      "title": "Arkham Knight Pack 3: Desafíos Luchador Contra el Crimen",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP1018/CUSA00133_00/TJYgpNhwhrR6QfvHMLws7EIGPcmBvwGi.png",
-      "url": "https://store.playstation.com/es-cr/product/UP1018-CUSA00133_00-DLCCHALLENGPACK4",
+      "imageUrl": "https://image.api.playstation.com/cdn/UP1018/CUSA00133_00/jPRT5uvDQKJ7DsrUW0SIyf7Qi5sGIVJg.png",
+      "url": "https://store.playstation.com/es-cr/product/UP1018-CUSA00133_00-DLCCHALLENGPACK3",
       "priceUSD": 1.99,
       "originalPriceUSD": 1.99,
       "onSale": false,
@@ -288178,11 +288516,11 @@
       ]
     },
     {
-      "id": "UP1018-CUSA00133_00-DLCCHALLENGPACK3",
-      "title": "Arkham Knight Pack 3: Desafíos Luchador Contra el Crimen",
+      "id": "UP1018-CUSA00133_00-DLCCHALLENGPACK4",
+      "title": "Arkham Knight Pack 4: Desafíos Luchador Contra el Crimen",
       "platform": "PS4",
-      "imageUrl": "https://image.api.playstation.com/cdn/UP1018/CUSA00133_00/jPRT5uvDQKJ7DsrUW0SIyf7Qi5sGIVJg.png",
-      "url": "https://store.playstation.com/es-cr/product/UP1018-CUSA00133_00-DLCCHALLENGPACK3",
+      "imageUrl": "https://image.api.playstation.com/cdn/UP1018/CUSA00133_00/TJYgpNhwhrR6QfvHMLws7EIGPcmBvwGi.png",
+      "url": "https://store.playstation.com/es-cr/product/UP1018-CUSA00133_00-DLCCHALLENGPACK4",
       "priceUSD": 1.99,
       "originalPriceUSD": 1.99,
       "onSale": false,
