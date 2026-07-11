@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-10T08:28:58.423Z",
+  "updatedAt": "2026-07-11T07:16:24.732Z",
   "count": 432,
   "games": [
     {
@@ -97,21 +97,6 @@
         "Xbox One"
       ],
       "isBundle": true
-    },
-    {
-      "id": "xbox-9PG0PMB5Q0GT",
-      "title": "The Casting of Frank Stone™",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57876.14194909325684282.4555d428-db78-49a6-b09e-ad174d55ec29.fef64c0a-42a2-41ec-94db-06a33a017716",
-      "url": "https://www.xbox.com/games/store/_/9PG0PMB5Q0GT",
-      "priceUSD": 3.22,
-      "originalPriceUSD": 16.1,
-      "onSale": true,
-      "discount": 80,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-9NZG72SH3H4W",
@@ -499,22 +484,6 @@
       "discount": 25,
       "consoles": [
         "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9PKWJSJ4NWC7",
-      "title": "Back to the Dawn",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45022.14254385379777466.e15db0ce-790e-43a8-a09e-22a73a0d87f5.6a27eef5-7875-4e4f-8814-ec82869ba85f",
-      "url": "https://www.xbox.com/games/store/_/9PKWJSJ4NWC7",
-      "priceUSD": 11.76,
-      "originalPriceUSD": 14.7,
-      "onSale": true,
-      "discount": 20,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
       ],
       "isBundle": false
     },
@@ -1034,6 +1003,22 @@
         "Xbox Series X|S"
       ],
       "isBundle": true
+    },
+    {
+      "id": "xbox-9PKWJSJ4NWC7",
+      "title": "Back to the Dawn",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45022.14254385379777466.e15db0ce-790e-43a8-a09e-22a73a0d87f5.6a27eef5-7875-4e4f-8814-ec82869ba85f",
+      "url": "https://www.xbox.com/games/store/_/9PKWJSJ4NWC7",
+      "priceUSD": 14.7,
+      "originalPriceUSD": 14.7,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
     },
     {
       "id": "xbox-9PK087LNGJC5",
@@ -5406,6 +5391,21 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PG0PMB5Q0GT",
+      "title": "The Casting of Frank Stone™",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57876.14194909325684282.4555d428-db78-49a6-b09e-ad174d55ec29.fef64c0a-42a2-41ec-94db-06a33a017716",
+      "url": "https://www.xbox.com/games/store/_/9PG0PMB5Q0GT",
+      "priceUSD": 16.1,
+      "originalPriceUSD": 16.1,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
       ],
       "isBundle": false
     },
