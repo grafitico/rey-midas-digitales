@@ -100,22 +100,51 @@ async function main() {
   }
   console.log(`[sync-xbox] Fase 1 — ${allIds.size} IDs únicos`);
 
-  // ── Fase 2: Listas computadas de Microsoft Store (reco-public) ────────────
-  //    Cada lista (top pagos/gratis/mejor valorados/nuevos/ofertas/próximos)
-  //    aporta cientos de IDs del catálogo COMPRABLE, no solo Game Pass. Se
-  //    barre cada lista contra varias familias de dispositivo (Xbox + Desktop)
-  //    para capturar también los títulos Play Anywhere.
-  for (const family of DEVICE_FAMILIES) {
-    for (const list of RECO_LISTS) {
-      try {
-        const ids = await withRetry(() => fetchRecoList(list, family), `reco ${list}@${family}`);
-        let added = 0;
-        ids.forEach(id => { if (!allIds.has(id)) { allIds.add(id); added++; } });
-        console.log(`[sync-xbox] reco ${list}@${family}: ${ids.length} IDs (+${added}) — acumulado ${allIds.size}`);
-      } catch (e) {
-        console.warn(`[sync-xbox] reco ${list}@${family} agotó reintentos: ${e.message}`);
+  // ── Fase 2: Barrido de búsqueda (autosuggest de displaycatalog) ───────────
+  //    La API reco-public (que traía "toda la tienda comprable") es inalcanzable
+  //    desde los runners de GitHub (Azure) — falla con "fetch failed" y dejaba
+  //    el catálogo clavado en ~430 juegos (solo Game Pass). En su lugar usamos
+  //    el endpoint de búsqueda de displaycatalog.mp.microsoft.com (MISMO host
+  //    que sí funciona en Fase 3): barremos por prefijos de título (aa..zz, 0-9)
+  //    para enumerar buena parte del catálogo comprable de Xbox, muy por encima
+  //    del tope de Game Pass.
+  const beforeSweep = allIds.size;
+  const seeds = buildSearchSeeds();
+  console.log(`[sync-xbox] Fase 2 — barriendo ${seeds.length} búsquedas en autosuggest...`);
+  let loggedShape = false;
+  for (let i = 0; i < seeds.length; i += CONCURRENT) {
+    const group = seeds.slice(i, i + CONCURRENT);
+    const results = await Promise.allSettled(
+      group.map(q => withRetry(() => fetchAutosuggest(q), `autosuggest "${q}"`, 2))
+    );
+    results.forEach(r => {
+      if (r.status !== "fulfilled") return;
+      // Log de la forma real de la primera respuesta con datos (para depurar).
+      if (!loggedShape && r.value.raw) {
+        loggedShape = true;
+        console.log(`[sync-xbox] autosuggest shape: ${JSON.stringify(r.value.raw).slice(0, 400)}`);
       }
-      await sleep(250);
+      r.value.ids.forEach(id => allIds.add(id));
+    });
+    const done = Math.min(i + CONCURRENT, seeds.length);
+    if (done % 100 === 0 || done === seeds.length) {
+      console.log(`[sync-xbox] autosuggest ${done}/${seeds.length} — acumulado ${allIds.size} IDs`);
+    }
+    await sleep(120);
+  }
+  console.log(`[sync-xbox] Fase 2 — autosuggest sumó +${allIds.size - beforeSweep} (total ${allIds.size} IDs únicos)`);
+
+  // ── Fase 2b: Listas computadas reco-public (best-effort, 1 intento) ───────
+  //    Si Microsoft vuelve a permitir reco desde el runner, esto vuelve a
+  //    aportar; mientras siga caído, falla rápido (tries=1) sin frenar el sync.
+  for (const list of RECO_LISTS) {
+    try {
+      const ids = await withRetry(() => fetchRecoList(list, "Windows.Xbox"), `reco ${list}`, 1);
+      let added = 0;
+      ids.forEach(id => { if (!allIds.has(id)) { allIds.add(id); added++; } });
+      console.log(`[sync-xbox] reco ${list}: ${ids.length} IDs (+${added}) — acumulado ${allIds.size}`);
+    } catch (e) {
+      console.warn(`[sync-xbox] reco ${list} no disponible: ${e.message}`);
     }
   }
   console.log(`[sync-xbox] Fase 2 — ${allIds.size} IDs únicos`);
@@ -207,6 +236,56 @@ async function fetchRecoList(listName, deviceFamily = "Windows.Xbox") {
     .map(i => (typeof i === "string" ? i : (i.Id || i.id || i.ProductId || i.bigId)))
     .filter(id => id && /^[A-Z0-9]{9,16}$/i.test(id))
     .map(id => id.toUpperCase());
+}
+
+// ===== Búsqueda / enumeración (autosuggest de displaycatalog) =====
+
+// Semillas de búsqueda para enumerar el catálogo por prefijos de título.
+// aa..zz (676) + a..z (26) + 0..9 (10). autosuggest hace match tipo typeahead,
+// así que barrer prefijos cortos cubre casi cualquier inicio de título.
+function buildSearchSeeds() {
+  const letters = "abcdefghijklmnopqrstuvwxyz".split("");
+  const seeds = [];
+  for (const a of letters) {
+    seeds.push(a);
+    for (const b of letters) seeds.push(a + b);
+  }
+  for (const d of "0123456789".split("")) seeds.push(d);
+  return seeds;
+}
+
+// Extrae recursivamente cualquier BigId (12 alfanum. tipo 9NBLGGH4R315) de una
+// respuesta JSON de forma desconocida. Robusto ante cambios de esquema: junta
+// todo string que sea un BigId de la Store, venga en el campo que venga.
+function extractBigIds(node, out) {
+  if (node == null) return;
+  if (typeof node === "string") {
+    if (/^[A-Z0-9]{12}$/.test(node)) out.add(node.toUpperCase());
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const v of node) extractBigIds(v, out);
+    return;
+  }
+  if (typeof node === "object") {
+    for (const k of Object.keys(node)) extractBigIds(node[k], out);
+  }
+}
+
+// Autosuggest de la Store: devuelve productos que matchean `query`. Lo usamos
+// para enumerar el catálogo comprable barriendo prefijos. Devuelve { ids, raw }.
+const AUTOSUGGEST_URL = "https://displaycatalog.mp.microsoft.com/v7.0/productFamilies/autosuggest";
+async function fetchAutosuggest(query) {
+  const url = `${AUTOSUGGEST_URL}` +
+    `?market=${MARKET}&languages=${LANGUAGE}` +
+    `&productFamilyNames=Games` +
+    `&query=${encodeURIComponent(query)}&topProducts=25`;
+  const r = await fetch(url, { headers: { ...API_HEADERS, "MS-CV": "ReyMidas.3" } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  const ids = new Set();
+  extractBigIds(data, ids);
+  return { ids: [...ids], raw: ids.size ? data : null };
 }
 
 // ===== Microsoft Display Catalog API =====
