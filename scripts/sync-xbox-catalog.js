@@ -36,6 +36,7 @@ const TAG_ONE = "Xbox One";
 // 409) y al scraping de xbox.com (las páginas ya no traen __NEXT_DATA__).
 // Agregando varias listas (top pagos, gratis, mejor valorados, nuevos, ofertas,
 // próximos) cubrimos casi todo el catálogo comprable de Xbox, no solo Game Pass.
+// Los nombres que no existan devuelven 404 y se descartan sin romper el sync.
 const RECO_BASE = "https://reco-public.rec.mp.microsoft.com/channels/Reco/V8.0/Lists/Computed";
 const RECO_LISTS = [
   "TopPaid",
@@ -46,7 +47,22 @@ const RECO_LISTS = [
   "ComingSoon",
   "Deal",
   "TopGrossing",
+  // Listas adicionales que amplían la cobertura más allá de los mismos ~430 IDs
+  // que devolvían las 8 anteriores (se solapaban mucho entre sí).
+  "BestSelling",
+  "New",
+  "MostShared",
+  "TopBrowsed",
+  "RecentlyUpdated",
 ];
+
+// Familias de dispositivo a barrer con cada lista computada. La lista de Xbox
+// sola se topaba en ~430 IDs únicos; sumando Windows.Desktop capturamos los
+// juegos "Play Anywhere" (comprás una vez, jugás en consola Y PC) que la lista
+// de consola no siempre incluye. normalize() igual descarta los PC-only que no
+// sean Play Anywhere, así que no ensucia el catálogo con juegos que no corren
+// en Xbox.
+const DEVICE_FAMILIES = ["Windows.Xbox", "Windows.Desktop"];
 
 const SIGL_BASE = "https://catalog.gamepass.com/sigls/v2";
 const CATALOG_URL = "https://displaycatalog.mp.microsoft.com/v7.0/products";
@@ -86,17 +102,21 @@ async function main() {
 
   // ── Fase 2: Listas computadas de Microsoft Store (reco-public) ────────────
   //    Cada lista (top pagos/gratis/mejor valorados/nuevos/ofertas/próximos)
-  //    aporta cientos de IDs del catálogo COMPRABLE, no solo Game Pass.
-  for (const list of RECO_LISTS) {
-    try {
-      const ids = await withRetry(() => fetchRecoList(list), `reco ${list}`);
-      let added = 0;
-      ids.forEach(id => { if (!allIds.has(id)) { allIds.add(id); added++; } });
-      console.log(`[sync-xbox] reco ${list}: ${ids.length} IDs (+${added}) — acumulado ${allIds.size}`);
-    } catch (e) {
-      console.warn(`[sync-xbox] reco ${list} agotó reintentos: ${e.message}`);
+  //    aporta cientos de IDs del catálogo COMPRABLE, no solo Game Pass. Se
+  //    barre cada lista contra varias familias de dispositivo (Xbox + Desktop)
+  //    para capturar también los títulos Play Anywhere.
+  for (const family of DEVICE_FAMILIES) {
+    for (const list of RECO_LISTS) {
+      try {
+        const ids = await withRetry(() => fetchRecoList(list, family), `reco ${list}@${family}`);
+        let added = 0;
+        ids.forEach(id => { if (!allIds.has(id)) { allIds.add(id); added++; } });
+        console.log(`[sync-xbox] reco ${list}@${family}: ${ids.length} IDs (+${added}) — acumulado ${allIds.size}`);
+      } catch (e) {
+        console.warn(`[sync-xbox] reco ${list}@${family} agotó reintentos: ${e.message}`);
+      }
+      await sleep(250);
     }
-    await sleep(250);
   }
   console.log(`[sync-xbox] Fase 2 — ${allIds.size} IDs únicos`);
 
@@ -172,11 +192,11 @@ async function fetchSigl(siglId) {
 // ===== Microsoft Store reco-public (listas computadas) =====
 
 // Trae los ProductIds (BigIds) de una lista computada de Microsoft Store para
-// la familia de dispositivos Xbox. Devuelve un array de IDs en mayúsculas.
-async function fetchRecoList(listName) {
+// una familia de dispositivos dada. Devuelve un array de IDs en mayúsculas.
+async function fetchRecoList(listName, deviceFamily = "Windows.Xbox") {
   const url = `${RECO_BASE}/${listName}` +
     `?Market=${MARKET}&Language=${LANGUAGE}&ItemTypes=Game` +
-    `&Count=${RECO_COUNT}&DeviceFamily=Windows.Xbox`;
+    `&Count=${RECO_COUNT}&DeviceFamily=${encodeURIComponent(deviceFamily)}`;
   const r = await fetch(url, { headers: API_HEADERS });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
