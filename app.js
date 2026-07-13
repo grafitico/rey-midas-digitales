@@ -2437,7 +2437,7 @@ function renderSubscriptions(service) {
     psplus: {
       plans: psPlusPlans,
       title: "PlayStation Plus",
-      subtitle: "Multijugador online, juegos mensuales gratis y catálogo Extra/Deluxe para PS5 y PS4.",
+      subtitle: "Essential, Extra y Premium — 12 meses, cuenta región Ucrania 🇺🇦. Multijugador online, catálogo de juegos PS4/PS5 y clásicos.",
       brandClass: "brand-ps",
       brandIcon: "🎮",
       themeColor: "cyan",
