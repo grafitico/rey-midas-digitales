@@ -5,23 +5,63 @@
       "id": "gp-ultimate-1m",
       "tier": "Ultimate",
       "duration": "1 mes",
-      "priceCRC": 9000,
+      "priceCRC": 8000,
       "features": [
         "Catálogo Game Pass en Xbox y PC",
         "EA Play incluido",
         "Xbox Cloud Gaming",
         "Multijugador online en Xbox",
         "Lanzamientos día 1 (Halo, Forza, Starfield, etc.)"
+      ]
+    },
+    {
+      "id": "gp-ultimate-2m",
+      "tier": "Ultimate",
+      "duration": "2 meses",
+      "priceCRC": 9000,
+      "features": [
+        "Todo lo del plan Ultimate",
+        "Ahorrás vs comprar mes a mes"
       ],
       "popular": true
     },
     {
-      "id": "gp-ultimate-3m",
+      "id": "gp-ultimate-4m",
       "tier": "Ultimate",
-      "duration": "3 meses",
+      "duration": "4 meses",
+      "priceCRC": 16000,
+      "features": [
+        "Todo lo del plan Ultimate",
+        "Ahorrás vs comprar mes a mes"
+      ]
+    },
+    {
+      "id": "gp-ultimate-6m",
+      "tier": "Ultimate",
+      "duration": "6 meses",
       "priceCRC": 24000,
       "features": [
-        "Todo lo del plan de 1 mes",
+        "Todo lo del plan Ultimate",
+        "Medio año de Game Pass"
+      ]
+    },
+    {
+      "id": "gp-ultimate-8m",
+      "tier": "Ultimate",
+      "duration": "8 meses",
+      "priceCRC": 31500,
+      "features": [
+        "Todo lo del plan Ultimate",
+        "Ahorrás vs comprar mes a mes"
+      ]
+    },
+    {
+      "id": "gp-ultimate-10m",
+      "tier": "Ultimate",
+      "duration": "10 meses",
+      "priceCRC": 38000,
+      "features": [
+        "Todo lo del plan Ultimate",
         "Ahorrás vs comprar mes a mes"
       ]
     },
@@ -29,13 +69,24 @@
       "id": "gp-ultimate-12m",
       "tier": "Ultimate",
       "duration": "12 meses",
-      "priceCRC": 80000,
+      "priceCRC": 47000,
       "features": [
         "Todo lo del plan Ultimate",
         "El mejor precio del año",
         "1 año entero de Game Pass"
       ],
       "popular": true
+    },
+    {
+      "id": "gp-ultimate-13m",
+      "tier": "Ultimate",
+      "duration": "13 meses",
+      "priceCRC": 48500,
+      "features": [
+        "Todo lo del plan Ultimate",
+        "Un mes extra de regalo",
+        "El máximo ahorro"
+      ]
     },
     {
       "id": "gp-pc-1m",
