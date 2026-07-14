@@ -1,0 +1,58 @@
+{
+  "name": "Rey Midas Digitales",
+  "short_name": "Rey Midas",
+  "description": "Tienda de juegos digitales en Costa Rica. PS5, PS4, Xbox y Nintendo Switch con entrega inmediata por WhatsApp.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#07070c",
+  "theme_color": "#07070c",
+  "lang": "es-CR",
+  "dir": "ltr",
+  "categories": ["shopping", "games", "entertainment"],
+  "icons": [
+    {
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ofertas",
+      "short_name": "Ofertas",
+      "description": "Ver las ofertas del momento",
+      "url": "/ofertas?source=pwa-shortcut",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mi carrito",
+      "short_name": "Carrito",
+      "description": "Ir directo al carrito",
+      "url": "/carrito?source=pwa-shortcut",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
