@@ -2,152 +2,1674 @@
   "telegramChannel": "https://t.me/bundlesnintendo",
   "bundles": [
     {
-      "id": "81788987",
-      "priceCRC": 25000,
+      "id": "85QC74",
+      "priceCRC": 20000,
       "coverUrl": "",
-      "totalSize": "61.4gb",
+      "totalSize": "49.1gb",
       "games": [
         {
-          "name": "Pokémon Violet",
-          "size": "10.1 gb"
+          "name": "Kirby Air Riders",
+          "size": "25.1 gb"
         },
+        {
+          "name": "Mario Kart World",
+          "size": "24.0 gb"
+        }
+      ],
+      "priceEUR": 20,
+      "date": "2026-07-14T06:14:10.000Z"
+    },
+    {
+      "id": "24BY29",
+      "priceCRC": 26000,
+      "coverUrl": "",
+      "totalSize": "59.6gb",
+      "games": [
         {
           "name": "Pokémon Legends: Arceus",
           "size": "13.0 gb"
         },
         {
-          "name": "Pokémon Shining Pearl",
-          "size": "10.0 gb"
+          "name": "LAYTON’S MYSTERY JOURNEY™: Katrielle and the Millionaires’ Conspiracy – Deluxe Edition",
+          "size": ""
         },
         {
-          "name": "The Legend of Zelda: Skyward Sword HD",
-          "size": "7.1 gb"
+          "name": "Animal Crossing: New Horizons + DLC",
+          "size": "10.9 gb"
         },
         {
-          "name": "Monster Hunter Stories 2: Wings of Ruin",
-          "size": "14.3 gb"
+          "name": "The Legend of Zelda: Breath of the Wild + DLC",
+          "size": "17.7 gb"
         },
         {
-          "name": "Pokémon Sword Expansion Pass",
+          "name": "Crash™ Team Racing Nitro-Fueled + DLC",
+          "size": "4.0 gb"
+        },
+        {
+          "name": "New Super Mario Bros. U Deluxe",
+          "size": "2.7 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe + DLC",
+          "size": "11.3 gb"
+        }
+      ],
+      "priceEUR": 26,
+      "date": "2026-07-14T06:13:59.000Z"
+    },
+    {
+      "id": "52NB77",
+      "priceCRC": 5000,
+      "coverUrl": "",
+      "totalSize": "1.5gb",
+      "games": [
+        {
+          "name": "Descenders",
+          "size": ""
+        },
+        {
+          "name": "Lonely Mountains: Downhill + DLC",
+          "size": "1.5 gb"
+        }
+      ],
+      "priceEUR": 5,
+      "date": "2026-07-14T06:13:49.000Z"
+    },
+    {
+      "id": "49GO95",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "17.7gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Breath of the Wild + DLC",
+          "size": "17.7 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-14T06:13:38.000Z"
+    },
+    {
+      "id": "06MG55",
+      "priceCRC": 27000,
+      "coverUrl": "",
+      "totalSize": "75.2gb",
+      "games": [
+        {
+          "name": "RESIDENT EVIL REVELATIONS 2",
+          "size": "23.7 gb"
+        },
+        {
+          "name": "RESIDENT EVIL REVELATIONS",
+          "size": "12.1 gb"
+        },
+        {
+          "name": "Hogwarts Legacy + DLC",
           "size": "2.8 gb"
         },
         {
-          "name": "Pokémon: Let’s Go Pikachu!",
-          "size": "4.1 gb"
+          "name": "The Legend of Zelda: Breath of the Wild + DLC",
+          "size": "17.7 gb"
+        },
+        {
+          "name": "Super Mario 3D World + Bowser's Fury",
+          "size": "2.9 gb"
+        },
+        {
+          "name": "NARUTO SHIPPUDEN™: Ultimate Ninja® STORM TRILOGY",
+          "size": "5.4 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe",
+          "size": "9.3 gb"
+        },
+        {
+          "name": "Cuphead + DLC",
+          "size": "1.3 gb"
         }
       ],
-      "priceEUR": 25,
-      "date": "2026-07-12T22:10:47.000Z"
+      "priceEUR": 27,
+      "date": "2026-07-14T06:13:28.000Z"
     },
     {
-      "id": "27808801",
-      "priceCRC": 33000,
+      "id": "18CW23",
+      "priceCRC": 27000,
       "coverUrl": "",
-      "totalSize": "62.1gb",
+      "totalSize": "62.3gb",
       "games": [
+        {
+          "name": "Kirby Fighters 2",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Pokémon Violet + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Hogwarts Legacy",
+          "size": "17.1 gb"
+        },
+        {
+          "name": "Mario + Rabbids® Sparks of Hope",
+          "size": "6.0 gb"
+        },
+        {
+          "name": "Mario Party Superstars",
+          "size": "2.9 gb"
+        },
+        {
+          "name": "Donkey Kong Country: Tropical Freeze",
+          "size": "6.6 gb"
+        },
+        {
+          "name": "Disney Illusion Island",
+          "size": ""
+        },
+        {
+          "name": "Stick Fight The Game",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Cuphead + DLC",
+          "size": "1.3 gb"
+        },
+        {
+          "name": "Luigi's Mansion 3 + DLC",
+          "size": "1.3 gb"
+        },
+        {
+          "name": "SUPER MARIO ODYSSEY",
+          "size": "5.6 gb"
+        }
+      ],
+      "priceEUR": 27,
+      "date": "2026-07-14T06:13:17.000Z"
+    },
+    {
+      "id": "21UB03",
+      "priceCRC": 10000,
+      "coverUrl": "",
+      "totalSize": "",
+      "games": [
+        {
+          "name": "Baila Latino + DLC",
+          "size": ""
+        }
+      ],
+      "priceEUR": 10,
+      "date": "2026-07-14T06:12:06.000Z"
+    },
+    {
+      "id": "77IW24",
+      "priceCRC": 26000,
+      "coverUrl": "",
+      "totalSize": "155.7gb",
+      "games": [
+        {
+          "name": "Pokémon Scarlet + DLC",
+          "size": "12.3 gb"
+        },
+        {
+          "name": "Lumberhill Tales: Coloring Pages",
+          "size": ""
+        },
+        {
+          "name": "Assassin’s Creed® The Ezio Collection + DLC",
+          "size": "19.1 gb"
+        },
+        {
+          "name": "DYNASTY WARRIORS 8: Xtreme Legends Definitive Edition",
+          "size": "15.9 gb"
+        },
+        {
+          "name": "Overlanders",
+          "size": "6.4 gb"
+        },
+        {
+          "name": "The Elder Scrolls V: Skyrim + DLC",
+          "size": "21.9 gb"
+        },
+        {
+          "name": "Dragon's Dogma: Dark Arisen",
+          "size": "12.1 gb"
+        },
+        {
+          "name": "Assassin's Creed® Ⅲ Remastered + DLC",
+          "size": "19.1 gb"
+        },
+        {
+          "name": "Burnout Paradise Remastered",
+          "size": ""
+        },
+        {
+          "name": "MONSTER HUNTER RISE + DLC",
+          "size": "2.5 gb"
+        },
+        {
+          "name": "Sniper Elite 3 Ultimate Edition",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "Saints Row IV",
+          "size": "7.8 gb"
+        },
+        {
+          "name": "SWORD ART ONLINE: FATAL BULLET COMPLETE EDITION",
+          "size": ""
+        },
+        {
+          "name": "Elemental Knights R",
+          "size": "1.2 gb"
+        },
+        {
+          "name": "RPG Maker MV Player",
+          "size": ""
+        },
+        {
+          "name": "Spyro Reignited Trilogy",
+          "size": "6.2 gb"
+        },
+        {
+          "name": "MONSTER HUNTER GENERATIONS ULTIMATE",
+          "size": "11.5 gb"
+        },
+        {
+          "name": "Assassin’s Creed® The Rebel Collection + DLC",
+          "size": "19.1 gb"
+        }
+      ],
+      "priceEUR": 26,
+      "date": "2026-07-14T06:11:56.000Z"
+    },
+    {
+      "id": "00AH98",
+      "priceCRC": 27000,
+      "coverUrl": "",
+      "totalSize": "229.0gb",
+      "games": [
+        {
+          "name": "FANTASIAN Neo Dimension",
+          "size": ""
+        },
+        {
+          "name": "Songs of Conquest",
+          "size": "1.4 gb"
+        },
+        {
+          "name": "Chained Echoes",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Arcadian Atlas",
+          "size": ""
+        },
+        {
+          "name": "Fire Emblem Engage + DLC",
+          "size": "12.4 gb"
+        },
+        {
+          "name": "Persona 5 Tactica",
+          "size": "7.3 gb"
+        },
+        {
+          "name": "Morbid: The Seven Acolytes",
+          "size": ""
+        },
+        {
+          "name": "Unicorn Overlord",
+          "size": ""
+        },
+        {
+          "name": "Wintermoor Tactics Club",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "Cross Tails",
+          "size": ""
+        },
+        {
+          "name": "Cyanide & Happiness - Freakpocalypse",
+          "size": "1.5 gb"
+        },
+        {
+          "name": "Absolute Tactics: Daughters of Mercy",
+          "size": ""
+        },
+        {
+          "name": "Sid Meier's Civilization VI + DLC",
+          "size": "18.2 gb"
+        },
+        {
+          "name": "FINAL FANTASY XV POCKET EDITION HD",
+          "size": "5.4 gb"
+        },
+        {
+          "name": "FINAL FANTASY IX",
+          "size": "5.0 gb"
+        },
+        {
+          "name": "Dragon's Dogma: Dark Arisen",
+          "size": "12.1 gb"
+        },
+        {
+          "name": "Voice of Cards: The Forsaken Maiden + DLC",
+          "size": "17.9 gb"
+        },
+        {
+          "name": "Persona 5 Strikers",
+          "size": "12.0 gb"
+        },
+        {
+          "name": "Deep Sky Derelicts Definitive Edition",
+          "size": "1.9 gb"
+        },
+        {
+          "name": "Earthlock",
+          "size": ""
+        },
+        {
+          "name": "Tales of Vesperia: Definitive Edition",
+          "size": ""
+        },
+        {
+          "name": "Ruined King: A League of Legends Story™",
+          "size": "10.3 gb"
+        },
+        {
+          "name": "Death end re;Quest",
+          "size": "8.0 gb"
+        },
+        {
+          "name": "Rise Eterna",
+          "size": "2.1 gb"
+        },
+        {
+          "name": "Baldur's Gate and Baldur's Gate II: Enhanced Editions + DLC",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Banner Saga 2",
+          "size": "5.5 gb"
+        },
+        {
+          "name": "Pillars of Eternity",
+          "size": ""
+        },
+        {
+          "name": "Voice of Cards: The Isle Dragon Roars + DLC",
+          "size": "17.9 gb"
+        },
+        {
+          "name": "Ys VIII: Lacrimosa of DANA",
+          "size": ""
+        },
+        {
+          "name": "SteamWorld Heist: Ultimate Edition",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "THE LAST REMNANT Remastered",
+          "size": ""
+        },
+        {
+          "name": "Banner of the Maid",
+          "size": "2.6 gb"
+        },
+        {
+          "name": "Doom & Destiny",
+          "size": "0.5 gb"
+        },
+        {
+          "name": "Battle Chasers: Nightwar",
+          "size": ""
+        },
+        {
+          "name": "Dreamwalker: Never Fall Asleep",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "Trover Saves the Universe",
+          "size": "5.1 gb"
+        },
+        {
+          "name": "DEAD OR SCHOOL",
+          "size": "4.7 gb"
+        },
+        {
+          "name": "GrandGuilds",
+          "size": ""
+        },
+        {
+          "name": "Grim Legends 3: The Dark City",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "SteamWorld Quest",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Banner Saga",
+          "size": "5.5 gb"
+        },
+        {
+          "name": "Ara Fell: Enhanced Edition",
+          "size": "1.0 gb"
+        },
+        {
+          "name": "Cthulhu Saves Christmas",
+          "size": "1.4 gb"
+        },
+        {
+          "name": "The Secret Order: Return to the Buried Kingdom",
+          "size": "1.0 gb"
+        },
+        {
+          "name": "SaGa Frontier Remastered",
+          "size": "3.6 gb"
+        },
+        {
+          "name": "Atelier Ryza: Ever Darkness & the Secret Hideout + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Persian Nights 2: The Moonlight Veil",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Grim Legends 2: Song Of The Dark Swan",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Queen's Quest 2: Stories of Forgotten Past",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "Gibbous - A Cthulhu Adventure",
+          "size": "5.0 gb"
+        },
+        {
+          "name": "Romancing SaGa 3",
+          "size": "1.8 gb"
+        },
+        {
+          "name": "LOST SPHEAR",
+          "size": ""
+        },
+        {
+          "name": "Phantom Doctrine",
+          "size": "6.6 gb"
+        },
+        {
+          "name": "Fear Effect Sedna",
+          "size": "7.3 gb"
+        },
+        {
+          "name": "Dex",
+          "size": "6.0 gb"
+        },
+        {
+          "name": "Modern Tales: Age Of Invention",
+          "size": "0.9 gb"
+        },
+        {
+          "name": "The Room",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "Spaceland",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Vambrace: Cold Soul",
+          "size": ""
+        },
+        {
+          "name": "Abyss: The Wraiths of Eden",
+          "size": "0.5 gb"
+        },
+        {
+          "name": "Rimelands",
+          "size": ""
+        },
+        {
+          "name": "Fire Emblem: Three Houses + DLC",
+          "size": "12.4 gb"
+        },
+        {
+          "name": "Cat Quest",
+          "size": "0.1 gb"
+        },
+        {
+          "name": "Mercenaries Wings: The False Phoenix",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Mercenaries Saga Chronicles",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "OCTOPATH TRAVELER",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "The Secret Order: Shadow Breach",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Munchkin",
+          "size": ""
+        },
+        {
+          "name": "Legrand Legacy: Tale of the Fatebounds",
+          "size": "7.6 gb"
+        }
+      ],
+      "priceEUR": 27,
+      "date": "2026-07-14T06:11:45.000Z"
+    },
+    {
+      "id": "20ZU37",
+      "priceCRC": 28000,
+      "coverUrl": "",
+      "totalSize": "76.9gb",
+      "games": [
+        {
+          "name": "Disney Dreamlight Valley - Nintendo Switch 2 Edition + DLC",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons – Nintendo Switch 2 Edition + DLC",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "FANTASY LIFE i: The Girl Who Steals Time - Nintendo Switch 2 Edition",
+          "size": "0.4 gb"
+        },
         {
           "name": "Mario Kart World",
           "size": "24.0 gb"
         },
         {
-          "name": "Mario Kart 8 Deluxe + dlc",
-          "size": "11.3 gb"
+          "name": "Little Friends: Dogs & Cats",
+          "size": "4.4 gb"
         },
         {
-          "name": "Just Dance 2024 Edition",
+          "name": "Wylde Flowers",
+          "size": "3.4 gb"
+        },
+        {
+          "name": "PICO PARK",
+          "size": "2.4 gb"
+        },
+        {
+          "name": "Horse Tales : Emerald Valley Ranch + DLC",
+          "size": "2.0 gb"
+        },
+        {
+          "name": "My Universe - Fashion Boutique",
+          "size": ""
+        },
+        {
+          "name": "My Time At Portia + DLC",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "Pokémon Violet + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Fae Farm + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Drawn To Life: Two Realms",
+          "size": "1.3 gb"
+        },
+        {
+          "name": "Stardew Valley",
           "size": "0.7 gb"
+        },
+        {
+          "name": "Pokémon Shield + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "DRAGON QUEST XI S: Echoes of an Elusive Age – Definitive Edition",
+          "size": "0.2 gb"
+        }
+      ],
+      "priceEUR": 28,
+      "date": "2026-07-14T06:11:35.000Z"
+    },
+    {
+      "id": "26SQ92",
+      "priceCRC": 1000,
+      "coverUrl": "",
+      "totalSize": "0.4gb",
+      "games": [
+        {
+          "name": "Crush Crush",
+          "size": "0.4 gb"
+        }
+      ],
+      "priceEUR": 1,
+      "date": "2026-07-14T06:11:24.000Z"
+    },
+    {
+      "id": "40HB56",
+      "priceCRC": 12000,
+      "coverUrl": "",
+      "totalSize": "67.6gb",
+      "games": [
+        {
+          "name": "Among Us",
+          "size": "0.4 gb"
+        },
+        {
+          "name": "Mortal Kombat 11 + DLC",
+          "size": "64.4 gb"
+        },
+        {
+          "name": "Descenders",
+          "size": ""
+        },
+        {
+          "name": "Gear.Club Unlimited + DLC",
+          "size": "2.8 gb"
+        }
+      ],
+      "priceEUR": 12,
+      "date": "2026-07-14T06:11:14.000Z"
+    },
+    {
+      "id": "97IS89",
+      "priceCRC": 31000,
+      "coverUrl": "",
+      "totalSize": "343.9gb",
+      "games": [
+        {
+          "name": "Assassin’s Creed® The Ezio Collection + DLC",
+          "size": "19.1 gb"
+        },
+        {
+          "name": "Diablo III: Eternal Collection + DLC",
+          "size": "2.7 gb"
+        },
+        {
+          "name": "NARUTO X BORUTO Ultimate Ninja STORM CONNECTIONS + DLC",
+          "size": "19.1 gb"
+        },
+        {
+          "name": "Twilight Survivors",
+          "size": ""
+        },
+        {
+          "name": "Cook, Serve, Delicious! 3?!",
+          "size": "1.0 gb"
+        },
+        {
+          "name": "HOT WHEELS UNLEASHED™ + DLC",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "MONSTER HUNTER RISE + DLC",
+          "size": "2.5 gb"
+        },
+        {
+          "name": "Dead Cells + DLC",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Stardew Valley",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "DRAGON BALL FighterZ + DLC",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "Ni no Kuni Wrath of the White Witch™",
+          "size": ""
+        },
+        {
+          "name": "Scott Pilgrim vs The World: The Game",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Asterix & Obelix XXL3: The Crystal Menhir",
+          "size": ""
+        },
+        {
+          "name": "Descenders",
+          "size": ""
+        },
+        {
+          "name": "My Time At Portia + DLC",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "Rayman Legends: Definitive Edition",
+          "size": "3.2 gb"
+        },
+        {
+          "name": "Phoenix Wright: Ace Attorney Trilogy",
+          "size": "2.2 gb"
+        },
+        {
+          "name": "Mortal Kombat 11 + DLC",
+          "size": "64.4 gb"
+        },
+        {
+          "name": "Sid Meier's Civilization VI",
+          "size": "17.0 gb"
+        },
+        {
+          "name": "Unravel TWO",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Assassin’s Creed® The Rebel Collection + DLC",
+          "size": "19.1 gb"
+        },
+        {
+          "name": "Assassin's Creed® Ⅲ Remastered + DLC",
+          "size": "19.1 gb"
+        },
+        {
+          "name": "Florence",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "Rabbids Party of Legends",
+          "size": ""
+        },
+        {
+          "name": "Diablo® II: Resurrected™",
+          "size": "8.4 gb"
+        },
+        {
+          "name": "Cuphead",
+          "size": "3.6 gb"
+        },
+        {
+          "name": "Lumberhill Tales: Coloring Pages",
+          "size": ""
+        },
+        {
+          "name": "Oceanhorn",
+          "size": ""
+        },
+        {
+          "name": "LEGO® Worlds + DLC",
+          "size": "2.7 gb"
+        },
+        {
+          "name": "Ludo Mania",
+          "size": ""
+        },
+        {
+          "name": "Titan Quest",
+          "size": "0.1 gb"
+        },
+        {
+          "name": "AAA Clock + DLC",
+          "size": "0.5 gb"
+        },
+        {
+          "name": "Overcooked! Special Edition",
+          "size": "5.8 gb"
+        },
+        {
+          "name": "Monster Energy Supercross - The Official Videogame",
+          "size": ""
+        },
+        {
+          "name": "Subnautica",
+          "size": "6.0 gb"
+        },
+        {
+          "name": "Starlink: Battle for Atlas™ + DLC",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "Dragon's Dogma: Dark Arisen",
+          "size": "12.1 gb"
+        },
+        {
+          "name": "Urban Flow",
+          "size": "4.8 gb"
+        },
+        {
+          "name": "ONE PIECE: PIRATE WARRIORS 4 + DLC",
+          "size": "12.4 gb"
+        },
+        {
+          "name": "FIFA 22 Legacy Edition",
+          "size": "14.0 gb"
+        },
+        {
+          "name": "Green Hell",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Death Squared",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Tricky doors",
+          "size": ""
+        },
+        {
+          "name": "Car Mechanic Simulator",
+          "size": "6.3 gb"
+        },
+        {
+          "name": "Need For Speed™ Hot Pursuit Remastered",
+          "size": "8.0 gb"
+        },
+        {
+          "name": "PAC-MAN 99 + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons + DLC",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "MotoGP™20",
+          "size": "11.0 gb"
+        },
+        {
+          "name": "NARUTO SHIPPUDEN™: Ultimate Ninja® STORM TRILOGY",
+          "size": "5.4 gb"
+        },
+        {
+          "name": "Down in Bermuda",
+          "size": ""
+        },
+        {
+          "name": "The Escapists: Complete Edition",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "Moonlighter + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "The First Tree",
+          "size": "2.4 gb"
+        },
+        {
+          "name": "LEGO® MARVEL Super Heroes 2",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "Tools Up!",
+          "size": "2.0 gb"
+        }
+      ],
+      "priceEUR": 31,
+      "date": "2026-07-14T06:11:03.000Z"
+    },
+    {
+      "id": "16GK60",
+      "priceCRC": 16000,
+      "coverUrl": "",
+      "totalSize": "37.8gb",
+      "games": [
+        {
+          "name": "DEAD OR ALIVE Xtreme 3 Scarlet",
+          "size": ""
+        },
+        {
+          "name": "Dragon Quest X Online + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Century of Anticipation",
+          "size": ""
+        },
+        {
+          "name": "Karaoke JOYSOUND for Nintendo Switch",
+          "size": "4.1 gb"
+        },
+        {
+          "name": "Recochoku",
+          "size": ""
+        },
+        {
+          "name": "Engawa Danshi a Kemonotan",
+          "size": ""
+        },
+        {
+          "name": "ABEMA",
+          "size": ""
+        },
+        {
+          "name": "resident evil 0",
+          "size": "13.5 gb"
+        },
+        {
+          "name": "RESIDENT EVIL REVELATIONS",
+          "size": "12.1 gb"
+        },
+        {
+          "name": "Royal Vermin",
+          "size": ""
+        },
+        {
+          "name": "Astro Party EX",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "DC Universe Online + DLC",
+          "size": "2.7 gb"
+        },
+        {
+          "name": "Machinika Museum",
+          "size": "1.6 gb"
+        },
+        {
+          "name": "THE NEW DENPA MEN",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "Pinball FX Midnight",
+          "size": "0.1 gb"
+        }
+      ],
+      "priceEUR": 16,
+      "date": "2026-07-14T06:10:53.000Z"
+    },
+    {
+      "id": "52NB25",
+      "priceCRC": 48000,
+      "coverUrl": "",
+      "totalSize": "158.9gb",
+      "games": [
+        {
+          "name": "Vampire Crawlers",
+          "size": ""
+        },
+        {
+          "name": "Mina the Hollower – Nintendo Switch 2 Edition",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "BALL x PIT - Nintendo Switch 2 Edition",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "TRIANGLE STRATEGY",
+          "size": ""
+        },
+        {
+          "name": "THEATRHYTHM FINAL BAR LINE + DLC",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Hades II – Nintendo Switch 2 Edition",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Fire Emblem Engage + DLC",
+          "size": "12.4 gb"
+        },
+        {
+          "name": "Mario Kart World",
+          "size": "24.0 gb"
+        },
+        {
+          "name": "Xenoblade Chronicles X: Definitive Edition + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "THE NEW DENPA MEN",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "Xenoblade Chronicles 3 + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Monster Sanctuary",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Tricky Towers",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Suika Game",
+          "size": ""
+        },
+        {
+          "name": "Nowhere Prophet",
+          "size": "0.9 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Tears of the Kingdom",
+          "size": "16.0 gb"
+        },
+        {
+          "name": "Baba Is You",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Axiom Verge",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Overcooked! Special Edition",
+          "size": "5.8 gb"
+        },
+        {
+          "name": "SHIN MEGAMI TENSEI Ⅴ + DLC",
+          "size": "2.7 gb"
+        },
+        {
+          "name": "Dicey Dungeons",
+          "size": "1.6 gb"
+        },
+        {
+          "name": "MONSTER HUNTER RISE + DLC",
+          "size": "2.5 gb"
+        },
+        {
+          "name": "Dead Cells + DLC",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate + DLC",
+          "size": "17.9 gb"
+        },
+        {
+          "name": "Star Renegades",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Crypt of the NecroDancer",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Blasphemous",
+          "size": ""
+        },
+        {
+          "name": "Moonlighter",
+          "size": ""
+        },
+        {
+          "name": "Picross S4",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons + DLC",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "Thumper",
+          "size": ""
+        },
+        {
+          "name": "Enter the Gungeon",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "DRAGON QUEST XI S: Echoes of an Elusive Age – Definitive Edition + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "The Messenger + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Slay the Spire",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Celeste",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "BOXBOY! + BOXGIRL!",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "Wargroove",
+          "size": "1.2 gb"
+        },
+        {
+          "name": "LUMINES REMASTERED",
+          "size": "0.9 gb"
+        },
+        {
+          "name": "Xenoblade Chronicles 2 + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Hyper Light Drifter - Special Edition",
+          "size": ""
+        },
+        {
+          "name": "Darkest Dungeon + DLC",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Into The Breach",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Mario Tennis Aces",
+          "size": "2.4 gb"
+        },
+        {
+          "name": "Hollow Knight",
+          "size": "1.5 gb"
+        },
+        {
+          "name": "SteamWorld Dig 2",
+          "size": "0.1 gb"
+        },
+        {
+          "name": "Stardew Valley",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Breath of the Wild + DLC",
+          "size": "17.7 gb"
+        },
+        {
+          "name": "Shovel Knight: Treasure Trove",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Snipperclips",
+          "size": "1.5 gb"
+        }
+      ],
+      "priceEUR": 48,
+      "date": "2026-07-14T06:10:42.000Z"
+    },
+    {
+      "id": "88WY73",
+      "priceCRC": 8000,
+      "coverUrl": "",
+      "totalSize": "8.5gb",
+      "games": [
+        {
+          "name": "Xenoblade Chronicles 3 DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Ys Origin",
+          "size": "0.1 gb"
+        },
+        {
+          "name": "Pokémon Legends: Z-A DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Xenoblade Chronicles 2 DLC",
+          "size": "2.8 gb"
+        }
+      ],
+      "priceEUR": 8,
+      "date": "2026-07-14T06:10:32.000Z"
+    },
+    {
+      "id": "56UU98",
+      "priceCRC": 23000,
+      "coverUrl": "",
+      "totalSize": "67.3gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Tears of the Kingdom – Nintendo Switch 2 Edition DLC",
+          "size": "1.4 gb"
+        },
+        {
+          "name": "LEGO® Star Wars™: The Skywalker Saga DLC",
+          "size": "6.0 gb"
+        },
+        {
+          "name": "Mario Kart World",
+          "size": "24.0 gb"
+        },
+        {
+          "name": "Subway Simulator - Underground Train Ride Station Ultimate DLC",
+          "size": "4.0 gb"
+        },
+        {
+          "name": "Bus Driving Simulator 24 - City Roads DLC",
+          "size": "2.5 gb"
+        },
+        {
+          "name": "Pokémon Violet + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Breath of the Wild DLC",
+          "size": "17.7 gb"
         },
         {
           "name": "Among Us",
           "size": "0.4 gb"
         },
         {
-          "name": "UNO",
-          "size": "4.8 gb"
+          "name": "SUPER MARIO ODYSSEY",
+          "size": "5.6 gb"
         },
         {
-          "name": "Just Dance 2023 Deluxe Edition",
-          "size": "0.7 gb"
-        },
-        {
-          "name": "Animal Crossing: New Horizons - Happy Home Paradise",
-          "size": "10.2 gb"
-        },
-        {
-          "name": "Nintendo Switch Sports",
-          "size": "3.0 gb"
-        },
-        {
-          "name": "Mario Golf: Super Rush",
-          "size": "0.7 gb"
-        },
-        {
-          "name": "Minecraft Dungeons",
-          "size": "5.2 gb"
-        },
-        {
-          "name": "Minecraft",
-          "size": "1.1 gb"
+          "name": "Mario + Rabbids Kingdom Battle",
+          "size": "2.9 gb"
         }
       ],
-      "priceEUR": 33,
-      "date": "2026-07-12T22:10:43.000Z"
+      "priceEUR": 23,
+      "date": "2026-07-14T03:10:15.000Z"
     },
     {
-      "id": "10958506",
-      "priceCRC": 20000,
-      "coverUrl": "",
-      "totalSize": "40.5gb",
-      "games": [
-        {
-          "name": "Super Smash Bros.™ Ultimate",
-          "size": "17.3 gb"
-        },
-        {
-          "name": "Animal Crossing™: New Horizons",
-          "size": "10.2 gb"
-        },
-        {
-          "name": "Pokémon™ Sword",
-          "size": "10.2 gb"
-        },
-        {
-          "name": "Pokémon Sword Expansion Pass",
-          "size": "2.8 gb"
-        }
-      ],
-      "priceEUR": 20,
-      "date": "2026-07-12T22:10:40.000Z"
-    },
-    {
-      "id": "65499834",
+      "id": "44ZT40",
       "priceCRC": 18000,
       "coverUrl": "",
-      "totalSize": "11.2gb",
+      "totalSize": "30.8gb",
       "games": [
         {
-          "name": "Minecraft",
-          "size": "1.1 gb"
+          "name": "Overcooked! 2",
+          "size": "5.8 gb"
         },
         {
-          "name": "Octopath Traveler™",
-          "size": "0.7 gb"
+          "name": "Bus Driving Simulator 24 - City Roads + DLC",
+          "size": "2.5 gb"
         },
         {
-          "name": "Pokémon Shield Expansion Pass",
+          "name": "FIFA 23 Legacy Edition + DLC",
           "size": "2.8 gb"
         },
         {
-          "name": "MONOPOLY® for Nintendo Switch™",
-          "size": "0.8 gb"
+          "name": "Animal Crossing: New Horizons + DLC",
+          "size": "10.9 gb"
         },
         {
-          "name": "Overcooked! Special Edition",
-          "size": "5.8 gb"
+          "name": "LEGO® Star Wars™: The Skywalker Saga + DLC",
+          "size": "6.0 gb"
+        },
+        {
+          "name": "UNO + DLC",
+          "size": "2.8 gb"
         }
       ],
       "priceEUR": 18,
-      "date": "2026-07-12T22:10:37.000Z"
+      "date": "2026-07-14T03:10:04.000Z"
+    },
+    {
+      "id": "67MA44",
+      "priceCRC": 5000,
+      "coverUrl": "",
+      "totalSize": "2.8gb",
+      "games": [
+        {
+          "name": "Clicker Heroes",
+          "size": ""
+        },
+        {
+          "name": "Capcom Arcade 2nd Stadium + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "RPG Maker MV Player",
+          "size": ""
+        }
+      ],
+      "priceEUR": 5,
+      "date": "2026-07-14T03:09:54.000Z"
+    },
+    {
+      "id": "05NA93",
+      "priceCRC": 14000,
+      "coverUrl": "",
+      "totalSize": "8.1gb",
+      "games": [
+        {
+          "name": "Green Hell",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Welcome to Hanwell",
+          "size": ""
+        },
+        {
+          "name": "Saints Row: The Third - The Full Package",
+          "size": "7.8 gb"
+        }
+      ],
+      "priceEUR": 14,
+      "date": "2026-07-14T03:09:43.000Z"
+    },
+    {
+      "id": "11HX57",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "17.9gb",
+      "games": [
+        {
+          "name": "Super Smash Bros. Ultimate + DLC",
+          "size": "17.9 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T03:09:33.000Z"
+    },
+    {
+      "id": "24PR08",
+      "priceCRC": 16000,
+      "coverUrl": "",
+      "totalSize": "22.0gb",
+      "games": [
+        {
+          "name": "Hole io + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Slime Rancher: Plortable Edition",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "JUST DANCE® 2022",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Splatoon 2 DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Pokémon Sword",
+          "size": "10.3 gb"
+        },
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Rayman Legends: Definitive Edition",
+          "size": "3.2 gb"
+        }
+      ],
+      "priceEUR": 16,
+      "date": "2026-07-14T03:09:22.000Z"
+    },
+    {
+      "id": "03NF06",
+      "priceCRC": 12000,
+      "coverUrl": "",
+      "totalSize": "29.0gb",
+      "games": [
+        {
+          "name": "Car Mechanic Simulator",
+          "size": "6.3 gb"
+        },
+        {
+          "name": "JUST DANCE® 2021",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "FIFA 22 Legacy Edition",
+          "size": "14.0 gb"
+        },
+        {
+          "name": "Need For Speed™ Hot Pursuit Remastered",
+          "size": "8.0 gb"
+        },
+        {
+          "name": "LEGO® CITY UNDERCOVER",
+          "size": ""
+        }
+      ],
+      "priceEUR": 12,
+      "date": "2026-07-14T03:09:12.000Z"
+    },
+    {
+      "id": "54DQ04",
+      "priceCRC": 22000,
+      "coverUrl": "",
+      "totalSize": "135.4gb",
+      "games": [
+        {
+          "name": "Drift Force Xtreme: Ultimate Car Simulator 2024",
+          "size": "1.0 gb"
+        },
+        {
+          "name": "WARZONE CHRONICLES: VIRTUAL WARFARE SHOOTER",
+          "size": ""
+        },
+        {
+          "name": "RAFT SURVIVAL SIMULATOR",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Ultimate Moto Bike Simulator",
+          "size": "1.6 gb"
+        },
+        {
+          "name": "Subway Simulator - Underground Train Ride Station Ultimate",
+          "size": "4.1 gb"
+        },
+        {
+          "name": "FIFA 23 Legacy Edition + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Motorcycle Driving Simulator - Dirt & Parking 2022 Racing Games Ultimate 4x4 City, Offroad Kart",
+          "size": "0.5 gb"
+        },
+        {
+          "name": "Offroad Racing",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Gear.Club Unlimited",
+          "size": ""
+        },
+        {
+          "name": "Kill It With Fire + DLC",
+          "size": "12.4 gb"
+        },
+        {
+          "name": "WRC 9 The Official Game",
+          "size": ""
+        },
+        {
+          "name": "Air Conflicts: Pacific Carriers",
+          "size": ""
+        },
+        {
+          "name": "HOT WHEELS UNLEASHED™ + DLC",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "Team Troopers",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Sniper Elite 4 + DLC",
+          "size": "4.0 gb"
+        },
+        {
+          "name": "The Longing",
+          "size": "1.6 gb"
+        },
+        {
+          "name": "SONIC FORCES DLC",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Grand Theft Auto: Vice City – The Definitive Edition",
+          "size": "25.4 gb"
+        },
+        {
+          "name": "Grand Theft Auto: San Andreas – The Definitive Edition",
+          "size": "25.4 gb"
+        },
+        {
+          "name": "Grand Theft Auto III – The Definitive Edition",
+          "size": "25.4 gb"
+        },
+        {
+          "name": "Secret Neighbor",
+          "size": "1.0 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Breath of the Wild",
+          "size": "14.4 gb"
+        },
+        {
+          "name": "FIFA 20 Legacy Edition + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        }
+      ],
+      "priceEUR": 22,
+      "date": "2026-07-14T03:09:00.000Z"
+    },
+    {
+      "id": "00WG00",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "26.2gb",
+      "games": [
+        {
+          "name": "FUSER™ + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "DC Universe Online + DLC",
+          "size": "2.7 gb"
+        },
+        {
+          "name": "Gear.Club Unlimited + DLC",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate + DLC",
+          "size": "17.9 gb"
+        },
+        {
+          "name": "Children of Morta",
+          "size": ""
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T03:08:50.000Z"
+    },
+    {
+      "id": "55JJ07",
+      "priceCRC": 14000,
+      "coverUrl": "",
+      "totalSize": "64.4gb",
+      "games": [
+        {
+          "name": "Mortal Kombat 11 + DLC",
+          "size": "64.4 gb"
+        }
+      ],
+      "priceEUR": 14,
+      "date": "2026-07-14T03:08:39.000Z"
+    },
+    {
+      "id": "88831328",
+      "priceCRC": 3000,
+      "coverUrl": "",
+      "totalSize": "2.8gb",
+      "games": [
+        {
+          "name": "Pokémon Shield | only dlc",
+          "size": "2.8 gb"
+        }
+      ],
+      "priceEUR": 3,
+      "date": "2026-07-12T22:08:36.000Z"
+    },
+    {
+      "id": "11855503",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "25.7gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Breath of the Wild",
+          "size": "14.4 gb"
+        },
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons",
+          "size": "10.2 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-14T02:46:32.000Z"
+    },
+    {
+      "id": "32127777",
+      "priceCRC": 25000,
+      "coverUrl": "",
+      "totalSize": "61.6gb",
+      "games": [
+        {
+          "name": "Super Smash Bros. Ultimate",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe",
+          "size": "9.3 gb"
+        },
+        {
+          "name": "Pokémon Legends: Arceus",
+          "size": "13.0 gb"
+        },
+        {
+          "name": "Pokémon Sword + dlc",
+          "size": "9.5 gb"
+        },
+        {
+          "name": "New Pokémon Snap",
+          "size": "6.9 gb"
+        },
+        {
+          "name": "Youtubers Life 2",
+          "size": "1.3 gb"
+        },
+        {
+          "name": "Stardew Valley",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Prison Architect: Nintendo Switch Edition",
+          "size": "0.5 gb"
+        },
+        {
+          "name": "The Escapists 2",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "911 Operator Deluxe Edition",
+          "size": "2.0 gb"
+        },
+        {
+          "name": "Prison Architect",
+          "size": "0.5 gb"
+        }
+      ],
+      "priceEUR": 25,
+      "date": "2026-07-14T02:46:29.000Z"
     },
     {
       "id": "35296216",
@@ -450,6 +1972,1044 @@
       ],
       "priceEUR": 65,
       "date": "2026-07-12T22:10:34.000Z"
+    },
+    {
+      "id": "71118518",
+      "priceCRC": 28000,
+      "coverUrl": "",
+      "totalSize": "106.4gb",
+      "games": [
+        {
+          "name": "Pokémon Scarlet",
+          "size": "10.0 gb"
+        },
+        {
+          "name": "Pokémon Legends: Arceus",
+          "size": "13.0 gb"
+        },
+        {
+          "name": "Pokémon Sword",
+          "size": "10.3 gb"
+        },
+        {
+          "name": "Yu-Gi-Oh! Legacy of the Duelist : Link Evolution",
+          "size": ""
+        },
+        {
+          "name": "Fire Emblem: Three Houses",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "THE LAST REMNANT Remastered",
+          "size": ""
+        },
+        {
+          "name": "NBA 2K19",
+          "size": "31.5 gb"
+        },
+        {
+          "name": "FINAL FANTASY X/X-2 HD Remaster + dlc",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate + dlc",
+          "size": "17.9 gb"
+        },
+        {
+          "name": "Pokémon: Let's Go Eevee!",
+          "size": "4.1 gb"
+        },
+        {
+          "name": "Donkey Kong Country: Tropical Freeze",
+          "size": "6.6 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe",
+          "size": "9.3 gb"
+        }
+      ],
+      "priceEUR": 28,
+      "date": "2026-07-14T02:46:23.000Z"
+    },
+    {
+      "id": "84763164",
+      "priceCRC": 20000,
+      "coverUrl": "",
+      "totalSize": "21.0gb",
+      "games": [
+        {
+          "name": "Hogwarts Legacy",
+          "size": "17.1 gb"
+        },
+        {
+          "name": "GRIS",
+          "size": "3.9 gb"
+        },
+        {
+          "name": "Little Misfortune",
+          "size": ""
+        }
+      ],
+      "priceEUR": 20,
+      "date": "2026-07-14T02:46:20.000Z"
+    },
+    {
+      "id": "80760514",
+      "priceCRC": 28000,
+      "coverUrl": "",
+      "totalSize": "124.1gb",
+      "games": [
+        {
+          "name": "Super Mario Odyssey™",
+          "size": "7.0 gb"
+        },
+        {
+          "name": "RESIDENT EVIL 6",
+          "size": "17.6 gb"
+        },
+        {
+          "name": "Resident Evil 5",
+          "size": "18.7 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe",
+          "size": "9.3 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons + dlc",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "LEGO® Harry Potter™ Collection",
+          "size": "12.3 gb"
+        },
+        {
+          "name": "Cooking Tycoons 2 - 3 in 1 Bundle",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Puzzle Book Summer 2020",
+          "size": "0.5 gb"
+        },
+        {
+          "name": "BioShock: The Collection",
+          "size": "31.1 gb"
+        },
+        {
+          "name": "Nook Inc. silk rug",
+          "size": ""
+        },
+        {
+          "name": "Animal Crossing™: New Horizons",
+          "size": "10.2 gb"
+        },
+        {
+          "name": "Overcooked! 2",
+          "size": "5.8 gb"
+        }
+      ],
+      "priceEUR": 28,
+      "date": "2026-07-14T02:46:16.000Z"
+    },
+    {
+      "id": "76091717",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "8.1gb",
+      "games": [
+        {
+          "name": "Luigi’s Mansion 3",
+          "size": "7.4 gb"
+        },
+        {
+          "name": "Just Dance 2020",
+          "size": "0.7 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T02:46:13.000Z"
+    },
+    {
+      "id": "65500183",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "42.3gb",
+      "games": [
+        {
+          "name": "Moving Out",
+          "size": "0.9 gb"
+        },
+        {
+          "name": "Sid Meier’s Civilization VI",
+          "size": "17.0 gb"
+        },
+        {
+          "name": "Clubhouse Games: 51 Worldwide Classics",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Yet Another Zombie Defense HD",
+          "size": "0.3 gb"
+        },
+        {
+          "name": "Sid Meier's Civilization VI",
+          "size": "17.0 gb"
+        },
+        {
+          "name": "DRAGON BALL XENOVERSE 2 FOR NINTENDO SWITCH",
+          "size": "6.4 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-14T02:46:10.000Z"
+    },
+    {
+      "id": "77869489",
+      "priceCRC": 25000,
+      "coverUrl": "",
+      "totalSize": "148.7gb",
+      "games": [
+        {
+          "name": "Super Smash Bros. Ultimate",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe + dlc",
+          "size": "11.3 gb"
+        },
+        {
+          "name": "LEGO Marvel Super Heroes",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "Saints Row: The Big Purple Package",
+          "size": "7.8 gb"
+        },
+        {
+          "name": "Mortal Kombat 11",
+          "size": "42.9 gb"
+        },
+        {
+          "name": "PERSISTED_QUERY_NOT_FOUND",
+          "size": ""
+        },
+        {
+          "name": "Saints Row IV",
+          "size": "7.8 gb"
+        },
+        {
+          "name": "Saints Row: The Third - The Full Package",
+          "size": "7.8 gb"
+        },
+        {
+          "name": "Mortal Kombat 11",
+          "size": "42.9 gb"
+        }
+      ],
+      "priceEUR": 25,
+      "date": "2026-07-14T02:46:07.000Z"
+    },
+    {
+      "id": "99845583",
+      "priceCRC": 28000,
+      "coverUrl": "",
+      "totalSize": "56.8gb",
+      "games": [
+        {
+          "name": "Luigi’s Mansion™ 3",
+          "size": "7.4 gb"
+        },
+        {
+          "name": "Persona 5 Royal",
+          "size": "14.2 gb"
+        },
+        {
+          "name": "Mario Kart™ 8 Deluxe",
+          "size": "11.9 gb"
+        },
+        {
+          "name": "Disney Dreamlight Valley: A Rift in Time",
+          "size": "6.3 gb"
+        },
+        {
+          "name": "Sid Meier’s Civilization VI",
+          "size": "17.0 gb"
+        }
+      ],
+      "priceEUR": 28,
+      "date": "2026-07-14T02:46:04.000Z"
+    },
+    {
+      "id": "71488283",
+      "priceCRC": 30000,
+      "coverUrl": "",
+      "totalSize": "31.8gb",
+      "games": [
+        {
+          "name": "Captain Toad: Treasure Tracker + dlc",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Super Mario 3D World + Bowser's Fury",
+          "size": "2.9 gb"
+        },
+        {
+          "name": "Super Mario 3D All-Stars",
+          "size": "4.8 gb"
+        },
+        {
+          "name": "Luigi's Mansion 3",
+          "size": "7.4 gb"
+        },
+        {
+          "name": "Super Mario Odyssey™",
+          "size": "7.0 gb"
+        },
+        {
+          "name": "Paper Mario™: The Origami King",
+          "size": "6.5 gb"
+        },
+        {
+          "name": "New Super Mario Bros.™ U Deluxe",
+          "size": "0.4 gb"
+        }
+      ],
+      "priceEUR": 30,
+      "date": "2026-07-14T02:46:00.000Z"
+    },
+    {
+      "id": "54453558",
+      "priceCRC": 23000,
+      "coverUrl": "",
+      "totalSize": "4.0gb",
+      "games": [
+        {
+          "name": "Super Mario Party Jamboree",
+          "size": "4.0 gb"
+        },
+        {
+          "name": "Tales of the Shire: A The Lord of The Rings Game",
+          "size": ""
+        }
+      ],
+      "priceEUR": 23,
+      "date": "2026-07-14T02:45:57.000Z"
+    },
+    {
+      "id": "480434",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "43.5gb",
+      "games": [
+        {
+          "name": "Mortal Kombat 11",
+          "size": "42.9 gb"
+        },
+        {
+          "name": "Five Nights at Freddy's 4",
+          "size": "0.6 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T02:45:54.000Z"
+    },
+    {
+      "id": "10572443",
+      "priceCRC": 33000,
+      "coverUrl": "",
+      "totalSize": "52.9gb",
+      "games": [
+        {
+          "name": "Pokémon Legends: Z-A + dlc",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Pokémon Violet",
+          "size": "10.1 gb"
+        },
+        {
+          "name": "Nintendo Switch Sports",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate: Fighters Pass",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate: Fighters Pass Vol. 2",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe – Booster Course Pass",
+          "size": "1.7 gb"
+        },
+        {
+          "name": "Stardew Valley",
+          "size": "0.7 gb"
+        }
+      ],
+      "priceEUR": 33,
+      "date": "2026-07-14T02:45:50.000Z"
+    },
+    {
+      "id": "2484723",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "17.7gb",
+      "games": [
+        {
+          "name": "New Super Mario Bros.™ U Deluxe",
+          "size": "0.4 gb"
+        },
+        {
+          "name": "Super Smash Bros.™ Ultimate",
+          "size": "17.3 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T02:45:47.000Z"
+    },
+    {
+      "id": "76425885",
+      "priceCRC": 25000,
+      "coverUrl": "",
+      "totalSize": "26.7gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Breath of the Wild",
+          "size": "14.4 gb"
+        },
+        {
+          "name": "Kirby and the Forgotten Land",
+          "size": "5.8 gb"
+        },
+        {
+          "name": "Minigolf Adventure",
+          "size": "1.2 gb"
+        },
+        {
+          "name": "South Park: The Stick of Truth",
+          "size": "2.4 gb"
+        },
+        {
+          "name": "Mario + Rabbids Kingdom Battle Donkey Kong Adventure",
+          "size": "2.9 gb"
+        }
+      ],
+      "priceEUR": 25,
+      "date": "2026-07-14T02:45:44.000Z"
+    },
+    {
+      "id": "42445384",
+      "priceCRC": 30000,
+      "coverUrl": "",
+      "totalSize": "101.5gb",
+      "games": [
+        {
+          "name": "Hogwarts Legacy: Digital Deluxe Edition",
+          "size": "17.1 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe",
+          "size": "9.3 gb"
+        },
+        {
+          "name": "Luigi's Mansion 3",
+          "size": "7.4 gb"
+        },
+        {
+          "name": "Mario Tennis Aces",
+          "size": "2.4 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Breath of the Wild Expansion Pass",
+          "size": "1.4 gb"
+        },
+        {
+          "name": "Tony Hawk's Pro Skater 1 + 2 - Digital Deluxe Edition",
+          "size": "12.0 gb"
+        },
+        {
+          "name": "RISK Global Domination",
+          "size": "1.9 gb"
+        },
+        {
+          "name": "Hogwarts Legacy + dlc",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Tony Hawk’s Pro Skater 1 + 2 + dlc",
+          "size": "4.0 gb"
+        },
+        {
+          "name": "Risk",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Mortal Kombat 11",
+          "size": "42.9 gb"
+        },
+        {
+          "name": "Arcade Archives VS. SUPER MARIO BROS.",
+          "size": "0.1 gb"
+        }
+      ],
+      "priceEUR": 30,
+      "date": "2026-07-14T02:45:41.000Z"
+    },
+    {
+      "id": "74692190",
+      "priceCRC": 20000,
+      "coverUrl": "",
+      "totalSize": "6.0gb",
+      "games": [
+        {
+          "name": "Super Mario Bros. Wonder",
+          "size": "6.0 gb"
+        }
+      ],
+      "priceEUR": 20,
+      "date": "2026-07-14T02:45:38.000Z"
+    },
+    {
+      "id": "32146920",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "22.0gb",
+      "games": [
+        {
+          "name": "Super Smash Bros. Ultimate + dlc",
+          "size": "17.9 gb"
+        },
+        {
+          "name": "Pokémon: Let's Go Pikachu!",
+          "size": "4.1 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-14T02:45:34.000Z"
+    },
+    {
+      "id": "74203815",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "6.0gb",
+      "games": [
+        {
+          "name": "Undertale",
+          "size": "0.2 gb"
+        },
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Stardew Valley",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "FINAL FANTASY VII",
+          "size": "3.9 gb"
+        },
+        {
+          "name": "PAN-PAN A tiny big adventure",
+          "size": "0.1 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T02:45:31.000Z"
+    },
+    {
+      "id": "74204294",
+      "priceCRC": 13000,
+      "coverUrl": "",
+      "totalSize": "42.9gb",
+      "games": [
+        {
+          "name": "Mortal Kombat 11",
+          "size": "42.9 gb"
+        }
+      ],
+      "priceEUR": 13,
+      "date": "2026-07-14T02:45:28.000Z"
+    },
+    {
+      "id": "74204801",
+      "priceCRC": 13000,
+      "coverUrl": "",
+      "totalSize": "42.9gb",
+      "games": [
+        {
+          "name": "Mortal Kombat 11 Ultimate",
+          "size": "42.9 gb"
+        }
+      ],
+      "priceEUR": 13,
+      "date": "2026-07-14T02:45:24.000Z"
+    },
+    {
+      "id": "74204409",
+      "priceCRC": 13000,
+      "coverUrl": "",
+      "totalSize": "19.8gb",
+      "games": [
+        {
+          "name": "Monster Hunter Rise + Sunbreak",
+          "size": "19.8 gb"
+        }
+      ],
+      "priceEUR": 13,
+      "date": "2026-07-14T02:45:21.000Z"
+    },
+    {
+      "id": "74204917",
+      "priceCRC": 8000,
+      "coverUrl": "",
+      "totalSize": "25.0gb",
+      "games": [
+        {
+          "name": "MLB The Show 22",
+          "size": "25.0 gb"
+        }
+      ],
+      "priceEUR": 8,
+      "date": "2026-07-14T02:45:18.000Z"
+    },
+    {
+      "id": "74205525",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "0.1gb",
+      "games": [
+        {
+          "name": "Attack on Titan 2",
+          "size": "0.1 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T02:45:15.000Z"
+    },
+    {
+      "id": "74205206",
+      "priceCRC": 5000,
+      "coverUrl": "",
+      "totalSize": "12.1gb",
+      "games": [
+        {
+          "name": "Star Wars - Knights of the Old Republic",
+          "size": "12.1 gb"
+        }
+      ],
+      "priceEUR": 5,
+      "date": "2026-07-14T02:45:11.000Z"
+    },
+    {
+      "id": "74206713",
+      "priceCRC": 5000,
+      "coverUrl": "",
+      "totalSize": "1.4gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Breath of the Wild | only dlc",
+          "size": "1.4 gb"
+        }
+      ],
+      "priceEUR": 5,
+      "date": "2026-07-14T02:45:08.000Z"
+    },
+    {
+      "id": "74206321",
+      "priceCRC": 25000,
+      "coverUrl": "",
+      "totalSize": "47.4gb",
+      "games": [
+        {
+          "name": "Pokémon Shield",
+          "size": "10.3 gb"
+        },
+        {
+          "name": "MONSTER HUNTER RISE",
+          "size": "19.8 gb"
+        },
+        {
+          "name": "Super Smash Bros. Ultimate: Fighters Pass Vol. 2",
+          "size": "17.3 gb"
+        }
+      ],
+      "priceEUR": 25,
+      "date": "2026-07-14T02:45:05.000Z"
+    },
+    {
+      "id": "74206828",
+      "priceCRC": 3000,
+      "coverUrl": "",
+      "totalSize": "1.4gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Breath of the Wild | only dlc",
+          "size": "1.4 gb"
+        }
+      ],
+      "priceEUR": 3,
+      "date": "2026-07-14T02:45:02.000Z"
+    },
+    {
+      "id": "74207276",
+      "priceCRC": 15000,
+      "coverUrl": "",
+      "totalSize": "17.9gb",
+      "games": [
+        {
+          "name": "Super Smash Bros. Ultimate + dlc",
+          "size": "17.9 gb"
+        }
+      ],
+      "priceEUR": 15,
+      "date": "2026-07-14T02:44:59.000Z"
+    },
+    {
+      "id": "74207624",
+      "priceCRC": 13000,
+      "coverUrl": "",
+      "totalSize": "26.9gb",
+      "games": [
+        {
+          "name": "Mario + Rabbids Kingdom Battle Gold Edition",
+          "size": "2.9 gb"
+        },
+        {
+          "name": "MARIO + RABBIDS SPARKS OF HOPE",
+          "size": "6.0 gb"
+        },
+        {
+          "name": "My Cozy Room + dlc",
+          "size": "7.9 gb"
+        },
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Mario + Rabbids Kingdom Battle + dlc",
+          "size": "9.0 gb"
+        }
+      ],
+      "priceEUR": 13,
+      "date": "2026-07-14T02:44:55.000Z"
+    },
+    {
+      "id": "74208971",
+      "priceCRC": 23000,
+      "coverUrl": "",
+      "totalSize": "44.3gb",
+      "games": [
+        {
+          "name": "Super Smash Bros. Ultimate",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe",
+          "size": "9.3 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Breath of the Wild + dlc",
+          "size": "17.7 gb"
+        }
+      ],
+      "priceEUR": 23,
+      "date": "2026-07-14T02:44:52.000Z"
+    },
+    {
+      "id": "74209146",
+      "priceCRC": 8000,
+      "coverUrl": "",
+      "totalSize": "1.7gb",
+      "games": [
+        {
+          "name": "Mario Kart 8 Deluxe | only dlc",
+          "size": "1.7 gb"
+        }
+      ],
+      "priceEUR": 8,
+      "date": "2026-07-14T02:44:49.000Z"
+    },
+    {
+      "id": "74209885",
+      "priceCRC": 3000,
+      "coverUrl": "",
+      "totalSize": "1.4gb",
+      "games": [
+        {
+          "name": "The Legend of Zelda: Breath of the Wild Expansion Pass",
+          "size": "1.4 gb"
+        }
+      ],
+      "priceEUR": 3,
+      "date": "2026-07-14T02:44:45.000Z"
+    },
+    {
+      "id": "74209101",
+      "priceCRC": 3000,
+      "coverUrl": "",
+      "totalSize": "0.1gb",
+      "games": [
+        {
+          "name": "Arcade Archives VS. SUPER MARIO BROS.",
+          "size": "0.1 gb"
+        }
+      ],
+      "priceEUR": 3,
+      "date": "2026-07-14T02:44:42.000Z"
+    },
+    {
+      "id": "74210608",
+      "priceCRC": 5000,
+      "coverUrl": "",
+      "totalSize": "4.6gb",
+      "games": [
+        {
+          "name": "Hunting Simulator 2: Elite Edition",
+          "size": "0.6 gb"
+        },
+        {
+          "name": "Cars 3: Driven to Win",
+          "size": ""
+        },
+        {
+          "name": "Hunting Simulator 2 + dlc",
+          "size": "4.0 gb"
+        }
+      ],
+      "priceEUR": 5,
+      "date": "2026-07-14T02:44:39.000Z"
+    },
+    {
+      "id": "74210216",
+      "priceCRC": 8000,
+      "coverUrl": "",
+      "totalSize": "10.2gb",
+      "games": [
+        {
+          "name": "Animal Crossing: New Horizons",
+          "size": "10.2 gb"
+        }
+      ],
+      "priceEUR": 8,
+      "date": "2026-07-14T02:44:35.000Z"
+    },
+    {
+      "id": "74211825",
+      "priceCRC": 8000,
+      "coverUrl": "",
+      "totalSize": "10.2gb",
+      "games": [
+        {
+          "name": "Animal Crossing: New Horizons",
+          "size": "10.2 gb"
+        }
+      ],
+      "priceEUR": 8,
+      "date": "2026-07-14T02:44:32.000Z"
+    },
+    {
+      "id": "74211433",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "27.4gb",
+      "games": [
+        {
+          "name": "Animal Crossing: New Horizons",
+          "size": "10.2 gb"
+        },
+        {
+          "name": "Little Nightmares Complete Edition",
+          "size": "3.1 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons + dlc",
+          "size": "10.9 gb"
+        },
+        {
+          "name": "Little Nightmares",
+          "size": "3.1 gb"
+        },
+        {
+          "name": "SEGA AGES SONIC THE HEDGEHOG 2",
+          "size": "0.1 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-14T02:44:29.000Z"
+    },
+    {
+      "id": "74211940",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "3.1gb",
+      "games": [
+        {
+          "name": "Kirby's Dream Buffet",
+          "size": "1.2 gb"
+        },
+        {
+          "name": "Family Chess + dlc",
+          "size": "1.5 gb"
+        },
+        {
+          "name": "Family Chess GOTY Edition",
+          "size": "0.4 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-14T02:44:26.000Z"
+    },
+    {
+      "id": "81788987",
+      "priceCRC": 25000,
+      "coverUrl": "",
+      "totalSize": "61.4gb",
+      "games": [
+        {
+          "name": "Pokémon Violet",
+          "size": "10.1 gb"
+        },
+        {
+          "name": "Pokémon Legends: Arceus",
+          "size": "13.0 gb"
+        },
+        {
+          "name": "Pokémon Shining Pearl",
+          "size": "10.0 gb"
+        },
+        {
+          "name": "The Legend of Zelda: Skyward Sword HD",
+          "size": "7.1 gb"
+        },
+        {
+          "name": "Monster Hunter Stories 2: Wings of Ruin",
+          "size": "14.3 gb"
+        },
+        {
+          "name": "Pokémon Sword Expansion Pass",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "Pokémon: Let’s Go Pikachu!",
+          "size": "4.1 gb"
+        }
+      ],
+      "priceEUR": 25,
+      "date": "2026-07-12T22:10:47.000Z"
+    },
+    {
+      "id": "27808801",
+      "priceCRC": 33000,
+      "coverUrl": "",
+      "totalSize": "62.1gb",
+      "games": [
+        {
+          "name": "Mario Kart World",
+          "size": "24.0 gb"
+        },
+        {
+          "name": "Mario Kart 8 Deluxe + dlc",
+          "size": "11.3 gb"
+        },
+        {
+          "name": "Just Dance 2024 Edition",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Among Us",
+          "size": "0.4 gb"
+        },
+        {
+          "name": "UNO",
+          "size": "4.8 gb"
+        },
+        {
+          "name": "Just Dance 2023 Deluxe Edition",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Animal Crossing: New Horizons - Happy Home Paradise",
+          "size": "10.2 gb"
+        },
+        {
+          "name": "Nintendo Switch Sports",
+          "size": "3.0 gb"
+        },
+        {
+          "name": "Mario Golf: Super Rush",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Minecraft Dungeons",
+          "size": "5.2 gb"
+        },
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        }
+      ],
+      "priceEUR": 33,
+      "date": "2026-07-12T22:10:43.000Z"
+    },
+    {
+      "id": "10958506",
+      "priceCRC": 20000,
+      "coverUrl": "",
+      "totalSize": "40.5gb",
+      "games": [
+        {
+          "name": "Super Smash Bros.™ Ultimate",
+          "size": "17.3 gb"
+        },
+        {
+          "name": "Animal Crossing™: New Horizons",
+          "size": "10.2 gb"
+        },
+        {
+          "name": "Pokémon™ Sword",
+          "size": "10.2 gb"
+        },
+        {
+          "name": "Pokémon Sword Expansion Pass",
+          "size": "2.8 gb"
+        }
+      ],
+      "priceEUR": 20,
+      "date": "2026-07-12T22:10:40.000Z"
+    },
+    {
+      "id": "65499834",
+      "priceCRC": 18000,
+      "coverUrl": "",
+      "totalSize": "11.2gb",
+      "games": [
+        {
+          "name": "Minecraft",
+          "size": "1.1 gb"
+        },
+        {
+          "name": "Octopath Traveler™",
+          "size": "0.7 gb"
+        },
+        {
+          "name": "Pokémon Shield Expansion Pass",
+          "size": "2.8 gb"
+        },
+        {
+          "name": "MONOPOLY® for Nintendo Switch™",
+          "size": "0.8 gb"
+        },
+        {
+          "name": "Overcooked! Special Edition",
+          "size": "5.8 gb"
+        }
+      ],
+      "priceEUR": 18,
+      "date": "2026-07-12T22:10:37.000Z"
     },
     {
       "id": "74538144",
@@ -1712,20 +4272,6 @@
       ],
       "priceEUR": 3,
       "date": "2026-07-12T22:08:40.000Z"
-    },
-    {
-      "id": "88831328",
-      "priceCRC": 3000,
-      "coverUrl": "",
-      "totalSize": "2.8gb",
-      "games": [
-        {
-          "name": "Pokémon Shield | only dlc",
-          "size": "2.8 gb"
-        }
-      ],
-      "priceEUR": 3,
-      "date": "2026-07-12T22:08:36.000Z"
     },
     {
       "id": "55HK50",
@@ -95929,28 +98475,6 @@
       ],
       "priceEUR": 12,
       "date": "2026-07-09T17:29:38.000Z"
-    },
-    {
-      "id": "12BG54",
-      "priceCRC": 5000,
-      "coverUrl": "",
-      "totalSize": "14.8gb",
-      "games": [
-        {
-          "name": "Breakfast Bar Tycoon DLC",
-          "size": "2.5 gb"
-        },
-        {
-          "name": "Mario Kart 8 Deluxe DLC",
-          "size": "11.3 gb"
-        },
-        {
-          "name": "Piano: Learn and Play DLC",
-          "size": "1.0 gb"
-        }
-      ],
-      "priceEUR": 5,
-      "date": "2026-07-09T17:29:28.000Z"
     },
     {
       "id": "77KP63",
