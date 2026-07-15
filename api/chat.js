@@ -147,15 +147,67 @@ let SYSTEM_PROMPT_CACHE = null;
 const systemPrompt = () => (SYSTEM_PROMPT_CACHE ||= buildSystemPrompt());
 
 // ===== Llamada a Gemini =====
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+// Modelo que ya respondió OK (se cachea en warm start para ir directo).
+let WORKING_MODEL = null;
+// Lista de modelos descubiertos vía ListModels para esta clave (memoizada).
+let DISCOVERY_CACHE = null;
+
+// Una sola llamada a generateContent. Devuelve { ok, status, text, data }.
+async function generateOnce(apiKey, model, body) {
+  const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body,
+  });
+  const data = await res.json().catch(() => ({}));
+  const text = res.ok
+    ? (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim()
+    : "";
+  return { ok: res.ok, status: res.status, text, data };
+}
+
+// Lista los modelos que la clave tiene disponibles.
+async function listModels(apiKey) {
+  const res = await fetch(`${GEMINI_BASE}/models?pageSize=200`, {
+    headers: { "x-goog-api-key": apiKey },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `ListModels ${res.status}`);
+  return Array.isArray(data.models) ? data.models : [];
+}
+
+// Ordena los modelos disponibles priorizando flash (rápidos y baratos) que
+// soporten generateContent. Devuelve nombres sin el prefijo "models/".
+function rankModels(models) {
+  const usable = (models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map((m) => (m.name || "").replace(/^models\//, ""))
+    .filter((n) => /^gemini/i.test(n) && !/(embedding|aqa|vision|image|tts|native-audio)/i.test(n));
+  const score = (n) => {
+    let s = 0;
+    if (/flash/i.test(n)) s += 100;
+    if (/2\.5/.test(n)) s += 40; else if (/2\.0/.test(n)) s += 30; else if (/1\.5/.test(n)) s += 10;
+    if (/lite/i.test(n)) s += 5;
+    if (/latest/i.test(n)) s += 3;
+    if (/preview|exp/i.test(n)) s -= 25; // preferir estables sobre previews
+    return s;
+  };
+  return [...new Set(usable)].sort((a, b) => score(b) - score(a));
+}
+
+async function discoverModels(apiKey) {
+  if (DISCOVERY_CACHE) return DISCOVERY_CACHE;
+  DISCOVERY_CACHE = rankModels(await listModels(apiKey));
+  return DISCOVERY_CACHE;
+}
+
 async function callGemini(apiKey, contents) {
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: systemPrompt() }] },
     contents,
-    generationConfig: {
-      temperature: 0.7,
-      topP: 0.95,
-      maxOutputTokens: 700,
-    },
+    generationConfig: { temperature: 0.7, topP: 0.95, maxOutputTokens: 700 },
     safetySettings: [
       { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
       { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
@@ -164,33 +216,42 @@ async function callGemini(apiKey, contents) {
     ],
   });
 
+  // Orden: modelo que ya funcionó → candidatos fijos.
+  const order = [];
+  if (WORKING_MODEL) order.push(WORKING_MODEL);
+  for (const m of MODEL_CANDIDATES) if (!order.includes(m)) order.push(m);
+
   let lastErr = null;
-  for (const model of MODEL_CANDIDATES) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body,
-      });
-      if (res.status === 404) { lastErr = new Error(`modelo ${model} no encontrado`); continue; }
-      const data = await res.json();
-      if (!res.ok) {
-        lastErr = new Error(data?.error?.message || `Gemini ${res.status}`);
-        // 400/403 no se arreglan cambiando de modelo: cortar.
-        if (res.status === 400 || res.status === 403) break;
-        continue;
+  let any404 = false;
+
+  const tryList = async (models) => {
+    for (const model of models) {
+      try {
+        const r = await generateOnce(apiKey, model, body);
+        if (r.ok && r.text) { WORKING_MODEL = model; return r.text; }
+        if (r.ok) { lastErr = new Error("respuesta vacía de Gemini"); continue; }
+        if (r.status === 404) { any404 = true; lastErr = new Error(`modelo ${model} no disponible`); continue; }
+        lastErr = new Error(r.data?.error?.message || `Gemini ${r.status}`);
+        if (r.status === 400 || r.status === 403) throw lastErr; // clave/config: cortar
+      } catch (e) {
+        if (/API key|PERMISSION|SERVICE_DISABLED|INVALID_ARGUMENT/i.test(e.message)) throw e;
+        lastErr = e;
       }
-      const text = (data?.candidates?.[0]?.content?.parts || [])
-        .map((p) => p.text || "")
-        .join("")
-        .trim();
-      if (text) return text;
-      lastErr = new Error("respuesta vacía de Gemini");
-    } catch (e) {
-      lastErr = e;
     }
+    return null;
+  };
+
+  // 1) lista conocida
+  let text = await tryList(order);
+  if (text) return text;
+
+  // 2) si fallaron por 404, descubrir los modelos reales de la clave y reintentar
+  if (any404) {
+    const discovered = (await discoverModels(apiKey)).filter((m) => !order.includes(m));
+    text = await tryList(discovered.slice(0, 4));
+    if (text) return text;
   }
+
   throw lastErr || new Error("Gemini no respondió");
 }
 
@@ -235,24 +296,43 @@ export default async function handler(req, res) {
         mensaje: "No hay GEMINI_API_KEY en el entorno. Agregala en Vercel → Settings → Environment Variables y hacé Redeploy.",
       });
     }
+    const ping = JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 5 } });
     let last = null;
+    let any404 = false;
+
+    // 1) Probar los candidatos fijos.
     for (const model of MODEL_CANDIDATES) {
       try {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 5 } }),
-        });
-        const data = await r.json().catch(() => ({}));
-        if (r.ok) {
-          return res.status(200).json({ ok: true, modelo: model, mensaje: "✅ La clave funciona. El asistente debería responder normalmente." });
-        }
-        last = { http: r.status, data };
-        if (r.status === 400 || r.status === 403) break; // errores de clave/config: iguales en todos los modelos
+        const r = await generateOnce(apiKey, model, ping);
+        if (r.ok) return res.status(200).json({ ok: true, modelo: model, mensaje: "✅ La clave funciona. El asistente debería responder normalmente." });
+        last = { http: r.status, data: r.data };
+        if (r.status === 404) { any404 = true; continue; }
+        if (r.status === 400 || r.status === 403) break; // errores de clave/config
       } catch (e) {
         last = { http: 0, data: { error: { message: e.message } } };
       }
     }
+
+    // 2) Si todos los candidatos dieron 404, la clave es válida pero expone
+    //    otros nombres de modelo: los descubrimos y probamos el mejor.
+    if (any404) {
+      try {
+        const disc = await discoverModels(apiKey);
+        for (const model of disc.slice(0, 3)) {
+          const r = await generateOnce(apiKey, model, ping);
+          if (r.ok) return res.status(200).json({ ok: true, modelo: model, mensaje: `✅ La clave funciona (modelo ${model}). El asistente debería responder normalmente.` });
+          last = { http: r.status, data: r.data };
+        }
+        return res.status(200).json({
+          ok: false, http: last?.http ?? 404, reason: "NO_USABLE_MODEL",
+          mensaje: "La clave es válida, pero ningún modelo respondió. Abajo van los modelos disponibles para tu clave.",
+          modelos_disponibles: disc.slice(0, 15),
+        });
+      } catch (e) {
+        return res.status(200).json({ ok: false, mensaje: "La clave es válida pero no pude listar los modelos: " + e.message });
+      }
+    }
+
     return res.status(200).json({
       ok: false,
       http: last?.http ?? 0,
