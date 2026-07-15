@@ -21,8 +21,9 @@
     "api/telegram-webhook.js": {
       "maxDuration": 15
     },
-    "api/telegram-setup.js": {
-      "maxDuration": 10
+    "api/chat.js": {
+      "maxDuration": 30,
+      "includeFiles": "featured-games.json"
     }
   },
   "rewrites": [
@@ -62,6 +63,12 @@
     },
     {
       "source": "/pwa.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/chat-widget.js",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
