@@ -4631,9 +4631,20 @@ function renderLogin() {
         </form>
         <p class="auth-note">¿No tenés cuenta? Escribinos por WhatsApp y te creamos una al instante.</p>
         <a class="cta-secondary" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito que me creen una cuenta para ver mis compras.")}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:0.6rem;">Pedir cuenta por WhatsApp</a>
+
+        <div class="auth-download" id="authDownload">
+          <span class="auth-download-sep">o descargá la app</span>
+          <button type="button" id="downloadAppBtn" class="auth-download-btn">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Descargar aplicación
+          </button>
+          <span class="auth-download-hint">Instalala en tu celular para entrar más rápido</span>
+        </div>
       </div>
     </section>
   `;
+
+  setupDownloadAppButton();
 
   const form = document.getElementById("loginForm");
   form.addEventListener("submit", async (e) => {
@@ -4651,6 +4662,44 @@ function renderLogin() {
       return;
     }
     navigate(currentUser.is_admin ? "/admin" : "/mi-cuenta");
+  });
+}
+
+// Botón "Descargar aplicación" del login: dispara la instalación de la PWA
+// según el dispositivo, apoyándose en la API expuesta por pwa.js (window.rmdPwa).
+function setupDownloadAppButton() {
+  const box = document.getElementById("authDownload");
+  const btn = document.getElementById("downloadAppBtn");
+  if (!box || !btn) return;
+
+  // pwa.js (deferred) puede ejecutarse DESPUÉS que esta vista si se entra directo
+  // a /login. Por eso leemos window.rmdPwa de forma diferida y en cada clic, nunca
+  // al montar el botón.
+  setTimeout(() => {
+    const pwa = window.rmdPwa;
+    if (pwa && pwa.isStandalone && pwa.isStandalone()) box.hidden = true;
+  }, 0);
+
+  btn.addEventListener("click", () => {
+    const pwa = window.rmdPwa;
+    if (!pwa || typeof pwa.install !== "function") {
+      showToast("Abrí el menú de tu navegador y elegí “Instalar aplicación”.", "info");
+      return;
+    }
+    switch (pwa.install()) {
+      case "prompted":
+        // El navegador abre su propio diálogo de instalación.
+        break;
+      case "installed":
+        box.hidden = true;
+        showToast("La app ya está instalada ✓", "success");
+        break;
+      case "ios":
+        showToast("En iPhone: tocá Compartir (↑) y luego “Agregar a inicio”.", "info");
+        break;
+      default:
+        showToast("Navegá unos segundos y probá de nuevo, o usá el menú del navegador → “Instalar aplicación”.", "info");
+    }
   });
 }
 
