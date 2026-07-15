@@ -619,12 +619,27 @@ async function load() {
     if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
+    // Deduplicación de duplicados EXACTOS: el catálogo a veces trae el mismo
+    // juego dos veces (mismo título, MISMA plataforma, MISMO precio y MISMO
+    // tipo) con SKUs de PSN distintos → se veían dos tarjetas idénticas.
+    // Colapsamos a una sola. Se conserva TODO lo que sea legítimamente
+    // distinto: otra plataforma (PS4 vs PS4/PS5 optimizada), otra edición
+    // (precio distinto), y los productos curados/ofertas manuales.
+    const dedupSeen = new Set();
+    const dedupedGames = [];
+    for (const g of games) {
+      if (g._manualPrices || g._featured) { dedupedGames.push(g); continue; }
+      const key = [matchKey(g.title || ""), g.platform || "", g.priceUSD ?? "", g.type || ""].join("|");
+      if (dedupSeen.has(key)) continue;
+      dedupSeen.add(key);
+      dedupedGames.push(g);
+    }
     // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
     // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
     // búsqueda, relacionados), no solo del filtro AAA.
     const filteredGames = (hiddenGames.ids.size || hiddenGames.titles.size)
-      ? games.filter(g => !isHiddenGame(g))
-      : games;
+      ? dedupedGames.filter(g => !isHiddenGame(g))
+      : dedupedGames;
     allGames = filteredGames.sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return (b.discount || 0) - (a.discount || 0);
