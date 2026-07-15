@@ -153,4 +153,32 @@
       document.body.appendChild(hint);
     }
   });
+
+  /* ---------- 4. API pública para disparar la instalación desde la UI ----------
+   * Usada por el botón "Descargar aplicación" del login (app.js).
+   * install() devuelve un estado para que la UI muestre el mensaje adecuado:
+   *   'installed'   → ya está instalada (modo standalone)
+   *   'prompted'    → se abrió el diálogo nativo (Android/escritorio)
+   *   'ios'         → iPhone/iPad: hay que usar Compartir → Agregar a inicio
+   *   'unavailable' → aún no instalable (navegá unos segundos y reintentá / menú del navegador)
+   */
+  window.rmdPwa = {
+    isStandalone: isStandalone,
+    isIos: isIosSafari,
+    canInstall: function () {
+      return !!deferredPrompt;
+    },
+    install: function () {
+      if (isStandalone()) return 'installed';
+      if (deferredPrompt) {
+        var p = deferredPrompt;
+        deferredPrompt = null;
+        removeInstallButton();
+        p.prompt();
+        return 'prompted';
+      }
+      if (isIosSafari()) return 'ios';
+      return 'unavailable';
+    },
+  };
 })();
