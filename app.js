@@ -4665,11 +4665,12 @@ function renderLogin() {
   });
 }
 
-// Botón "Descargar aplicación" del login: dispara la instalación de la PWA
-// según el dispositivo, apoyándose en la API expuesta por pwa.js (window.rmdPwa).
-function setupDownloadAppButton() {
-  const box = document.getElementById("authDownload");
-  const btn = document.getElementById("downloadAppBtn");
+// Botón "Descargar aplicación": dispara la instalación de la PWA según el
+// dispositivo, apoyándose en la API expuesta por pwa.js (window.rmdPwa).
+// Reutilizable: se usa en el login y en "Mi cuenta" (IDs distintos).
+function setupDownloadAppButton(boxId = "authDownload", btnId = "downloadAppBtn") {
+  const box = document.getElementById(boxId);
+  const btn = document.getElementById(btnId);
   if (!box || !btn) return;
 
   // pwa.js (deferred) puede ejecutarse DESPUÉS que esta vista si se entra directo
@@ -4711,7 +4712,15 @@ async function renderMyAccount() {
       <div class="account-header">
         <h1>Mi cuenta</h1>
         <p>${escapeHtml(currentUser.full_name || currentUser.email)}</p>
-        <button class="cta-secondary small" id="changePwdBtn">Cambiar contraseña</button>
+        <div class="account-actions">
+          <button class="cta-secondary small" id="changePwdBtn">Cambiar contraseña</button>
+          <div id="acctDownload" class="account-download">
+            <button type="button" id="acctDownloadBtn" class="account-download-btn">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Descargar aplicación
+            </button>
+          </div>
+        </div>
       </div>
       <div id="pwdBox" hidden class="pwd-change">
         <h3>Cambiar contraseña</h3>
@@ -4726,6 +4735,8 @@ async function renderMyAccount() {
       <div id="purchasesList">Cargando compras...</div>
     </section>
   `;
+  setupDownloadAppButton("acctDownload", "acctDownloadBtn");
+
   document.getElementById("changePwdBtn").addEventListener("click", () => {
     const box = document.getElementById("pwdBox");
     box.hidden = !box.hidden;
