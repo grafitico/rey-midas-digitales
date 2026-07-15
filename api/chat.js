@@ -1,10 +1,12 @@
 // Asistente virtual de Rey Midas Digitales.
 // POST /api/chat  — recibe { messages: [{role, content}] } y devuelve { reply, whatsapp? }.
 //
-// El "cerebro" es Google Gemini (capa gratuita). La clave vive SOLO en el
-// servidor (env var GEMINI_API_KEY en Vercel): el navegador nunca la ve.
+// El "cerebro" es un LLM. Soporta dos proveedores según qué clave esté puesta
+// en Vercel (la clave vive SOLO en el servidor; el navegador nunca la ve):
+//   - GROQ_API_KEY    → Groq (Llama, gratis y sin tarjeta). PREFERIDO.
+//   - GEMINI_API_KEY  → Google Gemini (requiere capa gratuita habilitada).
 // La CSP del sitio permite connect-src 'self', así que el widget solo habla
-// con este endpoint mismo-origen; la llamada a Google la hace este servidor.
+// con este endpoint mismo-origen; la llamada al LLM la hace este servidor.
 
 import { readJson } from "./_lib.js";
 import fs from "fs";
@@ -12,14 +14,29 @@ import path from "path";
 
 const WHATSAPP = "50661468733";
 
-// Modelos a intentar en orden (si el primero no existe/está deprecado, cae al
-// siguiente). Se puede forzar uno con la env var GEMINI_MODEL.
+// Proveedor activo: Groq si hay GROQ_API_KEY; si no, Gemini.
+function pickProvider() {
+  if (process.env.GROQ_API_KEY) return { name: "groq", key: process.env.GROQ_API_KEY };
+  if (process.env.GEMINI_API_KEY) return { name: "gemini", key: process.env.GEMINI_API_KEY };
+  return { name: null, key: null };
+}
+
+// Modelos Gemini a intentar (override con GEMINI_MODEL).
 const MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL,
   "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-2.5-flash-lite",
 ].filter(Boolean);
+
+// Modelos Groq a intentar (override con GROQ_MODEL).
+const GROQ_MODELS = [
+  process.env.GROQ_MODEL,
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+].filter(Boolean);
+const GROQ_BASE = "https://api.groq.com/openai/v1";
+let GROQ_WORKING = null;
 
 // ===== Precios (misma tabla e interpolación que app.js) =====
 const PRICING = {
@@ -258,6 +275,43 @@ async function callGemini(apiKey, contents) {
   throw lastErr || new Error("Gemini no respondió");
 }
 
+// ===== Groq (API compatible con OpenAI) =====
+async function groqOnce(apiKey, model, messages, maxTokens) {
+  const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages, temperature: 0.7, top_p: 0.95, max_tokens: maxTokens || 700 }),
+  });
+  const data = await res.json().catch(() => ({}));
+  const text = res.ok ? (data?.choices?.[0]?.message?.content || "").trim() : "";
+  return { ok: res.ok, status: res.status, text, data };
+}
+
+async function groqModelList(apiKey) {
+  const res = await fetch(`${GROQ_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `Groq models ${res.status}`);
+  return (data?.data || []).map((m) => m.id).filter(Boolean);
+}
+
+async function callGroq(apiKey, messages) {
+  const order = [];
+  if (GROQ_WORKING) order.push(GROQ_WORKING);
+  for (const m of GROQ_MODELS) if (!order.includes(m)) order.push(m);
+
+  let lastErr = null;
+  for (const model of order) {
+    const r = await groqOnce(apiKey, model, messages);
+    if (r.ok && r.text) { GROQ_WORKING = model; return r.text; }
+    if (r.ok) { lastErr = new Error("respuesta vacía de Groq"); continue; }
+    if (r.status === 404) { lastErr = new Error(`modelo ${model} no disponible`); continue; }
+    if (r.status === 429) { const e = new Error("RATE_LIMIT"); e.rate = true; throw e; }
+    lastErr = new Error(r.data?.error?.message || `Groq ${r.status}`);
+    if (r.status === 401 || r.status === 403) throw lastErr; // clave inválida: cortar
+  }
+  throw lastErr || new Error("Groq no respondió");
+}
+
 // Extrae la línea [[WA: ...]] y devuelve { reply, whatsapp }.
 function extractWhatsApp(text) {
   const m = text.match(/\[\[WA:\s*([\s\S]*?)\]\]/i);
@@ -288,17 +342,38 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   res.setHeader("Cache-Control", "no-store");
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const provider = pickProvider();
+  const apiKey = provider.key;
 
-  // Autodiagnóstico: GET /api/chat?selftest → prueba la clave contra Gemini y
+  // Autodiagnóstico: GET /api/chat?selftest → prueba la clave contra el LLM y
   // devuelve el resultado real. NUNCA expone la clave.
   if (req.method === "GET" && req.query && typeof req.query.selftest !== "undefined") {
     if (!apiKey) {
       return res.status(200).json({
         ok: false, problema: "falta_clave",
-        mensaje: "No hay GEMINI_API_KEY en el entorno. Agregala en Vercel → Settings → Environment Variables y hacé Redeploy.",
+        mensaje: "No hay clave configurada. Agregá GROQ_API_KEY (gratis, sin tarjeta) en Vercel → Settings → Environment Variables y hacé Redeploy.",
       });
     }
+
+    // ---- Groq ----
+    if (provider.name === "groq") {
+      let last = null;
+      try {
+        for (const model of GROQ_MODELS.slice(0, 2)) {
+          const r = await groqOnce(apiKey, model, [{ role: "user", content: "ping" }], 5);
+          if (r.ok) return res.status(200).json({ ok: true, proveedor: "groq", modelo: model, mensaje: "✅ La clave de Groq funciona. El asistente ya debería responder normalmente." });
+          last = { http: r.status, data: r.data };
+          if (r.status === 429) return res.status(200).json({ ok: false, proveedor: "groq", http: 429, reason: "RATE_LIMIT", mensaje: "Límite temporal de Groq alcanzado. Esperá un momento y probá de nuevo.", detalle: r.data?.error?.message || null });
+          if (r.status === 401 || r.status === 403) return res.status(200).json({ ok: false, proveedor: "groq", http: r.status, reason: "BAD_KEY", mensaje: "La clave GROQ_API_KEY es inválida o está mal copiada. Creá una nueva en https://console.groq.com/keys, reemplazala en Vercel y hacé Redeploy.", detalle: r.data?.error?.message || null });
+        }
+        const names = await groqModelList(apiKey);
+        return res.status(200).json({ ok: false, proveedor: "groq", http: last?.http ?? 404, reason: "NO_USABLE_MODEL", mensaje: "La clave es válida pero ningún modelo respondió. Abajo van los modelos disponibles; decímelos y ajusto.", modelos_disponibles: names.slice(0, 20) });
+      } catch (e) {
+        return res.status(200).json({ ok: false, proveedor: "groq", mensaje: "No pude contactar a Groq: " + e.message });
+      }
+    }
+
+    // ---- Gemini ----
     const ping = JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 5 } });
     const rate429 = (last) => res.status(200).json({
       ok: false, http: 429, reason: "RATE_LIMIT",
@@ -377,13 +452,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Falta el mensaje del usuario." });
     }
 
-    // Gemini usa role "model" en vez de "assistant".
-    const contents = messages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-
-    const raw = await callGemini(apiKey, contents);
+    let raw;
+    if (provider.name === "groq") {
+      // Groq / OpenAI: system + turnos user/assistant.
+      const gmsgs = [{ role: "system", content: systemPrompt() }].concat(
+        messages.map((m) => ({ role: m.role, content: m.content }))
+      );
+      raw = await callGroq(apiKey, gmsgs);
+    } else {
+      // Gemini usa role "model" en vez de "assistant".
+      const contents = messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      raw = await callGemini(apiKey, contents);
+    }
     const { reply, whatsapp } = extractWhatsApp(raw);
     return res.status(200).json({ reply, whatsapp });
   } catch (e) {

@@ -1,81 +1,87 @@
 # Asistente virtual "Midas" — Guía de configuración
 
-El sitio ahora tiene un **asistente virtual con IA** en la esquina inferior
-derecha. Recomienda juegos, explica Cuenta Principal vs Secundaria, resuelve
-dudas de Nintendo con tacto, y cierra mandando al cliente a WhatsApp con el
-pedido ya armado. Atiende 24/7.
+El sitio tiene un **asistente virtual con IA** en la esquina inferior derecha.
+Recomienda juegos, explica Cuenta Principal vs Secundaria, resuelve dudas de
+Nintendo con tacto, y cierra mandando al cliente a WhatsApp con el pedido ya
+armado. Atiende 24/7.
 
-El "cerebro" es **Google Gemini** (capa gratuita). Para que funcione hay que
-darle una clave de API. **Es gratis y toma 2 minutos.**
+El "cerebro" es un modelo de IA. El asistente soporta **dos proveedores** y usa
+el que tenga clave configurada en Vercel:
 
----
+| Proveedor | Variable | Costo | Tarjeta |
+|---|---|---|---|
+| **Groq** (recomendado) | `GROQ_API_KEY` | Gratis | ❌ No requiere |
+| Google Gemini | `GEMINI_API_KEY` | Depende de tu cuenta | A veces exige tarjeta |
 
-## Paso 1 — Crear la clave gratis de Gemini
+> ⚠️ Gemini ofrece capa gratuita solo en algunas cuentas/países. Si tu cuenta
+> devuelve `limit: 0`, Google te exige habilitar facturación (tarjeta). Por eso
+> **recomendamos Groq**, que es gratis de verdad y sin tarjeta.
 
-1. Entrá a **https://aistudio.google.com/apikey** e iniciá sesión con tu
-   cuenta de Google.
-2. Tocá **"Create API key"** (Crear clave de API).
-3. Copiá la clave que aparece (empieza con `AIza...`). **No la compartás con
-   nadie** — es como una contraseña.
-
-> No necesitás tarjeta de crédito. La capa gratuita alcanza de sobra para el
-> tráfico de una tienda como la tuya.
+Si están las dos claves, gana Groq.
 
 ---
 
-## Paso 2 — Guardar la clave en Vercel
+## Configurar Groq (gratis, sin tarjeta) — recomendado
 
-1. Entrá a tu proyecto en **https://vercel.com** → tu proyecto
-   `rey-midas-digitales`.
-2. Andá a **Settings → Environment Variables**.
-3. Agregá una variable nueva:
-   - **Name (nombre):** `GEMINI_API_KEY`
-   - **Value (valor):** la clave que copiaste (`AIza...`)
-   - **Environments:** dejá marcados los tres (Production, Preview, Development).
-4. Tocá **Save**.
-5. Andá a la pestaña **Deployments** → en el último deployment tocá los tres
-   puntitos **⋯ → Redeploy** (para que tome la variable nueva).
+### Paso 1 — Crear la clave gratis
 
-Listo. En un par de minutos el asistente empieza a responder de verdad.
+1. Entrá a **https://console.groq.com/keys** e iniciá sesión (con Google o email).
+2. Tocá **"Create API Key"**, ponele un nombre (ej. "reymidas") y **copiá** la
+   clave (empieza con `gsk_...`). **No la compartás** — es como una contraseña.
+
+> No pide tarjeta de crédito. La capa gratuita alcanza de sobra para el tráfico
+> de una tienda.
+
+### Paso 2 — Guardar la clave en Vercel
+
+1. Entrá a **https://vercel.com** → tu proyecto `rey-midas-digitales`.
+2. **Settings → Environment Variables**.
+3. Agregá una variable:
+   - **Name:** `GROQ_API_KEY`
+   - **Value:** la clave (`gsk_...`)
+   - **Environments:** Production y Preview (o los tres).
+4. **Save**.
+5. **Deployments** → en el último deployment: **⋯ → Redeploy** (para que tome la
+   variable).
+
+Listo. En un par de minutos el asistente responde.
 
 ---
 
 ## ¿Cómo sé que quedó bien?
 
-- Abrí **reymidascr.com**, tocá el botón dorado **"Asistente"** abajo a la
-  derecha y escribí *"¿qué juego me recomendás?"*.
-- Si responde con recomendaciones → **funciona**. 🎉
-- Si dice *"el asistente está en mantenimiento"* → todavía falta la clave o el
-  redeploy. Repasá los pasos 1 y 2.
+Abrí en el navegador (una sola vez):
+
+```
+https://reymidascr.com/api/chat?selftest
+```
+
+- **`"ok": true`** → funciona. 🎉 Probá el chat en la web.
+- **`"ok": false`** → el mensaje te dice el problema y cómo arreglarlo.
+
+O directamente: abrí **reymidascr.com**, tocá **"Asistente"** y escribí
+*"¿qué juego me recomendás?"*.
 
 ---
 
-## Ajustes opcionales
-
-Todo se controla con variables de entorno en Vercel (Settings → Environment
-Variables). Ninguna es obligatoria salvo `GEMINI_API_KEY`.
+## Ajustes opcionales (variables de entorno)
 
 | Variable | Para qué sirve | Default |
 |---|---|---|
-| `GEMINI_API_KEY` | **(obligatoria)** la clave de Google Gemini | — |
-| `GEMINI_MODEL` | forzar un modelo específico | prueba `gemini-2.5-flash`, luego `2.0-flash`, luego `1.5-flash` |
+| `GROQ_API_KEY` | clave de Groq (recomendado) | — |
+| `GROQ_MODEL` | forzar un modelo de Groq | `llama-3.3-70b-versatile`, luego `llama-3.1-8b-instant` |
+| `GEMINI_API_KEY` | clave de Gemini (alternativa) | — |
+| `GEMINI_MODEL` | forzar un modelo de Gemini | autodescubre |
 
----
-
-## ¿Cuánto cuesta?
-
-**Nada** dentro de la capa gratuita de Gemini, que es generosa (miles de
-mensajes por día). Si algún día el volumen creciera muchísimo, Google avisa y
-podés activar facturación; pero para el tráfico normal de la tienda es gratis.
+Si algún modelo dejara de existir, el `?selftest` lista los modelos disponibles
+de tu clave para poder ajustar `GROQ_MODEL`/`GEMINI_MODEL`.
 
 ---
 
 ## Cómo cambiar lo que dice el asistente
 
-El "conocimiento" y la personalidad viven en `api/chat.js`, en la función
-`buildSystemPrompt()`. Ahí podés editar el tono, las reglas, precios,
-políticas de garantía, etc. El catálogo de juegos se carga solo desde
-`featured-games.json` (con precios calculados automáticamente).
-
-Cuando el cliente está listo para comprar, el asistente cierra con un botón
-**"Seguir por WhatsApp"** que abre el chat con el pedido ya escrito.
+La personalidad y el conocimiento viven en `api/chat.js`, función
+`buildSystemPrompt()`. El catálogo se carga solo desde `featured-games.json`
+con precios calculados automáticamente. Cuando el cliente está listo para
+comprar, el asistente cierra con un botón **"Seguir por WhatsApp"** con el
+pedido ya escrito.
