@@ -18,7 +18,7 @@ const MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL,
   "gemini-2.5-flash",
   "gemini-2.0-flash",
-  "gemini-1.5-flash",
+  "gemini-2.5-flash-lite",
 ].filter(Boolean);
 
 // ===== Precios (misma tabla e interpolación que app.js) =====
@@ -231,10 +231,13 @@ async function callGemini(apiKey, contents) {
         if (r.ok && r.text) { WORKING_MODEL = model; return r.text; }
         if (r.ok) { lastErr = new Error("respuesta vacía de Gemini"); continue; }
         if (r.status === 404) { any404 = true; lastErr = new Error(`modelo ${model} no disponible`); continue; }
+        // 429 (cuota) y 400/403 (clave/config) NO se arreglan probando más
+        // modelos: comparten la misma cuota/clave. Cortamos para no empeorar.
+        if (r.status === 429) { const e = new Error("RATE_LIMIT"); e.rate = true; throw e; }
         lastErr = new Error(r.data?.error?.message || `Gemini ${r.status}`);
-        if (r.status === 400 || r.status === 403) throw lastErr; // clave/config: cortar
+        if (r.status === 400 || r.status === 403) throw lastErr;
       } catch (e) {
-        if (/API key|PERMISSION|SERVICE_DISABLED|INVALID_ARGUMENT/i.test(e.message)) throw e;
+        if (e.rate || /API key|PERMISSION|SERVICE_DISABLED|INVALID_ARGUMENT/i.test(e.message)) throw e;
         lastErr = e;
       }
     }
@@ -248,7 +251,7 @@ async function callGemini(apiKey, contents) {
   // 2) si fallaron por 404, descubrir los modelos reales de la clave y reintentar
   if (any404) {
     const discovered = (await discoverModels(apiKey)).filter((m) => !order.includes(m));
-    text = await tryList(discovered.slice(0, 4));
+    text = await tryList(discovered.slice(0, 2));
     if (text) return text;
   }
 
@@ -297,35 +300,43 @@ export default async function handler(req, res) {
       });
     }
     const ping = JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 5 } });
+    const rate429 = (last) => res.status(200).json({
+      ok: false, http: 429, reason: "RATE_LIMIT",
+      mensaje: "La clave es válida y los modelos existen, pero se alcanzó el límite de solicitudes por minuto de la capa gratuita. Esperá 1–2 minutos y probá el chat de nuevo (una sola vez). Si el chat funciona, ya está todo listo.",
+      detalle_google: last?.data?.error?.message || null,
+    });
     let last = null;
     let any404 = false;
 
-    // 1) Probar los candidatos fijos.
-    for (const model of MODEL_CANDIDATES) {
+    // 1) Probar los candidatos fijos (pocas llamadas para no gatillar el 429).
+    for (const model of MODEL_CANDIDATES.slice(0, 3)) {
       try {
         const r = await generateOnce(apiKey, model, ping);
-        if (r.ok) return res.status(200).json({ ok: true, modelo: model, mensaje: "✅ La clave funciona. El asistente debería responder normalmente." });
+        if (r.ok) return res.status(200).json({ ok: true, modelo: model, mensaje: "✅ La clave funciona. El asistente ya debería responder normalmente." });
         last = { http: r.status, data: r.data };
+        if (r.status === 429) return rate429(last);      // cuota: cortar de una
         if (r.status === 404) { any404 = true; continue; }
-        if (r.status === 400 || r.status === 403) break; // errores de clave/config
+        if (r.status === 400 || r.status === 403) break;  // errores de clave/config
       } catch (e) {
         last = { http: 0, data: { error: { message: e.message } } };
       }
     }
 
-    // 2) Si todos los candidatos dieron 404, la clave es válida pero expone
-    //    otros nombres de modelo: los descubrimos y probamos el mejor.
+    // 2) Si los candidatos dieron 404, la clave es válida pero expone otros
+    //    nombres de modelo: los descubrimos y probamos el mejor (uno solo).
     if (any404) {
       try {
         const disc = await discoverModels(apiKey);
-        for (const model of disc.slice(0, 3)) {
+        for (const model of disc.slice(0, 1)) {
           const r = await generateOnce(apiKey, model, ping);
-          if (r.ok) return res.status(200).json({ ok: true, modelo: model, mensaje: `✅ La clave funciona (modelo ${model}). El asistente debería responder normalmente.` });
+          if (r.ok) return res.status(200).json({ ok: true, modelo: model, mensaje: `✅ La clave funciona (modelo ${model}). El asistente ya debería responder normalmente.` });
           last = { http: r.status, data: r.data };
+          if (r.status === 429) return rate429(last);
         }
         return res.status(200).json({
           ok: false, http: last?.http ?? 404, reason: "NO_USABLE_MODEL",
           mensaje: "La clave es válida, pero ningún modelo respondió. Abajo van los modelos disponibles para tu clave.",
+          detalle_google: last?.data?.error?.message || null,
           modelos_disponibles: disc.slice(0, 15),
         });
       } catch (e) {
@@ -333,6 +344,7 @@ export default async function handler(req, res) {
       }
     }
 
+    if (last?.http === 429) return rate429(last);
     return res.status(200).json({
       ok: false,
       http: last?.http ?? 0,
@@ -375,8 +387,11 @@ export default async function handler(req, res) {
     const { reply, whatsapp } = extractWhatsApp(raw);
     return res.status(200).json({ reply, whatsapp });
   } catch (e) {
+    const reply = e && e.rate
+      ? "¡Uf, estoy con muchas consultas en este momento! 🙏 Dame un minutito y volvé a escribirme, o si querés te atendemos ya por WhatsApp."
+      : "Uy, se me trabó la conexión un momento 😅. Probá de nuevo o escribinos por WhatsApp y te atendemos de una.";
     return res.status(200).json({
-      reply: "Uy, se me trabó la conexión un momento 😅. Probá de nuevo o escribinos por WhatsApp y te atendemos de una.",
+      reply,
       whatsapp: `https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Hola, quiero hacer una consulta.")}`,
     });
   }
