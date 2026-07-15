@@ -35,6 +35,7 @@ const CONFIG = {
     principalMarkup: 0.75,    // fallback para Switch/otras plataformas
     secundariaMarkup: 0.35,   // fallback para Switch/otras plataformas
     table: [
+      [5,  1500,  1000],
       [10, 3500,  2000],
       [20, 5000,  3500],
       [30, 9500,  6000],
