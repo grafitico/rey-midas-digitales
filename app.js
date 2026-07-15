@@ -34,6 +34,7 @@ const CONFIG = {
     exchangeRate: 530,
     principalMarkup: 0.75,    // fallback para Switch/otras plataformas
     secundariaMarkup: 0.35,   // fallback para Switch/otras plataformas
+    minCRC: 1000,             // piso de servicio: nunca cobrar menos de esto por un juego con precio
     table: [
       [5,  1500,  1000],
       [10, 3500,  2000],
@@ -4468,13 +4469,22 @@ function interpolateCRC(usd, colIdx) {
   }
   return 0;
 }
+function withMinCRC(price, usd) {
+  // Solo aplica el piso a juegos con precio real; usd<=0 = "sin precio".
+  if (!usd || usd <= 0) return price;
+  return Math.max(price, CONFIG.pricing.minCRC);
+}
 function principalCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
-  return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 0)
+    : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
+  return withMinCRC(base, usd);
 }
 function secundariaCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 1);
-  return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 1)
+    : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
+  return withMinCRC(base, usd);
 }
 function formatCRC(amount) {
   return new Intl.NumberFormat("es-CR", {
