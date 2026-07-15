@@ -204,13 +204,66 @@ function extractWhatsApp(text) {
   return { reply: reply || "¡Listo! Seguimos por WhatsApp para cerrar tu pedido. 👑", whatsapp: url };
 }
 
+// Traduce el error de Gemini a un diagnóstico accionable en español.
+function diagnose(status, data) {
+  const reason = data?.error?.details?.[0]?.reason || data?.error?.status || "";
+  if (status === 400 && /API_KEY_INVALID/i.test(reason + JSON.stringify(data?.error || ""))) {
+    return "La clave GEMINI_API_KEY es inválida o está mal copiada (le sobra un espacio, quedó cortada, o no es una clave de Gemini). Creá una nueva en https://aistudio.google.com/apikey, copiala completa y sin espacios, reemplazala en Vercel (Settings → Environment Variables) y hacé Redeploy.";
+  }
+  if (status === 403 || /SERVICE_DISABLED|PERMISSION_DENIED/i.test(reason)) {
+    return "La clave es de un proyecto de Google donde la 'Generative Language API' no está habilitada. Lo más fácil: creá la clave desde Google AI Studio (https://aistudio.google.com/apikey), que ya la deja habilitada. Reemplazala en Vercel y hacé Redeploy.";
+  }
+  if (status === 429) {
+    return "Se alcanzó el límite de la capa gratuita de Gemini por ahora. Esperá unos minutos y volvé a probar.";
+  }
+  return "Google devolvió un error inesperado. Revisá que la clave sea correcta y que hayas hecho Redeploy en Vercel.";
+}
+
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
   res.setHeader("Cache-Control", "no-store");
 
   const apiKey = process.env.GEMINI_API_KEY;
+
+  // Autodiagnóstico: GET /api/chat?selftest → prueba la clave contra Gemini y
+  // devuelve el resultado real. NUNCA expone la clave.
+  if (req.method === "GET" && req.query && typeof req.query.selftest !== "undefined") {
+    if (!apiKey) {
+      return res.status(200).json({
+        ok: false, problema: "falta_clave",
+        mensaje: "No hay GEMINI_API_KEY en el entorno. Agregala en Vercel → Settings → Environment Variables y hacé Redeploy.",
+      });
+    }
+    let last = null;
+    for (const model of MODEL_CANDIDATES) {
+      try {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 5 } }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+          return res.status(200).json({ ok: true, modelo: model, mensaje: "✅ La clave funciona. El asistente debería responder normalmente." });
+        }
+        last = { http: r.status, data };
+        if (r.status === 400 || r.status === 403) break; // errores de clave/config: iguales en todos los modelos
+      } catch (e) {
+        last = { http: 0, data: { error: { message: e.message } } };
+      }
+    }
+    return res.status(200).json({
+      ok: false,
+      http: last?.http ?? 0,
+      reason: last?.data?.error?.details?.[0]?.reason || last?.data?.error?.status || null,
+      mensaje: diagnose(last?.http ?? 0, last?.data || {}),
+      detalle_google: last?.data?.error?.message || null,
+    });
+  }
+
+  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+
   if (!apiKey) {
     return res.status(200).json({
       reply: "Por ahora el asistente está en mantenimiento 🙏. Escribinos directo por WhatsApp y te ayudamos enseguida.",
