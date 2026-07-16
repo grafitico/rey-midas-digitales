@@ -34,15 +34,17 @@ const CONFIG = {
     exchangeRate: 530,
     principalMarkup: 0.75,    // fallback para Switch/otras plataformas
     secundariaMarkup: 0.35,   // fallback para Switch/otras plataformas
+    minCRC: 1000,             // piso de servicio: nunca cobrar menos de esto por un juego con precio
     table: [
-      [10, 4000,  2500],
-      [20, 6000,  3000],
-      [30, 11000, 5500],
-      [40, 17000, 7000],
-      [50, 21000, 9000],
-      [60, 26000, 13000],
-      [70, 28500, 15000],
-      [80, 36000, 14000],
+      [5,  1500,  1000],
+      [10, 3500,  2000],
+      [20, 5000,  3500],
+      [30, 9500,  6000],
+      [40, 15000, 7500],
+      [50, 18000, 11000],
+      [60, 25500, 13500],
+      [70, 27500, 16000],
+      [80, 33500, 18000],
     ],
   },
 
@@ -617,12 +619,30 @@ async function load() {
     if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
+    // Deduplicación de duplicados EXACTOS: el catálogo a veces trae el mismo
+    // juego dos veces (mismo título, MISMA plataforma, MISMO precio y MISMO
+    // tipo) con SKUs de PSN distintos → se veían dos tarjetas idénticas.
+    // Colapsamos a una sola. Se conserva TODO lo que sea legítimamente
+    // distinto: otra plataforma (PS4 vs PS4/PS5 optimizada), otra edición
+    // (precio distinto), y los productos curados/ofertas manuales.
+    const dedupSeen = new Set();
+    const dedupedGames = [];
+    for (const g of games) {
+      if (g._manualPrices || g._featured) { dedupedGames.push(g); continue; }
+      const key = [matchKey(g.title || ""), g.platform || "", g.priceUSD ?? "", g.type || ""].join("|");
+      if (dedupSeen.has(key)) continue;
+      dedupSeen.add(key);
+      dedupedGames.push(g);
+    }
     // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
     // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
     // búsqueda, relacionados), no solo del filtro AAA.
     const filteredGames = (hiddenGames.ids.size || hiddenGames.titles.size)
-      ? games.filter(g => !isHiddenGame(g))
-      : games;
+      ? dedupedGames.filter(g => !isHiddenGame(g))
+      : dedupedGames;
+    // Renombra ediciones que comparten título (Standard/Deluxe/Bundle) para que
+    // no se vean como "el mismo juego a varios precios".
+    disambiguateEditions(filteredGames);
     allGames = filteredGames.sort((a, b) => {
       if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
       return (b.discount || 0) - (a.discount || 0);
@@ -1754,6 +1774,75 @@ function cleanTitleForRawg(t) {
     .replace(/\b(Cross[- ]?Gen Bundle|Bundle|Pack)\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+// Deriva el nombre de la edición a partir del SKU de PSN (el último segmento
+// del id suele codificarla: ...-TITANBUNDLEDELUX, ...-ULTIMATEEDITION0, etc.).
+// Devuelve null si no reconoce ninguna palabra clave.
+function editionKeywordFromId(id) {
+  const tail = String(id || "").split("-").pop().toUpperCase();
+  if (/ULTIMATE/.test(tail)) return "Edición Ultimate";
+  if (/DELUXE|DELUX|DLX/.test(tail)) return "Edición Deluxe";
+  if (/PREMIUM/.test(tail)) return "Edición Premium";
+  if (/COLLECTOR/.test(tail)) return "Edición Coleccionista";
+  if (/GOTY|GAMEOFTHEYEAR/.test(tail)) return "Edición GOTY";
+  if (/COMPLETE/.test(tail)) return "Edición Completa";
+  if (/\bGOLD\b|GOLDED/.test(tail)) return "Edición Gold";
+  if (/CLASSIC/.test(tail)) return "Clásico";
+  if (/STANDARD|STND/.test(tail)) return "Edición Estándar";
+  return null;
+}
+
+// Desambigua ediciones que comparten EXACTAMENTE el mismo título visible y
+// plataforma pero tienen precios distintos (Standard / Deluxe / Bundle…): sin
+// esto se ven como "el mismo juego a 2-3 precios". Renombra cada variante según
+// su versión (del SKU cuando se puede; si no, por tipo y rango de precio) y deja
+// la más barata/base con el título limpio. Muta el título para mostrar. No toca
+// ofertas manuales ni curados. Se ejecuta DESPUÉS de deduplicar y filtrar.
+function disambiguateEditions(list) {
+  const ROMAN = ["", "I", "II", "III", "IV", "V", "VI"];
+  const byTP = new Map();
+  for (const g of list) {
+    if (!g || !g.title || g._manualPrices || g._featured) continue;
+    const key = g.title.trim().toLowerCase() + "||" + (g.platform || "");
+    if (!byTP.has(key)) byTP.set(key, []);
+    byTP.get(key).push(g);
+  }
+  for (const group of byTP.values()) {
+    if (group.length < 2) continue;
+    const prices = new Set(group.map(g => g.priceUSD));
+    if (prices.size < 2) continue; // idénticos: ya los colapsó la dedup
+    const arr = [...group].sort((a, b) => (a.priceUSD || 0) - (b.priceUSD || 0));
+    let baseUsed = false;
+    const suffix = new Map();
+    for (const g of arr) {
+      let s = editionKeywordFromId(g.id);
+      if (!s) {
+        if (g.type === "bundle") s = "Bundle";
+        else if (g.type === "edition") s = "Edición Especial";
+        else if (!baseUsed) { baseUsed = true; s = null; } // full-game más barato = base
+        else s = "Edición Completa";
+      }
+      suffix.set(g, s);
+    }
+    // Si un mismo sufijo queda repetido, numerarlo por precio ascendente.
+    const bySuffix = new Map();
+    for (const g of arr) {
+      const s = suffix.get(g);
+      if (s == null) continue;
+      if (!bySuffix.has(s)) bySuffix.set(s, []);
+      bySuffix.get(s).push(g);
+    }
+    for (const [s, members] of bySuffix) {
+      if (members.length < 2) continue;
+      members.forEach((g, i) => suffix.set(g, `${s} ${ROMAN[i + 1] || (i + 1)}`));
+    }
+    for (const g of arr) {
+      const s = suffix.get(g);
+      if (s) g.title = `${g.title} — ${s}`;
+    }
+  }
+  return list;
 }
 
 // ============================================================
@@ -4467,13 +4556,22 @@ function interpolateCRC(usd, colIdx) {
   }
   return 0;
 }
+function withMinCRC(price, usd) {
+  // Solo aplica el piso a juegos con precio real; usd<=0 = "sin precio".
+  if (!usd || usd <= 0) return price;
+  return Math.max(price, CONFIG.pricing.minCRC);
+}
 function principalCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
-  return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 0)
+    : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
+  return withMinCRC(base, usd);
 }
 function secundariaCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 1);
-  return Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 1)
+    : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
+  return withMinCRC(base, usd);
 }
 function formatCRC(amount) {
   return new Intl.NumberFormat("es-CR", {
