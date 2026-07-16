@@ -3843,7 +3843,65 @@ function faqInlineHTML(limit) {
   `;
 }
 
+// ============================================================
+// Letreros LED pasamensajes de cada menú.
+// Editá los mensajes acá. La clave es el nombre que recibe heroSlimHTML
+// (plataforma o título de página). Si un menú no está listado, usa `default`.
+// ============================================================
+const LED_HERO = {
+  // Menús que muestran letrero LED pasamensajes (la clave es el nombre que
+  // recibe heroSlimHTML). Por ahora solo Xbox; para activar el LED en otro
+  // menú, agregá su mensaje acá.
+  messages: {
+    "Xbox": "🎮 XBOX · Siéntate y disfruta como un Rey · Juegos a precios increíbles · 🎮",
+  },
+};
+
+// Divide respetando emojis (grafemas). Usa Intl.Segmenter si está disponible.
+function ledGraphemes(str) {
+  try {
+    if (typeof Intl !== "undefined" && Intl.Segmenter) {
+      return Array.from(new Intl.Segmenter("es", { granularity: "grapheme" }).segment(str), (s) => s.segment);
+    }
+  } catch { /* fallback abajo */ }
+  return Array.from(str);
+}
+
+// Colorea letra por letra con desfase, para el efecto arcoíris que corre.
+function ledLetters(msg) {
+  return ledGraphemes(msg)
+    .map((ch, i) => {
+      if (ch === " ") return "&nbsp;";
+      const delay = -(i * 0.12).toFixed(2);
+      return `<span class="led-ch" style="animation-delay:${delay}s">${escapeHtml(ch)}</span>`;
+    })
+    .join("");
+}
+
+function ledSignHTML(platform, msg) {
+  const letters = ledLetters(msg);
+  // Velocidad proporcional al largo del texto.
+  const dur = Math.max(14, Math.round(msg.length * 0.34));
+  return `
+    <section class="hero slim led-hero" aria-label="${escapeHtml(platform)}">
+      <div class="led-sign">
+        <div class="led-marquee" style="--led-dur:${dur}s">
+          <div class="led-track">
+            <span class="led-text">${letters}</span>
+            <span class="led-text" aria-hidden="true">${letters}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function heroSlimHTML(platform) {
+  // Menús con letrero LED pasamensajes (por ahora solo Xbox).
+  const ledMsg = LED_HERO.messages && LED_HERO.messages[platform];
+  if (ledMsg) return ledSignHTML(platform, ledMsg);
+
+  // Hero normal: nombre sobre degradado; video en PS4/PS5.
   const isPs4 = platform === 'PS4';
   const isPs5 = platform === 'PS5';
   const hasVideo = isPs4 || isPs5;

@@ -991,6 +991,80 @@ body {
   margin: 0;
   letter-spacing: 1px;
 }
+
+/* ============================================================
+   Letrero LED pasamensajes (hero de cada menú)
+   ============================================================ */
+.hero.slim.led-hero {
+  padding: 0.6rem 0;
+  background: #050507;
+  overflow: visible;
+}
+.led-sign {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  border-radius: 12px;
+  background: #08080d;
+  border: 2px solid #191922;
+  box-shadow: inset 0 0 45px rgba(0, 0, 0, 0.9), 0 6px 22px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+.led-marquee {
+  position: relative;
+  overflow: hidden;
+  padding: 0.85rem 0;
+}
+/* Rejilla de "pixeles" LED apagados por encima del texto. */
+.led-marquee::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.55) 1px, transparent 1.7px);
+  background-size: 5px 5px;
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.led-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: led-scroll var(--led-dur, 18s) linear infinite;
+}
+.led-text {
+  display: inline-block;
+  padding: 0 2.5rem;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-weight: 800;
+  font-size: clamp(1.25rem, 3.2vw, 2rem);
+  letter-spacing: 2px;
+}
+.led-ch {
+  display: inline-block;
+  color: #ff3b3b;
+  text-shadow: 0 0 7px currentColor, 0 0 15px currentColor;
+  animation: led-color 3.6s linear infinite;
+}
+@keyframes led-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes led-color {
+  0%   { color: #ff3b3b; }
+  17%  { color: #ff9f1c; }
+  34%  { color: #ffe600; }
+  50%  { color: #3dff62; }
+  67%  { color: #2ee6ff; }
+  84%  { color: #9b5cff; }
+  100% { color: #ff3b3b; }
+}
+.led-sign:hover .led-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .led-track { animation: none; justify-content: center; width: 100%; }
+  .led-ch { animation: none; color: var(--gold); }
+  .led-text[aria-hidden="true"] { display: none; }
+}
 .cta {
   display: inline-block;
   margin-top: 1.5rem;
