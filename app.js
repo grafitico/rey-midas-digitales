@@ -3754,22 +3754,60 @@ function faqInlineHTML(limit) {
   `;
 }
 
+// ============================================================
+// Letreros LED pasamensajes de cada menú.
+// Editá los mensajes acá. La clave es el nombre que recibe heroSlimHTML
+// (plataforma o título de página). Si un menú no está listado, usa `default`.
+// ============================================================
+const LED_HERO = {
+  messages: {
+    "Xbox": "🎮 XBOX · Siéntate y disfruta como un Rey · Juegos a precios increíbles · 🎮",
+    "PS5": "🕹️ PLAYSTATION 5 · Cuentas Principal y Secundaria · Entrega en menos de 10 minutos · ¡Consultanos! 🕹️",
+    "PS4": "🎮 PLAYSTATION 4 · Catálogo enorme a precios increíbles · SINPE o transferencia 🎮",
+    "Switch": "🍄 NINTENDO SWITCH · Bundles con varios juegos por un solo precio · Entrega inmediata 🍄",
+    "Nintendo Switch": "🍄 NINTENDO SWITCH · Bundles con varios juegos por un solo precio · Entrega inmediata 🍄",
+  },
+  default: "👑 REY MIDAS DIGITALES · Tu tienda de juegos digitales en Costa Rica · Entrega inmediata por WhatsApp 👑",
+};
+function ledMessageFor(label) {
+  return (LED_HERO.messages && LED_HERO.messages[label]) || LED_HERO.default;
+}
+
+// Divide respetando emojis (grafemas). Usa Intl.Segmenter si está disponible.
+function ledGraphemes(str) {
+  try {
+    if (typeof Intl !== "undefined" && Intl.Segmenter) {
+      return Array.from(new Intl.Segmenter("es", { granularity: "grapheme" }).segment(str), (s) => s.segment);
+    }
+  } catch { /* fallback abajo */ }
+  return Array.from(str);
+}
+
+// Colorea letra por letra con desfase, para el efecto arcoíris que corre.
+function ledLetters(msg) {
+  return ledGraphemes(msg)
+    .map((ch, i) => {
+      if (ch === " ") return "&nbsp;";
+      const delay = -(i * 0.12).toFixed(2);
+      return `<span class="led-ch" style="animation-delay:${delay}s">${escapeHtml(ch)}</span>`;
+    })
+    .join("");
+}
+
 function heroSlimHTML(platform) {
-  const isPs4 = platform === 'PS4';
-  const isPs5 = platform === 'PS5';
-  const hasVideo = isPs4 || isPs5;
-  const extraClass = isPs4 ? ' hero--ps4' : isPs5 ? ' hero--ps5' : '';
-  const videoHTML = isPs4
-    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606f" type="video/mp4"></video>'
-    : isPs5
-      ? '<video class="ps5-banner-video" autoplay muted loop playsinline><source src="/ps5-banner.mp4?v=20260606f" type="video/mp4"></video>'
-      : '';
+  const msg = ledMessageFor(platform);
+  const letters = ledLetters(msg);
+  // Velocidad proporcional al largo del texto (misma cadencia en todos los menús).
+  const dur = Math.max(14, Math.round(msg.length * 0.34));
   return `
-    <section class="hero slim${extraClass}">
-      ${hasVideo ? '' : '<div class="hero-glow"></div>'}
-      ${videoHTML}
-      <div class="container hero-inner"${hasVideo ? ' style="display:none"' : ''}>
-        <h1 class="slim-title">${escapeHtml(platform)}</h1>
+    <section class="hero slim led-hero" aria-label="${escapeHtml(platform)}">
+      <div class="led-sign">
+        <div class="led-marquee" style="--led-dur:${dur}s">
+          <div class="led-track">
+            <span class="led-text">${letters}</span>
+            <span class="led-text" aria-hidden="true">${letters}</span>
+          </div>
+        </div>
       </div>
     </section>
   `;
