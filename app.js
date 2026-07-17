@@ -3850,10 +3850,11 @@ function faqInlineHTML(limit) {
 // ============================================================
 const LED_HERO = {
   // Menús que muestran letrero LED pasamensajes (la clave es el nombre que
-  // recibe heroSlimHTML). Por ahora solo Xbox; para activar el LED en otro
-  // menú, agregá su mensaje acá.
+  // recibe heroSlimHTML). Para activar el LED en otro menú, agregá su mensaje.
   messages: {
     "Xbox": "🎮 XBOX · Siéntate y disfruta como un Rey · Juegos a precios increíbles · 🎮",
+    "Xbox Game Pass": "🎮 XBOX GAME PASS · Disfruta de grandes aventuras a un precio increíble · 🎮",
+    "PlayStation Plus": "🕹️ PLAYSTATION PLUS · Planes Plus al mejor precio de la web · Garantía total · 🕹️",
   },
 };
 
