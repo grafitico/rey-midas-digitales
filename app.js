@@ -3855,6 +3855,7 @@ const LED_HERO = {
     "Xbox": "🎮 XBOX · Siéntate y disfruta como un Rey · Juegos a precios increíbles · 🎮",
     "Xbox Game Pass": "🎮 XBOX GAME PASS · Disfruta de grandes aventuras a un precio increíble · 🎮",
     "PlayStation Plus": "🕹️ PLAYSTATION PLUS · Planes Plus al mejor precio de la web · Garantía total · 🕹️",
+    "Bundles PlayStation": "📦 BUNDLES PLAYSTATION · PRECIOS QUE NO PASAN CON GARANTÍA TOTAL · MÁS DIVERSIÓN POR MENOS DINERO · 🏷️",
   },
 };
 
