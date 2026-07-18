@@ -3982,19 +3982,49 @@ const SHMUP_PAL = {
   r: "#ff3b3b", o: "#ff7a1a", y: "#ffd23b", p: "#b46bff", g: "#7a5cff", d: "#0a0a1a",
 };
 // Nave del jugador (mira a la derecha). 'f' = llama (parpadea).
+// Caza espacial con alas, franja roja y cabina cian brillante.
 const SHMUP_PLAYER = [
-  "...ss....",
-  "f..swwc..",
-  "ffbwwwwcc",
-  "ffbwwwwwC",
-  "ffbwwwwcc",
-  "f..swwc..",
-  "...ss....",
+  "..rr...........",
+  "..bbb..........",
+  "...bwwb........",
+  "f..swwwwws.....",
+  "ff.swwwwwwcCs..",
+  "fbwrrwwwwwwcCCw",
+  "ff.swwwwwwcCs..",
+  "f..swwwwws.....",
+  "...bwwb........",
+  "..bbb..........",
+  "..rr...........",
 ];
+// Invasores pixel-art estilo arcade clásico (cangrejo, calamar, pulpo).
 const SHMUP_ENEMIES = [
-  [".r.r.", "rrrrr", "roror", "r.r.r"],           // rojo
-  ["..p..", ".ppp.", "pp.pp", ".g.g."],            // morado
-  [".cc..", "cCCc.", "cc.cc", "c...c"],            // cian
+  [ // cangrejo rojo
+    "..r..r..",
+    "...rr...",
+    ".rrrrrr.",
+    "rr.rr.rr",
+    "rrrrrrrr",
+    ".r.rr.r.",
+    "r.r..r.r",
+  ],
+  [ // calamar morado
+    "...pp...",
+    "..pppp..",
+    ".pppppp.",
+    "pp.pp.pp",
+    "pppppppp",
+    "..g..g..",
+    ".g.gg.g.",
+  ],
+  [ // pulpo cian
+    "..cCCc..",
+    ".cccccc.",
+    "cc.cc.cc",
+    "cccccccc",
+    "c.cccc.c",
+    "c.c..c.c",
+    "..c..c..",
+  ],
 ];
 
 function mountShmupHero() {
@@ -4072,19 +4102,20 @@ function mountShmupHero() {
     for (const s of stars) { s.x -= s.sp * dt; if (s.x < 0) { s.x = W; s.y = Math.random() * H; } }
 
     fireTimer -= dt;
-    if (fireTimer <= 0) { fireTimer = 0.55; bullets.push({ x: player.x + unit() * 4, y: player.y, sp: 320 }); }
+    if (fireTimer <= 0) { fireTimer = 0.55; bullets.push({ x: player.x + unit() * 8, y: player.y, sp: 320 }); }
     for (const b of bullets) b.x += b.sp * dt;
 
     spawnTimer -= dt;
     if (spawnTimer <= 0 && enemies.length < 5) { spawnTimer = rand(0.9, 1.8); spawnEnemy(true); }
     for (const e of enemies) { e.t += dt; e.x -= e.sp * dt; }
 
-    // Colisiones bala-enemigo.
+    // Colisiones bala-enemigo (caja proporcional al sprite).
+    const eu = Math.max(2, Math.round(unit() * 0.85));
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       for (let j = bullets.length - 1; j >= 0; j--) {
         const b = bullets[j];
-        if (b.x >= e.x - 12 && b.x <= e.x + 12 && Math.abs(b.y - (e.y + Math.sin(e.t * 3) * e.amp)) < 14) {
+        if (b.x >= e.x - eu * 4 && b.x <= e.x + eu * 4 && Math.abs(b.y - (e.y + Math.sin(e.t * 3) * e.amp)) < eu * 3.5) {
           boom(e.x, e.y); enemies.splice(i, 1); bullets.splice(j, 1); score += 120; break;
         }
       }
