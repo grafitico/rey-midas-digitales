@@ -1289,12 +1289,12 @@ body {
   0%, 100% { background: #1a2a4a; box-shadow: none; }
   50% { background: #35c6ff; box-shadow: 0 0 8px rgba(53, 198, 255, 0.9); }
 }
-/* Título central: el mensaje de ofertas, estilo marquesina arcade. */
+/* Título central: el mensaje de ofertas, estilo marquesina arcade 3D retro. */
 .shmup-title {
   position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) perspective(360px) rotateX(9deg);
   text-align: center;
   width: 92%;
   z-index: 2;
@@ -1302,28 +1302,74 @@ body {
 .shmup-title-main,
 .shmup-title-sub {
   display: block;
-  font-family: "Courier New", ui-monospace, monospace;
-  font-weight: 800;
   text-transform: uppercase;
   white-space: nowrap;
 }
+/* Título principal: dorado con extrusión 3D (apilado de sombras), estilo
+   marquesina de arcade ochentera, con brillo que respira y leve flote. */
 .shmup-title-main {
-  font-size: clamp(1.1rem, 3.6vw, 2.3rem);
-  letter-spacing: clamp(1px, 0.5vw, 4px);
-  color: #ffd93b;
-  text-shadow: 0 0 10px rgba(255, 210, 0, 0.8), 0 0 22px rgba(255, 120, 0, 0.5), 3px 3px 0 #b3005e;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.3rem, 4.2vw, 2.8rem);
+  letter-spacing: clamp(1px, 0.55vw, 5px);
+  color: #ffe95c;
+  text-shadow:
+    0 1px 0 #f2b705,
+    0 2px 0 #d99a04,
+    0 3px 0 #b57e03,
+    0 4px 0 #8f6202,
+    0 5px 0 #6b4801,
+    0 6px 0 #452e01,
+    0 9px 16px rgba(0, 0, 0, 0.75),
+    0 0 14px rgba(255, 224, 102, 0.5),
+    0 0 34px rgba(255, 150, 0, 0.35);
+  animation: shmup-title-live 2.8s ease-in-out infinite;
 }
+@keyframes shmup-title-live {
+  0%, 100% {
+    transform: translateY(0);
+    text-shadow:
+      0 1px 0 #f2b705, 0 2px 0 #d99a04, 0 3px 0 #b57e03,
+      0 4px 0 #8f6202, 0 5px 0 #6b4801, 0 6px 0 #452e01,
+      0 9px 16px rgba(0, 0, 0, 0.75),
+      0 0 14px rgba(255, 224, 102, 0.5),
+      0 0 34px rgba(255, 150, 0, 0.35);
+  }
+  50% {
+    transform: translateY(-3px);
+    text-shadow:
+      0 1px 0 #f2b705, 0 2px 0 #d99a04, 0 3px 0 #b57e03,
+      0 4px 0 #8f6202, 0 5px 0 #6b4801, 0 6px 0 #452e01,
+      0 12px 20px rgba(0, 0, 0, 0.8),
+      0 0 22px rgba(255, 234, 130, 0.85),
+      0 0 48px rgba(255, 160, 0, 0.55);
+  }
+}
+/* Subtítulo: neón rosado con extrusión corta y parpadeo arcade. */
 .shmup-title-sub {
-  margin-top: clamp(2px, 0.8vw, 8px);
-  font-size: clamp(0.75rem, 2.1vw, 1.35rem);
-  letter-spacing: clamp(1px, 0.5vw, 5px);
-  color: #ff4d6d;
-  text-shadow: 0 0 10px rgba(255, 60, 100, 0.9), 0 0 20px rgba(255, 0, 60, 0.5);
+  margin-top: clamp(3px, 1vw, 10px);
+  font-family: "Courier New", ui-monospace, monospace;
+  font-weight: 800;
+  font-size: clamp(0.78rem, 2.2vw, 1.4rem);
+  letter-spacing: clamp(1px, 0.55vw, 6px);
+  color: #ff6b8a;
+  text-shadow:
+    0 1px 0 #d6224a,
+    0 2px 0 #a8123a,
+    0 3px 0 #75082a,
+    0 5px 10px rgba(0, 0, 0, 0.7),
+    0 0 12px rgba(255, 80, 120, 0.65),
+    0 0 26px rgba(255, 0, 80, 0.4);
   animation: shmup-blink 1.05s steps(1) infinite;
 }
 @keyframes shmup-blink {
   0%, 60% { opacity: 1; }
-  61%, 100% { opacity: 0.25; }
+  61%, 100% { opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shmup-title-main { animation: none; }
+  .shmup-title-sub { animation: none; }
+  .shmup-power i { animation: none; background: #35c6ff; }
 }
 
 .cta {
