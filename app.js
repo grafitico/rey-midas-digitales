@@ -3859,6 +3859,16 @@ const LED_HERO = {
   },
 };
 
+// ============================================================
+// Hero arcade con Pac-Man comiendo. La clave es el nombre que recibe
+// heroSlimHTML. El texto corre hacia la boca de Pac-Man y "se lo come".
+// ============================================================
+const PAC_HERO = {
+  messages: {
+    "Nintendo Switch": "AHORRA DINERO COMO NUNCA CON NUESTROS BUNDLES REY MIDAS DIGITALES",
+  },
+};
+
 // Divide respetando emojis (grafemas). Usa Intl.Segmenter si está disponible.
 function ledGraphemes(str) {
   try {
@@ -3898,7 +3908,44 @@ function ledSignHTML(platform, msg) {
   `;
 }
 
+// Construye el "río" de pellets + palabras que Pac-Man se va comiendo.
+function pacStreamInner(msg) {
+  const pellet = '<span class="pac-dot" aria-hidden="true"></span>';
+  const words = String(msg).trim().split(/\s+/).filter(Boolean);
+  const seq = words.map((w) => `<span class="pac-word">${escapeHtml(w)}</span>`).join(pellet);
+  const lead = pellet.repeat(6);
+  // Fantasmas coloridos que van detrás del texto, como en el arcade.
+  const ghosts = ["g-red", "g-pink", "g-cyan", "g-orange"]
+    .map((c) => `<span class="pac-ghost ${c}" aria-hidden="true"></span>`)
+    .join("");
+  return `${lead}${seq}${pellet.repeat(3)}${ghosts}${pellet.repeat(3)}`;
+}
+
+function pacHeroHTML(platform, msg) {
+  const inner = pacStreamInner(msg);
+  // Velocidad proporcional al largo del texto.
+  const dur = Math.max(16, Math.round(msg.length * 0.4));
+  return `
+    <section class="hero slim pac-hero" aria-label="${escapeHtml(platform)}">
+      <div class="pac-stage">
+        <div class="pac-lane">
+          <div class="pac-track" style="--pac-dur:${dur}s">
+            <div class="pac-run">${inner}</div>
+            <div class="pac-run" aria-hidden="true">${inner}</div>
+          </div>
+        </div>
+        <div class="pac-eater" aria-hidden="true"><span class="pac-body"></span></div>
+        <span class="pac-sr">${escapeHtml(msg)}</span>
+      </div>
+    </section>
+  `;
+}
+
 function heroSlimHTML(platform) {
+  // Menús con hero arcade Pac-Man (por ahora Nintendo Switch).
+  const pacMsg = PAC_HERO.messages && PAC_HERO.messages[platform];
+  if (pacMsg) return pacHeroHTML(platform, pacMsg);
+
   // Menús con letrero LED pasamensajes (por ahora solo Xbox).
   const ledMsg = LED_HERO.messages && LED_HERO.messages[platform];
   if (ledMsg) return ledSignHTML(platform, ledMsg);
