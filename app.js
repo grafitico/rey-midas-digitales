@@ -2513,6 +2513,7 @@ function renderOfertas(page = 1) {
     </section>
   `;
   mountToolbar(list, page, "/ofertas", false);
+  mountShmupHero();
 }
 
 // ============================================================
@@ -3869,6 +3870,40 @@ const PAC_HERO = {
   },
 };
 
+// ============================================================
+// Hero arcade matamarcianos / space shooter (Ofertas).
+// Escena espacial animada en <canvas> con HUD arcade encima.
+// ============================================================
+const SHMUP_HERO = {
+  messages: {
+    "Ofertas": { main: "OFERTAS EXCLUSIVAS", sub: "POR TIEMPO LIMITADO" },
+  },
+};
+
+function shmupHeroHTML(platform, msg) {
+  return `
+    <section class="hero slim shmup-hero" aria-label="${escapeHtml(platform)}">
+      <div class="shmup-stage">
+        <canvas class="shmup-canvas" aria-hidden="true"></canvas>
+        <div class="shmup-hud">
+          <div class="shmup-hud-top">
+            <span class="shmup-1p">1P <b class="shmup-score">000000</b></span>
+            <span class="shmup-hi">HI 102400</span>
+          </div>
+          <div class="shmup-hud-bottom">
+            <span class="shmup-lives">&#128126; &times;03</span>
+            <span class="shmup-power">POWER<i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+        </div>
+        <div class="shmup-title">
+          <span class="shmup-title-main">${escapeHtml(msg.main)}</span>
+          <span class="shmup-title-sub">${escapeHtml(msg.sub)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 // Divide respetando emojis (grafemas). Usa Intl.Segmenter si está disponible.
 function ledGraphemes(str) {
   try {
@@ -3941,7 +3976,157 @@ function pacHeroHTML(platform, msg) {
   `;
 }
 
+// Paleta y sprites pixel-art del hero matamarcianos.
+const SHMUP_PAL = {
+  s: "#b9c4e0", w: "#ffffff", b: "#2f6bff", c: "#4be0ff", C: "#aef6ff",
+  r: "#ff3b3b", o: "#ff7a1a", y: "#ffd23b", p: "#b46bff", g: "#7a5cff", d: "#0a0a1a",
+};
+// Nave del jugador (mira a la derecha). 'f' = llama (parpadea).
+const SHMUP_PLAYER = [
+  "...ss....",
+  "f..swwc..",
+  "ffbwwwwcc",
+  "ffbwwwwwC",
+  "ffbwwwwcc",
+  "f..swwc..",
+  "...ss....",
+];
+const SHMUP_ENEMIES = [
+  [".r.r.", "rrrrr", "roror", "r.r.r"],           // rojo
+  ["..p..", ".ppp.", "pp.pp", ".g.g."],            // morado
+  [".cc..", "cCCc.", "cc.cc", "c...c"],            // cian
+];
+
+function mountShmupHero() {
+  const canvas = document.querySelector(".shmup-canvas");
+  if (!canvas) return;
+  const stage = canvas.parentElement;
+  const scoreEl = stage.querySelector(".shmup-score");
+  const ctx = canvas.getContext("2d");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let W = 0, H = 0;
+
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    W = Math.max(320, Math.round(r.width));
+    H = Math.max(120, Math.round(r.height));
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+  resize();
+  const onResize = () => resize();
+  window.addEventListener("resize", onResize);
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  // Campo de estrellas en 3 capas (parallax).
+  const stars = [];
+  for (const L of [{ n: 46, sp: 14, sz: 1, c: "#39406e" }, { n: 30, sp: 30, sz: 2, c: "#8aa0d8" }, { n: 16, sp: 52, sz: 2, c: "#ffffff" }])
+    for (let i = 0; i < L.n; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, sp: L.sp, sz: L.sz, c: L.c });
+
+  const player = { x: 0, y: 0, t: rand(0, 10) };
+  const bullets = [];
+  const enemies = [];
+  const booms = [];
+  let fireTimer = 0, spawnTimer = 0, score = 0, last = performance.now();
+
+  function unit() { return Math.max(2, Math.round(H / 30)); }
+
+  function drawSprite(grid, cx, cy, u, flame) {
+    const rows = grid.length, cols = grid[0].length;
+    const ox = Math.round(cx - (cols * u) / 2), oy = Math.round(cy - (rows * u) / 2);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        let ch = grid[r][c];
+        if (ch === "." || ch === " ") continue;
+        if (ch === "f") { if (Math.random() < 0.25) continue; ch = flame; }
+        ctx.fillStyle = SHMUP_PAL[ch] || "#fff";
+        ctx.fillRect(ox + c * u, oy + r * u, u, u);
+      }
+    }
+  }
+
+  function spawnEnemy(atRight) {
+    enemies.push({
+      x: atRight ? W + 20 : rand(W * 0.5, W),
+      y: rand(H * 0.18, H * 0.82), sp: rand(34, 62),
+      t: rand(0, 10), amp: rand(4, 14), kind: Math.floor(rand(0, SHMUP_ENEMIES.length)),
+    });
+  }
+  for (let i = 0; i < 3; i++) spawnEnemy(false);
+
+  function boom(x, y) {
+    for (let i = 0; i < 12; i++) {
+      const a = rand(0, Math.PI * 2), s = rand(30, 120);
+      booms.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.3, 0.6), c: Math.random() < 0.5 ? "#ff7a1a" : "#ffd23b" });
+    }
+  }
+
+  function step(dt) {
+    player.t += dt;
+    player.x = W * 0.14;
+    player.y = H * 0.5 + Math.sin(player.t * 1.6) * (H * 0.12);
+
+    for (const s of stars) { s.x -= s.sp * dt; if (s.x < 0) { s.x = W; s.y = Math.random() * H; } }
+
+    fireTimer -= dt;
+    if (fireTimer <= 0) { fireTimer = 0.55; bullets.push({ x: player.x + unit() * 4, y: player.y, sp: 320 }); }
+    for (const b of bullets) b.x += b.sp * dt;
+
+    spawnTimer -= dt;
+    if (spawnTimer <= 0 && enemies.length < 5) { spawnTimer = rand(0.9, 1.8); spawnEnemy(true); }
+    for (const e of enemies) { e.t += dt; e.x -= e.sp * dt; }
+
+    // Colisiones bala-enemigo.
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      for (let j = bullets.length - 1; j >= 0; j--) {
+        const b = bullets[j];
+        if (b.x >= e.x - 12 && b.x <= e.x + 12 && Math.abs(b.y - (e.y + Math.sin(e.t * 3) * e.amp)) < 14) {
+          boom(e.x, e.y); enemies.splice(i, 1); bullets.splice(j, 1); score += 120; break;
+        }
+      }
+    }
+    for (let i = bullets.length - 1; i >= 0; i--) if (bullets[i].x > W + 10) bullets.splice(i, 1);
+    for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].x < -30) enemies.splice(i, 1);
+    for (let i = booms.length - 1; i >= 0; i--) {
+      const p = booms[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+      if (p.life <= 0) booms.splice(i, 1);
+    }
+    score += dt * 90;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (const s of stars) { ctx.fillStyle = s.c; ctx.fillRect(Math.round(s.x), Math.round(s.y), s.sz, s.sz); }
+    ctx.fillStyle = "#ffd23b";
+    for (const b of bullets) ctx.fillRect(Math.round(b.x), Math.round(b.y) - 1, 8, 3);
+    const u = unit();
+    const flame = ["o", "y", "r"][Math.floor(Math.random() * 3)];
+    for (const e of enemies) drawSprite(SHMUP_ENEMIES[e.kind], e.x, e.y + Math.sin(e.t * 3) * e.amp, Math.max(2, Math.round(u * 0.85)));
+    drawSprite(SHMUP_PLAYER, player.x, player.y, u, flame);
+    for (const p of booms) { ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x), Math.round(p.y), u, u); }
+    if (scoreEl) scoreEl.textContent = String(Math.floor(score) % 1000000).padStart(6, "0");
+  }
+
+  if (reduce) { step(0); draw(); window.removeEventListener("resize", onResize); return; }
+
+  function loop(now) {
+    if (!document.body.contains(canvas)) { window.removeEventListener("resize", onResize); return; }
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    step(dt); draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
 function heroSlimHTML(platform) {
+  // Menús con hero arcade matamarcianos (por ahora Ofertas).
+  const shmupMsg = SHMUP_HERO.messages && SHMUP_HERO.messages[platform];
+  if (shmupMsg) return shmupHeroHTML(platform, shmupMsg);
+
   // Menús con hero arcade Pac-Man (por ahora Nintendo Switch).
   const pacMsg = PAC_HERO.messages && PAC_HERO.messages[platform];
   if (pacMsg) return pacHeroHTML(platform, pacMsg);
