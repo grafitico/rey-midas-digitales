@@ -3,6 +3,24 @@
 
 import { sb, hashPassword, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
 
+// Columnas seguras del cliente que exponemos al panel (nunca password_hash).
+// phone y console las agrega migrations/add_client_fields.sql.
+const CLIENT_COLS = "id,email,full_name,customer_number,phone,console";
+const CLIENT_COLS_BASE = "id,email,full_name,customer_number";
+
+// Selecciona clientes con phone/console; si esas columnas todavía no existen
+// (migración sin correr) cae a las columnas base para no romper el panel.
+export async function selectClients(filterQs) {
+  try {
+    return await sb(`${filterQs}&select=${CLIENT_COLS}`);
+  } catch (err) {
+    if (/phone|console|does not exist/i.test(err.message || "")) {
+      return await sb(`${filterQs}&select=${CLIENT_COLS_BASE}`);
+    }
+    throw err;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -31,15 +49,22 @@ async function create(req, res, body) {
   if (existing.length) {
     return res.status(400).json({ error: "Ya existe un cliente con ese email" });
   }
+  const insert = {
+    email,
+    password_hash: hashPassword(password),
+    is_admin: false,
+    full_name: fullName,
+  };
+  // Columnas nuevas (add_client_fields.sql): solo viajan cuando vienen con valor,
+  // así crear clientes no falla si la migración todavía no se corrió.
+  const phone = body.phone ? String(body.phone).trim() : null;
+  const consoleVal = body.console ? String(body.console).trim() : null;
+  if (phone) insert.phone = phone;
+  if (consoleVal) insert.console = consoleVal;
   const inserted = await sb(`app_users`, {
     method: "POST",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      email,
-      password_hash: hashPassword(password),
-      is_admin: false,
-      full_name: fullName,
-    }),
+    body: JSON.stringify(insert),
   });
   res.status(200).json({ id: inserted[0].id, email: inserted[0].email, customer_number: inserted[0].customer_number });
 }
@@ -47,12 +72,12 @@ async function create(req, res, body) {
 async function find(req, res, body) {
   const email = String(body.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ error: "Email requerido" });
-  const users = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id,email,full_name,customer_number`);
+  const users = await selectClients(`app_users?email=eq.${encodeURIComponent(email)}`);
   res.status(200).json({ user: users[0] || null });
 }
 
 async function list(req, res) {
-  const clients = await sb(`app_users?is_admin=eq.false&select=id,email,full_name,customer_number&order=customer_number.asc`);
+  const clients = await selectClients(`app_users?is_admin=eq.false&order=customer_number.asc`);
   res.status(200).json({ clients });
 }
 
@@ -61,6 +86,8 @@ async function update(req, res, body) {
   if (!id) return res.status(400).json({ error: "ID requerido" });
   const patch = {};
   if (body.full_name !== undefined) patch.full_name = body.full_name || null;
+  if (body.phone !== undefined) patch.phone = body.phone ? String(body.phone).trim() : null;
+  if (body.console !== undefined) patch.console = body.console ? String(body.console).trim() : null;
   if (body.email) {
     const email = String(body.email).trim().toLowerCase();
     const existing = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id`);

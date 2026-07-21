@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-21a";
+const APP_CACHE_VERSION = "2026-07-21b";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -5370,6 +5370,13 @@ async function renderAdmin() {
     <section class="container admin-page">
       <h1>Panel Admin</h1>
 
+      <nav class="admin-tabs" role="tablist" aria-label="Secciones del panel">
+        <button type="button" class="admin-tab is-active" data-tab="clientes" role="tab" aria-selected="true">👤 Clientes</button>
+        <button type="button" class="admin-tab" data-tab="compras" role="tab" aria-selected="false">🛒 Compras</button>
+        <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
+      </nav>
+
+      <div class="admin-panel is-active" data-panel="clientes" role="tabpanel">
       <form id="createClientForm" class="admin-form create-client">
         <h2>Crear cliente nuevo</h2>
         <div class="row">
@@ -5379,14 +5386,30 @@ async function renderAdmin() {
           <label>Nombre completo (opcional)
             <input name="full_name" type="text" placeholder="Juan Pérez">
           </label>
+        </div>
+        <div class="row">
           <label>Contraseña inicial
             <input name="password" type="text" required placeholder="Contraseña inicial" minlength="6">
+          </label>
+          <label>Celular
+            <input name="phone" type="tel" placeholder="8888-8888" autocomplete="off">
+          </label>
+          <label>Consola
+            <select name="console">
+              <option value="">— Seleccionar —</option>
+              <option value="PS5">PS5</option>
+              <option value="PS4">PS4</option>
+              <option value="XBOX">XBOX</option>
+              <option value="NINTENDO">NINTENDO</option>
+            </select>
           </label>
         </div>
         <button type="submit">Crear cuenta</button>
         <p id="createClientStatus" class="form-status"></p>
       </form>
+      </div>
 
+      <div class="admin-panel" data-panel="compras" role="tabpanel" hidden>
       <div class="admin-grid">
         <form id="purchaseForm" class="admin-form">
           <h2>Cargar nueva compra</h2>
@@ -5446,16 +5469,38 @@ async function renderAdmin() {
 
         <div class="admin-list">
           <h2>Compras</h2>
-          <div class="admin-search-bar">
-            <input id="clientSearch" type="text" placeholder="Email o RM-0001…">
-            <button id="clientSearchBtn" type="button">Buscar</button>
-            <button id="clientSearchClear" type="button" hidden>✕ Limpiar</button>
+          <div class="admin-filters">
+            <label class="af-field af-term">
+              <span>Cliente / Código</span>
+              <input id="filterTerm" type="text" placeholder="Email o RM-0001…">
+            </label>
+            <label class="af-field">
+              <span>Consola</span>
+              <select id="filterConsole">
+                <option value="">Todas</option>
+                <option value="PS5">PS5</option>
+                <option value="PS4">PS4</option>
+                <option value="PS3">PS3</option>
+                <option value="Xbox">Xbox</option>
+                <option value="Switch">Switch</option>
+              </select>
+            </label>
+            <label class="af-field">
+              <span>Fecha de compra</span>
+              <input id="filterDate" type="date">
+            </label>
+            <div class="af-actions">
+              <button id="filterApply" type="button">Filtrar</button>
+              <button id="filterClear" type="button" hidden>✕ Limpiar</button>
+            </div>
           </div>
           <div id="clientProfileCard" class="client-profile-card" hidden></div>
           <div id="adminPurchases">Cargando...</div>
         </div>
       </div>
+      </div>
 
+      <div class="admin-panel" data-panel="bundles" role="tabpanel" hidden>
       <div class="admin-grid admin-bundles">
         <form id="bundleForm" class="admin-form">
           <h2 id="bundleFormTitle">Cargar bundle PS / Xbox</h2>
@@ -5513,13 +5558,17 @@ async function renderAdmin() {
           <div id="adminBundlesList">Cargando...</div>
         </div>
       </div>
+      </div>
     </section>
   `;
+  setupAdminTabs();
   document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
   document.getElementById("createClientForm").addEventListener("submit", handleCreateClient);
-  document.getElementById("clientSearchBtn").addEventListener("click", doClientSearch);
-  document.getElementById("clientSearch").addEventListener("keydown", e => { if (e.key === "Enter") doClientSearch(); });
-  document.getElementById("clientSearchClear").addEventListener("click", clearClientSearch);
+  document.getElementById("filterApply").addEventListener("click", doAdminFilter);
+  document.getElementById("filterTerm").addEventListener("keydown", e => { if (e.key === "Enter") doAdminFilter(); });
+  document.getElementById("filterConsole").addEventListener("change", doAdminFilter);
+  document.getElementById("filterDate").addEventListener("change", doAdminFilter);
+  document.getElementById("filterClear").addEventListener("click", clearAdminFilter);
   document.getElementById("bundleForm").addEventListener("submit", handleBundleSubmit);
   document.getElementById("bundleCancelBtn").addEventListener("click", resetBundleForm);
   document.getElementById("bundleCoverFile").addEventListener("change", previewBundleCover);
@@ -5713,6 +5762,8 @@ async function handleCreateClient(e) {
   const email = String(fd.get("email")).trim().toLowerCase();
   const password = String(fd.get("password"));
   const fullName = String(fd.get("full_name") || "").trim();
+  const phone = String(fd.get("phone") || "").trim();
+  const consoleVal = String(fd.get("console") || "").trim();
 
   if (password.length < 6) {
     status.textContent = "La contraseña debe tener al menos 6 caracteres.";
@@ -5723,7 +5774,7 @@ async function handleCreateClient(e) {
   status.textContent = "Creando cuenta...";
   status.className = "form-status";
   try {
-    const newClient = await apiPost("/api/clients", { action: "create", email, password, full_name: fullName });
+    const newClient = await apiPost("/api/clients", { action: "create", email, password, full_name: fullName, phone, console: consoleVal });
     const clientIdLabel = newClient.customer_number ? ` (${fmtClientId(newClient.customer_number)})` : "";
     status.innerHTML = `
       ✓ Cuenta creada para <strong>${escapeHtml(email)}</strong>${escapeHtml(clientIdLabel)}.<br>
@@ -5736,6 +5787,8 @@ async function handleCreateClient(e) {
     form.querySelector('input[name="email"]').value = "";
     form.querySelector('input[name="full_name"]').value = "";
     form.querySelector('input[name="password"]').value = "";
+    form.querySelector('input[name="phone"]').value = "";
+    form.querySelector('select[name="console"]').value = "";
     loadClientsDropdown();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
@@ -5807,32 +5860,56 @@ async function loadAdminPurchases() {
   }
 }
 
-async function doClientSearch() {
-  const q = document.getElementById("clientSearch")?.value.trim();
-  if (!q) return;
+// Cambia entre las pestañas Clientes / Compras / Bundles.
+function setupAdminTabs() {
+  const tabs = Array.from(document.querySelectorAll(".admin-tab"));
+  const panels = Array.from(document.querySelectorAll(".admin-panel"));
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
+      tabs.forEach(t => {
+        const on = t === tab;
+        t.classList.toggle("is-active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      panels.forEach(p => {
+        const on = p.dataset.panel === target;
+        p.classList.toggle("is-active", on);
+        p.hidden = !on;
+      });
+    });
+  });
+}
+
+// Filtro combinado de Compras: cliente/código + consola + fecha.
+async function doAdminFilter() {
+  const term = document.getElementById("filterTerm")?.value.trim() || "";
+  const platform = document.getElementById("filterConsole")?.value || "";
+  const date = document.getElementById("filterDate")?.value || "";
   const box = document.getElementById("adminPurchases");
+  if (!box) return;
+  // Sin ningún filtro activo → volvemos a la lista reciente.
+  if (!term && !platform && !date) { clearAdminFilter(); return; }
   box.innerHTML = "Buscando...";
+  document.getElementById("clientProfileCard").hidden = true;
   try {
-    const body = { action: "by-client" };
-    const rmMatch = q.match(/^RM-?(\d+)$/i);
-    if (rmMatch) {
-      body.customer_number = parseInt(rmMatch[1], 10);
-    } else {
-      body.client_email = q.toLowerCase();
-    }
-    const { purchases, client } = await apiPost("/api/purchases", body);
-    document.getElementById("clientSearchClear").hidden = false;
+    const { purchases, client } = await apiPost("/api/purchases", { action: "filter", term, platform, date });
+    document.getElementById("filterClear").hidden = false;
     if (client) showClientProfile(client);
-    renderPurchaseCards(purchases, box, () => doClientSearch());
+    renderPurchaseCards(purchases, box, () => doAdminFilter());
   } catch (err) {
     box.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
   }
 }
 
-function clearClientSearch() {
-  const input = document.getElementById("clientSearch");
-  if (input) input.value = "";
-  document.getElementById("clientSearchClear").hidden = true;
+function clearAdminFilter() {
+  const term = document.getElementById("filterTerm");
+  const platform = document.getElementById("filterConsole");
+  const date = document.getElementById("filterDate");
+  if (term) term.value = "";
+  if (platform) platform.value = "";
+  if (date) date.value = "";
+  document.getElementById("filterClear").hidden = true;
   document.getElementById("clientProfileCard").hidden = true;
   loadAdminPurchases();
 }
@@ -5845,6 +5922,8 @@ function showClientProfile(client) {
       ${client.customer_number ? `<span class="cp-id">${escapeHtml(fmtClientId(client.customer_number))}</span>` : ""}
       <span class="cp-email">${escapeHtml(client.email)}</span>
       ${client.full_name ? `<span class="cp-name">${escapeHtml(client.full_name)}</span>` : ""}
+      ${client.phone ? `<span class="cp-meta">📱 ${escapeHtml(client.phone)}</span>` : ""}
+      ${client.console ? `<span class="cp-meta">🎮 ${escapeHtml(client.console)}</span>` : ""}
     </div>
     <div class="cp-actions">
       <button id="cpEditToggle" class="cp-btn">✎ Editar datos</button>
@@ -5856,6 +5935,16 @@ function showClientProfile(client) {
       </label>
       <label>Email
         <input name="email" type="email" required value="${escapeAttr(client.email)}">
+      </label>
+      <label>Celular
+        <input name="phone" type="tel" value="${escapeAttr(client.phone || "")}" placeholder="8888-8888">
+      </label>
+      <label>Consola
+        <select name="console">
+          ${["", "PS5", "PS4", "XBOX", "NINTENDO"].map(v =>
+            `<option value="${escapeAttr(v)}"${(client.console || "") === v ? " selected" : ""}>${v || "— Seleccionar —"}</option>`
+          ).join("")}
+        </select>
       </label>
       <div class="edit-modal-actions">
         <button type="submit">Guardar</button>
@@ -5900,16 +5989,16 @@ function showClientProfile(client) {
         id: client.id,
         email: String(fd.get("email")).trim().toLowerCase(),
         full_name: fd.get("full_name") || null,
+        phone: fd.get("phone") || null,
+        console: fd.get("console") || null,
       });
       client.email = String(fd.get("email")).trim().toLowerCase();
       client.full_name = fd.get("full_name") || null;
-      card.querySelector(".cp-email").textContent = client.email;
-      const nameEl = card.querySelector(".cp-name");
-      if (nameEl) nameEl.textContent = client.full_name || "";
-      status.textContent = "✓ Datos actualizados";
-      status.className = "form-status ok";
+      client.phone = fd.get("phone") || null;
+      client.console = fd.get("console") || null;
       loadClientsDropdown();
-      setTimeout(() => { card.querySelector("#cpEditForm").hidden = true; }, 900);
+      showToast("✓ Datos actualizados");
+      showClientProfile(client); // re-render con los datos nuevos (cierra el form)
     } catch (err) {
       status.textContent = `Error: ${err.message}`;
       status.className = "form-status error";

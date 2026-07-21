@@ -2,6 +2,7 @@
 // POST /api/purchases con { action: "mine" | "list-all" | "create" | "delete", ... }
 
 import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
+import { selectClients } from "./clients.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -14,6 +15,7 @@ export default async function handler(req, res) {
     if (body.action === "delete") return await del(req, res, body);
     if (body.action === "update") return await update(req, res, body);
     if (body.action === "by-client") return await byClient(req, res, body);
+    if (body.action === "filter") return await filter(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -92,16 +94,39 @@ async function byClient(req, res, body) {
   await requireAdmin(req);
   let userQuery;
   if (body.customer_number) {
-    userQuery = `app_users?customer_number=eq.${parseInt(body.customer_number)}&select=id,email,full_name,customer_number`;
+    userQuery = `app_users?customer_number=eq.${parseInt(body.customer_number)}`;
   } else if (body.client_email) {
     const email = String(body.client_email).trim().toLowerCase();
-    userQuery = `app_users?email=eq.${encodeURIComponent(email)}&select=id,email,full_name,customer_number`;
+    userQuery = `app_users?email=eq.${encodeURIComponent(email)}`;
   } else {
     return res.status(400).json({ error: "customer_number o client_email requerido" });
   }
-  const users = await sb(userQuery);
+  const users = await selectClients(userQuery);
   if (!users.length) return res.status(404).json({ error: "Cliente no encontrado" });
   const client = users[0];
   const data = await sb(`purchases?user_id=eq.${client.id}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.desc`);
   res.status(200).json({ purchases: data, client });
+}
+
+// Filtro combinado de compras: cliente (email o RM-código) + consola + fecha.
+// Cualquier combinación es opcional; sin filtros devuelve las más recientes.
+async function filter(req, res, body) {
+  await requireAdmin(req);
+  let client = null;
+  const term = String(body.term || "").trim();
+  if (term) {
+    const rm = term.match(/^RM-?(\d+)$/i);
+    const userQuery = rm
+      ? `app_users?customer_number=eq.${parseInt(rm[1], 10)}`
+      : `app_users?email=eq.${encodeURIComponent(term.toLowerCase())}`;
+    const users = await selectClients(userQuery);
+    if (!users.length) return res.status(404).json({ error: "Cliente no encontrado" });
+    client = users[0];
+  }
+  let q = `purchases?select=*,app_users(email,full_name,customer_number)&order=purchase_date.desc&limit=200`;
+  if (client) q += `&user_id=eq.${client.id}`;
+  if (body.platform) q += `&platform=eq.${encodeURIComponent(String(body.platform))}`;
+  if (body.date) q += `&purchase_date=eq.${encodeURIComponent(String(body.date))}`;
+  const purchases = await sb(q);
+  res.status(200).json({ purchases, client });
 }
