@@ -46,6 +46,34 @@ const CONFIG = {
       [70, 27500, 16000],
       [80, 33500, 18000],
     ],
+
+    // Juegos SOLO PS5 (platform === "PS5", sin versión PS4): la licencia solo
+    // se puede vender 3 veces (2 cuentas principales + 1 secundaria). La tabla
+    // de arriba está calibrada para el modelo PS4/cross-gen con más reventas;
+    // con solo 3 ventas hay que recuperar la inversión más rápido. Para estos
+    // juegos el precio se calcula también sobre la inversión real y se cobra
+    // el MAYOR entre la tabla y este piso:
+    //   inversión  = priceUSD × exchangeRate × taxFactor (lo que cuesta en PSN es-cr con impuestos)
+    //   principal  = inversión × principalPct  → con la 2ª principal ya hay ganancia (2×65% = 130%)
+    //   secundaria = inversión × secundariaPct → ganancia extra al cerrar la licencia
+    ps5Only: {
+      taxFactor: 1.04,     // impuestos/comisiones al comprar en la página de Sony
+      principalPct: 0.65,
+      secundariaPct: 0.35,
+    },
+
+    // La cuenta principal de PlayStation SIEMPRE se muestra por debajo del
+    // precio oficial vigente en playstation.com (priceUSD × exchangeRate),
+    // para que comprar con nosotros siempre sea atractivo:
+    //   oficial ≥ ₡30.000 → al menos ₡5.000 menos
+    //   oficial ≥ ₡12.000 → al menos ₡3.500 menos
+    //   más barato        → al menos 25% menos (₡3.500 fijos dejaría sin margen)
+    // El piso de servicio minCRC manda sobre esta regla en lo ultra barato.
+    underOficial: {
+      highCRC: 30000, highRebaja: 5000,
+      midCRC: 12000,  midRebaja: 3500,
+      cheapPct: 0.25,
+    },
   },
 
   // Plataformas con catálogo activo. PS3 queda visible
@@ -4884,17 +4912,38 @@ function withMinCRC(price, usd) {
   if (!usd || usd <= 0) return price;
   return Math.max(price, CONFIG.pricing.minCRC);
 }
+function ps5OnlyFloorCRC(usd, platform, pct) {
+  // Piso para juegos SOLO PS5 (máx. 3 ventas: 2 principales + 1 secundaria):
+  // % de la inversión real (precio PSN con impuestos). Cross-gen ("PS5/PS4") no aplica.
+  if (String(platform).trim() !== "PS5" || !usd || usd <= 0) return 0;
+  const { taxFactor } = CONFIG.pricing.ps5Only;
+  return roundTo500(usd * CONFIG.pricing.exchangeRate * taxFactor * pct);
+}
+function officialCapCRC(usd, platform) {
+  // Tope para la cuenta principal PlayStation: siempre por debajo del precio
+  // oficial vigente en playstation.com. Xbox/Switch no aplican (otro costo base).
+  if (!/PS/i.test(platform) || !usd || usd <= 0) return Infinity;
+  const cfg = CONFIG.pricing.underOficial;
+  const oficial = usd * CONFIG.pricing.exchangeRate;
+  const rebaja = oficial >= cfg.highCRC ? cfg.highRebaja
+    : oficial >= cfg.midCRC ? cfg.midRebaja
+    : Math.max(roundTo500(oficial * cfg.cheapPct), 500);
+  return Math.max(roundTo500(oficial) - rebaja, 0);
+}
 function principalCRC(usd, platform = "") {
   const base = /PS|Xbox/i.test(platform)
     ? interpolateCRC(usd, 0)
     : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
-  return withMinCRC(base, usd);
+  const floor = ps5OnlyFloorCRC(usd, platform, CONFIG.pricing.ps5Only.principalPct);
+  const cap = officialCapCRC(usd, platform);
+  return withMinCRC(Math.min(Math.max(base, floor), cap), usd);
 }
 function secundariaCRC(usd, platform = "") {
   const base = /PS|Xbox/i.test(platform)
     ? interpolateCRC(usd, 1)
     : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
-  return withMinCRC(base, usd);
+  const floor = ps5OnlyFloorCRC(usd, platform, CONFIG.pricing.ps5Only.secundariaPct);
+  return withMinCRC(Math.max(base, floor), usd);
 }
 function formatCRC(amount) {
   return new Intl.NumberFormat("es-CR", {
