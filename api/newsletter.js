@@ -1,5 +1,9 @@
 // Newsletter: suscripción pública + lista de suscriptores para admin.
 // POST /api/newsletter con { action: "subscribe" | "list", ... }
+// Nota: el código de descuento del 10% fue reemplazado por el programa de
+// lealtad "Cofre de Oro del Rey Midas" (ver cofre-games.json y /cofre).
+// La columna discount_code sigue en la tabla por los suscriptores viejos,
+// pero ya no se genera ni se devuelve.
 
 import { sb, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
 
@@ -23,40 +27,21 @@ async function subscribe(req, res, body) {
     return res.status(400).json({ error: "Email inválido" });
   }
 
-  // Si ya está suscrito, devolvemos su código existente (idempotente)
-  const existing = await sb(`newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=*`);
+  // Si ya está suscrito, respondemos ok igual (idempotente)
+  const existing = await sb(`newsletter_subscribers?email=eq.${encodeURIComponent(email)}&select=id`);
   if (existing.length) {
-    return res.status(200).json({
-      ok: true,
-      code: existing[0].discount_code,
-      alreadySubscribed: true,
-    });
+    return res.status(200).json({ ok: true, alreadySubscribed: true });
   }
 
-  // Generar código único corto basado en el email (mismo email = mismo código siempre)
-  const code = generateDiscountCode(email);
-  const inserted = await sb(`newsletter_subscribers`, {
+  await sb(`newsletter_subscribers`, {
     method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({
-      email,
-      source,
-      discount_code: code,
-    }),
+    body: JSON.stringify({ email, source }),
   });
-  res.status(200).json({ ok: true, code: inserted[0].discount_code });
+  res.status(200).json({ ok: true });
 }
 
 async function list(req, res) {
   await requireAdmin(req);
   const data = await sb(`newsletter_subscribers?select=*&order=subscribed_at.desc&limit=500`);
   res.status(200).json({ subscribers: data });
-}
-
-function generateDiscountCode(email) {
-  // Código consistente y leíble. No usamos hashes complejos porque queremos
-  // que sea fácil de leer/escribir si el cliente lo pasa por WhatsApp.
-  const base = email.replace(/[^a-z0-9]/g, "").toUpperCase().slice(0, 4);
-  const rand = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
-  return `BIENVENIDA-${base}${rand}`;
 }

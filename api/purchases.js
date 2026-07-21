@@ -40,21 +40,22 @@ async function create(req, res, body) {
   if (!users.length) {
     return res.status(404).json({ error: `No hay cliente con email "${clientEmail}". Creá la cuenta primero.` });
   }
-  await sb(`purchases`, {
-    method: "POST",
-    body: JSON.stringify({
-      user_id: users[0].id,
-      purchase_date: body.purchase_date,
-      platform: body.platform,
-      modality: body.modality || null,
-      account_email: body.account_email,
-      account_password: body.account_password,
-      verifier_codes: body.verifier_codes || null,
-      games: body.games || null,
-      game_name: body.game_name || null,
-      notes: body.notes || null,
-    }),
-  });
+  const row = {
+    user_id: users[0].id,
+    purchase_date: body.purchase_date,
+    platform: body.platform,
+    modality: body.modality || null,
+    account_email: body.account_email,
+    account_password: body.account_password,
+    verifier_codes: body.verifier_codes || null,
+    games: body.games || null,
+    game_name: body.game_name || null,
+    notes: body.notes || null,
+  };
+  // Cofre de Oro: solo mandamos la columna cuando es un canje, así las ventas
+  // normales no fallan si la migración add_cofre_oro.sql aún no se corrió.
+  if (body.is_redemption) row.is_redemption = true;
+  await sb(`purchases`, { method: "POST", body: JSON.stringify(row) });
   res.status(200).json({ ok: true });
 }
 
@@ -81,6 +82,8 @@ async function update(req, res, body) {
     game_name: body.game_name || null,
     notes: body.notes || null,
   };
+  // Ver nota en create(): la columna solo viaja cuando el admin marcó el canje.
+  if (typeof body.is_redemption === "boolean") patch.is_redemption = body.is_redemption;
   await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
   res.status(200).json({ ok: true });
 }
