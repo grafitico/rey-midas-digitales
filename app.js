@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-21c";
+const APP_CACHE_VERSION = "2026-07-21d";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -3048,7 +3048,7 @@ function renderCart() {
       </div>
       <div class="cart-summary">
         <div class="cart-cofre-hint">
-          🪙 Esta compra suma <strong>1 moneda</strong> al <a href="/cofre">Cofre de Oro del Rey Midas</a>. Con 7 monedas canjeás un juego gratis.
+          ${COIN_IMG} Esta compra suma <strong>1 moneda</strong> al <a href="/cofre">Cofre de Oro del Rey Midas</a>. Con 7 monedas canjeás un juego gratis.
         </div>
         <div class="cart-row total">
           <span>Total</span>
@@ -3127,6 +3127,11 @@ function checkout() {
 // ============================================================
 const COFRE_META = 7; // monedas necesarias para un canje
 
+// Íconos de moneda y cofre como imágenes SVG (los emojis 🪙/🏆/🎁 salen como
+// cuadritos vacíos en varios celulares porque su fuente no los soporta).
+const COIN_IMG = `<img class="ico-coin" src="/assets/coin.svg" alt="moneda" aria-hidden="true">`;
+const CHEST_IMG = `<img class="ico-chest" src="/assets/chest.svg" alt="cofre" aria-hidden="true">`;
+
 let cofreGames = null; // cache de cofre-games.json
 async function ensureCofreGames() {
   if (cofreGames) return cofreGames;
@@ -3157,18 +3162,18 @@ function cofreCanjeWaURL(gameTitle) {
 function cofreChestHTML(coins) {
   const filled = Math.min(coins.disponibles, COFRE_META);
   const slots = Array.from({ length: COFRE_META }, (_, i) =>
-    `<span class="cofre-coin${i < filled ? " filled" : ""}">${i < filled ? "🪙" : ""}</span>`
+    `<span class="cofre-coin${i < filled ? " filled" : ""}">${i < filled ? COIN_IMG : ""}</span>`
   ).join("");
   const listo = coins.disponibles >= COFRE_META;
   return `
     <div class="cofre-chest${listo ? " cofre-chest--full" : ""}">
       <div class="cofre-chest-head">
-        <span class="cofre-chest-title">🏆 Tu Cofre de Oro</span>
+        <span class="cofre-chest-title">${CHEST_IMG} Tu Cofre de Oro</span>
         <span class="cofre-chest-count">${filled}/${COFRE_META} monedas</span>
       </div>
       <div class="cofre-coins">${slots}</div>
       ${listo
-        ? `<a class="cta cofre-canje-cta" href="${cofreCanjeWaURL()}" target="_blank" rel="noopener">¡Cofre lleno! Canjear mi juego gratis 🎁</a>`
+        ? `<a class="cta cofre-canje-cta" href="${cofreCanjeWaURL()}" target="_blank" rel="noopener">¡Cofre lleno! Canjear mi juego gratis</a>`
         : `<p class="cofre-chest-note">Te ${COFRE_META - filled === 1 ? "falta 1 moneda" : `faltan ${COFRE_META - filled} monedas`} para tu juego gratis. <a href="/cofre">Ver el listado especial</a></p>`}
       ${coins.canjes > 0 ? `<p class="cofre-chest-history">Canjes realizados: ${coins.canjes} 🎉</p>` : ""}
     </div>
@@ -3183,7 +3188,7 @@ async function renderCofre() {
   app.innerHTML = `
     <section class="container cofre-page">
       <div class="cofre-hero">
-        <div class="cofre-hero-icon">🪙</div>
+        <div class="cofre-hero-icon"><img src="/assets/chest.svg" alt="Cofre de Oro" width="96" height="96"></div>
         <h1>El Cofre de Oro del Rey Midas</h1>
         <p class="cofre-hero-sub">Cada compra suma <strong>1 moneda de oro</strong> a tu cofre.<br>Al juntar <strong>${COFRE_META} monedas</strong>, canjeás un <strong>juego gratis</strong> del listado especial.</p>
       </div>
@@ -3227,7 +3232,7 @@ async function renderCofre() {
       <div class="cofre-game-info">
         <span class="cart-platform">${escapeHtml(g.platform || "")}</span>
         <h3>${escapeHtml(g.title)}</h3>
-        <div class="cofre-game-price"><span class="cofre-free">GRATIS</span> con ${COFRE_META} 🪙</div>
+        <div class="cofre-game-price"><span class="cofre-free">GRATIS</span> con ${COFRE_META} ${COIN_IMG}</div>
         <a class="cta-secondary small" href="${cofreCanjeWaURL(g.title)}" target="_blank" rel="noopener">Canjear este juego</a>
       </div>
     </article>
@@ -5330,7 +5335,7 @@ function purchaseCardHTML(p) {
         <div>
           <span class="cart-platform">${escapeHtml(p.platform)}</span>
           ${modLabel}
-          ${p.is_redemption ? `<span class="cofre-badge">🪙 Canje del Cofre</span>` : ""}
+          ${p.is_redemption ? `<span class="cofre-badge">${COIN_IMG} Canje del Cofre</span>` : ""}
         </div>
         <time>${escapeHtml(date)}</time>
       </header>
@@ -5374,6 +5379,7 @@ async function renderAdmin() {
         <button type="button" class="admin-tab is-active" data-tab="clientes" role="tab" aria-selected="true">👤 Clientes</button>
         <button type="button" class="admin-tab" data-tab="compras" role="tab" aria-selected="false">🛒 Compras</button>
         <button type="button" class="admin-tab" data-tab="ventas" role="tab" aria-selected="false">💰 Ventas</button>
+        <button type="button" class="admin-tab" data-tab="canje" role="tab" aria-selected="false"><img class="tab-coin" src="/assets/coin.svg" alt="" aria-hidden="true"> Canje</button>
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
       </nav>
 
@@ -5465,7 +5471,7 @@ async function renderAdmin() {
           </label>
           <label class="checkbox-label">
             <input name="is_redemption" type="checkbox">
-            🪙 Canje del Cofre de Oro (juego gratis — no suma moneda y descuenta 7 al cliente)
+            ${COIN_IMG} Canje del Cofre de Oro (juego gratis — no suma moneda y descuenta 7 al cliente)
           </label>
           <button type="submit">Guardar compra</button>
           <p id="purchaseFormStatus" class="form-status"></p>
@@ -5527,6 +5533,51 @@ async function renderAdmin() {
           </div>
           <div id="salesReport" class="sales-body">Elegí un rango para ver las ventas.</div>
         </div>
+      </div>
+
+      <div class="admin-panel" data-panel="canje" role="tabpanel" hidden>
+      <div class="admin-grid admin-bundles">
+        <form id="cofreGameForm" class="admin-form">
+          <h2 id="cofreGameFormTitle">Agregar juego al canje</h2>
+          <p class="field-hint">Estos son los juegos gratis que el cliente puede canjear con ${COFRE_META} monedas del Cofre de Oro.</p>
+          <input type="hidden" name="id" id="cofreGameId">
+          <input type="hidden" name="match" id="cofreGameMatch">
+          <div class="row">
+            <label>Título del juego
+              <input name="title" id="cofreGameTitle" type="text" required placeholder="Ej: God of War Ragnarök">
+            </label>
+            <label>Consola
+              <select name="platform" id="cofreGamePlatform" required>
+                <option value="PS5">PS5</option>
+                <option value="PS4">PS4</option>
+                <option value="PS3">PS3</option>
+                <option value="Xbox">Xbox</option>
+                <option value="Switch">Switch</option>
+              </select>
+            </label>
+          </div>
+          <label>Portada — subí una imagen
+            <input name="coverFile" id="cofreGameCoverFile" type="file" accept="image/*">
+          </label>
+          <label>…o pegá un enlace de imagen
+            <input name="imageUrl" id="cofreGameImageUrl" type="text" placeholder="https://…/portada.png">
+          </label>
+          <div id="cofreGameCoverPreviewWrap" class="bundle-cover-preview" hidden>
+            <img id="cofreGameCoverPreview" alt="Vista previa portada">
+          </div>
+          <div class="bundle-form-actions">
+            <button type="submit" id="cofreGameSubmitBtn">Agregar al canje</button>
+            <button type="button" id="cofreGameCancelBtn" class="cta-secondary" hidden>Cancelar edición</button>
+          </div>
+          <p id="cofreGameFormStatus" class="form-status"></p>
+        </form>
+
+        <div class="admin-list">
+          <h2>Juegos en el canje</h2>
+          <p class="field-hint">Los cambios aparecen en <a href="/cofre" target="_blank" rel="noopener">/cofre</a> en ~1 minuto (cuando Vercel redespliega).</p>
+          <div id="adminCofreGamesList">Cargando...</div>
+        </div>
+      </div>
       </div>
 
       <div class="admin-panel" data-panel="bundles" role="tabpanel" hidden>
@@ -5602,10 +5653,15 @@ async function renderAdmin() {
   document.getElementById("bundleCancelBtn").addEventListener("click", resetBundleForm);
   document.getElementById("bundleCoverFile").addEventListener("change", previewBundleCover);
   document.getElementById("bundleCoverUrl").addEventListener("input", previewBundleCover);
+  document.getElementById("cofreGameForm").addEventListener("submit", handleCofreGameSubmit);
+  document.getElementById("cofreGameCancelBtn").addEventListener("click", resetCofreGameForm);
+  document.getElementById("cofreGameCoverFile").addEventListener("change", previewCofreGameCover);
+  document.getElementById("cofreGameImageUrl").addEventListener("input", previewCofreGameCover);
   setupSalesReport();
   loadAdminPurchases();
   loadClientsDropdown();
   loadAdminBundles();
+  loadCofreGamesAdmin();
 }
 
 // ===== Bundles PS / Xbox (admin) =====
@@ -5784,6 +5840,144 @@ async function deleteBundle(platform, id) {
   }
 }
 
+// ===== Listado de canje del Cofre (admin) =====
+let adminCofreGames = [];
+
+async function loadCofreGamesAdmin() {
+  const box = document.getElementById("adminCofreGamesList");
+  if (!box) return;
+  try {
+    const { games } = await apiPost("/api/cofre-games", { action: "list" });
+    adminCofreGames = games || [];
+    renderCofreGamesAdmin();
+  } catch (err) {
+    box.innerHTML = `<p class="form-status error">No se pudo cargar el listado de canje: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderCofreGamesAdmin() {
+  const box = document.getElementById("adminCofreGamesList");
+  if (!box) return;
+  if (!adminCofreGames.length) {
+    box.innerHTML = `<p class="field-hint">Todavía no hay juegos en el canje. Agregá el primero con el formulario.</p>`;
+    return;
+  }
+  box.innerHTML = adminCofreGames.map(g => `
+    <div class="admin-bundle-row">
+      <div class="abr-thumb">${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="" loading="lazy">` : `<span class="abr-noimg">sin portada</span>`}</div>
+      <div class="abr-info">
+        <strong>${escapeHtml(g.title)}</strong>
+        <span class="abr-meta">${escapeHtml(g.platform || "")}</span>
+      </div>
+      <div class="abr-actions">
+        <button type="button" class="admin-edit" data-edit-cofre="${escapeAttr(g.id)}" title="Editar">✎</button>
+        <button type="button" class="admin-del" data-del-cofre="${escapeAttr(g.id)}" title="Eliminar">×</button>
+      </div>
+    </div>
+  `).join("");
+  box.querySelectorAll("[data-edit-cofre]").forEach(btn => {
+    btn.addEventListener("click", () => editCofreGame(btn.dataset.editCofre));
+  });
+  box.querySelectorAll("[data-del-cofre]").forEach(btn => {
+    btn.addEventListener("click", () => deleteCofreGame(btn.dataset.delCofre));
+  });
+}
+
+function editCofreGame(id) {
+  const g = adminCofreGames.find(x => String(x.id) === String(id));
+  if (!g) return;
+  document.getElementById("cofreGameId").value = g.id || "";
+  document.getElementById("cofreGameMatch").value = g.id || g.title || "";
+  document.getElementById("cofreGameTitle").value = g.title || "";
+  document.getElementById("cofreGamePlatform").value = g.platform || "PS4";
+  document.getElementById("cofreGameImageUrl").value = g.imageUrl || "";
+  document.getElementById("cofreGameCoverFile").value = "";
+  document.getElementById("cofreGameFormTitle").textContent = `Editar “${g.title}”`;
+  document.getElementById("cofreGameSubmitBtn").textContent = "Guardar cambios";
+  document.getElementById("cofreGameCancelBtn").hidden = false;
+  previewCofreGameCover();
+  document.getElementById("cofreGameForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetCofreGameForm() {
+  const form = document.getElementById("cofreGameForm");
+  if (form) form.reset();
+  document.getElementById("cofreGameId").value = "";
+  document.getElementById("cofreGameMatch").value = "";
+  document.getElementById("cofreGameFormTitle").textContent = "Agregar juego al canje";
+  document.getElementById("cofreGameSubmitBtn").textContent = "Agregar al canje";
+  document.getElementById("cofreGameCancelBtn").hidden = true;
+  document.getElementById("cofreGameFormStatus").textContent = "";
+  previewCofreGameCover();
+}
+
+function previewCofreGameCover() {
+  const wrap = document.getElementById("cofreGameCoverPreviewWrap");
+  const img = document.getElementById("cofreGameCoverPreview");
+  if (!wrap || !img) return;
+  const file = document.getElementById("cofreGameCoverFile").files[0];
+  const url = document.getElementById("cofreGameImageUrl").value.trim();
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; wrap.hidden = false; };
+    reader.readAsDataURL(file);
+  } else if (url) {
+    img.src = url; wrap.hidden = false;
+  } else {
+    img.removeAttribute("src"); wrap.hidden = true;
+  }
+}
+
+async function handleCofreGameSubmit(e) {
+  e.preventDefault();
+  const status = document.getElementById("cofreGameFormStatus");
+  const btn = document.getElementById("cofreGameSubmitBtn");
+  status.className = "form-status";
+  status.textContent = "Guardando…";
+  btn.disabled = true;
+  try {
+    const game = {
+      id: document.getElementById("cofreGameId").value.trim(),
+      match: document.getElementById("cofreGameMatch").value.trim(),
+      title: document.getElementById("cofreGameTitle").value.trim(),
+      platform: document.getElementById("cofreGamePlatform").value,
+      imageUrl: document.getElementById("cofreGameImageUrl").value.trim(),
+    };
+    if (!game.title) throw new Error("El título es obligatorio.");
+    const payload = { action: "save", game };
+    const file = document.getElementById("cofreGameCoverFile").files[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) throw new Error("La imagen es muy pesada (máx ~3 MB). Reducila e intentá de nuevo.");
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      payload.imageFile = { dataBase64: await readFileAsBase64(file), ext };
+    }
+    const data = await apiPost("/api/cofre-games", payload);
+    adminCofreGames = data.games || [];
+    renderCofreGamesAdmin();
+    resetCofreGameForm();
+    status.className = "form-status success";
+    status.textContent = "✓ Guardado. Se publica en /cofre en ~1 minuto.";
+  } catch (err) {
+    status.className = "form-status error";
+    status.textContent = err.message || "No se pudo guardar.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteCofreGame(id) {
+  const g = adminCofreGames.find(x => String(x.id) === String(id));
+  const label = g ? g.title : "este juego";
+  if (!confirm(`¿Quitar “${label}” del listado de canje?`)) return;
+  try {
+    const data = await apiPost("/api/cofre-games", { action: "delete", match: g ? (g.id || g.title) : id });
+    adminCofreGames = data.games || [];
+    renderCofreGamesAdmin();
+  } catch (err) {
+    alert("No se pudo eliminar: " + err.message);
+  }
+}
+
 async function handleCreateClient(e) {
   e.preventDefault();
   const form = e.target;
@@ -5853,7 +6047,7 @@ function renderPurchaseCards(purchases, box, onDelete) {
     <div class="admin-purchase">
       <header>
         <strong>${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || "?")}</strong>
-        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}${p.is_redemption ? " · 🪙 canje" : ""}${p.amount != null ? ` · <strong class="admin-amount">${escapeHtml(formatCRC(p.amount))}</strong>` : ""}</span>
+        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}${p.is_redemption ? ` · ${COIN_IMG} canje` : ""}${p.amount != null ? ` · <strong class="admin-amount">${escapeHtml(formatCRC(p.amount))}</strong>` : ""}</span>
         <time>${escapeHtml(p.purchase_date)}</time>
         <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
         <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
@@ -6289,7 +6483,7 @@ function openEditModal(p) {
     </label>
     <label class="checkbox-label">
       <input name="is_redemption" type="checkbox"${p.is_redemption ? " checked" : ""}>
-      🪙 Canje del Cofre de Oro (juego gratis)
+      ${COIN_IMG} Canje del Cofre de Oro (juego gratis)
     </label>
     <div class="edit-modal-actions">
       <button id="editSaveBtn" type="button">Guardar cambios</button>
