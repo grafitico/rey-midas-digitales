@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-21d";
+const APP_CACHE_VERSION = "2026-07-21e";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -3129,8 +3129,8 @@ const COFRE_META = 7; // monedas necesarias para un canje
 
 // Íconos de moneda y cofre como imágenes SVG (los emojis 🪙/🏆/🎁 salen como
 // cuadritos vacíos en varios celulares porque su fuente no los soporta).
-const COIN_IMG = `<img class="ico-coin" src="/assets/coin.svg" alt="moneda" aria-hidden="true">`;
-const CHEST_IMG = `<img class="ico-chest" src="/assets/chest.svg" alt="cofre" aria-hidden="true">`;
+const COIN_IMG = `<img class="ico-coin" src="/assets/coin.png" alt="moneda" aria-hidden="true">`;
+const CHEST_IMG = `<img class="ico-chest" src="/assets/chest.png" alt="cofre" aria-hidden="true">`;
 
 let cofreGames = null; // cache de cofre-games.json
 async function ensureCofreGames() {
@@ -3188,7 +3188,7 @@ async function renderCofre() {
   app.innerHTML = `
     <section class="container cofre-page">
       <div class="cofre-hero">
-        <div class="cofre-hero-icon"><img src="/assets/chest.svg" alt="Cofre de Oro" width="96" height="96"></div>
+        <div class="cofre-hero-icon"><img src="/assets/chest.png" alt="Cofre de Oro" width="96" height="96"></div>
         <h1>El Cofre de Oro del Rey Midas</h1>
         <p class="cofre-hero-sub">Cada compra suma <strong>1 moneda de oro</strong> a tu cofre.<br>Al juntar <strong>${COFRE_META} monedas</strong>, canjeás un <strong>juego gratis</strong> del listado especial.</p>
       </div>
@@ -5379,7 +5379,7 @@ async function renderAdmin() {
         <button type="button" class="admin-tab is-active" data-tab="clientes" role="tab" aria-selected="true">👤 Clientes</button>
         <button type="button" class="admin-tab" data-tab="compras" role="tab" aria-selected="false">🛒 Compras</button>
         <button type="button" class="admin-tab" data-tab="ventas" role="tab" aria-selected="false">💰 Ventas</button>
-        <button type="button" class="admin-tab" data-tab="canje" role="tab" aria-selected="false"><img class="tab-coin" src="/assets/coin.svg" alt="" aria-hidden="true"> Canje</button>
+        <button type="button" class="admin-tab" data-tab="canje" role="tab" aria-selected="false"><img class="tab-coin" src="/assets/coin.png" alt="" aria-hidden="true"> Canje</button>
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
       </nav>
 
