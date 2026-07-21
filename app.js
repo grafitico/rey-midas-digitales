@@ -48,18 +48,18 @@ const CONFIG = {
     ],
 
     // Juegos SOLO PS5 (platform === "PS5", sin versión PS4): la licencia solo
-    // se puede vender 3 veces (1 cuenta principal + 2 secundarias). La tabla
+    // se puede vender 3 veces (2 cuentas principales + 1 secundaria). La tabla
     // de arriba está calibrada para el modelo PS4/cross-gen con más reventas;
     // con solo 3 ventas hay que recuperar la inversión más rápido. Para estos
     // juegos el precio se calcula también sobre la inversión real y se cobra
     // el MAYOR entre la tabla y este piso:
     //   inversión  = priceUSD × exchangeRate × taxFactor (lo que cuesta en PSN es-cr con impuestos)
-    //   principal  = inversión × principalPct  → la 1ª venta recupera ~3/4
-    //   secundaria = inversión × secundariaPct → con la 1ª secundaria ya hay ganancia
+    //   principal  = inversión × principalPct  → con la 2ª principal ya hay ganancia (2×65% = 130%)
+    //   secundaria = inversión × secundariaPct → ganancia extra al cerrar la licencia
     ps5Only: {
       taxFactor: 1.04,     // impuestos/comisiones al comprar en la página de Sony
-      principalPct: 0.75,
-      secundariaPct: 0.40,
+      principalPct: 0.65,
+      secundariaPct: 0.35,
     },
   },
 
@@ -4900,8 +4900,8 @@ function withMinCRC(price, usd) {
   return Math.max(price, CONFIG.pricing.minCRC);
 }
 function ps5OnlyFloorCRC(usd, platform, pct) {
-  // Piso para juegos SOLO PS5 (máx. 3 ventas por licencia): % de la
-  // inversión real (precio PSN con impuestos). Cross-gen ("PS5/PS4") no aplica.
+  // Piso para juegos SOLO PS5 (máx. 3 ventas: 2 principales + 1 secundaria):
+  // % de la inversión real (precio PSN con impuestos). Cross-gen ("PS5/PS4") no aplica.
   if (String(platform).trim() !== "PS5" || !usd || usd <= 0) return 0;
   const { taxFactor } = CONFIG.pricing.ps5Only;
   return roundTo500(usd * CONFIG.pricing.exchangeRate * taxFactor * pct);

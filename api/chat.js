@@ -55,9 +55,10 @@ const PRICING = {
     [70, 27500, 16000],
     [80, 33500, 18000],
   ],
-  // Juegos SOLO PS5 (platform === "PS5"): máx. 3 ventas por licencia → piso
-  // sobre la inversión real (precio PSN con impuestos). Espejo de ps5Only en app.js.
-  ps5Only: { taxFactor: 1.04, principalPct: 0.75, secundariaPct: 0.40 },
+  // Juegos SOLO PS5 (platform === "PS5"): máx. 3 ventas (2 principales + 1
+  // secundaria) → piso sobre la inversión real (precio PSN con impuestos).
+  // Espejo de ps5Only en app.js.
+  ps5Only: { taxFactor: 1.04, principalPct: 0.65, secundariaPct: 0.35 },
 };
 const roundTo500 = (n) => Math.round(n / 500) * 500;
 function interpolateCRC(usd, colIdx) {
