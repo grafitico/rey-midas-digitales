@@ -5847,7 +5847,7 @@ async function loadCofreGamesAdmin() {
   const box = document.getElementById("adminCofreGamesList");
   if (!box) return;
   try {
-    const { games } = await apiPost("/api/cofre-games", { action: "list" });
+    const { games } = await apiPost("/api/bundles", { action: "cofre-list" });
     adminCofreGames = games || [];
     renderCofreGamesAdmin();
   } catch (err) {
@@ -5944,14 +5944,14 @@ async function handleCofreGameSubmit(e) {
       imageUrl: document.getElementById("cofreGameImageUrl").value.trim(),
     };
     if (!game.title) throw new Error("El título es obligatorio.");
-    const payload = { action: "save", game };
+    const payload = { action: "cofre-save", game };
     const file = document.getElementById("cofreGameCoverFile").files[0];
     if (file) {
       if (file.size > 3 * 1024 * 1024) throw new Error("La imagen es muy pesada (máx ~3 MB). Reducila e intentá de nuevo.");
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       payload.imageFile = { dataBase64: await readFileAsBase64(file), ext };
     }
-    const data = await apiPost("/api/cofre-games", payload);
+    const data = await apiPost("/api/bundles", payload);
     adminCofreGames = data.games || [];
     renderCofreGamesAdmin();
     resetCofreGameForm();
@@ -5970,7 +5970,7 @@ async function deleteCofreGame(id) {
   const label = g ? g.title : "este juego";
   if (!confirm(`¿Quitar “${label}” del listado de canje?`)) return;
   try {
-    const data = await apiPost("/api/cofre-games", { action: "delete", match: g ? (g.id || g.title) : id });
+    const data = await apiPost("/api/bundles", { action: "cofre-delete", match: g ? (g.id || g.title) : id });
     adminCofreGames = data.games || [];
     renderCofreGamesAdmin();
   } catch (err) {

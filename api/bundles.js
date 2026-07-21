@@ -29,6 +29,9 @@ export default async function handler(req, res) {
     if (body.action === "list") return await list(req, res);
     if (body.action === "save") return await save(req, res, body);
     if (body.action === "delete") return await del(req, res, body);
+    if (body.action === "cofre-list") return await cofreList(req, res);
+    if (body.action === "cofre-save") return await cofreSave(req, res, body);
+    if (body.action === "cofre-delete") return await cofreDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -208,6 +211,111 @@ async function del(req, res, body) {
     `chore(bundles): borrar ${platform} ${id} via admin`,
   );
   res.status(200).json({ ok: true, bundles });
+}
+
+// ===== Listado de canje del Cofre de Oro (cofre-games.json) =====
+// Vive en este mismo archivo (en vez de api/cofre-games.js) porque Vercel
+// Hobby limita a 12 Serverless Functions por deploy y ya estábamos en ese
+// tope; agregar un archivo nuevo rompía TODOS los deploys. Mismo mecanismo
+// de commit a GitHub que los bundles de arriba.
+const COFRE_FILE = "cofre-games.json";
+
+async function readCofreFile() {
+  const f = await ghGetFile(COFRE_FILE);
+  if (!f) return { sha: null, data: { games: [] } };
+  const data = JSON.parse(Buffer.from(f.content, "base64").toString("utf8"));
+  if (!Array.isArray(data.games)) data.games = [];
+  return { sha: f.sha, data };
+}
+
+async function writeCofreFile(mutate, message) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { sha, data } = await readCofreFile();
+    mutate(data);
+    data.updatedAt = new Date().toISOString().slice(0, 10);
+    const contentB64 = Buffer.from(JSON.stringify(data, null, 2) + "\n", "utf8").toString("base64");
+    const r = await ghPutFile(COFRE_FILE, contentB64, message, sha);
+    if (r.ok) return data.games;
+    if (r.status === 409 || r.status === 422) continue; // SHA stale → releer
+    throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  }
+  throw new Error("No se pudo guardar (conflicto de versiones tras varios intentos).");
+}
+
+async function cofreList(req, res) {
+  await requireAdmin(req);
+  const { data } = await readCofreFile();
+  // Aseguramos un id estable para cada juego (los antiguos no lo tenían) para
+  // que el panel pueda editar/borrar sin ambigüedad. No persiste hasta guardar.
+  const games = data.games.map(g => ({ ...g, id: g.id || slugId(g.title) }));
+  res.status(200).json({ games });
+}
+
+async function cofreSave(req, res, body) {
+  await requireAdmin(req);
+  const input = body.game || {};
+  const title = String(input.title || "").trim();
+  const platform = String(input.platform || "").trim();
+  if (!title) return res.status(400).json({ error: "El título es obligatorio." });
+  if (!platform) return res.status(400).json({ error: "La consola es obligatoria." });
+
+  const match = String(input.match || "").trim();
+  const id = String(input.id || "").trim() || match || slugId(title);
+
+  const game = { id, title, platform };
+  let imageUrl = String(input.imageUrl || "").trim();
+
+  // Imagen: si suben archivo, lo commiteamos y usamos esa ruta. Si no,
+  // respetamos la URL pegada (o vacío).
+  if (body.imageFile && body.imageFile.dataBase64) {
+    const ext = sanitizeExt(body.imageFile.ext);
+    const imgPath = `assets/cofre/${id}.${ext}`;
+    const existing = await ghGetFile(imgPath);
+    const putRes = await ghPutFile(
+      imgPath,
+      body.imageFile.dataBase64,
+      `chore(cofre): portada canje ${id}`,
+      existing ? existing.sha : null,
+    );
+    if (!putRes.ok) throw new Error(`No se pudo subir la imagen: GitHub ${putRes.status}`);
+    imageUrl = `/${imgPath}`;
+  }
+  if (imageUrl) game.imageUrl = imageUrl;
+
+  const games = await writeCofreFile(
+    (data) => {
+      const idx = data.games.findIndex(g =>
+        (match && (String(g.id) === match || g.title === match)) || String(g.id) === id);
+      if (idx >= 0) {
+        // Preservamos la imagen previa si ahora no mandan una nueva.
+        if (!game.imageUrl && data.games[idx].imageUrl) game.imageUrl = data.games[idx].imageUrl;
+        data.games[idx] = game;
+      } else {
+        data.games.push(game);
+      }
+    },
+    `chore(cofre): guardar canje "${title}" via admin`,
+  );
+
+  res.status(200).json({ ok: true, game, games });
+}
+
+async function cofreDelete(req, res, body) {
+  await requireAdmin(req);
+  const match = String(body.match || "").trim();
+  if (!match) return res.status(400).json({ error: "Falta el identificador del juego." });
+  const games = await writeCofreFile(
+    (data) => { data.games = data.games.filter(g => String(g.id) !== match && g.title !== match); },
+    `chore(cofre): borrar canje "${match}" via admin`,
+  );
+  res.status(200).json({ ok: true, games });
+}
+
+function slugId(title) {
+  const base = String(title || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+  return base || String(Date.now()).slice(-9);
 }
 
 // ===== utils =====
