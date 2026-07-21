@@ -16,9 +16,33 @@ export default async function handler(req, res) {
     if (body.action === "update") return await update(req, res, body);
     if (body.action === "by-client") return await byClient(req, res, body);
     if (body.action === "filter") return await filter(req, res, body);
+    if (body.action === "sales") return await sales(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
+  }
+}
+
+// Convierte el monto entrante (₡) en número válido, o null si no aplica.
+function parseAmount(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+// Inserta/actualiza tolerando que la columna amount todavía no exista
+// (migración add_purchase_amount.sql sin correr). Si Supabase se queja de
+// la columna, reintenta sin ella para no romper la carga de compras.
+async function sbWithAmount(path, options, hasAmount) {
+  try {
+    return await sb(path, options);
+  } catch (err) {
+    if (hasAmount && /amount|does not exist/i.test(err.message || "")) {
+      const body = JSON.parse(options.body);
+      delete body.amount;
+      return await sb(path, { ...options, body: JSON.stringify(body) });
+    }
+    throw err;
   }
 }
 
@@ -57,7 +81,9 @@ async function create(req, res, body) {
   // Cofre de Oro: solo mandamos la columna cuando es un canje, así las ventas
   // normales no fallan si la migración add_cofre_oro.sql aún no se corrió.
   if (body.is_redemption) row.is_redemption = true;
-  await sb(`purchases`, { method: "POST", body: JSON.stringify(row) });
+  const amount = parseAmount(body.amount);
+  if (amount != null) row.amount = amount;
+  await sbWithAmount(`purchases`, { method: "POST", body: JSON.stringify(row) }, amount != null);
   res.status(200).json({ ok: true });
 }
 
@@ -86,7 +112,10 @@ async function update(req, res, body) {
   };
   // Ver nota en create(): la columna solo viaja cuando el admin marcó el canje.
   if (typeof body.is_redemption === "boolean") patch.is_redemption = body.is_redemption;
-  await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  // amount solo viaja cuando el campo vino en el request (undefined = no tocar).
+  const touchesAmount = body.amount !== undefined;
+  if (touchesAmount) patch.amount = parseAmount(body.amount);
+  await sbWithAmount(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(patch) }, touchesAmount);
   res.status(200).json({ ok: true });
 }
 
@@ -129,4 +158,28 @@ async function filter(req, res, body) {
   if (body.date) q += `&purchase_date=eq.${encodeURIComponent(String(body.date))}`;
   const purchases = await sb(q);
   res.status(200).json({ purchases, client });
+}
+
+// Historial de ventas para reportes: trae las compras dentro de un rango de
+// fechas (desde/hasta, ambos opcionales) con lo mínimo para agregar por día,
+// mes y consola. La suma en colones y los desgloses se arman en el cliente.
+async function sales(req, res, body) {
+  await requireAdmin(req);
+  const from = String(body.from || "").trim();
+  const to = String(body.to || "").trim();
+  let q = `purchases?select=id,purchase_date,platform,modality,amount,is_redemption&order=purchase_date.asc&limit=10000`;
+  if (from) q += `&purchase_date=gte.${encodeURIComponent(from)}`;
+  if (to) q += `&purchase_date=lte.${encodeURIComponent(to)}`;
+  let rows;
+  try {
+    rows = await sb(q);
+  } catch (err) {
+    // Si la columna amount todavía no existe, la sacamos del select y seguimos.
+    if (/amount|does not exist/i.test(err.message || "")) {
+      rows = await sb(q.replace(",amount", ""));
+    } else {
+      throw err;
+    }
+  }
+  res.status(200).json({ sales: rows });
 }
