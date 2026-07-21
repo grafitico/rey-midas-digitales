@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-06-05c";
+const APP_CACHE_VERSION = "2026-07-21a";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -480,6 +480,7 @@ function parseRoute() {
     return { name: "categoria", genre: decodeURIComponent(partes[1]), page };
   }
   if (partes[0] === "resenas" || partes[0] === "reviews") return { name: "resenas" };
+  if (partes[0] === "cofre") return { name: "cofre" };
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
   if (partes[0] === "admin") return { name: "admin" };
@@ -946,6 +947,7 @@ function render() {
   if (route.name === "categoria") return renderCategoria(route.genre, route.page);
   if (route.name === "resenas") return renderResenas();
   if (route.name === "cart") return renderCart();
+  if (route.name === "cofre") return renderCofre();
   if (route.name === "login") return renderLogin();
   if (route.name === "mi-cuenta") return renderMyAccount();
   if (route.name === "admin") return renderAdmin();
@@ -3036,11 +3038,7 @@ function renderCart() {
     `;
     return;
   }
-  const subtotal = items.reduce((s, i) => s + i.priceCRC, 0);
-  const code = getDiscountCode();
-  const discountPct = code ? 0.10 : 0;
-  const discountAmount = Math.round(subtotal * discountPct);
-  const total = subtotal - discountAmount;
+  const total = items.reduce((s, i) => s + i.priceCRC, 0);
   app.innerHTML = `
     <section class="container cart-page">
       <a class="back-link" href="/">&larr; Seguir comprando</a>
@@ -3049,29 +3047,9 @@ function renderCart() {
         ${items.map(cartItemHTML).join("")}
       </div>
       <div class="cart-summary">
-        ${code ? `
-          <div class="cart-row discount">
-            <span class="cart-discount-label">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/></svg>
-              Código <code>${escapeHtml(code)}</code> aplicado
-              <button id="removeCodeBtn" class="cart-remove-code" aria-label="Quitar código">×</button>
-            </span>
-            <span class="cart-discount-amount">−${formatCRC(discountAmount)}</span>
-          </div>
-          <div class="cart-row">
-            <span>Subtotal</span>
-            <span>${formatCRC(subtotal)}</span>
-          </div>
-        ` : `
-          <details class="cart-code-input">
-            <summary>¿Tenés un código de descuento?</summary>
-            <form id="applyCodeForm">
-              <input type="text" name="code" placeholder="BIENVENIDA-XXXX" autocomplete="off">
-              <button type="submit">Aplicar</button>
-            </form>
-            <p class="cart-code-hint">¿Aún no tenés código? <a href="#" id="openPopupFromCart">Suscribite y obtené 10% OFF</a></p>
-          </details>
-        `}
+        <div class="cart-cofre-hint">
+          🪙 Esta compra suma <strong>1 moneda</strong> al <a href="/cofre">Cofre de Oro del Rey Midas</a>. Con 7 monedas canjeás un juego gratis.
+        </div>
         <div class="cart-row total">
           <span>Total</span>
           <span class="cart-total">${formatCRC(total)}</span>
@@ -3120,34 +3098,12 @@ function bindCartActions() {
   });
   const checkoutBtn = document.getElementById("checkoutBtn");
   if (checkoutBtn) checkoutBtn.addEventListener("click", checkout);
-  const removeCodeBtn = document.getElementById("removeCodeBtn");
-  if (removeCodeBtn) removeCodeBtn.addEventListener("click", () => {
-    localStorage.removeItem(DISCOUNT_KEY);
-    renderCart();
-  });
-  const applyCodeForm = document.getElementById("applyCodeForm");
-  if (applyCodeForm) applyCodeForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const code = e.target.querySelector("input").value.trim().toUpperCase();
-    if (!code) return;
-    localStorage.setItem(DISCOUNT_KEY, code);
-    showToast(`Código ${code} aplicado ✓`, "success");
-    renderCart();
-  });
-  const openPopupBtn = document.getElementById("openPopupFromCart");
-  if (openPopupBtn) openPopupBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    openDiscountPopup();
-  });
 }
 
 function checkout() {
   const items = loadCart();
   if (!items.length) return;
-  const subtotal = items.reduce((s, i) => s + i.priceCRC, 0);
-  const code = getDiscountCode();
-  const discount = code ? Math.round(subtotal * 0.10) : 0;
-  const total = subtotal - discount;
+  const total = items.reduce((s, i) => s + i.priceCRC, 0);
   const lines = items.map((i, idx) =>
     `${idx + 1}. ${i.title} (${i.platform}) — ${i.modality === "principal" ? "CUENTA PRINCIPAL" : "CUENTA SECUNDARIA"} — ${formatCRC(i.priceCRC)}`
   );
@@ -3156,13 +3112,126 @@ function checkout() {
     "",
     ...lines,
     "",
-    `Subtotal: ${formatCRC(subtotal)}`,
-    ...(code ? [`Código de descuento: ${code} (−${formatCRC(discount)})`] : []),
     `*Total: ${formatCRC(total)}*`,
     "",
     "¿Me confirman disponibilidad y datos de pago? Gracias.",
   ].join("\n");
   window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+}
+
+// ============================================================
+// Cofre de Oro del Rey Midas — programa de lealtad
+// Cada compra registrada suma 1 moneda. Con 7 monedas se canjea un
+// juego gratis del listado especial (cofre-games.json). El canje lo
+// registra el admin como una compra con is_redemption = true.
+// ============================================================
+const COFRE_META = 7; // monedas necesarias para un canje
+
+let cofreGames = null; // cache de cofre-games.json
+async function ensureCofreGames() {
+  if (cofreGames) return cofreGames;
+  try {
+    const data = await fetch("/cofre-games.json").then(r => r.json());
+    cofreGames = Array.isArray(data?.games) ? data.games : [];
+  } catch { cofreGames = []; }
+  return cofreGames;
+}
+
+// Monedas a partir del historial de compras: cada compra normal = 1 moneda;
+// cada canje descuenta COFRE_META (y el canje en sí no suma).
+function cofreCoins(purchases) {
+  const canjes = (purchases || []).filter(p => p.is_redemption).length;
+  const compras = (purchases || []).length - canjes;
+  const disponibles = Math.max(0, compras - canjes * COFRE_META);
+  return { compras, canjes, disponibles };
+}
+
+function cofreCanjeWaURL(gameTitle) {
+  const msg = gameTitle
+    ? `Hola Rey Midas, ¡junté mis ${COFRE_META} monedas del Cofre de Oro! 🪙 Quiero canjear mi juego gratis: ${gameTitle}`
+    : `Hola Rey Midas, ¡junté mis ${COFRE_META} monedas del Cofre de Oro! 🪙 Quiero canjear mi juego gratis del listado especial.`;
+  return `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`;
+}
+
+// Widget del cofre con las 7 monedas. Se usa en /cofre y en Mi cuenta.
+function cofreChestHTML(coins) {
+  const filled = Math.min(coins.disponibles, COFRE_META);
+  const slots = Array.from({ length: COFRE_META }, (_, i) =>
+    `<span class="cofre-coin${i < filled ? " filled" : ""}">${i < filled ? "🪙" : ""}</span>`
+  ).join("");
+  const listo = coins.disponibles >= COFRE_META;
+  return `
+    <div class="cofre-chest${listo ? " cofre-chest--full" : ""}">
+      <div class="cofre-chest-head">
+        <span class="cofre-chest-title">🏆 Tu Cofre de Oro</span>
+        <span class="cofre-chest-count">${filled}/${COFRE_META} monedas</span>
+      </div>
+      <div class="cofre-coins">${slots}</div>
+      ${listo
+        ? `<a class="cta cofre-canje-cta" href="${cofreCanjeWaURL()}" target="_blank" rel="noopener">¡Cofre lleno! Canjear mi juego gratis 🎁</a>`
+        : `<p class="cofre-chest-note">Te ${COFRE_META - filled === 1 ? "falta 1 moneda" : `faltan ${COFRE_META - filled} monedas`} para tu juego gratis. <a href="/cofre">Ver el listado especial</a></p>`}
+      ${coins.canjes > 0 ? `<p class="cofre-chest-history">Canjes realizados: ${coins.canjes} 🎉</p>` : ""}
+    </div>
+  `;
+}
+
+async function renderCofre() {
+  setPageMeta(
+    "Cofre de Oro del Rey Midas | Juego gratis con tus compras",
+    `Cada compra suma 1 moneda de oro. Al juntar ${COFRE_META} monedas canjeás un juego gratis del listado especial. Programa de lealtad de Rey Midas Digitales.`
+  );
+  app.innerHTML = `
+    <section class="container cofre-page">
+      <div class="cofre-hero">
+        <div class="cofre-hero-icon">🪙</div>
+        <h1>El Cofre de Oro del Rey Midas</h1>
+        <p class="cofre-hero-sub">Cada compra suma <strong>1 moneda de oro</strong> a tu cofre.<br>Al juntar <strong>${COFRE_META} monedas</strong>, canjeás un <strong>juego gratis</strong> del listado especial.</p>
+      </div>
+      <div id="cofreProgress"></div>
+      <div class="cofre-steps">
+        <div class="cofre-step"><span class="cofre-step-num">1</span><h3>Comprá como siempre</h3><p>Cada compra que hacés (juego, bundle o suscripción) suma 1 moneda de oro a tu cofre automáticamente.</p></div>
+        <div class="cofre-step"><span class="cofre-step-num">2</span><h3>Juntá ${COFRE_META} monedas</h3><p>Seguí tu progreso en <a href="/mi-cuenta">Mi cuenta</a>. Las monedas no se vencen: van quedando en tu cofre.</p></div>
+        <div class="cofre-step"><span class="cofre-step-num">3</span><h3>Canjeá tu juego gratis</h3><p>Con el cofre lleno, elegí un juego del listado especial y escribinos por WhatsApp. Te lo entregamos como cualquier compra.</p></div>
+      </div>
+      <h2 class="cofre-list-title">Listado especial de canje</h2>
+      <div id="cofreList" class="cofre-list">Cargando listado...</div>
+      <p class="cofre-fine-print">Las monedas se acreditan con cada compra registrada en tu cuenta. El canje entrega el juego en la modalidad secundaria disponible. El listado especial puede cambiar sin previo aviso; las monedas acumuladas no se pierden.</p>
+    </section>
+  `;
+
+  // Progreso del cofre: solo para clientes con sesión.
+  const progressBox = document.getElementById("cofreProgress");
+  if (currentUser) {
+    try {
+      const { purchases } = await apiPost("/api/purchases", { action: "mine" });
+      progressBox.innerHTML = cofreChestHTML(cofreCoins(purchases));
+    } catch { progressBox.innerHTML = ""; }
+  } else {
+    progressBox.innerHTML = `
+      <div class="cofre-chest cofre-chest--guest">
+        <p>¿Ya compraste con nosotros? <a href="/login">Iniciá sesión</a> para ver cuántas monedas llevás. Si todavía no tenés cuenta, la creamos con tu primera compra.</p>
+      </div>
+    `;
+  }
+
+  const games = await ensureCofreGames();
+  const listBox = document.getElementById("cofreList");
+  if (!listBox) return;
+  if (!games.length) {
+    listBox.innerHTML = `<p class="empty-state-small">Estamos actualizando el listado especial. Consultanos por WhatsApp cuáles juegos podés canjear.</p>`;
+    return;
+  }
+  listBox.innerHTML = games.map(g => `
+    <article class="cofre-game">
+      <div class="cofre-game-img">${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">` : placeholderHTML()}</div>
+      <div class="cofre-game-info">
+        <span class="cart-platform">${escapeHtml(g.platform || "")}</span>
+        <h3>${escapeHtml(g.title)}</h3>
+        <div class="cofre-game-price"><span class="cofre-free">GRATIS</span> con ${COFRE_META} 🪙</div>
+        <a class="cta-secondary small" href="${cofreCanjeWaURL(g.title)}" target="_blank" rel="noopener">Canjear este juego</a>
+      </div>
+    </article>
+  `).join("");
 }
 
 // ============================================================
@@ -5202,6 +5271,7 @@ async function renderMyAccount() {
           <button id="cancelPwdBtn" class="cta-secondary">Cancelar</button>
         </div>
       </div>
+      <div id="acctCofre"></div>
       <div id="purchasesList">Cargando compras...</div>
     </section>
   `;
@@ -5231,6 +5301,9 @@ async function renderMyAccount() {
   const list = document.getElementById("purchasesList");
   try {
     const { purchases } = await apiPost("/api/purchases", { action: "mine" });
+    // Cofre de Oro: progreso de monedas arriba del historial.
+    const cofreBox = document.getElementById("acctCofre");
+    if (cofreBox) cofreBox.innerHTML = cofreChestHTML(cofreCoins(purchases));
     if (!purchases?.length) {
       list.innerHTML = `
         <div class="empty-purchases">
@@ -5257,6 +5330,7 @@ function purchaseCardHTML(p) {
         <div>
           <span class="cart-platform">${escapeHtml(p.platform)}</span>
           ${modLabel}
+          ${p.is_redemption ? `<span class="cofre-badge">🪙 Canje del Cofre</span>` : ""}
         </div>
         <time>${escapeHtml(date)}</time>
       </header>
@@ -5361,6 +5435,10 @@ async function renderAdmin() {
           </label>
           <label>Notas (opcional)
             <textarea name="notes" rows="2"></textarea>
+          </label>
+          <label class="checkbox-label">
+            <input name="is_redemption" type="checkbox">
+            🪙 Canje del Cofre de Oro (juego gratis — no suma moneda y descuenta 7 al cliente)
           </label>
           <button type="submit">Guardar compra</button>
           <p id="purchaseFormStatus" class="form-status"></p>
@@ -5692,7 +5770,7 @@ function renderPurchaseCards(purchases, box, onDelete) {
     <div class="admin-purchase">
       <header>
         <strong>${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || "?")}</strong>
-        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}</span>
+        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}${p.is_redemption ? " · 🪙 canje" : ""}</span>
         <time>${escapeHtml(p.purchase_date)}</time>
         <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
         <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
@@ -5904,6 +5982,10 @@ function openEditModal(p) {
     <label>Notas
       <textarea name="notes" rows="2">${escapeHtml(p.notes || "")}</textarea>
     </label>
+    <label class="checkbox-label">
+      <input name="is_redemption" type="checkbox"${p.is_redemption ? " checked" : ""}>
+      🪙 Canje del Cofre de Oro (juego gratis)
+    </label>
     <div class="edit-modal-actions">
       <button id="editSaveBtn" type="button">Guardar cambios</button>
       <button id="editCancelBtn" type="button" class="admin-modal-cancel">Cancelar</button>
@@ -5930,6 +6012,7 @@ function openEditModal(p) {
         games: modal.querySelector('[name="games"]').value || null,
         verifier_codes: modal.querySelector('[name="verifier_codes"]').value || null,
         notes: modal.querySelector('[name="notes"]').value || null,
+        is_redemption: modal.querySelector('[name="is_redemption"]').checked,
       });
       status.textContent = "✓ Guardado";
       status.className = "form-status ok";
@@ -5963,6 +6046,7 @@ async function handleAdminSubmit(e) {
       games: fd.get("games") || null,
       game_name: fd.get("game_name") || null,
       notes: fd.get("notes") || null,
+      is_redemption: fd.get("is_redemption") === "on",
     });
     status.textContent = "✓ Compra cargada";
     status.className = "form-status ok";
@@ -5981,9 +6065,7 @@ async function handleAdminSubmit(e) {
 // Estas claves de localStorage tienen que declararse antes de los
 // llamados a mountNewsletter() y startLiveActivity() porque están
 // en TDZ — si las dejamos abajo, mountNewsletter() lee POPUP_SEEN_KEY,
-// tira ReferenceError, aborta el script y DISCOUNT_KEY nunca llega
-// a inicializarse, lo que rompe renderCart() en cada click al carrito.
-const DISCOUNT_KEY = "rmd_discount_code";
+// tira ReferenceError y aborta el script.
 const POPUP_SEEN_KEY = "rmd_popup_seen";
 const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
 
@@ -5997,7 +6079,7 @@ setTimeout(() => startLiveActivity(), 4000);
 mountNewsletter();
 
 // ============================================================
-// Newsletter — footer form + popup de descuento
+// Newsletter — footer form + popup del Cofre de Oro
 // ============================================================
 
 function mountNewsletter() {
@@ -6023,10 +6105,12 @@ function mountNewsletter() {
   const popupForm = document.getElementById("popupForm");
   popupForm.addEventListener("submit", (e) => handleNewsletterSubmit(e, popupForm, "popup"));
 
-  // Mostrar popup automáticamente si no se vio antes y no está suscrito
+  // Migración: la clave vieja del código de descuento ya no se usa.
+  localStorage.removeItem("rmd_discount_code");
+
+  // Mostrar popup automáticamente si no se vio antes
   const seen = localStorage.getItem(POPUP_SEEN_KEY);
-  const hasCode = localStorage.getItem(DISCOUNT_KEY);
-  if (!seen && !hasCode) {
+  if (!seen) {
     setTimeout(() => {
       // No molestar si está en checkout/admin/login
       const r = parseRoute();
@@ -6070,23 +6154,16 @@ async function handleNewsletterSubmit(e, form, source) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Error al suscribir");
 
-    // Guardar código localmente
-    if (data.code) localStorage.setItem(DISCOUNT_KEY, data.code);
-
     if (source === "popup") {
       // Mostrar pantalla de éxito en el popup
       document.getElementById("popupForm").hidden = true;
       document.getElementById("popupSuccess").hidden = false;
-      document.getElementById("popupCode").textContent = data.code || "BIENVENIDA10";
       localStorage.setItem(POPUP_SEEN_KEY, String(Date.now()));
     } else {
-      // Footer: toast con el código
-      showToast(`¡Listo! Tu código: ${data.code}`, "success");
+      showToast("¡Listo! Ya estás suscrito a las ofertas.", "success");
       btn.textContent = "✓ Suscrito";
       form.querySelector('input[name="email"]').value = "";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 3000);
-      // Re-render cart si está abierto, para mostrar el código
-      if (parseRoute().name === "cart") render();
       return;
     }
   } catch (err) {
@@ -6094,10 +6171,6 @@ async function handleNewsletterSubmit(e, form, source) {
     btn.textContent = originalText;
     showToast(err.message || "Error al suscribir. Intentá de nuevo.", "error");
   }
-}
-
-function getDiscountCode() {
-  return localStorage.getItem(DISCOUNT_KEY) || "";
 }
 
 // ============================================================

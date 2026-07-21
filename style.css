@@ -4033,98 +4033,162 @@ html { scroll-behavior: smooth; }
   .newsletter-form input { min-width: 0; flex: 1; }
 }
 
-/* ===================== CART — DISCOUNT CODE ===================== */
-.cart-row.discount {
-  color: var(--green);
-  font-weight: 700;
-  padding: 0.6rem 0.8rem;
-  background: rgba(0, 217, 126, 0.06);
-  border: 1px dashed rgba(0, 217, 126, 0.4);
+/* ===================== COFRE DE ORO ===================== */
+.cart-cofre-hint {
+  padding: 0.7rem 0.9rem;
+  background: rgba(245, 196, 81, 0.07);
+  border: 1px dashed rgba(245, 196, 81, 0.45);
   border-radius: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
 }
-.cart-discount-label {
-  display: inline-flex;
+.cart-cofre-hint a { color: var(--gold); font-weight: 700; text-decoration: none; }
+.cart-cofre-hint a:hover { text-decoration: underline; }
+
+.cofre-page { padding-top: 1.5rem; padding-bottom: 3rem; }
+.cofre-hero { text-align: center; margin-bottom: 1.6rem; }
+.cofre-hero-icon { font-size: 3.2rem; line-height: 1; margin-bottom: 0.5rem; }
+.cofre-hero h1 {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  background: linear-gradient(120deg, var(--gold), var(--gold-bright));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 0.5rem;
+}
+.cofre-hero-sub { color: var(--text-dim); font-size: 1.02rem; line-height: 1.6; }
+.cofre-hero-sub strong { color: var(--gold-bright); }
+
+.cofre-chest {
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 196, 81, 0.35);
+  border-radius: 14px;
+  padding: 1.1rem 1.3rem;
+  margin: 0 auto 1.8rem;
+  max-width: 560px;
+  box-shadow: 0 6px 24px rgba(245, 196, 81, 0.08);
+}
+.cofre-chest--full { border-color: var(--gold); box-shadow: 0 6px 30px rgba(245, 196, 81, 0.25); }
+.cofre-chest--guest { text-align: center; color: var(--text-dim); font-size: 0.92rem; }
+.cofre-chest--guest a { color: var(--gold); font-weight: 700; text-decoration: none; }
+.cofre-chest-head {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
+  margin-bottom: 0.7rem;
 }
-.cart-discount-label code {
-  background: rgba(0, 217, 126, 0.15);
-  color: var(--green);
-  padding: 0.15rem 0.5rem;
-  border-radius: 5px;
-  font-family: ui-monospace, "SF Mono", monospace;
-  font-size: 0.85rem;
-}
-.cart-discount-amount { color: var(--green); }
-.cart-remove-code {
-  background: transparent;
-  border: 1px solid rgba(0, 217, 126, 0.3);
-  color: var(--green);
-  width: 22px;
-  height: 22px;
+.cofre-chest-title { font-weight: 800; }
+.cofre-chest-count { color: var(--gold); font-weight: 800; font-size: 0.92rem; }
+.cofre-coins { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.cofre-coin {
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  cursor: pointer;
+  border: 2px dashed rgba(245, 196, 81, 0.4);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
-  line-height: 1;
+  font-size: 1.35rem;
+  background: rgba(245, 196, 81, 0.05);
 }
-.cart-remove-code:hover { color: var(--magenta); border-color: var(--magenta); }
+.cofre-coin.filled {
+  border-style: solid;
+  border-color: var(--gold);
+  background: rgba(245, 196, 81, 0.15);
+  box-shadow: 0 0 12px rgba(245, 196, 81, 0.35);
+}
+.cofre-chest-note { margin-top: 0.8rem; font-size: 0.85rem; color: var(--text-dim); }
+.cofre-chest-note a { color: var(--gold); font-weight: 700; text-decoration: none; }
+.cofre-chest-history { margin-top: 0.5rem; font-size: 0.82rem; color: var(--green); }
+.cofre-canje-cta { display: block; text-align: center; margin-top: 0.9rem; }
 
-.cart-code-input {
-  background: var(--bg-elev);
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 0.9rem 1rem;
+.cofre-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2.2rem;
 }
-.cart-code-input summary {
-  cursor: pointer;
-  color: var(--cyan);
-  font-weight: 600;
-  font-size: 0.9rem;
-  list-style: none;
-}
-.cart-code-input summary::-webkit-details-marker { display: none; }
-.cart-code-input summary::before { content: "+ "; margin-right: 0.2rem; }
-.cart-code-input[open] summary::before { content: "− "; }
-.cart-code-input form {
-  display: flex;
-  gap: 0.4rem;
-  margin-top: 0.8rem;
-}
-.cart-code-input input {
-  flex: 1;
-  background: var(--bg);
+.cofre-step {
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text);
-  padding: 0.55rem 0.8rem;
-  font-family: ui-monospace, "SF Mono", monospace;
-  text-transform: uppercase;
-  font-size: 0.88rem;
-  outline: none;
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem;
 }
-.cart-code-input input:focus { border-color: var(--gold); }
-.cart-code-input button {
+.cofre-step-num {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
   background: var(--gold);
   color: #1a0e02;
-  border: none;
-  border-radius: 7px;
-  padding: 0.55rem 1rem;
-  font-weight: 800;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
+  font-weight: 900;
+  margin-bottom: 0.6rem;
 }
-.cart-code-hint {
-  margin: 0.6rem 0 0;
+.cofre-step h3 { font-size: 1rem; margin-bottom: 0.4rem; }
+.cofre-step p { font-size: 0.88rem; color: var(--text-dim); line-height: 1.55; }
+.cofre-step a { color: var(--gold); text-decoration: none; font-weight: 700; }
+
+.cofre-list-title { margin-bottom: 1rem; font-size: 1.3rem; }
+.cofre-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+.cofre-game {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.cofre-game:hover { transform: translateY(-3px); border-color: rgba(245, 196, 81, 0.5); }
+.cofre-game-img { aspect-ratio: 1; background: var(--bg-elev); }
+.cofre-game-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cofre-game-info { padding: 0.85rem 0.95rem 1rem; display: flex; flex-direction: column; gap: 0.45rem; align-items: flex-start; }
+.cofre-game-info h3 { font-size: 0.95rem; line-height: 1.3; }
+.cofre-game-price { font-size: 0.85rem; color: var(--text-dim); }
+.cofre-free {
+  color: var(--green);
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+.cofre-fine-print { font-size: 0.78rem; color: var(--text-dim); line-height: 1.6; }
+
+.cofre-badge {
+  display: inline-block;
+  background: rgba(245, 196, 81, 0.15);
+  border: 1px solid rgba(245, 196, 81, 0.5);
+  color: var(--gold-bright);
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
   font-size: 0.78rem;
-  color: var(--text-dim);
+  font-weight: 800;
 }
-.cart-code-hint a { color: var(--gold); text-decoration: none; font-weight: 700; }
-.cart-code-hint a:hover { text-decoration: underline; }
+
+.popup-icon--cofre { font-size: 2.6rem; line-height: 1; }
+.popup-cofre-cta { display: block; text-align: center; margin: 0.4rem 0 0.9rem; }
+
+.checkbox-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] { width: auto; accent-color: var(--gold); }
+
+@media (max-width: 768px) {
+  .cofre-steps { grid-template-columns: 1fr; }
+  .cofre-coin { width: 36px; height: 36px; font-size: 1.15rem; }
+}
 
 /* ============================================================
    Bundles: badge de oferta / descuento

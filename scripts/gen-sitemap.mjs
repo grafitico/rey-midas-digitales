@@ -31,6 +31,7 @@ const staticPages = [
   { loc: "/plataforma/Xbox", priority: "0.9", changefreq: "daily" },
   { loc: "/plataforma/Switch", priority: "0.8", changefreq: "weekly" },
   { loc: "/ofertas", priority: "0.9", changefreq: "daily" },
+  { loc: "/cofre", priority: "0.7", changefreq: "monthly" },
   { loc: "/playstation-plus", priority: "0.8", changefreq: "weekly" },
   { loc: "/game-pass", priority: "0.8", changefreq: "weekly" },
   { loc: "/bundles/PS", priority: "0.7", changefreq: "weekly" },

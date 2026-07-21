@@ -8,7 +8,7 @@
  *  - Video (.mp4) / range:      sin interceptar (streaming con Range)
  */
 
-const CACHE_VERSION = 'v1-20260718d';
+const CACHE_VERSION = 'v1-20260721a';
 const SHELL_CACHE = `rmd-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `rmd-runtime-${CACHE_VERSION}`;
 
