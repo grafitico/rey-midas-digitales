@@ -34,7 +34,7 @@
 
   <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <link rel="preconnect" href="https://www.youtube.com">
-  <link rel="stylesheet" href="/style.css?v=20260721c">
+  <link rel="stylesheet" href="/style.css?v=20260721d">
 </head>
 <body>
   <header class="topbar">
@@ -138,7 +138,7 @@
       <button class="popup-close" data-close-popup aria-label="Cerrar">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
-      <div class="popup-icon popup-icon--cofre">🪙</div>
+      <div class="popup-icon popup-icon--cofre"><img src="/assets/chest.svg" alt="Cofre de Oro" width="64" height="64"></div>
       <h2 id="discountTitle">El Cofre de Oro del Rey Midas</h2>
       <p class="popup-subtitle">Cada compra suma <strong>1 moneda de oro</strong> a tu cofre. Al juntar <strong>7 monedas</strong>, canjeás un <strong>juego gratis</strong> del listado especial.</p>
       <a class="cta popup-cofre-cta" href="/cofre" data-close-popup>Conocer el Cofre de Oro</a>
@@ -164,9 +164,10 @@
   <footer class="site-footer">
     <div class="container">
       <div class="newsletter-band">
+        <img class="newsletter-chest" src="/assets/chest.svg" alt="" aria-hidden="true" width="72" height="72">
         <div class="newsletter-text">
-          <h3>📩 No te pierdas las ofertas</h3>
-          <p>Recibí las promos antes que nadie. Y recordá: cada compra suma <strong>1 moneda</strong> para el <a href="/cofre">Cofre de Oro</a> 🪙.</p>
+          <h3>No te pierdas las ofertas</h3>
+          <p>Recibí las promos antes que nadie. Y recordá: cada compra suma <strong>1 moneda</strong> <img class="ico-coin" src="/assets/coin.svg" alt="" aria-hidden="true"> para el <a href="/cofre">Cofre de Oro</a>.</p>
         </div>
         <form id="footerNewsletter" class="newsletter-form">
           <input type="email" name="email" required placeholder="tu@email.com" autocomplete="email" aria-label="Tu email">
@@ -201,7 +202,7 @@
           <li><a href="/bundles/PS">Bundles PS</a></li>
           <li><a href="/bundles/Xbox">Bundles Xbox</a></li>
           <li><a href="/ofertas">Ofertas</a></li>
-          <li><a href="/cofre">🪙 Cofre de Oro</a></li>
+          <li><a href="/cofre"><img class="ico-coin" src="/assets/coin.svg" alt="" aria-hidden="true"> Cofre de Oro</a></li>
         </ul>
       </div>
 
@@ -235,7 +236,7 @@
     </div>
   </footer>
 
-  <script src="/app.js?v=20260721c"></script>
+  <script src="/app.js?v=20260721d"></script>
   <script src="/pwa.js?v=20260715b" defer></script>
   <script src="/chat-widget.js?v=20260715b" defer></script>
 </body>

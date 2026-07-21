@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Cofre de oro">
+  <defs>
+    <linearGradient id="chestWood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5626"/>
+      <stop offset="1" stop-color="#5a3414"/>
+    </linearGradient>
+    <linearGradient id="chestGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe491"/>
+      <stop offset="1" stop-color="#dfa41c"/>
+    </linearGradient>
+  </defs>
+  <!-- tapa abierta (atrás) -->
+  <path d="M8 24 Q8 11 24 11 Q40 11 40 24 Z" fill="#6b3f18"/>
+  <path d="M10.5 23 Q10.5 14 24 14 Q37.5 14 37.5 23 Z" fill="url(#chestWood)"/>
+  <rect x="8" y="21.5" width="32" height="3" rx="1" fill="url(#chestGold)"/>
+  <!-- monedas asomando -->
+  <circle cx="15" cy="20.5" r="3.4" fill="url(#chestGold)" stroke="#c8891b" stroke-width=".7"/>
+  <circle cx="24" cy="19" r="3.6" fill="url(#chestGold)" stroke="#c8891b" stroke-width=".7"/>
+  <circle cx="33" cy="20.5" r="3.4" fill="url(#chestGold)" stroke="#c8891b" stroke-width=".7"/>
+  <!-- cuerpo -->
+  <rect x="8" y="24" width="32" height="15.5" rx="2.5" fill="url(#chestWood)"/>
+  <rect x="8" y="24" width="32" height="3.4" fill="url(#chestGold)"/>
+  <rect x="21" y="24" width="6" height="15.5" fill="url(#chestGold)"/>
+  <rect x="21.6" y="28.6" width="4.8" height="6" rx="1.2" fill="#c8891b"/>
+  <circle cx="24" cy="31.2" r="1.1" fill="#5a3414"/>
+</svg>
