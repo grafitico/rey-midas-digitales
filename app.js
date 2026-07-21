@@ -61,6 +61,19 @@ const CONFIG = {
       principalPct: 0.65,
       secundariaPct: 0.35,
     },
+
+    // La cuenta principal de PlayStation SIEMPRE se muestra por debajo del
+    // precio oficial vigente en playstation.com (priceUSD × exchangeRate),
+    // para que comprar con nosotros siempre sea atractivo:
+    //   oficial ≥ ₡30.000 → al menos ₡5.000 menos
+    //   oficial ≥ ₡12.000 → al menos ₡3.500 menos
+    //   más barato        → al menos 25% menos (₡3.500 fijos dejaría sin margen)
+    // El piso de servicio minCRC manda sobre esta regla en lo ultra barato.
+    underOficial: {
+      highCRC: 30000, highRebaja: 5000,
+      midCRC: 12000,  midRebaja: 3500,
+      cheapPct: 0.25,
+    },
   },
 
   // Plataformas con catálogo activo. PS3 queda visible
@@ -4906,12 +4919,24 @@ function ps5OnlyFloorCRC(usd, platform, pct) {
   const { taxFactor } = CONFIG.pricing.ps5Only;
   return roundTo500(usd * CONFIG.pricing.exchangeRate * taxFactor * pct);
 }
+function officialCapCRC(usd, platform) {
+  // Tope para la cuenta principal PlayStation: siempre por debajo del precio
+  // oficial vigente en playstation.com. Xbox/Switch no aplican (otro costo base).
+  if (!/PS/i.test(platform) || !usd || usd <= 0) return Infinity;
+  const cfg = CONFIG.pricing.underOficial;
+  const oficial = usd * CONFIG.pricing.exchangeRate;
+  const rebaja = oficial >= cfg.highCRC ? cfg.highRebaja
+    : oficial >= cfg.midCRC ? cfg.midRebaja
+    : Math.max(roundTo500(oficial * cfg.cheapPct), 500);
+  return Math.max(roundTo500(oficial) - rebaja, 0);
+}
 function principalCRC(usd, platform = "") {
   const base = /PS|Xbox/i.test(platform)
     ? interpolateCRC(usd, 0)
     : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
   const floor = ps5OnlyFloorCRC(usd, platform, CONFIG.pricing.ps5Only.principalPct);
-  return withMinCRC(Math.max(base, floor), usd);
+  const cap = officialCapCRC(usd, platform);
+  return withMinCRC(Math.min(Math.max(base, floor), cap), usd);
 }
 function secundariaCRC(usd, platform = "") {
   const base = /PS|Xbox/i.test(platform)

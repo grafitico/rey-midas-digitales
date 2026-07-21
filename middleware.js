@@ -45,6 +45,8 @@ const TABLE = [
 // secundaria) → piso sobre la inversión real (precio PSN con impuestos).
 // Espejo de ps5Only en app.js.
 const PS5_ONLY = { taxFactor: 1.04, principalPct: 0.65, secundariaPct: 0.35 };
+// Principal PlayStation siempre por debajo del oficial de playstation.com.
+const UNDER_OFICIAL = { highCRC: 30000, highRebaja: 5000, midCRC: 12000, midRebaja: 3500, cheapPct: 0.25 };
 const roundTo500 = (n) => Math.round(n / 500) * 500;
 function interpolateCRC(usd, colIdx) {
   if (!usd || usd <= 0) return 0;
@@ -70,13 +72,22 @@ function ps5OnlyFloorCRC(usd, platform, pct) {
   if (String(platform).trim() !== "PS5" || !usd || usd <= 0) return 0;
   return roundTo500(usd * EXCHANGE * PS5_ONLY.taxFactor * pct);
 }
+function officialCapCRC(usd, platform) {
+  if (!/PS/i.test(platform) || !usd || usd <= 0) return Infinity;
+  const oficial = usd * EXCHANGE;
+  const rebaja = oficial >= UNDER_OFICIAL.highCRC ? UNDER_OFICIAL.highRebaja
+    : oficial >= UNDER_OFICIAL.midCRC ? UNDER_OFICIAL.midRebaja
+    : Math.max(roundTo500(oficial * UNDER_OFICIAL.cheapPct), 500);
+  return Math.max(roundTo500(oficial) - rebaja, 0);
+}
 function principalCRC(usd, platform = "") {
   if (!usd || usd <= 0) return 0;
   const base = /PS|Xbox/i.test(platform)
     ? interpolateCRC(usd, 0)
     : Math.round(usd * EXCHANGE * 0.75);
   const floor = ps5OnlyFloorCRC(usd, platform, PS5_ONLY.principalPct);
-  return Math.max(base, floor, MIN_CRC);
+  const cap = officialCapCRC(usd, platform);
+  return Math.max(Math.min(Math.max(base, floor), cap), MIN_CRC);
 }
 function formatCRC(n) {
   // Formato es-CR sin depender de Intl (datos de locale limitados en Edge).
