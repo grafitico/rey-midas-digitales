@@ -35,33 +35,47 @@ const BOT_RE = /facebookexternalhit|facebot|WhatsApp|Twitterbot|Slackbot|Slack-I
 
 // ---- Precios: espejo de CONFIG.pricing en app.js ----
 const EXCHANGE = 530;
+const MIN_CRC = 1000;
 const TABLE = [
-  [10, 4000, 2500], [20, 6000, 3000], [30, 11000, 5500], [40, 17000, 7000],
-  [50, 21000, 9000], [60, 26000, 13000], [70, 28500, 15000], [80, 36000, 14000],
+  [5, 1500, 1000], [10, 3500, 2000], [20, 5000, 3500], [30, 9500, 6000],
+  [40, 15000, 7500], [50, 18000, 11000], [60, 25500, 13500], [70, 27500, 16000],
+  [80, 33500, 18000],
 ];
+// Juegos SOLO PS5 (platform === "PS5"): máx. 3 ventas por licencia → piso
+// sobre la inversión real (precio PSN con impuestos). Espejo de ps5Only en app.js.
+const PS5_ONLY = { taxFactor: 1.04, principalPct: 0.75, secundariaPct: 0.40 };
+const roundTo500 = (n) => Math.round(n / 500) * 500;
 function interpolateCRC(usd, colIdx) {
   if (!usd || usd <= 0) return 0;
   const col = (r) => r[colIdx + 1];
   const last = TABLE.length - 1;
   if (usd <= TABLE[0][0]) {
     const t = (usd - TABLE[0][0]) / (TABLE[1][0] - TABLE[0][0]);
-    return Math.max(0, Math.round(col(TABLE[0]) + t * (col(TABLE[1]) - col(TABLE[0]))));
+    return Math.max(0, roundTo500(col(TABLE[0]) + t * (col(TABLE[1]) - col(TABLE[0]))));
   }
   if (usd >= TABLE[last][0]) {
     const t = (usd - TABLE[last - 1][0]) / (TABLE[last][0] - TABLE[last - 1][0]);
-    return Math.round(col(TABLE[last - 1]) + t * (col(TABLE[last]) - col(TABLE[last - 1])));
+    return roundTo500(col(TABLE[last - 1]) + t * (col(TABLE[last]) - col(TABLE[last - 1])));
   }
   for (let i = 0; i < TABLE.length - 1; i++) {
     if (usd >= TABLE[i][0] && usd <= TABLE[i + 1][0]) {
       const t = (usd - TABLE[i][0]) / (TABLE[i + 1][0] - TABLE[i][0]);
-      return Math.round(col(TABLE[i]) + t * (col(TABLE[i + 1]) - col(TABLE[i])));
+      return roundTo500(col(TABLE[i]) + t * (col(TABLE[i + 1]) - col(TABLE[i])));
     }
   }
   return 0;
 }
+function ps5OnlyFloorCRC(usd, platform, pct) {
+  if (String(platform).trim() !== "PS5" || !usd || usd <= 0) return 0;
+  return roundTo500(usd * EXCHANGE * PS5_ONLY.taxFactor * pct);
+}
 function principalCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
-  return Math.round(usd * EXCHANGE * 0.75);
+  if (!usd || usd <= 0) return 0;
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 0)
+    : Math.round(usd * EXCHANGE * 0.75);
+  const floor = ps5OnlyFloorCRC(usd, platform, PS5_ONLY.principalPct);
+  return Math.max(base, floor, MIN_CRC);
 }
 function formatCRC(n) {
   // Formato es-CR sin depender de Intl (datos de locale limitados en Edge).

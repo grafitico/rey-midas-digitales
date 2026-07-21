@@ -43,16 +43,21 @@ const PRICING = {
   exchangeRate: 530,
   principalMarkup: 0.75,
   secundariaMarkup: 0.35,
+  minCRC: 1000,
   table: [
-    [10, 4000, 2500],
-    [20, 6000, 3000],
-    [30, 11000, 5500],
-    [40, 17000, 7000],
-    [50, 21000, 9000],
-    [60, 26000, 13000],
-    [70, 28500, 15000],
-    [80, 36000, 14000],
+    [5, 1500, 1000],
+    [10, 3500, 2000],
+    [20, 5000, 3500],
+    [30, 9500, 6000],
+    [40, 15000, 7500],
+    [50, 18000, 11000],
+    [60, 25500, 13500],
+    [70, 27500, 16000],
+    [80, 33500, 18000],
   ],
+  // Juegos SOLO PS5 (platform === "PS5"): máx. 3 ventas por licencia → piso
+  // sobre la inversión real (precio PSN con impuestos). Espejo de ps5Only en app.js.
+  ps5Only: { taxFactor: 1.04, principalPct: 0.75, secundariaPct: 0.40 },
 };
 const roundTo500 = (n) => Math.round(n / 500) * 500;
 function interpolateCRC(usd, colIdx) {
@@ -76,13 +81,27 @@ function interpolateCRC(usd, colIdx) {
   }
   return 0;
 }
+function ps5OnlyFloorCRC(usd, platform, pct) {
+  if (String(platform).trim() !== "PS5" || !usd || usd <= 0) return 0;
+  return roundTo500(usd * PRICING.exchangeRate * PRICING.ps5Only.taxFactor * pct);
+}
+function withMinCRC(price, usd) {
+  if (!usd || usd <= 0) return price;
+  return Math.max(price, PRICING.minCRC);
+}
 function principalCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 0);
-  return Math.round(usd * PRICING.exchangeRate * PRICING.principalMarkup);
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 0)
+    : Math.round(usd * PRICING.exchangeRate * PRICING.principalMarkup);
+  const floor = ps5OnlyFloorCRC(usd, platform, PRICING.ps5Only.principalPct);
+  return withMinCRC(Math.max(base, floor), usd);
 }
 function secundariaCRC(usd, platform = "") {
-  if (/PS|Xbox/i.test(platform)) return interpolateCRC(usd, 1);
-  return Math.round(usd * PRICING.exchangeRate * PRICING.secundariaMarkup);
+  const base = /PS|Xbox/i.test(platform)
+    ? interpolateCRC(usd, 1)
+    : Math.round(usd * PRICING.exchangeRate * PRICING.secundariaMarkup);
+  const floor = ps5OnlyFloorCRC(usd, platform, PRICING.ps5Only.secundariaPct);
+  return withMinCRC(Math.max(base, floor), usd);
 }
 const crc = (n) => "₡" + Number(n || 0).toLocaleString("es-CR");
 

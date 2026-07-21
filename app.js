@@ -46,6 +46,21 @@ const CONFIG = {
       [70, 27500, 16000],
       [80, 33500, 18000],
     ],
+
+    // Juegos SOLO PS5 (platform === "PS5", sin versión PS4): la licencia solo
+    // se puede vender 3 veces (1 cuenta principal + 2 secundarias). La tabla
+    // de arriba está calibrada para el modelo PS4/cross-gen con más reventas;
+    // con solo 3 ventas hay que recuperar la inversión más rápido. Para estos
+    // juegos el precio se calcula también sobre la inversión real y se cobra
+    // el MAYOR entre la tabla y este piso:
+    //   inversión  = priceUSD × exchangeRate × taxFactor (lo que cuesta en PSN es-cr con impuestos)
+    //   principal  = inversión × principalPct  → la 1ª venta recupera ~3/4
+    //   secundaria = inversión × secundariaPct → con la 1ª secundaria ya hay ganancia
+    ps5Only: {
+      taxFactor: 1.04,     // impuestos/comisiones al comprar en la página de Sony
+      principalPct: 0.75,
+      secundariaPct: 0.40,
+    },
   },
 
   // Plataformas con catálogo activo. PS3 queda visible
@@ -4884,17 +4899,26 @@ function withMinCRC(price, usd) {
   if (!usd || usd <= 0) return price;
   return Math.max(price, CONFIG.pricing.minCRC);
 }
+function ps5OnlyFloorCRC(usd, platform, pct) {
+  // Piso para juegos SOLO PS5 (máx. 3 ventas por licencia): % de la
+  // inversión real (precio PSN con impuestos). Cross-gen ("PS5/PS4") no aplica.
+  if (String(platform).trim() !== "PS5" || !usd || usd <= 0) return 0;
+  const { taxFactor } = CONFIG.pricing.ps5Only;
+  return roundTo500(usd * CONFIG.pricing.exchangeRate * taxFactor * pct);
+}
 function principalCRC(usd, platform = "") {
   const base = /PS|Xbox/i.test(platform)
     ? interpolateCRC(usd, 0)
     : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.principalMarkup);
-  return withMinCRC(base, usd);
+  const floor = ps5OnlyFloorCRC(usd, platform, CONFIG.pricing.ps5Only.principalPct);
+  return withMinCRC(Math.max(base, floor), usd);
 }
 function secundariaCRC(usd, platform = "") {
   const base = /PS|Xbox/i.test(platform)
     ? interpolateCRC(usd, 1)
     : Math.round(usd * CONFIG.pricing.exchangeRate * CONFIG.pricing.secundariaMarkup);
-  return withMinCRC(base, usd);
+  const floor = ps5OnlyFloorCRC(usd, platform, CONFIG.pricing.ps5Only.secundariaPct);
+  return withMinCRC(Math.max(base, floor), usd);
 }
 function formatCRC(amount) {
   return new Intl.NumberFormat("es-CR", {
