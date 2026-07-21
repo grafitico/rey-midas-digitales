@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-21b";
+const APP_CACHE_VERSION = "2026-07-21c";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -5373,6 +5373,7 @@ async function renderAdmin() {
       <nav class="admin-tabs" role="tablist" aria-label="Secciones del panel">
         <button type="button" class="admin-tab is-active" data-tab="clientes" role="tab" aria-selected="true">👤 Clientes</button>
         <button type="button" class="admin-tab" data-tab="compras" role="tab" aria-selected="false">🛒 Compras</button>
+        <button type="button" class="admin-tab" data-tab="ventas" role="tab" aria-selected="false">💰 Ventas</button>
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
       </nav>
 
@@ -5440,6 +5441,9 @@ async function renderAdmin() {
                 <option value="individual">Individual</option>
               </select>
             </label>
+            <label>Monto pagado (₡)
+              <input name="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="Ej: 12000">
+            </label>
           </div>
           <label>Email de la cuenta vendida
             <input name="account_email" type="text" required>
@@ -5498,6 +5502,31 @@ async function renderAdmin() {
           <div id="adminPurchases">Cargando...</div>
         </div>
       </div>
+      </div>
+
+      <div class="admin-panel" data-panel="ventas" role="tabpanel" hidden>
+        <div class="sales-report">
+          <div class="sales-controls">
+            <div class="sales-presets" role="group" aria-label="Rangos rápidos">
+              <button type="button" class="sr-preset" data-range="today">Hoy</button>
+              <button type="button" class="sr-preset" data-range="week">Últimos 7 días</button>
+              <button type="button" class="sr-preset is-active" data-range="month">Este mes</button>
+              <button type="button" class="sr-preset" data-range="year">Este año</button>
+            </div>
+            <div class="sales-range">
+              <label class="af-field">
+                <span>Desde</span>
+                <input id="salesFrom" type="date">
+              </label>
+              <label class="af-field">
+                <span>Hasta</span>
+                <input id="salesTo" type="date">
+              </label>
+              <button id="salesApply" type="button">Ver ventas</button>
+            </div>
+          </div>
+          <div id="salesReport" class="sales-body">Elegí un rango para ver las ventas.</div>
+        </div>
       </div>
 
       <div class="admin-panel" data-panel="bundles" role="tabpanel" hidden>
@@ -5573,6 +5602,7 @@ async function renderAdmin() {
   document.getElementById("bundleCancelBtn").addEventListener("click", resetBundleForm);
   document.getElementById("bundleCoverFile").addEventListener("change", previewBundleCover);
   document.getElementById("bundleCoverUrl").addEventListener("input", previewBundleCover);
+  setupSalesReport();
   loadAdminPurchases();
   loadClientsDropdown();
   loadAdminBundles();
@@ -5823,7 +5853,7 @@ function renderPurchaseCards(purchases, box, onDelete) {
     <div class="admin-purchase">
       <header>
         <strong>${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || "?")}</strong>
-        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}${p.is_redemption ? " · 🪙 canje" : ""}</span>
+        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}${p.is_redemption ? " · 🪙 canje" : ""}${p.amount != null ? ` · <strong class="admin-amount">${escapeHtml(formatCRC(p.amount))}</strong>` : ""}</span>
         <time>${escapeHtml(p.purchase_date)}</time>
         <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
         <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
@@ -5877,6 +5907,8 @@ function setupAdminTabs() {
         p.classList.toggle("is-active", on);
         p.hidden = !on;
       });
+      // El reporte de ventas se carga la primera vez que se abre la pestaña.
+      if (target === "ventas" && !salesReportLoaded) loadSalesReport();
     });
   });
 }
@@ -5912,6 +5944,187 @@ function clearAdminFilter() {
   document.getElementById("filterClear").hidden = true;
   document.getElementById("clientProfileCard").hidden = true;
   loadAdminPurchases();
+}
+
+// ============================================================
+// Reporte de Ventas (admin) — historial por fecha, totales por día y por
+// mes, desglosado por consola (PS5/PS4/PS3/Xbox/Nintendo).
+// ============================================================
+const SALES_PLATFORMS = ["PS5", "PS4", "PS3", "Xbox", "Nintendo"];
+let salesReportLoaded = false;
+
+// Normaliza cualquier valor de plataforma a uno de los buckets del reporte.
+function salesPlatformBucket(platform) {
+  const s = String(platform || "").toLowerCase();
+  if (s.includes("ps5")) return "PS5";
+  if (s.includes("ps4")) return "PS4";
+  if (s.includes("ps3")) return "PS3";
+  if (s.includes("xbox")) return "Xbox";
+  if (s.includes("switch") || s.includes("nintendo")) return "Nintendo";
+  return "Otro";
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+function ymd(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+
+// {from, to} en formato YYYY-MM-DD para cada rango rápido.
+function salesRangeForPreset(preset) {
+  const now = new Date();
+  const today = ymd(now);
+  if (preset === "today") return { from: today, to: today };
+  if (preset === "week") {
+    const start = new Date(now);
+    start.setDate(now.getDate() - 6);
+    return { from: ymd(start), to: today };
+  }
+  if (preset === "year") {
+    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
+  }
+  // "month" por defecto: del 1° al último día del mes actual.
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: ymd(first), to: ymd(last) };
+}
+
+function setupSalesReport() {
+  const applyBtn = document.getElementById("salesApply");
+  if (!applyBtn) return;
+  applyBtn.addEventListener("click", () => { markSalesPresetActive(null); loadSalesReport(); });
+  document.querySelectorAll(".sr-preset").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const { from, to } = salesRangeForPreset(btn.dataset.range);
+      document.getElementById("salesFrom").value = from;
+      document.getElementById("salesTo").value = to;
+      markSalesPresetActive(btn);
+      loadSalesReport();
+    });
+  });
+  // Arranca mostrando el mes actual en los inputs.
+  const { from, to } = salesRangeForPreset("month");
+  document.getElementById("salesFrom").value = from;
+  document.getElementById("salesTo").value = to;
+}
+
+function markSalesPresetActive(activeBtn) {
+  document.querySelectorAll(".sr-preset").forEach(b => b.classList.toggle("is-active", b === activeBtn));
+}
+
+async function loadSalesReport() {
+  const box = document.getElementById("salesReport");
+  if (!box) return;
+  const from = document.getElementById("salesFrom").value || "";
+  const to = document.getElementById("salesTo").value || "";
+  box.innerHTML = `<p class="sr-loading">Cargando ventas…</p>`;
+  try {
+    const { sales } = await apiPost("/api/purchases", { action: "sales", from, to });
+    salesReportLoaded = true;
+    renderSalesReport(sales || []);
+  } catch (err) {
+    box.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderSalesReport(sales) {
+  const box = document.getElementById("salesReport");
+  if (!box) return;
+  if (!sales.length) {
+    box.innerHTML = `<div class="sr-empty">No hay ventas registradas en este rango.</div>`;
+    return;
+  }
+
+  let totalCRC = 0;
+  let paidCount = 0;      // ventas con monto > 0 (para el ticket promedio)
+  let withoutAmount = 0;  // ventas sin monto y que no son canjes del Cofre
+  const platTotals = {};        // bucket -> { count, crc }
+  const byDay = new Map();      // 'YYYY-MM-DD' -> { crc, count, plats:{} }
+  const byMonth = new Map();    // 'YYYY-MM'    -> { crc, count }
+
+  for (const s of sales) {
+    const bucket = salesPlatformBucket(s.platform);
+    const amt = (s.amount != null && Number.isFinite(Number(s.amount))) ? Number(s.amount) : 0;
+    if (s.amount == null && !s.is_redemption) withoutAmount++;
+    if (amt > 0) paidCount++;
+    totalCRC += amt;
+
+    if (!platTotals[bucket]) platTotals[bucket] = { count: 0, crc: 0 };
+    platTotals[bucket].count++;
+    platTotals[bucket].crc += amt;
+
+    const day = String(s.purchase_date);
+    const month = day.slice(0, 7);
+    if (!byDay.has(day)) byDay.set(day, { crc: 0, count: 0, plats: {} });
+    const d = byDay.get(day);
+    d.crc += amt; d.count++;
+    d.plats[bucket] = (d.plats[bucket] || 0) + 1;
+
+    if (!byMonth.has(month)) byMonth.set(month, { crc: 0, count: 0 });
+    const m = byMonth.get(month);
+    m.crc += amt; m.count++;
+  }
+
+  const platOrder = [...SALES_PLATFORMS, ...Object.keys(platTotals).filter(p => !SALES_PLATFORMS.includes(p))];
+  const platChips = platOrder.filter(p => platTotals[p]).map(p => `
+    <div class="sr-plat sr-plat-${escapeAttr(p.toLowerCase())}">
+      <span class="srp-name">${escapeHtml(p)}</span>
+      <span class="srp-crc">${escapeHtml(formatCRC(platTotals[p].crc))}</span>
+      <span class="srp-count">${platTotals[p].count} ${platTotals[p].count === 1 ? "venta" : "ventas"}</span>
+    </div>`).join("");
+
+  const ticket = paidCount ? Math.round(totalCRC / paidCount) : 0;
+
+  const monthRows = [...byMonth.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([month, m]) => {
+    const label = new Date(month + "-01T00:00:00").toLocaleDateString("es-CR", { month: "long", year: "numeric" });
+    return `<tr><td>${escapeHtml(label)}</td><td class="sr-num">${m.count}</td><td class="sr-num sr-crc">${escapeHtml(formatCRC(m.crc))}</td></tr>`;
+  }).join("");
+
+  const dayRows = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([day, d]) => {
+    const label = new Date(day + "T00:00:00").toLocaleDateString("es-CR", { weekday: "short", day: "2-digit", month: "short" });
+    const tags = platOrder.filter(p => d.plats[p]).map(p =>
+      `<span class="sr-tag sr-tag-${escapeAttr(p.toLowerCase())}">${escapeHtml(p)} · ${d.plats[p]}</span>`).join("");
+    return `<tr>
+      <td>${escapeHtml(label)}</td>
+      <td class="sr-daytags">${tags}</td>
+      <td class="sr-num">${d.count}</td>
+      <td class="sr-num sr-crc">${escapeHtml(formatCRC(d.crc))}</td>
+    </tr>`;
+  }).join("");
+
+  box.innerHTML = `
+    <div class="sr-kpis">
+      <div class="sr-kpi sr-kpi-total">
+        <span class="srk-label">Total vendido</span>
+        <strong class="srk-value">${escapeHtml(formatCRC(totalCRC))}</strong>
+      </div>
+      <div class="sr-kpi">
+        <span class="srk-label">Ventas</span>
+        <strong class="srk-value">${sales.length}</strong>
+      </div>
+      <div class="sr-kpi">
+        <span class="srk-label">Ticket promedio</span>
+        <strong class="srk-value">${escapeHtml(formatCRC(ticket))}</strong>
+      </div>
+    </div>
+    ${withoutAmount ? `<p class="sr-warn">⚠️ ${withoutAmount} ${withoutAmount === 1 ? "venta no tiene" : "ventas no tienen"} monto registrado (no suman al total). Editalas en la pestaña Compras para incluir el monto.</p>` : ""}
+
+    <h3 class="sr-h3">Por consola</h3>
+    <div class="sr-plats">${platChips}</div>
+
+    <h3 class="sr-h3">Por mes</h3>
+    <div class="sr-tablewrap">
+      <table class="sr-table">
+        <thead><tr><th>Mes</th><th class="sr-num">Ventas</th><th class="sr-num">Total</th></tr></thead>
+        <tbody>${monthRows}</tbody>
+      </table>
+    </div>
+
+    <h3 class="sr-h3">Por día</h3>
+    <div class="sr-tablewrap">
+      <table class="sr-table">
+        <thead><tr><th>Día</th><th>Consolas</th><th class="sr-num">Ventas</th><th class="sr-num">Total</th></tr></thead>
+        <tbody>${dayRows}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function showClientProfile(client) {
@@ -6052,6 +6265,9 @@ function openEditModal(p) {
           ).join("")}
         </select>
       </label>
+      <label>Monto pagado (₡)
+        <input name="amount" type="number" min="0" step="1" inputmode="numeric" value="${p.amount != null ? escapeAttr(p.amount) : ""}" placeholder="Ej: 12000">
+      </label>
     </div>
     <label>Email de la cuenta vendida
       <input name="account_email" type="text" value="${escapeAttr(p.account_email)}">
@@ -6095,6 +6311,7 @@ function openEditModal(p) {
         purchase_date: modal.querySelector('[name="purchase_date"]').value,
         platform: modal.querySelector('[name="platform"]').value,
         modality: modal.querySelector('[name="modality"]').value || null,
+        amount: modal.querySelector('[name="amount"]').value === "" ? null : modal.querySelector('[name="amount"]').value,
         account_email: modal.querySelector('[name="account_email"]').value,
         account_password: modal.querySelector('[name="account_password"]').value,
         game_name: modal.querySelector('[name="game_name"]').value || null,
@@ -6129,6 +6346,7 @@ async function handleAdminSubmit(e) {
       purchase_date: fd.get("purchase_date"),
       platform: fd.get("platform"),
       modality: fd.get("modality") || null,
+      amount: fd.get("amount") || null,
       account_email: fd.get("account_email"),
       account_password: fd.get("account_password"),
       verifier_codes: fd.get("verifier_codes") || null,

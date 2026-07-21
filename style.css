@@ -759,6 +759,149 @@ body {
 #filterApply { border-color: var(--gold); color: var(--gold); }
 .af-actions button:hover { border-color: var(--cyan); color: var(--cyan); }
 
+/* Monto en las tarjetas de compra del panel Compras */
+.admin-amount { color: var(--gold); }
+
+/* ===== Reporte de Ventas ===== */
+.sales-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: 1.4rem;
+}
+.sales-presets { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.sr-preset {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.sr-preset:hover { border-color: var(--cyan); color: var(--cyan); }
+.sr-preset.is-active { background: var(--gold); border-color: var(--gold); color: #1a0e02; }
+.sales-range { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: flex-end; }
+.sales-range .af-field { flex: 0 1 160px; }
+#salesApply {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #1a0e02;
+  padding: 0.55rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+#salesApply:hover { filter: brightness(1.08); }
+
+.sr-loading, .sr-empty { color: var(--text-dim); padding: 1.2rem 0; text-align: center; }
+.sr-warn {
+  color: #f0b232;
+  background: rgba(240, 178, 50, 0.08);
+  border: 1px solid rgba(240, 178, 50, 0.3);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.84rem;
+  margin: 0 0 1.2rem;
+}
+
+.sr-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.2rem;
+}
+.sr-kpi {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.95rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.sr-kpi-total { border-color: var(--gold); background: linear-gradient(160deg, rgba(255,199,0,0.1), var(--bg-elev)); }
+.srk-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.srk-value { font-size: 1.5rem; font-weight: 800; color: var(--text); line-height: 1.1; }
+.sr-kpi-total .srk-value { color: var(--gold); }
+
+.sr-h3 {
+  font-size: 0.95rem;
+  margin: 1.4rem 0 0.7rem;
+  color: var(--text);
+}
+.sr-plats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.7rem;
+}
+.sr-plat {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-dim);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.srp-name { font-weight: 700; font-size: 0.9rem; }
+.srp-crc { font-weight: 800; color: var(--gold); font-size: 1.05rem; }
+.srp-count { font-size: 0.75rem; color: var(--text-dim); }
+.sr-plat-ps5 { border-left-color: #0070d1; }
+.sr-plat-ps4 { border-left-color: #2e6fdb; }
+.sr-plat-ps3 { border-left-color: #5aa9e6; }
+.sr-plat-xbox { border-left-color: #107c10; }
+.sr-plat-nintendo { border-left-color: #e60012; }
+
+.sr-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  min-width: 340px;
+}
+.sr-table th, .sr-table td {
+  text-align: left;
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.sr-table th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+}
+.sr-table td:first-child { text-transform: capitalize; white-space: nowrap; }
+.sr-num { text-align: right; white-space: nowrap; }
+.sr-crc { font-weight: 700; color: var(--gold); }
+.sr-daytags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.sr-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.sr-tag-ps5 { border-color: #0070d1; color: #4aa3ea; }
+.sr-tag-ps4 { border-color: #2e6fdb; color: #6b9fe6; }
+.sr-tag-ps3 { border-color: #5aa9e6; color: #7cc0f0; }
+.sr-tag-xbox { border-color: #107c10; color: #4caf50; }
+.sr-tag-nintendo { border-color: #e60012; color: #ff5a63; }
+
 /* Client profile card */
 .client-profile-card {
   background: var(--bg-elev);
