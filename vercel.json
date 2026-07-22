@@ -26,6 +26,9 @@
       "includeFiles": "featured-games.json"
     }
   },
+  "redirects": [
+    { "source": "/reservaciones", "destination": "/vip", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],

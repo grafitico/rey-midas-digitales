@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-22d";
+const APP_CACHE_VERSION = "2026-07-22e";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -467,7 +467,9 @@ function parseRoute() {
   }
   if (partes[0] === "playstation-plus") return { name: "subscriptions", service: "psplus" };
   if (partes[0] === "game-pass") return { name: "subscriptions", service: "gamepass" };
-  if (partes[0] === "reservaciones") return { name: "reservaciones" };
+  // Ofertas VIP: ruta nueva /vip. Mantenemos /reservaciones como alias para
+  // no romper enlaces viejos (misma vista).
+  if (partes[0] === "vip" || partes[0] === "reservaciones") return { name: "reservaciones" };
   if (partes[0] === "reserva" && partes[1]) {
     return { name: "reserva", id: decodeURIComponent(partes[1]) };
   }
@@ -2715,7 +2717,7 @@ function renderReserva(id) {
       <section class="container empty-state">
         <h2>Oferta no encontrada</h2>
         <p>Esta oferta ya no está disponible.</p>
-        <a class="cta" href="/reservaciones">Ver Ofertas VIP</a>
+        <a class="cta" href="/vip">Ver Ofertas VIP</a>
       </section>
     `;
     return;
@@ -2731,7 +2733,7 @@ function renderReserva(id) {
       <nav class="breadcrumb" aria-label="Migas de pan">
         <a href="/">Inicio</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="/reservaciones">Ofertas VIP</a>
+        <a href="/vip">Ofertas VIP</a>
         <span class="breadcrumb-sep">›</span>
         <span class="breadcrumb-current">${escapeHtml(r.title)}</span>
       </nav>
@@ -5599,7 +5601,7 @@ async function renderAdmin() {
       <div class="admin-grid admin-bundles">
         <form id="ofertaForm" class="admin-form">
           <h2 id="ofertaFormTitle">Agregar oferta VIP</h2>
-          <p class="field-hint">Estas ofertas aparecen en la sección <a href="/reservaciones" target="_blank" rel="noopener">Ofertas de Oportunidad VIP</a>.</p>
+          <p class="field-hint">Estas ofertas aparecen en la sección <a href="/vip" target="_blank" rel="noopener">Ofertas de Oportunidad VIP</a>.</p>
           <input type="hidden" name="id" id="ofertaId">
           <input type="hidden" name="match" id="ofertaMatch">
           <div class="row">
@@ -5648,7 +5650,7 @@ async function renderAdmin() {
 
         <div class="admin-list">
           <h2>Ofertas publicadas</h2>
-          <p class="field-hint">Los cambios aparecen en <a href="/reservaciones" target="_blank" rel="noopener">Ofertas VIP</a> en ~1 minuto (cuando Vercel redespliega).</p>
+          <p class="field-hint">Los cambios aparecen en <a href="/vip" target="_blank" rel="noopener">Ofertas VIP</a> en ~1 minuto (cuando Vercel redespliega).</p>
           <div id="adminOfertasList">Cargando...</div>
         </div>
       </div>
