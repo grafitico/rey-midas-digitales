@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-21f";
+const APP_CACHE_VERSION = "2026-07-22a";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -3126,6 +3126,10 @@ function checkout() {
 // registra el admin como una compra con is_redemption = true.
 // ============================================================
 const COFRE_META = 7; // monedas necesarias para un canje
+// El Cofre arranca en esta fecha: solo las compras de este día en adelante
+// suman monedas. Las compras anteriores (clientes que ya compraron antes de
+// lanzar el programa) no cuentan, así todos arrancan de cero.
+const COFRE_START_DATE = "2026-07-22";
 
 // Íconos de moneda y cofre como imágenes SVG (los emojis 🪙/🏆/🎁 salen como
 // cuadritos vacíos en varios celulares porque su fuente no los soporta).
@@ -3143,17 +3147,21 @@ async function ensureCofreGames() {
 }
 
 // Monedas a partir del historial de compras, tipo "tarjeta de sellos":
-// recorremos las compras en orden cronológico; cada compra normal suma 1
-// moneda y cada canje REINICIA el cofre a 0 (se arranca de cero). Así, las
-// compras que el cliente hace DESPUÉS de canjear siempre vuelven a sumar,
-// sin que los canjes viejos generen una "deuda" que se coma las nuevas.
+// solo cuentan las compras desde COFRE_START_DATE en adelante; recorremos
+// esas compras en orden cronológico; cada compra normal suma 1 moneda y cada
+// canje REINICIA el cofre a 0 (se arranca de cero). Así, las compras que el
+// cliente hace DESPUÉS de canjear siempre vuelven a sumar, sin que los canjes
+// viejos generen una "deuda" que se coma las nuevas.
 function cofreCoins(purchases) {
-  const list = [...(purchases || [])].sort((a, b) => {
-    // created_at refleja el orden real de registro; purchase_date es respaldo.
-    const ta = new Date(a.created_at || a.purchase_date || 0).getTime();
-    const tb = new Date(b.created_at || b.purchase_date || 0).getTime();
-    return ta - tb;
-  });
+  const list = [...(purchases || [])]
+    // Compras anteriores al lanzamiento del programa no suman monedas.
+    .filter(p => String(p.purchase_date || "") >= COFRE_START_DATE)
+    .sort((a, b) => {
+      // created_at refleja el orden real de registro; purchase_date es respaldo.
+      const ta = new Date(a.created_at || a.purchase_date || 0).getTime();
+      const tb = new Date(b.created_at || b.purchase_date || 0).getTime();
+      return ta - tb;
+    });
   let disponibles = 0, canjes = 0, compras = 0;
   for (const p of list) {
     if (p.is_redemption) {
