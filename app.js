@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-21e";
+const APP_CACHE_VERSION = "2026-07-21f";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -3142,12 +3142,28 @@ async function ensureCofreGames() {
   return cofreGames;
 }
 
-// Monedas a partir del historial de compras: cada compra normal = 1 moneda;
-// cada canje descuenta COFRE_META (y el canje en sí no suma).
+// Monedas a partir del historial de compras, tipo "tarjeta de sellos":
+// recorremos las compras en orden cronológico; cada compra normal suma 1
+// moneda y cada canje REINICIA el cofre a 0 (se arranca de cero). Así, las
+// compras que el cliente hace DESPUÉS de canjear siempre vuelven a sumar,
+// sin que los canjes viejos generen una "deuda" que se coma las nuevas.
 function cofreCoins(purchases) {
-  const canjes = (purchases || []).filter(p => p.is_redemption).length;
-  const compras = (purchases || []).length - canjes;
-  const disponibles = Math.max(0, compras - canjes * COFRE_META);
+  const list = [...(purchases || [])].sort((a, b) => {
+    // created_at refleja el orden real de registro; purchase_date es respaldo.
+    const ta = new Date(a.created_at || a.purchase_date || 0).getTime();
+    const tb = new Date(b.created_at || b.purchase_date || 0).getTime();
+    return ta - tb;
+  });
+  let disponibles = 0, canjes = 0, compras = 0;
+  for (const p of list) {
+    if (p.is_redemption) {
+      canjes++;
+      disponibles = 0; // el canje vacía el cofre y se empieza de nuevo
+    } else {
+      compras++;
+      disponibles++;
+    }
+  }
   return { compras, canjes, disponibles };
 }
 
