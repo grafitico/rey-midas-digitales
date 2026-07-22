@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-22c";
+const APP_CACHE_VERSION = "2026-07-22d";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -5610,6 +5610,7 @@ async function renderAdmin() {
               <select name="platform" id="ofertaPlatform" required>
                 <option value="PS5">PS5</option>
                 <option value="PS4">PS4</option>
+                <option value="PS4/PS5">PS4 y PS5</option>
                 <option value="Xbox">Xbox</option>
               </select>
             </label>
