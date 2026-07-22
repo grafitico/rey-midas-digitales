@@ -1,16 +1,4 @@
 {
-  "_comentario": "Reservaciones / Pre-orders. Cada juego con fecha de lanzamiento, precio Principal/Secundaria y monto del depósito (señal).",
-  "items": [
-    {
-      "id": "res-gtavi",
-      "title": "Grand Theft Auto VI",
-      "platform": "PS5",
-      "releaseDate": "2026-09-15",
-      "imageUrl": "",
-      "priceCRC_principal": 42000,
-      "priceCRC_secundaria": 28000,
-      "deposit": 10000,
-      "description": "Lo más esperado del 2026. Reservá ahora con depósito y asegurate tu copia para el día de lanzamiento."
-    }
-  ]
+  "_comentario": "Ofertas de Oportunidad VIP. Se administran desde el panel admin (pestaña 'Ofertas VIP'). Cada oferta: título, consola (PS4/PS5/Xbox), precio de cuenta primaria y secundaria (o segundo plano en Xbox) y, opcional, precio regular para calcular el ahorro.",
+  "items": []
 }

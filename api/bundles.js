@@ -32,6 +32,9 @@ export default async function handler(req, res) {
     if (body.action === "cofre-list") return await cofreList(req, res);
     if (body.action === "cofre-save") return await cofreSave(req, res, body);
     if (body.action === "cofre-delete") return await cofreDelete(req, res, body);
+    if (body.action === "oferta-list") return await ofertaList(req, res);
+    if (body.action === "oferta-save") return await ofertaSave(req, res, body);
+    if (body.action === "oferta-delete") return await ofertaDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -309,6 +312,114 @@ async function cofreDelete(req, res, body) {
     `chore(cofre): borrar canje "${match}" via admin`,
   );
   res.status(200).json({ ok: true, games });
+}
+
+// ===== Ofertas de Oportunidad VIP (reservaciones.json) =====
+// Reutilizamos el archivo reservaciones.json (la vista /reservaciones que se
+// rebautizó como "Ofertas de Oportunidad VIP"). Cada oferta lleva precio de
+// cuenta primaria y secundaria (PS4/PS5) o primaria y segundo plano (Xbox),
+// más un precio regular opcional para calcular el ahorro. Mismo mecanismo de
+// commit a GitHub que el Cofre.
+const OFERTA_FILE = "reservaciones.json";
+
+async function readOfertaFile() {
+  const f = await ghGetFile(OFERTA_FILE);
+  if (!f) return { sha: null, data: { items: [] } };
+  const data = JSON.parse(Buffer.from(f.content, "base64").toString("utf8"));
+  if (!Array.isArray(data.items)) data.items = [];
+  return { sha: f.sha, data };
+}
+
+async function writeOfertaFile(mutate, message) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { sha, data } = await readOfertaFile();
+    mutate(data);
+    const contentB64 = Buffer.from(JSON.stringify(data, null, 2) + "\n", "utf8").toString("base64");
+    const r = await ghPutFile(OFERTA_FILE, contentB64, message, sha);
+    if (r.ok) return data.items;
+    if (r.status === 409 || r.status === 422) continue; // SHA stale → releer
+    throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  }
+  throw new Error("No se pudo guardar (conflicto de versiones tras varios intentos).");
+}
+
+function toIntOrNull(v) {
+  if (v === "" || v == null) return null;
+  const n = Math.round(Number(String(v).replace(/[^\d.-]/g, "")));
+  return Number.isFinite(n) ? n : null;
+}
+
+async function ofertaList(req, res) {
+  await requireAdmin(req);
+  const { data } = await readOfertaFile();
+  const items = data.items.map(o => ({ ...o, id: o.id || slugId(o.title) }));
+  res.status(200).json({ items });
+}
+
+async function ofertaSave(req, res, body) {
+  await requireAdmin(req);
+  const input = body.oferta || {};
+  const title = String(input.title || "").trim();
+  const platform = String(input.platform || "").trim();
+  if (!title) return res.status(400).json({ error: "El título es obligatorio." });
+  if (!platform) return res.status(400).json({ error: "La consola es obligatoria." });
+
+  const match = String(input.match || "").trim();
+  const id = String(input.id || "").trim() || match || slugId(title);
+
+  const oferta = {
+    id,
+    title,
+    platform,
+    priceCRC_principal: toIntOrNull(input.priceCRC_principal),
+    priceCRC_secundaria: toIntOrNull(input.priceCRC_secundaria),
+    priceCRC_regular: toIntOrNull(input.priceCRC_regular),
+  };
+  const description = String(input.description || "").trim();
+  if (description) oferta.description = description;
+
+  let imageUrl = String(input.imageUrl || "").trim();
+  if (body.imageFile && body.imageFile.dataBase64) {
+    const ext = sanitizeExt(body.imageFile.ext);
+    const imgPath = `assets/ofertas/${id}.${ext}`;
+    const existing = await ghGetFile(imgPath);
+    const putRes = await ghPutFile(
+      imgPath,
+      body.imageFile.dataBase64,
+      `chore(ofertas): portada ${id}`,
+      existing ? existing.sha : null,
+    );
+    if (!putRes.ok) throw new Error(`No se pudo subir la imagen: GitHub ${putRes.status}`);
+    imageUrl = `/${imgPath}`;
+  }
+  if (imageUrl) oferta.imageUrl = imageUrl;
+
+  const items = await writeOfertaFile(
+    (data) => {
+      const idx = data.items.findIndex(o =>
+        (match && (String(o.id) === match || o.title === match)) || String(o.id) === id);
+      if (idx >= 0) {
+        if (!oferta.imageUrl && data.items[idx].imageUrl) oferta.imageUrl = data.items[idx].imageUrl;
+        data.items[idx] = oferta;
+      } else {
+        data.items.push(oferta);
+      }
+    },
+    `chore(ofertas): guardar "${title}" via admin`,
+  );
+
+  res.status(200).json({ ok: true, oferta, items });
+}
+
+async function ofertaDelete(req, res, body) {
+  await requireAdmin(req);
+  const match = String(body.match || "").trim();
+  if (!match) return res.status(400).json({ error: "Falta el identificador de la oferta." });
+  const items = await writeOfertaFile(
+    (data) => { data.items = data.items.filter(o => String(o.id) !== match && o.title !== match); },
+    `chore(ofertas): borrar "${match}" via admin`,
+  );
+  res.status(200).json({ ok: true, items });
 }
 
 function slugId(title) {
