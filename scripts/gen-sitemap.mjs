@@ -36,7 +36,7 @@ const staticPages = [
   { loc: "/game-pass", priority: "0.8", changefreq: "weekly" },
   { loc: "/bundles/PS", priority: "0.7", changefreq: "weekly" },
   { loc: "/bundles/Xbox", priority: "0.7", changefreq: "weekly" },
-  { loc: "/reservaciones", priority: "0.7", changefreq: "daily" },
+  { loc: "/vip", priority: "0.7", changefreq: "daily" },
   { loc: "/resenas", priority: "0.6", changefreq: "monthly" },
   { loc: "/faq", priority: "0.6", changefreq: "monthly" },
   { loc: "/como-comprar", priority: "0.5", changefreq: "monthly" },
