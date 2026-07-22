@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-22a";
+const APP_CACHE_VERSION = "2026-07-22b";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -2626,8 +2626,8 @@ function planCardHTML(p, serviceTitle) {
 // Reservaciones (pre-orders)
 // ============================================================
 function renderReservaciones() {
-  setPageMeta("Reservaciones y preventas | Rey Midas Digitales",
-    "Reservá tus juegos antes del lanzamiento en Costa Rica. Asegurá tu copia desde el día 1.");
+  setPageMeta("Ofertas de Oportunidad VIP | Rey Midas Digitales",
+    "Aprovechá descuentos exclusivos de oportunidad para clientes VIP en Costa Rica.");
   // Reservas manuales curadas (reservaciones.json, con señal/depósito) + TODOS
   // los juegos del catálogo que todavía no salieron a la venta (comingSoon =
   // releaseDate futuro). Deduplicamos por título para no repetir un mismo juego.
@@ -2641,11 +2641,11 @@ function renderReservaciones() {
   const total = manual.length + preorders.length;
   const hasAny = total > 0;
   app.innerHTML = `
-    ${heroSlimHTML("Reservaciones")}
+    ${heroSlimHTML("Ofertas de Oportunidad")}
     <section class="container catalog-section">
       <div class="section-title centered">
-        <h2>Reservá tus juegos antes del lanzamiento</h2>
-        <p>Asegurate tu copia desde el día 1. Pagás una señal y completás cuando se lanza.</p>
+        <h2>Aprovecha descuentos exclusivos de oportunidad para clientes VIP</h2>
+        <p>Ofertas por tiempo limitado, seleccionadas para nuestra clientela VIP.</p>
       </div>
       ${hasAny ? `
         <div class="section-title centered" style="margin-top:1.5rem">
