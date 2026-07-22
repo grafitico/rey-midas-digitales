@@ -2810,6 +2810,35 @@ footer p + p { margin-top: 0.35rem; }
   margin: 0.6rem 0 0.8rem;
 }
 .reserva-deposit strong { color: var(--gold); font-weight: 800; }
+/* Aviso de ahorro en Ofertas VIP */
+.reserva-savings {
+  background: rgba(245, 196, 81, 0.12);
+  border: 1px solid rgba(245, 196, 81, 0.45);
+  color: var(--text);
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0.6rem 0 0.8rem;
+}
+.reserva-savings strong { color: var(--gold); font-weight: 800; }
+.price-row.regular .price-tag { opacity: 0.7; }
+.price-strike { text-decoration: line-through; opacity: 0.7; }
+/* Badge "Oferta VIP" (dorado) — reusa la posición de badge-preventa */
+.badge-oferta {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  background: linear-gradient(135deg, #f5c451, #d69a1e);
+  color: #1a1205;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  box-shadow: 0 4px 14px rgba(214, 154, 30, 0.45);
+}
+.product-image .badge-oferta { font-size: 0.95rem; padding: 0.45rem 0.85rem; }
 .reserva-cta {
   width: 100%;
   display: block;

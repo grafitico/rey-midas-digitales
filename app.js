@@ -4,7 +4,7 @@
 // tráilers) para que TODOS vean lo nuevo sin tener que usar incógnito ni
 // limpiar nada a mano. Subí APP_CACHE_VERSION para forzar el refresco.
 // ============================================================
-const APP_CACHE_VERSION = "2026-07-22a";
+const APP_CACHE_VERSION = "2026-07-22c";
 (function migrateLocalCaches() {
   try {
     if (localStorage.getItem("app-cache-version") === APP_CACHE_VERSION) return;
@@ -2626,40 +2626,29 @@ function planCardHTML(p, serviceTitle) {
 // Reservaciones (pre-orders)
 // ============================================================
 function renderReservaciones() {
-  setPageMeta("Reservaciones y preventas | Rey Midas Digitales",
-    "Reservá tus juegos antes del lanzamiento en Costa Rica. Asegurá tu copia desde el día 1.");
-  // Reservas manuales curadas (reservaciones.json, con señal/depósito) + TODOS
-  // los juegos del catálogo que todavía no salieron a la venta (comingSoon =
-  // releaseDate futuro). Deduplicamos por título para no repetir un mismo juego.
-  const manual = reservaciones || [];
-  const manualKeys = new Set(manual.map(r => matchKey(r.title)));
-  const preorders = (allGames || [])
-    .filter(g => (g.comingSoon || (Array.isArray(g.genres) && g.genres.includes("preventa"))) && !manualKeys.has(matchKey(g.title)))
-    .sort((a, b) => String(a.releaseDate || "9999-99-99").localeCompare(String(b.releaseDate || "9999-99-99")));
-  // Una sola lista: las reservas curadas (con señal) primero, y a continuación
-  // los próximos lanzamientos del catálogo. Todo como tarjetas uniformes.
-  const total = manual.length + preorders.length;
+  setPageMeta("Ofertas de Oportunidad VIP | Rey Midas Digitales",
+    "Aprovechá descuentos exclusivos de oportunidad para clientes VIP en Costa Rica.");
+  // Ofertas de Oportunidad curadas desde el panel admin (reservaciones.json).
+  // Cada oferta lleva precio de cuenta primaria y secundaria (o segundo plano
+  // en Xbox) y, si tiene precio regular, cuánto ahorra el cliente.
+  const ofertas = reservaciones || [];
+  const total = ofertas.length;
   const hasAny = total > 0;
   app.innerHTML = `
-    ${heroSlimHTML("Reservaciones")}
+    ${heroSlimHTML("Ofertas de Oportunidad")}
     <section class="container catalog-section">
       <div class="section-title centered">
-        <h2>Reservá tus juegos antes del lanzamiento</h2>
-        <p>Asegurate tu copia desde el día 1. Pagás una señal y completás cuando se lanza.</p>
+        <h2>Aprovecha descuentos exclusivos de oportunidad para clientes VIP</h2>
+        <p>Ofertas por tiempo limitado, seleccionadas para nuestra clientela VIP.</p>
       </div>
       ${hasAny ? `
-        <div class="section-title centered" style="margin-top:1.5rem">
-          <h2>Próximos lanzamientos en preventa</h2>
-          <p>${total} ${total === 1 ? "título que todavía no salió" : "títulos que todavía no salieron"} a la venta. Reservá hoy y aseguralo.</p>
-        </div>
         <div class="grid">
-          ${manual.map(reservaCardHTML).join("")}
-          ${preorders.map(preorderCardHTML).join("")}
+          ${ofertas.map(reservaCardHTML).join("")}
         </div>
       ` : `
         <div class="empty-purchases">
-          <p>Por ahora no tenemos reservas abiertas. Pronto vamos a sumar los próximos lanzamientos.</p>
-          <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, quiero saber qué reservas tienen abiertas.")}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+          <p>Por ahora no tenemos ofertas VIP abiertas. Muy pronto vamos a sumar nuevas oportunidades.</p>
+          <a class="cta cta-wa" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, quiero saber qué ofertas VIP tienen disponibles.")}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
         </div>
       `}
     </section>
@@ -2686,7 +2675,7 @@ function reservaCardHTML(r) {
     <a class="card reserva-card" data-reserva-id="${escapeAttr(String(r.id || r.title))}" href="/reserva/${encodeURIComponent(r.id || matchKey(r.title))}">
       <div class="card-image">
         ${img}
-        <span class="badge-preventa">Preventa</span>
+        <span class="badge-oferta">Oferta VIP</span>
         <span class="badge-platform">${escapeHtml(r.platform)}</span>
       </div>
       <div class="card-body">
@@ -2695,18 +2684,18 @@ function reservaCardHTML(r) {
         <div class="price-rows">
           ${r.priceCRC_principal != null ? `
             <div class="price-row">
-              <span class="price-tag">Principal</span>
+              <span class="price-tag">Primaria</span>
               <span class="price-value">${formatCRC(r.priceCRC_principal)}</span>
             </div>
           ` : ""}
           ${r.priceCRC_secundaria != null ? `
             <div class="price-row secundaria">
-              <span class="price-tag">Secundaria</span>
+              <span class="price-tag">${r.platform === "Xbox" ? "Segundo plano" : "Secundaria"}</span>
               <span class="price-value">${formatCRC(r.priceCRC_secundaria)}</span>
             </div>
           ` : ""}
         </div>
-        ${r.deposit ? `<div class="reserva-deposit">Señal desde <strong>${formatCRC(r.deposit)}</strong></div>` : ""}
+        ${ofertaSavings(r) ? `<div class="reserva-savings">Ahorrás hasta <strong>${formatCRC(ofertaSavings(r))}</strong></div>` : ""}
       </div>
     </a>
   `;
@@ -2724,59 +2713,60 @@ function renderReserva(id) {
   if (!r) {
     app.innerHTML = `
       <section class="container empty-state">
-        <h2>Reserva no encontrada</h2>
-        <p>Esta reserva ya no está disponible.</p>
-        <a class="cta" href="/reservaciones">Ver reservaciones</a>
+        <h2>Oferta no encontrada</h2>
+        <p>Esta oferta ya no está disponible.</p>
+        <a class="cta" href="/reservaciones">Ver Ofertas VIP</a>
       </section>
     `;
     return;
   }
-  const release = r.releaseDate
-    ? new Date(r.releaseDate + "T00:00:00").toLocaleDateString("es-CR", { year: "numeric", month: "long", day: "numeric" })
-    : "Por anunciar";
   const img = r.imageUrl
     ? `<img src="${escapeAttr(r.imageUrl)}" alt="${escapeAttr(r.title)}" loading="lazy">`
     : `${placeholderHTML()}`;
-  const waMsg = encodeURIComponent(`Hola, quiero reservar ${r.title} (${r.platform}). Confirmen disponibilidad y el monto de la señal, gracias.`);
+  const ahorro = ofertaSavings(r);
+  const secLabel = r.platform === "Xbox" ? "Segundo plano" : "Secundaria";
+  const waMsg = encodeURIComponent(`Hola, quiero aprovechar la oferta VIP de ${r.title} (${r.platform}). Confirmen disponibilidad y precio, gracias.`);
   app.innerHTML = `
     <section class="container product-page">
       <nav class="breadcrumb" aria-label="Migas de pan">
         <a href="/">Inicio</a>
         <span class="breadcrumb-sep">›</span>
-        <a href="/reservaciones">Reservaciones</a>
+        <a href="/reservaciones">Ofertas VIP</a>
         <span class="breadcrumb-sep">›</span>
         <span class="breadcrumb-current">${escapeHtml(r.title)}</span>
       </nav>
       <div class="product-grid">
         <div class="product-image" data-reserva-id="${escapeAttr(String(r.id || r.title))}">
           ${img}
-          <span class="badge-preventa">Preventa</span>
+          <span class="badge-oferta">Oferta VIP</span>
         </div>
         <div class="product-info">
           <span class="badge-platform">${escapeHtml(r.platform)}</span>
           <h1 class="product-title">${escapeHtml(r.title)}</h1>
-          <div class="reserva-meta">
-            <span>Lanzamiento</span>
-            <strong>${escapeHtml(release)}</strong>
-          </div>
           ${r.description ? `<p class="product-desc">${escapeHtml(r.description)}</p>` : ""}
           <div class="price-rows">
             ${r.priceCRC_principal != null ? `
               <div class="price-row">
-                <span class="price-tag">Principal</span>
+                <span class="price-tag">Primaria</span>
                 <span class="price-value">${formatCRC(r.priceCRC_principal)}</span>
               </div>
             ` : ""}
             ${r.priceCRC_secundaria != null ? `
               <div class="price-row secundaria">
-                <span class="price-tag">Secundaria</span>
+                <span class="price-tag">${secLabel}</span>
                 <span class="price-value">${formatCRC(r.priceCRC_secundaria)}</span>
               </div>
             ` : ""}
+            ${r.priceCRC_regular != null && r.priceCRC_regular > 0 ? `
+              <div class="price-row regular">
+                <span class="price-tag">Precio regular</span>
+                <span class="price-value price-strike">${formatCRC(r.priceCRC_regular)}</span>
+              </div>
+            ` : ""}
           </div>
-          ${r.deposit ? `<div class="reserva-deposit">Señal desde <strong>${formatCRC(r.deposit)}</strong></div>` : ""}
+          ${ahorro ? `<div class="reserva-savings">Ahorrás hasta <strong>${formatCRC(ahorro)}</strong></div>` : ""}
           <a class="cta cta-wa reserva-cta" href="https://wa.me/${CONFIG.whatsapp}?text=${waMsg}" target="_blank" rel="noopener">
-            Reservar por WhatsApp
+            Comprar por WhatsApp
           </a>
         </div>
       </div>
@@ -5404,6 +5394,7 @@ async function renderAdmin() {
         <button type="button" class="admin-tab" data-tab="compras" role="tab" aria-selected="false">🛒 Compras</button>
         <button type="button" class="admin-tab" data-tab="ventas" role="tab" aria-selected="false">💰 Ventas</button>
         <button type="button" class="admin-tab" data-tab="canje" role="tab" aria-selected="false"><img class="tab-coin" src="/assets/coin.png" alt="" aria-hidden="true"> Canje</button>
+        <button type="button" class="admin-tab" data-tab="ofertas" role="tab" aria-selected="false">⭐ Ofertas VIP</button>
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
       </nav>
 
@@ -5604,6 +5595,64 @@ async function renderAdmin() {
       </div>
       </div>
 
+      <div class="admin-panel" data-panel="ofertas" role="tabpanel" hidden>
+      <div class="admin-grid admin-bundles">
+        <form id="ofertaForm" class="admin-form">
+          <h2 id="ofertaFormTitle">Agregar oferta VIP</h2>
+          <p class="field-hint">Estas ofertas aparecen en la sección <a href="/reservaciones" target="_blank" rel="noopener">Ofertas de Oportunidad VIP</a>.</p>
+          <input type="hidden" name="id" id="ofertaId">
+          <input type="hidden" name="match" id="ofertaMatch">
+          <div class="row">
+            <label>Título del juego
+              <input name="title" id="ofertaTitle" type="text" required placeholder="Ej: EA Sports FC 26">
+            </label>
+            <label>Consola
+              <select name="platform" id="ofertaPlatform" required>
+                <option value="PS5">PS5</option>
+                <option value="PS4">PS4</option>
+                <option value="Xbox">Xbox</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label>Precio cuenta primaria (₡)
+              <input name="priceCRC_principal" id="ofertaPrincipal" type="number" min="0" step="1" placeholder="Ej: 22000">
+            </label>
+            <label id="ofertaSecundariaLabel">Precio cuenta secundaria (₡)
+              <input name="priceCRC_secundaria" id="ofertaSecundaria" type="number" min="0" step="1" placeholder="Ej: 15000">
+            </label>
+          </div>
+          <label>Precio regular (₡) — opcional
+            <input name="priceCRC_regular" id="ofertaRegular" type="number" min="0" step="1" placeholder="Ej: 35000">
+            <small class="field-hint">Si lo llenás, se muestra automáticamente cuánto ahorra el cliente (precio regular − precio de oferta más bajo).</small>
+          </label>
+          <label>Portada — subí una imagen
+            <input name="coverFile" id="ofertaCoverFile" type="file" accept="image/*">
+          </label>
+          <label>…o pegá un enlace de imagen
+            <input name="imageUrl" id="ofertaImageUrl" type="text" placeholder="https://…/portada.png">
+          </label>
+          <div id="ofertaCoverPreviewWrap" class="bundle-cover-preview" hidden>
+            <img id="ofertaCoverPreview" alt="Vista previa portada">
+          </div>
+          <label>Descripción (opcional)
+            <textarea name="description" id="ofertaDescription" rows="3" placeholder="Detalle corto de la oferta, condiciones, etc."></textarea>
+          </label>
+          <div class="bundle-form-actions">
+            <button type="submit" id="ofertaSubmitBtn">Agregar oferta</button>
+            <button type="button" id="ofertaCancelBtn" class="cta-secondary" hidden>Cancelar edición</button>
+          </div>
+          <p id="ofertaFormStatus" class="form-status"></p>
+        </form>
+
+        <div class="admin-list">
+          <h2>Ofertas publicadas</h2>
+          <p class="field-hint">Los cambios aparecen en <a href="/reservaciones" target="_blank" rel="noopener">Ofertas VIP</a> en ~1 minuto (cuando Vercel redespliega).</p>
+          <div id="adminOfertasList">Cargando...</div>
+        </div>
+      </div>
+      </div>
+
       <div class="admin-panel" data-panel="bundles" role="tabpanel" hidden>
       <div class="admin-grid admin-bundles">
         <form id="bundleForm" class="admin-form">
@@ -5681,11 +5730,18 @@ async function renderAdmin() {
   document.getElementById("cofreGameCancelBtn").addEventListener("click", resetCofreGameForm);
   document.getElementById("cofreGameCoverFile").addEventListener("change", previewCofreGameCover);
   document.getElementById("cofreGameImageUrl").addEventListener("input", previewCofreGameCover);
+  document.getElementById("ofertaForm").addEventListener("submit", handleOfertaSubmit);
+  document.getElementById("ofertaCancelBtn").addEventListener("click", resetOfertaForm);
+  document.getElementById("ofertaCoverFile").addEventListener("change", previewOfertaCover);
+  document.getElementById("ofertaImageUrl").addEventListener("input", previewOfertaCover);
+  document.getElementById("ofertaPlatform").addEventListener("change", updateOfertaSecundariaLabel);
+  updateOfertaSecundariaLabel();
   setupSalesReport();
   loadAdminPurchases();
   loadClientsDropdown();
   loadAdminBundles();
   loadCofreGamesAdmin();
+  loadOfertasAdmin();
 }
 
 // ===== Bundles PS / Xbox (admin) =====
@@ -5997,6 +6053,185 @@ async function deleteCofreGame(id) {
     const data = await apiPost("/api/bundles", { action: "cofre-delete", match: g ? (g.id || g.title) : id });
     adminCofreGames = data.games || [];
     renderCofreGamesAdmin();
+  } catch (err) {
+    alert("No se pudo eliminar: " + err.message);
+  }
+}
+
+// ===== Ofertas de Oportunidad VIP (admin) =====
+let adminOfertas = [];
+
+// En PS la segunda cuenta se llama "secundaria"; en Xbox, "segundo plano".
+function updateOfertaSecundariaLabel() {
+  const sel = document.getElementById("ofertaPlatform");
+  const label = document.getElementById("ofertaSecundariaLabel");
+  if (!sel || !label) return;
+  const isXbox = sel.value === "Xbox";
+  const txt = isXbox ? "Precio segundo plano / offline (₡)" : "Precio cuenta secundaria (₡)";
+  // Reemplazamos solo el nodo de texto inicial, sin tocar el <input>.
+  label.childNodes[0].nodeValue = txt + "\n              ";
+}
+
+async function loadOfertasAdmin() {
+  const box = document.getElementById("adminOfertasList");
+  if (!box) return;
+  try {
+    const { items } = await apiPost("/api/bundles", { action: "oferta-list" });
+    adminOfertas = items || [];
+    renderOfertasAdmin();
+  } catch (err) {
+    box.innerHTML = `<p class="form-status error">No se pudieron cargar las ofertas: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function ofertaSavings(o) {
+  const offers = [o.priceCRC_principal, o.priceCRC_secundaria].filter(n => n != null && n > 0);
+  if (!o.priceCRC_regular || o.priceCRC_regular <= 0 || !offers.length) return 0;
+  const best = Math.min(...offers);
+  const diff = o.priceCRC_regular - best;
+  return diff > 0 ? diff : 0;
+}
+
+function renderOfertasAdmin() {
+  const box = document.getElementById("adminOfertasList");
+  if (!box) return;
+  if (!adminOfertas.length) {
+    box.innerHTML = `<p class="field-hint">Todavía no hay ofertas. Agregá la primera con el formulario.</p>`;
+    return;
+  }
+  box.innerHTML = adminOfertas.map(o => {
+    const ahorro = ofertaSavings(o);
+    const isXbox = o.platform === "Xbox";
+    const secLabel = isXbox ? "Segundo plano" : "Secundaria";
+    const prices = [
+      o.priceCRC_principal != null ? `Primaria ${formatCRC(o.priceCRC_principal)}` : "",
+      o.priceCRC_secundaria != null ? `${secLabel} ${formatCRC(o.priceCRC_secundaria)}` : "",
+    ].filter(Boolean).join(" · ");
+    return `
+    <div class="admin-bundle-row">
+      <div class="abr-thumb">${o.imageUrl ? `<img src="${escapeAttr(o.imageUrl)}" alt="" loading="lazy">` : `<span class="abr-noimg">sin portada</span>`}</div>
+      <div class="abr-info">
+        <strong>${escapeHtml(o.title)}</strong>
+        <span class="abr-meta">${escapeHtml(o.platform || "")}${prices ? " — " + escapeHtml(prices) : ""}</span>
+        ${ahorro ? `<span class="abr-meta">Ahorro: ${formatCRC(ahorro)}</span>` : ""}
+      </div>
+      <div class="abr-actions">
+        <button type="button" class="admin-edit" data-edit-oferta="${escapeAttr(o.id)}" title="Editar">✎</button>
+        <button type="button" class="admin-del" data-del-oferta="${escapeAttr(o.id)}" title="Eliminar">×</button>
+      </div>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("[data-edit-oferta]").forEach(btn => {
+    btn.addEventListener("click", () => editOferta(btn.dataset.editOferta));
+  });
+  box.querySelectorAll("[data-del-oferta]").forEach(btn => {
+    btn.addEventListener("click", () => deleteOferta(btn.dataset.delOferta));
+  });
+}
+
+function editOferta(id) {
+  const o = adminOfertas.find(x => String(x.id) === String(id));
+  if (!o) return;
+  document.getElementById("ofertaId").value = o.id || "";
+  document.getElementById("ofertaMatch").value = o.id || o.title || "";
+  document.getElementById("ofertaTitle").value = o.title || "";
+  document.getElementById("ofertaPlatform").value = o.platform || "PS5";
+  document.getElementById("ofertaPrincipal").value = o.priceCRC_principal != null ? o.priceCRC_principal : "";
+  document.getElementById("ofertaSecundaria").value = o.priceCRC_secundaria != null ? o.priceCRC_secundaria : "";
+  document.getElementById("ofertaRegular").value = o.priceCRC_regular != null ? o.priceCRC_regular : "";
+  document.getElementById("ofertaImageUrl").value = o.imageUrl || "";
+  document.getElementById("ofertaDescription").value = o.description || "";
+  document.getElementById("ofertaCoverFile").value = "";
+  document.getElementById("ofertaFormTitle").textContent = `Editar “${o.title}”`;
+  document.getElementById("ofertaSubmitBtn").textContent = "Guardar cambios";
+  document.getElementById("ofertaCancelBtn").hidden = false;
+  updateOfertaSecundariaLabel();
+  previewOfertaCover();
+  document.getElementById("ofertaForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetOfertaForm() {
+  const form = document.getElementById("ofertaForm");
+  if (form) form.reset();
+  document.getElementById("ofertaId").value = "";
+  document.getElementById("ofertaMatch").value = "";
+  document.getElementById("ofertaFormTitle").textContent = "Agregar oferta VIP";
+  document.getElementById("ofertaSubmitBtn").textContent = "Agregar oferta";
+  document.getElementById("ofertaCancelBtn").hidden = true;
+  document.getElementById("ofertaFormStatus").textContent = "";
+  updateOfertaSecundariaLabel();
+  previewOfertaCover();
+}
+
+function previewOfertaCover() {
+  const wrap = document.getElementById("ofertaCoverPreviewWrap");
+  const img = document.getElementById("ofertaCoverPreview");
+  if (!wrap || !img) return;
+  const file = document.getElementById("ofertaCoverFile").files[0];
+  const url = document.getElementById("ofertaImageUrl").value.trim();
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; wrap.hidden = false; };
+    reader.readAsDataURL(file);
+  } else if (url) {
+    img.src = url; wrap.hidden = false;
+  } else {
+    img.removeAttribute("src"); wrap.hidden = true;
+  }
+}
+
+async function handleOfertaSubmit(e) {
+  e.preventDefault();
+  const status = document.getElementById("ofertaFormStatus");
+  const btn = document.getElementById("ofertaSubmitBtn");
+  status.className = "form-status";
+  status.textContent = "Guardando…";
+  btn.disabled = true;
+  try {
+    const oferta = {
+      id: document.getElementById("ofertaId").value.trim(),
+      match: document.getElementById("ofertaMatch").value.trim(),
+      title: document.getElementById("ofertaTitle").value.trim(),
+      platform: document.getElementById("ofertaPlatform").value,
+      priceCRC_principal: document.getElementById("ofertaPrincipal").value.trim(),
+      priceCRC_secundaria: document.getElementById("ofertaSecundaria").value.trim(),
+      priceCRC_regular: document.getElementById("ofertaRegular").value.trim(),
+      imageUrl: document.getElementById("ofertaImageUrl").value.trim(),
+      description: document.getElementById("ofertaDescription").value.trim(),
+    };
+    if (!oferta.title) throw new Error("El título es obligatorio.");
+    if (!oferta.priceCRC_principal && !oferta.priceCRC_secundaria) {
+      throw new Error("Poné al menos un precio (primaria o secundaria).");
+    }
+    const payload = { action: "oferta-save", oferta };
+    const file = document.getElementById("ofertaCoverFile").files[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) throw new Error("La imagen es muy pesada (máx ~3 MB). Reducila e intentá de nuevo.");
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      payload.imageFile = { dataBase64: await readFileAsBase64(file), ext };
+    }
+    const data = await apiPost("/api/bundles", payload);
+    adminOfertas = data.items || [];
+    renderOfertasAdmin();
+    resetOfertaForm();
+    status.className = "form-status success";
+    status.textContent = "✓ Guardado. Se publica en Ofertas VIP en ~1 minuto.";
+  } catch (err) {
+    status.className = "form-status error";
+    status.textContent = err.message || "No se pudo guardar.";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteOferta(id) {
+  const o = adminOfertas.find(x => String(x.id) === String(id));
+  const label = o ? o.title : "esta oferta";
+  if (!confirm(`¿Quitar “${label}” de las Ofertas VIP?`)) return;
+  try {
+    const data = await apiPost("/api/bundles", { action: "oferta-delete", match: o ? (o.id || o.title) : id });
+    adminOfertas = data.items || [];
+    renderOfertasAdmin();
   } catch (err) {
     alert("No se pudo eliminar: " + err.message);
   }
