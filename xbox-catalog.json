@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-08-03T08:34:03.664Z",
-  "count": 1985,
+  "updatedAt": "2026-08-04T07:43:28.523Z",
+  "count": 1986,
   "games": [
     {
       "id": "xbox-9NRPQ7Z4Q2D7",
@@ -17,6 +17,22 @@
         "Xbox One"
       ],
       "isBundle": true
+    },
+    {
+      "id": "xbox-9N16L6MD35Q5",
+      "title": "DCL-The Game",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.30765.13907118493283346.55932b50-891a-45ae-bd75-b6da688577d4.3848ff6d-5eec-48c3-b3f5-bfc54272f44e",
+      "url": "https://www.xbox.com/games/store/_/9N16L6MD35Q5",
+      "priceUSD": 2.8,
+      "originalPriceUSD": 28,
+      "onSale": true,
+      "discount": 90,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
     },
     {
       "id": "xbox-9NP83DTS8T4W",
@@ -98,6 +114,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P8XJRLCLH2P",
+      "title": "Moonlighter",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.27309.14078999020725962.f9f4d516-290a-4fec-820e-f71d575013d8.781a4a00-3d6d-477f-987a-a7b734ab1fd1",
+      "url": "https://www.xbox.com/games/store/_/9P8XJRLCLH2P",
+      "priceUSD": 0.14,
+      "originalPriceUSD": 0.91,
+      "onSale": true,
+      "discount": 85,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NDBKK9G0FHL",
       "title": "Wolfenstein II: Standard Edition",
       "platform": "Xbox",
@@ -134,6 +166,38 @@
       "url": "https://www.xbox.com/games/store/_/BQH1S9925B1R",
       "priceUSD": 0.16,
       "originalPriceUSD": 1.04,
+      "onSale": true,
+      "discount": 85,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PP2WW5TQ7MS",
+      "title": "McPixel 3",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.31201.14336879122555401.4c30f6b3-d0ef-4997-95dd-4b1a894b1874.f4a8090c-17b1-49a4-bfb9-5747db50f016",
+      "url": "https://www.xbox.com/games/store/_/9PP2WW5TQ7MS",
+      "priceUSD": 0.27,
+      "originalPriceUSD": 1.82,
+      "onSale": true,
+      "discount": 85,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PBLH1322GX0",
+      "title": "Observation",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.50900.14121238494435991.7409629d-3c0f-426d-9a4d-f67d13832f35.04057eca-2f8c-43d0-a3f4-180b6866d8bd",
+      "url": "https://www.xbox.com/games/store/_/9PBLH1322GX0",
+      "priceUSD": 0.3,
+      "originalPriceUSD": 2,
       "onSale": true,
       "discount": 85,
       "consoles": [
@@ -287,6 +351,22 @@
       "isBundle": true
     },
     {
+      "id": "xbox-9P03ZQMBMV65",
+      "title": "Broforce",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.6563.14468359839778606.b9e6f982-23f2-4c58-a436-66ba564129a1.8d25c53c-49b6-4fa0-a040-48229656c8a7",
+      "url": "https://www.xbox.com/games/store/_/9P03ZQMBMV65",
+      "priceUSD": 0.24,
+      "originalPriceUSD": 1.19,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-C3QH42WRGM3R",
       "title": "DOOM",
       "platform": "Xbox",
@@ -301,6 +381,22 @@
         "Xbox One"
       ],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9NX6FB6V0L2N",
+      "title": "Sniper Elite 5 Complete Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.22436.14431144669616927.62da44b4-1b32-4566-bbe7-227289a3ba00.273aee2e-110d-4cb8-a9d3-cfa53512f592",
+      "url": "https://www.xbox.com/games/store/_/9NX6FB6V0L2N",
+      "priceUSD": 1.75,
+      "originalPriceUSD": 8.75,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9PJBS1FNMNJQ",
@@ -326,6 +422,22 @@
       "url": "https://www.xbox.com/games/store/_/9NMHVSRKJX29",
       "priceUSD": 7.83,
       "originalPriceUSD": 39.17,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NWNQC8H80RV",
+      "title": "Loop Hero",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.59038.14445738564377947.babca878-ccaa-48f3-b55f-6477a548f887.0858f75d-a848-4bb1-97d3-96fa57fa3703",
+      "url": "https://www.xbox.com/games/store/_/9NWNQC8H80RV",
+      "priceUSD": 0.83,
+      "originalPriceUSD": 4.17,
       "onSale": true,
       "discount": 80,
       "consoles": [
@@ -378,6 +490,54 @@
       "discount": 80,
       "consoles": [
         "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-BWW1MP5KDLPB",
+      "title": "MX vs ATV All Out",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.10821.71775074200248831.2796c3f8-c399-4de5-a2ca-c51fc1f331be.aebef518-96c9-4dfc-b847-582b10c83683",
+      "url": "https://www.xbox.com/games/store/_/BWW1MP5KDLPB",
+      "priceUSD": 4.34,
+      "originalPriceUSD": 21.7,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-C3BGK0R0KP38",
+      "title": "MX Unleashed",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57257.65950198718570153.e6cbdcb6-240f-44a7-ad03-8b09a93497eb.c5fc8b68-249c-4411-9bb2-7f70176ff16d",
+      "url": "https://www.xbox.com/games/store/_/C3BGK0R0KP38",
+      "priceUSD": 0.22,
+      "originalPriceUSD": 1.09,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-BSF4MQFNW44N",
+      "title": "MX vs ATV Reflex",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.63335.70231536100857987.d22b3d59-cd2a-46ee-ad0a-072d23501525.0bb18f47-8386-4002-bc71-85e8eeed05b1",
+      "url": "https://www.xbox.com/games/store/_/BSF4MQFNW44N",
+      "priceUSD": 0.36,
+      "originalPriceUSD": 1.79,
+      "onSale": true,
+      "discount": 80,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
       ],
       "isBundle": false
     },
@@ -572,6 +732,21 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P9278ZMGQLJ",
+      "title": "Remnant II® - Standard Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24650.14081014349971267.d4f5e4f0-b6a4-4b3a-a03e-37c8a633409c.616c8074-1ae8-49dc-8ef5-0cd0e4187b06",
+      "url": "https://www.xbox.com/games/store/_/9P9278ZMGQLJ",
+      "priceUSD": 8.31,
+      "originalPriceUSD": 33.24,
+      "onSale": true,
+      "discount": 75,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
+    },
+    {
       "id": "xbox-BRKX5CRMRTC2",
       "title": "The Elder Scrolls Online: Standard Edition",
       "platform": "Xbox",
@@ -640,6 +815,38 @@
       "isBundle": false
     },
     {
+      "id": "xbox-BWMQL2RPWBHB",
+      "title": "Celeste",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21257.71633162879241707.7cf18b3b-9fa5-486f-9a68-067f06d50bf1.8f7909cf-d9a5-44aa-9901-2635255ab2ee",
+      "url": "https://www.xbox.com/games/store/_/BWMQL2RPWBHB",
+      "priceUSD": 2.65,
+      "originalPriceUSD": 10.61,
+      "onSale": true,
+      "discount": 75,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9P3NT9H51RMR",
+      "title": "Escape Academy",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.64197.14539026038241714.d90ee0c8-8b58-4ba6-8a9f-2897bb0c983a.2f30177c-6ee0-4c78-bf22-a07f5b3cfd4d",
+      "url": "https://www.xbox.com/games/store/_/9P3NT9H51RMR",
+      "priceUSD": 0.9,
+      "originalPriceUSD": 3.61,
+      "onSale": true,
+      "discount": 75,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-BS6WJ2L56B10",
       "title": "Fallout 76",
       "platform": "Xbox",
@@ -647,6 +854,38 @@
       "url": "https://www.xbox.com/games/store/_/BS6WJ2L56B10",
       "priceUSD": 2.45,
       "originalPriceUSD": 9.8,
+      "onSale": true,
+      "discount": 75,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NHR2Z6GD4G9",
+      "title": "Infini",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21605.13624893767168474.9262d4b8-c8d4-42c1-900e-d28dba812197.80fdc6ce-eef2-4208-9142-57571f23a00e",
+      "url": "https://www.xbox.com/games/store/_/9NHR2Z6GD4G9",
+      "priceUSD": 0.46,
+      "originalPriceUSD": 1.82,
+      "onSale": true,
+      "discount": 75,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NLGR76G498K",
+      "title": "MX vs ATV Legends",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.11208.13712009559820162.f16fc3d3-fcfc-44db-be0a-a6ab549c8541.fd2a86f4-a2ab-4624-9dd1-8d68589ba7b5",
+      "url": "https://www.xbox.com/games/store/_/9NLGR76G498K",
+      "priceUSD": 7,
+      "originalPriceUSD": 28,
       "onSale": true,
       "discount": 75,
       "consoles": [
@@ -703,6 +942,22 @@
       "isBundle": true
     },
     {
+      "id": "xbox-9NHFVWX1V7QJ",
+      "title": "Deep Rock Galactic",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.52173.13626568325427111.b79d00fc-6d85-4196-a23a-681bd2582706.49ab59ce-747c-46b6-aaf1-336f25a2636a",
+      "url": "https://www.xbox.com/games/store/_/9NHFVWX1V7QJ",
+      "priceUSD": 0.42,
+      "originalPriceUSD": 1.4,
+      "onSale": true,
+      "discount": 70,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9N9097G0XZMB",
       "title": "Hell is Us",
       "platform": "Xbox",
@@ -710,6 +965,37 @@
       "url": "https://www.xbox.com/games/store/_/9N9097G0XZMB",
       "priceUSD": 21.66,
       "originalPriceUSD": 72.21,
+      "onSale": true,
+      "discount": 70,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9P8NSTDMZ11P",
+      "title": "Inscryption",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.62808.14084380653642072.5b7362f4-7943-463e-aa3b-fca7f77fd749.cf0f55f8-a3a6-4744-9ca0-83495e56c0ae",
+      "url": "https://www.xbox.com/games/store/_/9P8NSTDMZ11P",
+      "priceUSD": 1.6,
+      "originalPriceUSD": 5.32,
+      "onSale": true,
+      "discount": 70,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N9PCZWHVP2L",
+      "title": "Warhammer 40,000: Space Marine 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.939.13528912654162373.752dd58c-93b6-40eb-ba0f-2d5ce3229dff.c6499c2f-2c1f-4613-9031-089cbe7d35d9",
+      "url": "https://www.xbox.com/games/store/_/9N9PCZWHVP2L",
+      "priceUSD": 25.19,
+      "originalPriceUSD": 83.97,
       "onSale": true,
       "discount": 70,
       "consoles": [
@@ -761,6 +1047,38 @@
         "Xbox One"
       ],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9NMHJHHZRL3N",
+      "title": "Remnant: From the Ashes - Swamps of Corsus",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.19407.13687695501210953.c24bcfe1-94a3-46bd-8795-60ff76968f1c.ee48d7d8-91cd-46c8-989a-b61af1139b84",
+      "url": "https://www.xbox.com/games/store/_/9NMHJHHZRL3N",
+      "priceUSD": 2,
+      "originalPriceUSD": 6.66,
+      "onSale": true,
+      "discount": 70,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PPBCK707QRV",
+      "title": "Wreckfest Complete Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7547.14332297921578795.562a392c-3a08-445b-92da-8feef33330fd.5329fa36-9970-4f0f-8a2d-87f19353d4b4",
+      "url": "https://www.xbox.com/games/store/_/9PPBCK707QRV",
+      "priceUSD": 10.92,
+      "originalPriceUSD": 36.4,
+      "onSale": true,
+      "discount": 70,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9NXQKPGMHH9G",
@@ -936,6 +1254,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9PBGZ5PCZD5B",
+      "title": "0 Degrees",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.49742.14118914842357599.a407b5ae-28f4-44dd-b1c0-c178df0704a7.7e6e6a46-2218-402b-95e0-b2dc3bcf761d",
+      "url": "https://www.xbox.com/games/store/_/9PBGZ5PCZD5B",
+      "priceUSD": 1.51,
+      "originalPriceUSD": 4.31,
+      "onSale": true,
+      "discount": 65,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9MVSRJWZBG9G",
       "title": "An Elder Scrolls Legend: Battlespire",
       "platform": "Xbox",
@@ -1026,6 +1360,37 @@
       "isBundle": true
     },
     {
+      "id": "xbox-BPQZT43FWD49",
+      "title": "Gang Beasts",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.35593.68150164172276526.ddc374d7-ef5e-43b9-940a-bbc04440bb33.e0c05607-881c-449f-826b-fec43403598c",
+      "url": "https://www.xbox.com/games/store/_/BPQZT43FWD49",
+      "priceUSD": 4.24,
+      "originalPriceUSD": 10.61,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N020KFQG301",
+      "title": "INDIKA",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55783.13929914726070906.c9e03a60-d9a2-4eb2-aadd-7402c3ec742e.8b1d1eb2-281c-4dd4-a43f-5fa944d35073",
+      "url": "https://www.xbox.com/games/store/_/9N020KFQG301",
+      "priceUSD": 5.1,
+      "originalPriceUSD": 12.74,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9P1Z43KRNQD4",
       "title": "Quake",
       "platform": "Xbox",
@@ -1081,6 +1446,22 @@
       "onSale": true,
       "discount": 60,
       "consoles": [],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NVR4ZQKNBSB",
+      "title": "Superliminal",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.31620.14393569011623061.24d2b16b-20df-48f4-b265-623d2c0e948a.c3577c03-647c-443c-94bc-fa43a7f08bba",
+      "url": "https://www.xbox.com/games/store/_/9NVR4ZQKNBSB",
+      "priceUSD": 1.44,
+      "originalPriceUSD": 3.61,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
       "isBundle": false
     },
     {
@@ -1171,6 +1552,22 @@
       "isBundle": true
     },
     {
+      "id": "xbox-9PF5H31CQP37",
+      "title": "9th Dawn Remake",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.25588.14206817282096178.0f1ef084-fabf-475a-be06-a272bc763218.583addaf-985a-46c0-9920-30ec16f232ae",
+      "url": "https://www.xbox.com/games/store/_/9PF5H31CQP37",
+      "priceUSD": 0.5,
+      "originalPriceUSD": 1.26,
+      "onSale": true,
+      "discount": 60,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9MXND4PQLK3W",
       "title": "DOOM 64",
       "platform": "Xbox",
@@ -1196,6 +1593,37 @@
       "originalPriceUSD": 39.17,
       "onSale": true,
       "discount": 55,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PMHGHXLGLJM",
+      "title": "ANNO : Mutationem",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.62821.14297915627755596.63bda613-b706-49f5-b411-63eac88ab8f8.13f44d12-2a98-43ac-b787-ad769cb86121",
+      "url": "https://www.xbox.com/games/store/_/9PMHGHXLGLJM",
+      "priceUSD": 0.77,
+      "originalPriceUSD": 1.54,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9N36BLQF3FX6",
+      "title": "Great God Grove",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.49217.13938047926882205.478db89a-539b-4b20-956d-db969f740012.51327afc-1102-47d8-8243-0a7e592ceb44",
+      "url": "https://www.xbox.com/games/store/_/9N36BLQF3FX6",
+      "priceUSD": 2.1,
+      "originalPriceUSD": 4.2,
+      "onSale": true,
+      "discount": 50,
       "consoles": [
         "Xbox Series X|S"
       ],
@@ -1338,6 +1766,21 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9PMS5K27W1LK",
+      "title": "Ultimate General: Civil War",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.18988.14292240974039086.cb2fc244-5371-408e-a0b1-41fe8e5f87b3.d07db853-6118-48c5-88ed-6978b0a3a649",
+      "url": "https://www.xbox.com/games/store/_/9PMS5K27W1LK",
+      "priceUSD": 17.21,
+      "originalPriceUSD": 34.41,
+      "onSale": true,
+      "discount": 50,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
+    },
+    {
       "id": "xbox-9PGRV33VMSL1",
       "title": "WWE 2K26 Standard Edition",
       "platform": "Xbox",
@@ -1469,6 +1912,21 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P3K93P2MJ1Q",
+      "title": "Kristala",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55645.14536709965390459.2b4ffa0f-9a09-4a78-b558-f0920dc58658.9ee8e0fa-b73b-4a72-b1b0-ee9350dc99ca",
+      "url": "https://www.xbox.com/games/store/_/9P3K93P2MJ1Q",
+      "priceUSD": 27.7,
+      "originalPriceUSD": 46.17,
+      "onSale": true,
+      "discount": 40,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NTPB0C2028V",
       "title": "LOLLIPOP CHAINSAW RePOP",
       "platform": "Xbox",
@@ -1513,6 +1971,36 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9NJJVQZ3BVPX",
+      "title": "Crashout Crew",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.44590.13675289401486045.76eb52e5-997e-40b6-9329-c737ead64f75.f1f47ff6-ada0-49c4-8caa-9cf78895952d",
+      "url": "https://www.xbox.com/games/store/_/9NJJVQZ3BVPX",
+      "priceUSD": 2.71,
+      "originalPriceUSD": 4.17,
+      "onSale": true,
+      "discount": 35,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NWZPS8X9JQG",
+      "title": "Bellwright",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.65451.14435552270902845.ec3cf6ff-e660-4d4a-abbc-0ad60cd4d3eb.cd544984-ed44-4285-9c33-ee43e4762179",
+      "url": "https://www.xbox.com/games/store/_/9NWZPS8X9JQG",
+      "priceUSD": 10.47,
+      "originalPriceUSD": 16.1,
+      "onSale": true,
+      "discount": 35,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9MTV4H0GDMD9",
       "title": "Borderlands 3: Designer's Cut",
       "platform": "Xbox",
@@ -1544,6 +2032,22 @@
       "isBundle": true
     },
     {
+      "id": "xbox-9NZ9K5Q1WBGJ",
+      "title": "OOLO",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.62110.14479982961032435.02dbb52e-bc61-49b6-90a7-f0fd7465ad43.be3d16ca-65f0-44a3-b717-adcbf9e34d7d",
+      "url": "https://www.xbox.com/games/store/_/9NZ9K5Q1WBGJ",
+      "priceUSD": 14.91,
+      "originalPriceUSD": 22.93,
+      "onSale": true,
+      "discount": 35,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NC7NRD0CM11",
       "title": "Heretic + Hexen",
       "platform": "Xbox",
@@ -1553,6 +2057,22 @@
       "originalPriceUSD": 14.7,
       "onSale": true,
       "discount": 33,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NGLST31DG26",
+      "title": "A Game About Digging A Hole™",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24203.13643221603035245.ddde7541-3c1c-43b1-8b36-964427f91e73.adc9d42b-63e9-4fae-822c-86eb5c5dae54",
+      "url": "https://www.xbox.com/games/store/_/9NGLST31DG26",
+      "priceUSD": 4.7,
+      "originalPriceUSD": 6.72,
+      "onSale": true,
+      "discount": 30,
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
@@ -1572,6 +2092,21 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9PPP5344B3LS",
+      "title": "Relooted",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.31001.14320824299519255.dcbcdae0-7b7f-4ec7-b428-8db1b8659f3d.daaf9906-96c8-4d9f-bb10-85a74c62a853",
+      "url": "https://www.xbox.com/games/store/_/9PPP5344B3LS",
+      "priceUSD": 12.13,
+      "originalPriceUSD": 17.33,
+      "onSale": true,
+      "discount": 30,
+      "consoles": [
+        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -1602,6 +2137,21 @@
       "discount": 30,
       "consoles": [],
       "isBundle": false
+    },
+    {
+      "id": "xbox-9NDXTBZMZFST",
+      "title": "John Carpenter's Toxic Commando - Blood Edition",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.65113.13609770514871714.248fa761-58f4-46d8-8b59-3e938aa06745.ab40c867-07cd-4f27-ac90-5f15f2eb6939",
+      "url": "https://www.xbox.com/games/store/_/9NDXTBZMZFST",
+      "priceUSD": 42.12,
+      "originalPriceUSD": 60.17,
+      "onSale": true,
+      "discount": 30,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": true
     },
     {
       "id": "xbox-9NGG3143XJ73",
@@ -1650,6 +2200,68 @@
       "isBundle": true
     },
     {
+      "id": "xbox-9N16RZ0S50V2",
+      "title": "Frog Sqwad",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.11462.13907096050138817.7fbf6475-c772-4edc-86bc-618d25d93186.c9473002-0a18-403f-b0f6-33f7b2fc6820",
+      "url": "https://www.xbox.com/games/store/_/9N16RZ0S50V2",
+      "priceUSD": 6.93,
+      "originalPriceUSD": 9.24,
+      "onSale": true,
+      "discount": 25,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9P45GGDTFNSM",
+      "title": "PowerWash Simulator 2",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.46430.14599755904534716.1db4a72b-b82e-4475-af6c-9adfe3cee911.c147533f-7220-44f6-ab9f-a068228ba900",
+      "url": "https://www.xbox.com/games/store/_/9P45GGDTFNSM",
+      "priceUSD": 7.33,
+      "originalPriceUSD": 9.77,
+      "onSale": true,
+      "discount": 25,
+      "consoles": [
+        "Xbox Series X|S"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NMGD519CK4M",
+      "title": "Brotato & Abyssal Terrors DLC - Bundle",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.59862.13688170826328896.8f09b245-03e7-406a-8f79-70672b14f2aa.17a8813a-4822-4e7e-a14e-4162b8817b1e",
+      "url": "https://www.xbox.com/games/store/_/9NMGD519CK4M",
+      "priceUSD": 0.47,
+      "originalPriceUSD": 0.63,
+      "onSale": true,
+      "discount": 25,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": true
+    },
+    {
+      "id": "xbox-9MXFGTP6P29D",
+      "title": "Keeper's Toll",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7449.13891073462674333.5b3e7078-6455-43e0-9fe0-07f1e4514997.2be188c5-1b03-4817-aef7-43317a7bf0e7",
+      "url": "https://www.xbox.com/games/store/_/9MXFGTP6P29D",
+      "priceUSD": 5.04,
+      "originalPriceUSD": 6.72,
+      "onSale": true,
+      "discount": 25,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9NC5GP9NCCT5",
       "title": "NTBSS: Master Character Training Pack - Shisui Uchiha (Perfect Susano'o)",
       "platform": "Xbox",
@@ -1664,6 +2276,22 @@
         "Xbox One"
       ],
       "isBundle": true
+    },
+    {
+      "id": "xbox-9NQ4B94RQ58K",
+      "title": "Old Market Simulator",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.60877.13776770165756018.51835062-543b-4ca1-9312-8e879b4e38ef.1bba6661-d5a3-4553-bc50-2c0b6418a04d",
+      "url": "https://www.xbox.com/games/store/_/9NQ4B94RQ58K",
+      "priceUSD": 8.19,
+      "originalPriceUSD": 10.92,
+      "onSale": true,
+      "discount": 25,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
     },
     {
       "id": "xbox-9NWVBB96M1SZ",
@@ -1682,20 +2310,19 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NMGD519CK4M",
-      "title": "Brotato & Abyssal Terrors DLC - Bundle",
+      "id": "xbox-9N8BRH7PGJMJ",
+      "title": "Solarpunk",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.59862.13688170826328896.8f09b245-03e7-406a-8f79-70672b14f2aa.17a8813a-4822-4e7e-a14e-4162b8817b1e",
-      "url": "https://www.xbox.com/games/store/_/9NMGD519CK4M",
-      "priceUSD": 0.5,
-      "originalPriceUSD": 0.63,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.48125.14048175656271533.921e1817-53b5-470d-9f55-c1e8e8e03e8b.c2470cf7-306e-4c1d-a3c6-558938727f2f",
+      "url": "https://www.xbox.com/games/store/_/9N8BRH7PGJMJ",
+      "priceUSD": 21.26,
+      "originalPriceUSD": 26.57,
       "onSale": true,
-      "discount": 21,
+      "discount": 20,
       "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
+        "Xbox Series X|S"
       ],
-      "isBundle": true
+      "isBundle": false
     },
     {
       "id": "xbox-9NCJSXWZTP88",
@@ -2246,22 +2873,6 @@
       "url": "https://www.xbox.com/games/store/_/9N8NZMCCC1KG",
       "priceUSD": 14.56,
       "originalPriceUSD": 18.2,
-      "onSale": true,
-      "discount": 20,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": true
-    },
-    {
-      "id": "xbox-9PPBCK707QRV",
-      "title": "Wreckfest Complete Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7547.14332297921578795.562a392c-3a08-445b-92da-8feef33330fd.5329fa36-9970-4f0f-8a2d-87f19353d4b4",
-      "url": "https://www.xbox.com/games/store/_/9PPBCK707QRV",
-      "priceUSD": 29.12,
-      "originalPriceUSD": 36.4,
       "onSale": true,
       "discount": 20,
       "consoles": [
@@ -3025,22 +3636,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NGLST31DG26",
-      "title": "A Game About Digging A Hole™",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24203.13643221603035245.ddde7541-3c1c-43b1-8b36-964427f91e73.adc9d42b-63e9-4fae-822c-86eb5c5dae54",
-      "url": "https://www.xbox.com/games/store/_/9NGLST31DG26",
-      "priceUSD": 6.72,
-      "originalPriceUSD": 6.72,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N97RC576957",
       "title": "A Plague Tale: Requiem - Windows",
       "platform": "Xbox",
@@ -3221,22 +3816,6 @@
       "url": "https://www.xbox.com/games/store/_/9NG07QJNK38J",
       "priceUSD": 0.39,
       "originalPriceUSD": 0.39,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9PMHGHXLGLJM",
-      "title": "ANNO : Mutationem",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.62821.14297915627755596.63bda613-b706-49f5-b411-63eac88ab8f8.13f44d12-2a98-43ac-b787-ad769cb86121",
-      "url": "https://www.xbox.com/games/store/_/9PMHGHXLGLJM",
-      "priceUSD": 1.54,
-      "originalPriceUSD": 1.54,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -3635,6 +4214,21 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NXWSWBM4H6T",
+      "title": "Beast of Reincarnation",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.33148.14487652983694462.41488687-e41a-4db5-8dd7-e667f139dd72.d00a7fae-9c91-447b-9542-7584379edec0",
+      "url": "https://www.xbox.com/games/store/_/9NXWSWBM4H6T",
+      "priceUSD": 69.13,
+      "originalPriceUSD": 69.13,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -4206,21 +4800,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NJJVQZ3BVPX",
-      "title": "Crashout Crew",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.44590.13675289401486045.76eb52e5-997e-40b6-9329-c737ead64f75.f1f47ff6-ada0-49c4-8caa-9cf78895952d",
-      "url": "https://www.xbox.com/games/store/_/9NJJVQZ3BVPX",
-      "priceUSD": 4.17,
-      "originalPriceUSD": 4.17,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NKF2SZ630ZH",
       "title": "Cricket 24: The Official Game Of The Ashes",
       "platform": "Xbox",
@@ -4378,22 +4957,6 @@
       "discount": 0,
       "consoles": [
         "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9NHFVWX1V7QJ",
-      "title": "Deep Rock Galactic",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.52173.13626568325427111.b79d00fc-6d85-4196-a23a-681bd2582706.49ab59ce-747c-46b6-aaf1-336f25a2636a",
-      "url": "https://www.xbox.com/games/store/_/9NHFVWX1V7QJ",
-      "priceUSD": 1.4,
-      "originalPriceUSD": 1.4,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
       ],
       "isBundle": false
     },
@@ -5090,21 +5653,6 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9N16RZ0S50V2",
-      "title": "Frog Sqwad",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.11462.13907096050138817.7fbf6475-c772-4edc-86bc-618d25d93186.c9473002-0a18-403f-b0f6-33f7b2fc6820",
-      "url": "https://www.xbox.com/games/store/_/9N16RZ0S50V2",
-      "priceUSD": 9.24,
-      "originalPriceUSD": 9.24,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N0KN24FWP6B",
       "title": "Frostpunk 2",
       "platform": "Xbox",
@@ -5143,22 +5691,6 @@
       "url": "https://www.xbox.com/games/store/_/C2P985H1H42H",
       "priceUSD": 0.84,
       "originalPriceUSD": 0.84,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-BPQZT43FWD49",
-      "title": "Gang Beasts",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.35593.68150164172276526.ddc374d7-ef5e-43b9-940a-bbc04440bb33.e0c05607-881c-449f-826b-fec43403598c",
-      "url": "https://www.xbox.com/games/store/_/BPQZT43FWD49",
-      "priceUSD": 10.61,
-      "originalPriceUSD": 10.61,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -5284,21 +5816,6 @@
       "discount": 0,
       "consoles": [],
       "isBundle": true
-    },
-    {
-      "id": "xbox-9N36BLQF3FX6",
-      "title": "Great God Grove",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.49217.13938047926882205.478db89a-539b-4b20-956d-db969f740012.51327afc-1102-47d8-8243-0a7e592ceb44",
-      "url": "https://www.xbox.com/games/store/_/9N36BLQF3FX6",
-      "priceUSD": 4.2,
-      "originalPriceUSD": 4.2,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-9PC288TN7R8K",
@@ -5707,37 +6224,6 @@
       "onSale": false,
       "discount": 0,
       "consoles": [],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N020KFQG301",
-      "title": "INDIKA",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55783.13929914726070906.c9e03a60-d9a2-4eb2-aadd-7402c3ec742e.8b1d1eb2-281c-4dd4-a43f-5fa944d35073",
-      "url": "https://www.xbox.com/games/store/_/9N020KFQG301",
-      "priceUSD": 12.74,
-      "originalPriceUSD": 12.74,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P8NSTDMZ11P",
-      "title": "Inscryption",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.62808.14084380653642072.5b7362f4-7943-463e-aa3b-fca7f77fd749.cf0f55f8-a3a6-4744-9ca0-83495e56c0ae",
-      "url": "https://www.xbox.com/games/store/_/9P8NSTDMZ11P",
-      "priceUSD": 5.32,
-      "originalPriceUSD": 5.32,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
       "isBundle": false
     },
     {
@@ -6371,22 +6857,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9P8XJRLCLH2P",
-      "title": "Moonlighter",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.27309.14078999020725962.f9f4d516-290a-4fec-820e-f71d575013d8.781a4a00-3d6d-477f-987a-a7b734ab1fd1",
-      "url": "https://www.xbox.com/games/store/_/9P8XJRLCLH2P",
-      "priceUSD": 0.91,
-      "originalPriceUSD": 0.91,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NDJX252Q5BW",
       "title": "Moonlighter 2: The Endless Vault (Game Preview)",
       "platform": "Xbox",
@@ -6943,21 +7413,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9P45GGDTFNSM",
-      "title": "PowerWash Simulator 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.46430.14599755904534716.1db4a72b-b82e-4475-af6c-9adfe3cee911.c147533f-7220-44f6-ab9f-a068228ba900",
-      "url": "https://www.xbox.com/games/store/_/9P45GGDTFNSM",
-      "priceUSD": 9.77,
-      "originalPriceUSD": 9.77,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9PBC1QFBW563",
       "title": "Prey",
       "platform": "Xbox",
@@ -7072,21 +7527,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9PPP5344B3LS",
-      "title": "Relooted",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.31001.14320824299519255.dcbcdae0-7b7f-4ec7-b428-8db1b8659f3d.daaf9906-96c8-4d9f-bb10-85a74c62a853",
-      "url": "https://www.xbox.com/games/store/_/9PPP5344B3LS",
-      "priceUSD": 17.33,
-      "originalPriceUSD": 17.33,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N5K7HWXL4Q6",
       "title": "REMATCH",
       "platform": "Xbox",
@@ -7100,21 +7540,6 @@
         "Xbox Series X|S"
       ],
       "isBundle": false
-    },
-    {
-      "id": "xbox-9P9278ZMGQLJ",
-      "title": "Remnant II® - Standard Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.24650.14081014349971267.d4f5e4f0-b6a4-4b3a-a03e-37c8a633409c.616c8074-1ae8-49dc-8ef5-0cd0e4187b06",
-      "url": "https://www.xbox.com/games/store/_/9P9278ZMGQLJ",
-      "priceUSD": 33.24,
-      "originalPriceUSD": 33.24,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
     },
     {
       "id": "xbox-9NV3L234VGXD",
@@ -7436,21 +7861,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9N8BRH7PGJMJ",
-      "title": "Solarpunk",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.48125.14048175656271533.921e1817-53b5-470d-9f55-c1e8e8e03e8b.c2470cf7-306e-4c1d-a3c6-558938727f2f",
-      "url": "https://www.xbox.com/games/store/_/9N8BRH7PGJMJ",
-      "priceUSD": 26.57,
-      "originalPriceUSD": 26.57,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N221ZTFGQB0",
       "title": "SOPA - Tale of the Stolen Potato",
       "platform": "Xbox",
@@ -7676,22 +8086,6 @@
       "url": "https://www.xbox.com/games/store/_/9NRH78B682L8",
       "priceUSD": 12.04,
       "originalPriceUSD": 12.04,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9NVR4ZQKNBSB",
-      "title": "Superliminal",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.31620.14393569011623061.24d2b16b-20df-48f4-b265-623d2c0e948a.c3577c03-647c-443c-94bc-fa43a7f08bba",
-      "url": "https://www.xbox.com/games/store/_/9NVR4ZQKNBSB",
-      "priceUSD": 3.61,
-      "originalPriceUSD": 3.61,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -8444,21 +8838,6 @@
       "url": "https://www.xbox.com/games/store/_/9P30BFHZ1BKN",
       "priceUSD": 19.6,
       "originalPriceUSD": 19.6,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9N9PCZWHVP2L",
-      "title": "Warhammer 40,000: Space Marine 2",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.939.13528912654162373.752dd58c-93b6-40eb-ba0f-2d5ce3229dff.c6499c2f-2c1f-4613-9031-089cbe7d35d9",
-      "url": "https://www.xbox.com/games/store/_/9N9PCZWHVP2L",
-      "priceUSD": 83.97,
-      "originalPriceUSD": 83.97,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -9645,6 +10024,22 @@
       "url": "https://www.xbox.com/games/store/_/9N0LF2J5BQ3M",
       "priceUSD": 6.02,
       "originalPriceUSD": 6.02,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NNJ6TTDBQBX",
+      "title": "Akinakes",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.18616.13742436294276439.5f11bcd3-ebf0-42cb-97ae-d014bdc07cc8.26b4662b-9c0a-46c5-81dd-fea21cf97b7f",
+      "url": "https://www.xbox.com/games/store/_/9NNJ6TTDBQBX",
+      "priceUSD": 4.48,
+      "originalPriceUSD": 4.48,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -11193,21 +11588,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NWZPS8X9JQG",
-      "title": "Bellwright",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.65451.14435552270902845.ec3cf6ff-e660-4d4a-abbc-0ad60cd4d3eb.cd544984-ed44-4285-9c33-ee43e4762179",
-      "url": "https://www.xbox.com/games/store/_/9NWZPS8X9JQG",
-      "priceUSD": 16.1,
-      "originalPriceUSD": 16.1,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-BSJWDWQ98R5T",
       "title": "BGM and Edit Parts Pack",
       "platform": "Xbox",
@@ -11588,22 +11968,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9P03ZQMBMV65",
-      "title": "Broforce",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.6563.14468359839778606.b9e6f982-23f2-4c58-a436-66ba564129a1.8d25c53c-49b6-4fa0-a040-48229656c8a7",
-      "url": "https://www.xbox.com/games/store/_/9P03ZQMBMV65",
-      "priceUSD": 1.19,
-      "originalPriceUSD": 1.19,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9WZDNCRDFTXJ",
       "title": "BTO Cribbage",
       "platform": "Xbox",
@@ -11906,22 +12270,6 @@
       "url": "https://www.xbox.com/games/store/_/9PBV5B8QVM10",
       "priceUSD": 0.95,
       "originalPriceUSD": 0.95,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-BWMQL2RPWBHB",
-      "title": "Celeste",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21257.71633162879241707.7cf18b3b-9fa5-486f-9a68-067f06d50bf1.8f7909cf-d9a5-44aa-9901-2635255ab2ee",
-      "url": "https://www.xbox.com/games/store/_/BWMQL2RPWBHB",
-      "priceUSD": 10.61,
-      "originalPriceUSD": 10.61,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -12486,22 +12834,6 @@
         "Xbox One"
       ],
       "isBundle": true
-    },
-    {
-      "id": "xbox-9N16L6MD35Q5",
-      "title": "DCL-The Game",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.30765.13907118493283346.55932b50-891a-45ae-bd75-b6da688577d4.3848ff6d-5eec-48c3-b3f5-bfc54272f44e",
-      "url": "https://www.xbox.com/games/store/_/9N16L6MD35Q5",
-      "priceUSD": 28,
-      "originalPriceUSD": 28,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-9NG64Z8Q7JJQ",
@@ -13310,7 +13642,7 @@
       "id": "xbox-9MXZBTLG26VX",
       "title": "EA SPORTS FC™ 26 Standart Sürüm Xbox One ve Xbox Series X|S",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.30635.13880594673876343.551ce2b0-44ef-4a79-84ad-a4b648f6fa74.3465a252-e8ad-46dc-a28d-c057f0ac3585",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.39200.13880594673876343.1289e898-a927-48c2-a81c-660602f0234e.67a779b6-d3fa-4ddd-8363-6619dbfe6cf5",
       "url": "https://www.xbox.com/games/store/_/9MXZBTLG26VX",
       "priceUSD": 81.2,
       "originalPriceUSD": 81.2,
@@ -13932,22 +14264,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NX6FB6V0L2N",
-      "title": "Sniper Elite 5 Complete Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.22436.14431144669616927.62da44b4-1b32-4566-bbe7-227289a3ba00.273aee2e-110d-4cb8-a9d3-cfa53512f592",
-      "url": "https://www.xbox.com/games/store/_/9NX6FB6V0L2N",
-      "priceUSD": 8.75,
-      "originalPriceUSD": 8.75,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": true
-    },
-    {
       "id": "xbox-9PJ22QNVCZ3G",
       "title": "ELDEN RING NIGHTREIGN",
       "platform": "Xbox",
@@ -14261,22 +14577,6 @@
       "url": "https://www.xbox.com/games/store/_/9MVTZLG0GSTX",
       "priceUSD": 1.02,
       "originalPriceUSD": 1.02,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P3NT9H51RMR",
-      "title": "Escape Academy",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.64197.14539026038241714.d90ee0c8-8b58-4ba6-8a9f-2897bb0c983a.2f30177c-6ee0-4c78-bf22-a07f5b3cfd4d",
-      "url": "https://www.xbox.com/games/store/_/9P3NT9H51RMR",
-      "priceUSD": 3.61,
-      "originalPriceUSD": 3.61,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -17214,22 +17514,6 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9NHR2Z6GD4G9",
-      "title": "Infini",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.21605.13624893767168474.9262d4b8-c8d4-42c1-900e-d28dba812197.80fdc6ce-eef2-4208-9142-57571f23a00e",
-      "url": "https://www.xbox.com/games/store/_/9NHR2Z6GD4G9",
-      "priceUSD": 1.82,
-      "originalPriceUSD": 1.82,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NBLGGH52PH9",
       "title": "Call of Duty®: Infinite Warfare",
       "platform": "Xbox",
@@ -17992,21 +18276,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NDXTBZMZFST",
-      "title": "John Carpenter's Toxic Commando - Blood Edition",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.65113.13609770514871714.248fa761-58f4-46d8-8b59-3e938aa06745.ab40c867-07cd-4f27-ac90-5f15f2eb6939",
-      "url": "https://www.xbox.com/games/store/_/9NDXTBZMZFST",
-      "priceUSD": 60.17,
-      "originalPriceUSD": 60.17,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
-    },
-    {
       "id": "xbox-C1ZWH2BZ9TSF",
       "title": "Joy Ride Turbo",
       "platform": "Xbox",
@@ -18254,22 +18523,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9MXFGTP6P29D",
-      "title": "Keeper's Toll",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.7449.13891073462674333.5b3e7078-6455-43e0-9fe0-07f1e4514997.2be188c5-1b03-4817-aef7-43317a7bf0e7",
-      "url": "https://www.xbox.com/games/store/_/9MXFGTP6P29D",
-      "priceUSD": 6.72,
-      "originalPriceUSD": 6.72,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N1QF2H1HSSW",
       "title": "Khatun - Kahraman - FOR HONOR",
       "platform": "Xbox",
@@ -18449,21 +18702,6 @@
       "consoles": [
         "Xbox Series X|S",
         "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P3K93P2MJ1Q",
-      "title": "Kristala",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.55645.14536709965390459.2b4ffa0f-9a09-4a78-b558-f0920dc58658.9ee8e0fa-b73b-4a72-b1b0-ee9350dc99ca",
-      "url": "https://www.xbox.com/games/store/_/9P3K93P2MJ1Q",
-      "priceUSD": 46.17,
-      "originalPriceUSD": 46.17,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
       ],
       "isBundle": false
     },
@@ -18801,22 +19039,6 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9NWNQC8H80RV",
-      "title": "Loop Hero",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.59038.14445738564377947.babca878-ccaa-48f3-b55f-6477a548f887.0858f75d-a848-4bb1-97d3-96fa57fa3703",
-      "url": "https://www.xbox.com/games/store/_/9NWNQC8H80RV",
-      "priceUSD": 4.17,
-      "originalPriceUSD": 4.17,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9P07ZX96DTP6",
       "title": "Lynked: Banner of the Spark",
       "platform": "Xbox",
@@ -18861,22 +19083,6 @@
         "Xbox One"
       ],
       "isBundle": true
-    },
-    {
-      "id": "xbox-9PP2WW5TQ7MS",
-      "title": "McPixel 3",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.31201.14336879122555401.4c30f6b3-d0ef-4997-95dd-4b1a894b1874.f4a8090c-17b1-49a4-bfb9-5747db50f016",
-      "url": "https://www.xbox.com/games/store/_/9PP2WW5TQ7MS",
-      "priceUSD": 1.82,
-      "originalPriceUSD": 1.82,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-BPPTRQZRJ341",
@@ -19263,7 +19469,7 @@
       "id": "xbox-9NRLSFM01XTP",
       "title": "MLB® The Show™ 26 Standard Edition",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.10926.14385377751056556.8ade2762-9e24-4afd-b1ad-455034c91f58.4e90d39d-395a-456f-a9d6-592eb761ba34",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57305.14385377751056556.b3131e46-efd4-40bc-894a-67e4577d555f.6e57cbec-72ef-46de-94c4-d9f3cd0fbd0c",
       "url": "https://www.xbox.com/games/store/_/9NRLSFM01XTP",
       "priceUSD": 78.4,
       "originalPriceUSD": 78.4,
@@ -19603,38 +19809,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NLGR76G498K",
-      "title": "MX vs ATV Legends",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.11208.13712009559820162.f16fc3d3-fcfc-44db-be0a-a6ab549c8541.fd2a86f4-a2ab-4624-9dd1-8d68589ba7b5",
-      "url": "https://www.xbox.com/games/store/_/9NLGR76G498K",
-      "priceUSD": 28,
-      "originalPriceUSD": 28,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-BWW1MP5KDLPB",
-      "title": "MX vs ATV All Out",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.10821.71775074200248831.2796c3f8-c399-4de5-a2ca-c51fc1f331be.aebef518-96c9-4dfc-b847-582b10c83683",
-      "url": "https://www.xbox.com/games/store/_/BWW1MP5KDLPB",
-      "priceUSD": 21.7,
-      "originalPriceUSD": 21.7,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N9R8TX1V7RL",
       "title": "MXGP 2021 - The Official Motocross Videogame",
       "platform": "Xbox",
@@ -19642,22 +19816,6 @@
       "url": "https://www.xbox.com/games/store/_/9N9R8TX1V7RL",
       "priceUSD": 39.17,
       "originalPriceUSD": 39.17,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-C3BGK0R0KP38",
-      "title": "MX Unleashed",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.57257.65950198718570153.e6cbdcb6-240f-44a7-ad03-8b09a93497eb.c5fc8b68-249c-4411-9bb2-7f70176ff16d",
-      "url": "https://www.xbox.com/games/store/_/C3BGK0R0KP38",
-      "priceUSD": 1.09,
-      "originalPriceUSD": 1.09,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -19681,22 +19839,6 @@
         "Xbox One"
       ],
       "isBundle": true
-    },
-    {
-      "id": "xbox-BSF4MQFNW44N",
-      "title": "MX vs ATV Reflex",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.63335.70231536100857987.d22b3d59-cd2a-46ee-ad0a-072d23501525.0bb18f47-8386-4002-bc71-85e8eeed05b1",
-      "url": "https://www.xbox.com/games/store/_/BSF4MQFNW44N",
-      "priceUSD": 1.79,
-      "originalPriceUSD": 1.79,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
     },
     {
       "id": "xbox-9NNKVXG45WQ5",
@@ -20521,22 +20663,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9PBLH1322GX0",
-      "title": "Observation",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.50900.14121238494435991.7409629d-3c0f-426d-9a4d-f67d13832f35.04057eca-2f8c-43d0-a3f4-180b6866d8bd",
-      "url": "https://www.xbox.com/games/store/_/9PBLH1322GX0",
-      "priceUSD": 2,
-      "originalPriceUSD": 2,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NVFVKWSMD73",
       "title": "OCTOPATH TRAVELER + OCTOPATH TRAVELER II Bundle",
       "platform": "Xbox",
@@ -21073,22 +21199,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NQ4B94RQ58K",
-      "title": "Old Market Simulator",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.60877.13776770165756018.51835062-543b-4ca1-9312-8e879b4e38ef.1bba6661-d5a3-4553-bc50-2c0b6418a04d",
-      "url": "https://www.xbox.com/games/store/_/9NQ4B94RQ58K",
-      "priceUSD": 10.92,
-      "originalPriceUSD": 10.92,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NRFS8111GN3",
       "title": "OlliOlli World",
       "platform": "Xbox",
@@ -21296,22 +21406,6 @@
       "discount": 0,
       "consoles": [
         "Xbox Series X|S"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9NZ9K5Q1WBGJ",
-      "title": "OOLO",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.62110.14479982961032435.02dbb52e-bc61-49b6-90a7-f0fd7465ad43.be3d16ca-65f0-44a3-b717-adcbf9e34d7d",
-      "url": "https://www.xbox.com/games/store/_/9NZ9K5Q1WBGJ",
-      "priceUSD": 22.93,
-      "originalPriceUSD": 22.93,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
       ],
       "isBundle": false
     },
@@ -23358,22 +23452,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9NMHJHHZRL3N",
-      "title": "Remnant: From the Ashes - Swamps of Corsus",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.19407.13687695501210953.c24bcfe1-94a3-46bd-8795-60ff76968f1c.ee48d7d8-91cd-46c8-989a-b61af1139b84",
-      "url": "https://www.xbox.com/games/store/_/9NMHJHHZRL3N",
-      "priceUSD": 6.66,
-      "originalPriceUSD": 6.66,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9WZDNCRDC3B2",
       "title": "RGS: Defenders",
       "platform": "Xbox",
@@ -24366,13 +24444,13 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9PP0JBCHTNVR",
-      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv2",
+      "id": "xbox-9PHZXCT3Q9Q7",
+      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv1",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.9570.14334081643979100.1bb04652-e83f-4ef4-b41c-24eb5b39c358.8b1aae7b-1cbb-4f12-a8a9-a60efefc6b06",
-      "url": "https://www.xbox.com/games/store/_/9PP0JBCHTNVR",
-      "priceUSD": 0.53,
-      "originalPriceUSD": 0.53,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.12128.14226490296279096.0e5fa053-8068-48a5-9b8b-1e3d50920f49.74a71522-3024-45c2-bd4a-328eb8103253",
+      "url": "https://www.xbox.com/games/store/_/9PHZXCT3Q9Q7",
+      "priceUSD": 0.28,
+      "originalPriceUSD": 0.28,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -24382,13 +24460,13 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9PHZXCT3Q9Q7",
-      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv1",
+      "id": "xbox-9PP0JBCHTNVR",
+      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv2",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.12128.14226490296279096.0e5fa053-8068-48a5-9b8b-1e3d50920f49.74a71522-3024-45c2-bd4a-328eb8103253",
-      "url": "https://www.xbox.com/games/store/_/9PHZXCT3Q9Q7",
-      "priceUSD": 0.28,
-      "originalPriceUSD": 0.28,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.9570.14334081643979100.1bb04652-e83f-4ef4-b41c-24eb5b39c358.8b1aae7b-1cbb-4f12-a8a9-a60efefc6b06",
+      "url": "https://www.xbox.com/games/store/_/9PP0JBCHTNVR",
+      "priceUSD": 0.53,
+      "originalPriceUSD": 0.53,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -26311,21 +26389,6 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9PMS5K27W1LK",
-      "title": "Ultimate General: Civil War",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.18988.14292240974039086.cb2fc244-5371-408e-a0b1-41fe8e5f87b3.d07db853-6118-48c5-88ed-6978b0a3a649",
-      "url": "https://www.xbox.com/games/store/_/9PMS5K27W1LK",
-      "priceUSD": 34.41,
-      "originalPriceUSD": 34.41,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S"
-      ],
-      "isBundle": true
-    },
-    {
       "id": "xbox-9P7TRDHGTWJ3",
       "title": "Ultra Foodmess Deluxe",
       "platform": "Xbox",
@@ -28084,22 +28147,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-C3KKWLKVKQTD",
-      "title": "Xiaoqiao - Subay Fişi",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.58710.66096089523720621.88906db3-3e05-4904-896b-2b39dda1971b.61c05b78-7a16-434f-bd07-65423f3f7629",
-      "url": "https://www.xbox.com/games/store/_/C3KKWLKVKQTD",
-      "priceUSD": 0.31,
-      "originalPriceUSD": 0.31,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9PBJWSZ8D2TK",
       "title": "Xmas Survivors",
       "platform": "Xbox",
@@ -29480,22 +29527,6 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9PBGZ5PCZD5B",
-      "title": "0 Degrees",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.49742.14118914842357599.a407b5ae-28f4-44dd-b1c0-c178df0704a7.7e6e6a46-2218-402b-95e0-b2dc3bcf761d",
-      "url": "https://www.xbox.com/games/store/_/9PBGZ5PCZD5B",
-      "priceUSD": 4.31,
-      "originalPriceUSD": 4.31,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9NJZ4CJNV39C",
       "title": "0.99$ offer",
       "platform": "Xbox",
@@ -29797,22 +29828,6 @@
       "url": "https://www.xbox.com/games/store/_/BZW89T099XXB",
       "priceUSD": 1.4,
       "originalPriceUSD": 1.4,
-      "onSale": false,
-      "discount": 0,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9PF5H31CQP37",
-      "title": "9th Dawn Remake",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.25588.14206817282096178.0f1ef084-fabf-475a-be06-a272bc763218.583addaf-985a-46c0-9920-30ec16f232ae",
-      "url": "https://www.xbox.com/games/store/_/9PF5H31CQP37",
-      "priceUSD": 1.26,
-      "originalPriceUSD": 1.26,
       "onSale": false,
       "discount": 0,
       "consoles": [
