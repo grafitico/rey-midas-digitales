@@ -1,23 +1,32 @@
-// Scraper de PlayStation Store (es-cr) — v4 paginado + facetas.
+// Scraper de PlayStation Store (es-cr) — v5: catálogo por GraphQL.
 //
-// Recorre todas las páginas de la(s) categoría(s) principales de juegos
-// PS5/PS4 hasta encontrar un chunk vacío, en paralelo controlado. Más
-// las páginas estáticas de deals/latest. Antes traíamos ~200 juegos
-// fijos; ahora apuntamos a varios miles.
+// Hasta el 2026-08-12 el catálogo de las categorías principales (PS4/PS5) se
+// leía del HTML servido por PSN (__NEXT_DATA__ → apolloState). Ese día PSN
+// rediseñó la tienda: el HTML inicial ya no trae los productos, el propio
+// navegador los pide después, a mano, contra una API GraphQL interna
+// (web.np.playstation.com/api/graphql/v1/op, operación categoryGridRetrieve
+// con persisted query). `fetchCategoryGridPaginated` reproduce esa llamada
+// directamente — más simple y rápido que el HTML (PSN devuelve el total
+// exacto de resultados, así que no hay que "probar hasta que venga vacío").
 //
-// v4 añade las "facetas" que usa la propia PS Store para filtrar, leyendo
-// los campos del Product de PSN:
-//   • type        → full-game / bundle / edition / add-on
-//   • releaseDate → fecha de lanzamiento
-//   • comingSoon  → releaseDate en el futuro (va a la sección de Preventa)
-//   • ageRating   → clasificación por edad
-// Y EXCLUYE los add-on (DLC): el negocio no los vende.
+// Lo que SÍ sigue viniendo del HTML clásico (fetchAndParse/normalize más
+// abajo) porque no se recapturó su llamada GraphQL: las páginas estáticas de
+// deals/latest, las búsquedas por género, las preventas y el browse general
+// en-us. Si esas también se rompieron con el rediseño, siguen fallando en
+// silencio (try/catch) como ya hacían — no bloquean el catálogo principal.
 //
-// Si PSN cambia el UUID de la categoría o el patrón /category/{id}/{n},
-// hay que actualizar CATEGORIES/STATIC_PAGES abajo.
+// v4 (histórico) añadió las "facetas" tipo PS Store leyendo el Product de
+// PSN: type (full-game/bundle/edition/add-on), releaseDate, comingSoon,
+// ageRating. La ruta GraphQL nueva no expone releaseDate/ageRating/género
+// por producto todavía — solo type/precio/plataformas/portada.
 //
-// Diagnóstico (para confirmar nombres de campo reales contra PSN en vivo):
-//   GET /api/scrape?debug=classification
+// Si PSN vuelve a romper esto: recapturar la llamada abriendo
+// store.playstation.com en el navegador, DevTools → Network → filtrar
+// "graphql", recargar, y copiar la Request URL de categoryGridRetrieve (trae
+// el operationName, variables y el sha256Hash nuevo en la URL).
+//
+// Diagnóstico rápido: GET /api/scrape?debug=gqltest (catálogo nuevo)
+//                      GET /api/scrape?debug=classification (HTML clásico)
 
 export const PSN_BASE = "https://store.playstation.com/es-cr";
 
@@ -138,6 +147,29 @@ export default async function handler(req, res) {
       return res.status(200).json(await debugComingSoon());
     } catch (e) {
       return res.status(200).json({ error: e.message });
+    }
+  }
+
+  // ── Diagnóstico: prueba en vivo la llamada GraphQL de categoryGridRetrieve
+  //    (la fuente real del catálogo desde agosto 2026) y devuelve un resumen
+  //    corto — no el JSON crudo — para confirmar rápido si sigue funcionando
+  //    o si PSN volvió a rotar el hash de la persisted query.
+  //    /api/scrape?debug=gqltest
+  if ((req.query.debug || "") === "gqltest") {
+    try {
+      const raw = await fetchCategoryGridGql(CATEGORIES[0], 0, 3);
+      const grid = raw?.data?.categoryGridRetrieve;
+      return res.status(200).json({
+        ok: !!grid,
+        totalCount: grid?.pageInfo?.totalCount ?? null,
+        sample: (grid?.products || []).map(p => ({
+          id: p.id, name: p.name, platforms: p.platforms,
+          basePrice: p.price?.basePrice, discountedPrice: p.price?.discountedPrice,
+          classification: p.storeDisplayClassification,
+        })),
+      });
+    } catch (e) {
+      return res.status(200).json({ ok: false, error: e.message });
     }
   }
 
@@ -299,7 +331,19 @@ export default async function handler(req, res) {
   }
 }
 
+// Categorías de la propia tienda es-cr (donde capturamos la persisted query
+// de categoryGridRetrieve): van por GraphQL directo, mucho más rápido y ya
+// no depende del HTML. Categorías de OTRA tienda (ej. "próximos lanzamientos"
+// en en-us) siguen por el scraping HTML clásico, porque esa llamada GraphQL
+// no lleva el locale en la URL (el navegador lo resuelve por cookie/header
+// que no replicamos) y no confirmamos que devuelva el catálogo de esa región.
 export async function fetchCategoryPaginated(catId, stats, opts = {}) {
+  const base = opts.base || PSN_BASE;
+  if (base !== PSN_BASE) return fetchCategoryPaginatedHtml(catId, stats, opts);
+  return fetchCategoryGridPaginated(catId, stats, opts);
+}
+
+async function fetchCategoryPaginatedHtml(catId, stats, opts = {}) {
   const all = [];
   const maxPages = opts.maxPages || MAX_PAGES_PER_CATEGORY;
   const base = opts.base || PSN_BASE;
@@ -335,6 +379,144 @@ export async function fetchCategoryPaginated(catId, stats, opts = {}) {
     if (!chunkProduced) break;
     pageStart += chunkSize;
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return all;
+}
+
+// ── API real de PSN desde el cambio de agosto 2026: el catálogo de una
+//    categoría ya no viene en el HTML (__NEXT_DATA__/apolloState quedó
+//    vacío); el propio navegador lo pide, después de hidratar, a esta API
+//    GraphQL con una "persisted query" (operación + hash capturados del
+//    sitio real con DevTools el 2026-08-19). Si PSN rota el hash, esto vuelve
+//    a devolver 0 juegos con `pagesFailed=0` — como el corte anterior — y
+//    hay que recapturarlo desde el navegador (Network → filtrar "graphql").
+const GQL_URL = "https://web.np.playstation.com/api/graphql/v1/op";
+const CATEGORY_GRID_HASH = "88c0b9a1273c6d320c51cd73e390924e21ae28bf09f01cde8b84b1034b16cd03";
+const CATEGORY_GRID_PAGE_SIZE = 24;
+
+async function fetchCategoryGridGql(catId, offset, size = CATEGORY_GRID_PAGE_SIZE) {
+  const variables = { id: catId, pageArgs: { size, offset }, sortBy: null, filterBy: [], facetOptions: [] };
+  const extensions = { persistedQuery: { version: 1, sha256Hash: CATEGORY_GRID_HASH } };
+  const url = `${GQL_URL}?operationName=categoryGridRetrieve&variables=${encodeURIComponent(JSON.stringify(variables))}&extensions=${encodeURIComponent(JSON.stringify(extensions))}`;
+  const r = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "application/json",
+      "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+      "Referer": `${PSN_BASE}/category/${catId}/1`,
+      "Origin": "https://store.playstation.com",
+      // Apollo Server bloquea peticiones "simples" (sin preflight CORS) por
+      // CSRF; estos headers fuerzan el preflight y no son form-urlencoded.
+      "apollo-require-preflight": "true",
+      "x-apollo-operation-name": "categoryGridRetrieve",
+    },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0, 300)}`);
+  const json = JSON.parse(text);
+  if (json.errors) throw new Error(`GraphQL: ${json.errors[0]?.message || "error desconocido"}`);
+  return json;
+}
+
+// Clasificación del producto vía el enum `storeDisplayClassification` que
+// devuelve la propia API GraphQL (FULL_GAME, PREMIUM_EDITION, GAME_BUNDLE,
+// ADD_ON, SOUNDTRACK, DEMO, GAME_APPLICATION…). El negocio no vende nada que
+// no sea un juego completo/edición/bundle.
+function classifyTypeGql(cls) {
+  const raw = String(cls || "").toUpperCase();
+  if (/ADD[_-]?ON|DLC/.test(raw)) return "add-on";
+  if (/BUNDLE/.test(raw)) return "bundle";
+  if (/PREMIUM|EDITION/.test(raw)) return "edition";
+  if (/FULL[_-]?GAME/.test(raw)) return "full-game";
+  if (/SOUNDTRACK|DEMO|APPLICATION/.test(raw)) return "add-on";
+  return "full-game";
+}
+
+function normalizeGqlProduct(p) {
+  if (!p || !p.id || !p.name) return null;
+  const type = classifyTypeGql(p.storeDisplayClassification);
+  if (type === "add-on") return null;
+
+  const priceInfo = p.price || {};
+  const isFree = !!priceInfo.isFree;
+  const current = isFree ? 0 : parsePrice(priceInfo.discountedPrice);
+  const original = isFree ? 0 : (parsePrice(priceInfo.basePrice) || current);
+  if (!current && !isFree) return null;
+
+  const plats = Array.isArray(p.platforms) ? p.platforms : [];
+  const hasPS5 = plats.includes("PS5");
+  const hasPS4 = plats.includes("PS4");
+  if (plats.length > 0 && !hasPS5 && !hasPS4) return null;
+  let platform = "PS4";
+  if (hasPS5 && hasPS4) platform = "PS5/PS4";
+  else if (hasPS5) platform = "PS5";
+
+  const onSale = original > current;
+  return {
+    id: p.id,
+    title: p.name,
+    platform,
+    imageUrl: pickPsnCover(p.media),
+    url: `https://store.playstation.com/es-cr/product/${p.id}`,
+    priceUSD: current,
+    originalPriceUSD: original,
+    onSale,
+    discount: onSale ? Math.round((1 - current / original) * 100) : 0,
+    type,
+    // La API de grid no expone fecha de lanzamiento ni géneros por producto
+    // (esos campos vivían en el HTML viejo); quedan vacíos hasta que se
+    // capture la persisted query del buscador/preventas por separado.
+    releaseDate: "",
+    comingSoon: false,
+    ageRating: "",
+    isBundle: type === "bundle" || type === "edition",
+    directGenres: [],
+  };
+}
+
+// Pagina una categoría entera vía GraphQL: pide el primer bloque, lee el
+// `totalCount` real que devuelve PSN y calcula de una todos los offsets que
+// faltan (nada de "probar hasta que venga vacío" como con el HTML).
+async function fetchCategoryGridPaginated(catId, stats, opts = {}) {
+  const all = [];
+  const size = CATEGORY_GRID_PAGE_SIZE;
+  const chunkSize = opts.chunkSize || 12;
+  const delayMs = opts.delayMs || 0;
+  const maxItems = opts.maxPages ? opts.maxPages * size : Infinity;
+
+  const track = (grid) => {
+    if (!grid || !grid.products || !grid.products.length) { if (stats) stats.pagesEmpty++; return; }
+    if (stats) stats.pagesFetched++;
+    for (const p of grid.products) {
+      const g = normalizeGqlProduct(p);
+      if (g) all.push(g);
+      else if (stats && classifyTypeGql(p.storeDisplayClassification) === "add-on") stats.addonsExcluded++;
+    }
+  };
+
+  let first;
+  try {
+    first = await fetchCategoryGridGql(catId, 0, size);
+  } catch (e) {
+    if (stats) stats.pagesFailed++;
+    return all;
+  }
+  const grid = first?.data?.categoryGridRetrieve;
+  track(grid);
+  if (!grid) return all;
+
+  const total = Math.min(grid.pageInfo?.totalCount || 0, maxItems);
+  const offsets = [];
+  for (let off = size; off < total; off += size) offsets.push(off);
+
+  for (let i = 0; i < offsets.length; i += chunkSize) {
+    const batch = offsets.slice(i, i + chunkSize);
+    const results = await Promise.allSettled(batch.map(off => fetchCategoryGridGql(catId, off, size)));
+    for (const r of results) {
+      if (r.status === "fulfilled") track(r.value?.data?.categoryGridRetrieve);
+      else if (stats) stats.pagesFailed++;
+    }
+    if (delayMs) await new Promise(res => setTimeout(res, delayMs));
   }
   return all;
 }
