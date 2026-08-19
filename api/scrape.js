@@ -398,6 +398,10 @@ async function fetchCategoryGridGql(catId, offset, size, catPath) {
       "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
       "Referer": `${PSN_BASE}/category/${catPath || catId}/1`,
       "Origin": "https://store.playstation.com",
+      // Apollo Server bloquea peticiones "simples" (sin preflight CORS) por
+      // CSRF; estos headers fuerzan el preflight y no son form-urlencoded.
+      "apollo-require-preflight": "true",
+      "x-apollo-operation-name": "categoryGridRetrieve",
     },
   });
   const text = await r.text();
