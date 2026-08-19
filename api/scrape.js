@@ -153,6 +153,19 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Diagnóstico temporal (2026-08): PSN mueve el grid de productos a una
+  //    llamada GraphQL del cliente (web.np.playstation.com/api/graphql/v1/).
+  //    Extrae del bundle JS de la página de categoría el hash de persisted
+  //    query / operationName para poder reconstruir la llamada nosotros.
+  //    /api/scrape?debug=gqlprobe
+  if ((req.query.debug || "") === "gqlprobe") {
+    try {
+      return res.status(200).json(await debugGqlProbe());
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -687,6 +700,38 @@ async function debugRawShape() {
     batarangsPreview: batarangs === undefined ? undefined : JSON.stringify(batarangs).slice(0, 800),
     runtimeConfig: data?.runtimeConfig,
   };
+}
+
+// ── Diagnóstico: baja el bundle JS de la página de categoría (el que
+//    contiene la llamada GraphQL que arma el grid) y busca patrones de
+//    persisted query (sha256Hash), operationName y query whitelisting, sin
+//    tener que adivinar el hash a mano.
+async function debugGqlProbe() {
+  const html = await fetchHtml(`${PSN_BASE}/category/${CATEGORIES[0]}/1`);
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  const buildId = m ? JSON.parse(m[1])?.buildId : null;
+
+  const chunkMatch = html.match(/\/_next\/static\/chunks\/pages\/[^"']*category[^"']*\.js/i);
+  const out = { buildId, categoryChunkUrl: chunkMatch ? chunkMatch[0] : null };
+  if (!chunkMatch) return out;
+
+  const chunkUrl = chunkMatch[0].startsWith("http") ? chunkMatch[0] : `${PSN_BASE.replace(/\/es-cr$/, "")}${chunkMatch[0]}`;
+  const js = await fetchHtml(chunkUrl);
+  out.chunkLength = js.length;
+
+  // sha256Hash de persisted queries: "sha256Hash":"<64 hex>"
+  const hashMatches = Array.from(js.matchAll(/sha256Hash["']?\s*:\s*["']([a-f0-9]{64})["']/gi)).map(x => x[1]);
+  out.sha256Hashes = Array.from(new Set(hashMatches)).slice(0, 20);
+
+  // operationName cerca de esos hashes u operaciones con "categoryGrid"/"CategoryGrid"/"grid" en el nombre
+  const opMatches = Array.from(js.matchAll(/operationName["']?\s*:\s*["']([A-Za-z0-9_]+)["']/gi)).map(x => x[1]);
+  out.operationNames = Array.from(new Set(opMatches)).slice(0, 40);
+
+  // Nombres de query/mutation declarados con `query X` o `query(X)` típico de gql`...`
+  const gqlNameMatches = Array.from(js.matchAll(/\b(query|mutation)\s+([A-Za-z0-9_]{3,})/g)).map(x => x[2]);
+  out.gqlDeclaredNames = Array.from(new Set(gqlNameMatches)).slice(0, 40);
+
+  return out;
 }
 
 // ─── IGDB: enriquecimiento de portadas ────────────────────────────────────────
