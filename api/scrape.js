@@ -186,7 +186,13 @@ export default async function handler(req, res) {
       const summarize = (r) => {
         if (r?.error) return { error: r.error };
         const g = r?.data?.categoryGridRetrieve;
-        return { totalCount: g?.pageInfo?.totalCount ?? null, sample: (g?.products || []).map(p => p.name) };
+        return {
+          totalCount: g?.pageInfo?.totalCount ?? null,
+          productSample: (g?.products || []).map(p => p.name),
+          conceptsIsArray: Array.isArray(g?.concepts),
+          conceptsLength: Array.isArray(g?.concepts) ? g.concepts.length : null,
+          conceptsSample: Array.isArray(g?.concepts) ? g.concepts.slice(0, 3) : g?.concepts,
+        };
       };
       return res.status(200).json({ byGenre: summarize(byGenre), comingSoon: summarize(comingSoon) });
     } catch (e) {
