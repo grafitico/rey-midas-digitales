@@ -141,6 +141,18 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Diagnóstico temporal (2026-08): apolloState quedó vacío desde ~12 ago.
+  //    Explora el JSON crudo de __NEXT_DATA__ sin asumir dónde quedaron los
+  //    productos, para confirmar la ruta/forma real tras el cambio de PSN.
+  //    /api/scrape?debug=rawshape
+  if ((req.query.debug || "") === "rawshape") {
+    try {
+      return res.status(200).json(await debugRawShape());
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -609,6 +621,57 @@ async function debugClassification() {
     }
   }
   return { classificationBreakdown: breakdown, samples };
+}
+
+// ── Diagnóstico: explora recursivamente el JSON de __NEXT_DATA__ (sin asumir
+//    props.apolloState) buscando: 1) todos los __typename presentes y su
+//    conteo, 2) cualquier nodo con un id con pinta de producto PSN
+//    (EP/UP/HP/JP + dígitos), 3) las llaves de primer/segundo nivel del JSON
+//    completo. Sirve para ubicar dónde quedaron los productos tras el cambio
+//    de PSN sin tener que adivinar el nombre nuevo del campo/ruta.
+async function debugRawShape() {
+  const html = await fetchHtml(`${PSN_BASE}/category/${CATEGORIES[0]}/1`);
+  const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/);
+  if (!m) {
+    // Buscamos cualquier otro <script id="..."> para saber si PSN cambió de
+    // framework por completo (ya no es Next.js con este id de script).
+    const otherIds = Array.from(html.matchAll(/<script[^>]*\bid="([^"]+)"/g)).map(x => x[1]);
+    return { error: "sin __NEXT_DATA__", htmlLength: html.length, otherScriptIds: otherIds.slice(0, 30) };
+  }
+  let data;
+  try { data = JSON.parse(m[1]); } catch (e) { return { error: "NEXT_DATA no parseable: " + e.message, snippet: m[1].slice(0, 500) }; }
+
+  const typenameCounts = {};
+  const productIdPaths = [];
+  const MAX_PRODUCT_SAMPLES = 5;
+
+  function walk(node, path, depth) {
+    if (!node || typeof node !== "object" || depth > 8) return;
+    if (Array.isArray(node)) {
+      for (let i = 0; i < node.length && i < 200; i++) walk(node[i], `${path}[${i}]`, depth + 1);
+      return;
+    }
+    if (typeof node.__typename === "string") {
+      typenameCounts[node.__typename] = (typenameCounts[node.__typename] || 0) + 1;
+    }
+    if (typeof node.id === "string" && /^(EP|UP|HP|JP)\d/.test(node.id) && productIdPaths.length < MAX_PRODUCT_SAMPLES) {
+      productIdPaths.push({ path, id: node.id, name: node.name, keys: Object.keys(node).slice(0, 40) });
+    }
+    for (const k of Object.keys(node)) {
+      walk(node[k], `${path}.${k}`, depth + 1);
+    }
+  }
+  walk(data, "data", 0);
+
+  return {
+    topLevelKeys: Object.keys(data || {}),
+    propsKeys: Object.keys(data?.props || {}),
+    pagePropsKeys: Object.keys(data?.props?.pageProps || {}),
+    apolloStateKeyCount: Object.keys(data?.props?.apolloState || {}).length,
+    typenameCounts,
+    productIdSamples: productIdPaths,
+    htmlLength: html.length,
+  };
 }
 
 // ─── IGDB: enriquecimiento de portadas ────────────────────────────────────────
