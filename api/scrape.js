@@ -197,13 +197,12 @@ export default async function handler(req, res) {
       }
     });
 
-    const genreWork = Object.entries(GENRE_FACET_MAP).map(async ([tag, facetKey]) => {
-      const ids = await fetchGenreProductIds(CATEGORIES[0], facetKey, stats);
-      for (const id of ids) {
-        if (!genreMap.has(id)) genreMap.set(id, new Set());
-        genreMap.get(id).add(tag);
-      }
-    });
+    // El tageo de género (10 géneros × varias páginas cada uno) es demasiado
+    // para el timeout de 30s de Vercel sumado a paginar la categoría
+    // completa — de hecho lo hizo saltar (FUNCTION_INVOCATION_TIMEOUT) en
+    // producción. Vive SOLO en el sync de GitHub Actions (sin timeout);
+    // el scrape en vivo no tagea género, igual que ya no paginaba PS5_CATEGORY.
+    const genreWork = [];
 
     const comingSoonWork = COMING_SOON_SEARCHES.map(async (query) => {
       try {
