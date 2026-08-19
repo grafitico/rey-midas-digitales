@@ -166,6 +166,20 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Diagnóstico temporal (2026-08): prueba la llamada GraphQL real
+  //    (categoryGridRetrieve, capturada del navegador con DevTools) contra
+  //    web.np.playstation.com y devuelve la respuesta cruda para mapear su
+  //    forma antes de reescribir el parser de verdad.
+  //    /api/scrape?debug=gqltest
+  if ((req.query.debug || "") === "gqltest") {
+    try {
+      const data = await fetchCategoryGridGql(CATEGORIES[0], 0, 24);
+      return res.status(200).json(data);
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -362,6 +376,33 @@ export async function fetchCategoryPaginated(catId, stats, opts = {}) {
     if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   }
   return all;
+}
+
+// ── Nueva API real de PSN (2026-08): el catálogo ya no viene en el HTML de
+//    la categoría; el propio navegador lo pide a esta API GraphQL con una
+//    "persisted query" (capturada con DevTools del sitio real). Mientras
+//    validamos la forma de la respuesta, esta función es solo para el
+//    diagnóstico /api/scrape?debug=gqltest — el parser final la reemplaza
+//    por una versión que devuelve juegos normalizados.
+const GQL_URL = "https://web.np.playstation.com/api/graphql/v1/op";
+const CATEGORY_GRID_HASH = "88c0b9a1273c6d320c51cd73e390924e21ae28bf09f01cde8b84b1034b16cd03";
+
+async function fetchCategoryGridGql(catId, offset, size, catPath) {
+  const variables = { id: catId, pageArgs: { size, offset }, sortBy: null, filterBy: [], facetOptions: [] };
+  const extensions = { persistedQuery: { version: 1, sha256Hash: CATEGORY_GRID_HASH } };
+  const url = `${GQL_URL}?operationName=categoryGridRetrieve&variables=${encodeURIComponent(JSON.stringify(variables))}&extensions=${encodeURIComponent(JSON.stringify(extensions))}`;
+  const r = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "application/json",
+      "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+      "Referer": `${PSN_BASE}/category/${catPath || catId}/1`,
+      "Origin": "https://store.playstation.com",
+    },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0, 500)}`);
+  return JSON.parse(text);
 }
 
 async function fetchHtml(url) {
