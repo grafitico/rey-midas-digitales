@@ -663,6 +663,16 @@ async function debugRawShape() {
   }
   walk(data, "data", 0);
 
+  // El grid de productos ya no viene en el HTML inicial (apolloState solo
+  // trae nav/experience). Buscamos pistas de la API que el cliente llama
+  // después de hidratar: URLs de script, referencias a graphql/batarangs, etc.
+  const scriptSrcs = Array.from(html.matchAll(/<script[^>]+src="([^"]+)"/g)).map(x => x[1]).filter(s => !s.includes("/_next/static/chunks/") || s.includes("webpack") || s.includes("main") || s.includes("pages"));
+  const apiHints = Array.from(new Set(
+    Array.from(html.matchAll(/["'](https?:\/\/[a-z0-9.-]*playstation[a-z0-9.-]*\/[^"']{0,120})["']/gi)).map(x => x[1])
+  )).slice(0, 40);
+  const graphqlMentions = (html.match(/graphql/gi) || []).length;
+  const batarangs = data?.props?.pageProps?.batarangs;
+
   return {
     topLevelKeys: Object.keys(data || {}),
     propsKeys: Object.keys(data?.props || {}),
@@ -671,6 +681,11 @@ async function debugRawShape() {
     typenameCounts,
     productIdSamples: productIdPaths,
     htmlLength: html.length,
+    graphqlMentions,
+    apiHints,
+    scriptSrcSample: scriptSrcs.slice(0, 15),
+    batarangsPreview: batarangs === undefined ? undefined : JSON.stringify(batarangs).slice(0, 800),
+    runtimeConfig: data?.runtimeConfig,
   };
 }
 
