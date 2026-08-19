@@ -173,6 +173,27 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Diagnóstico temporal (2026-08): prueba si categoryGridRetrieve acepta
+  //    filterBy con las keys de facetOptions (para tagear género sin una
+  //    persisted query nueva) y si la categoría de preventas responde igual
+  //    sin el locale en-us. /api/scrape?debug=gqlfilter
+  if ((req.query.debug || "") === "gqlfilter") {
+    try {
+      const [byGenre, comingSoon] = await Promise.all([
+        fetchCategoryGridGql(CATEGORIES[0], 0, 3, [{ name: "productGenres", value: "ACTION" }]).catch(e => ({ error: e.message })),
+        fetchCategoryGridGql(COMING_SOON_CATEGORIES[0], 0, 3).catch(e => ({ error: e.message })),
+      ]);
+      const summarize = (r) => {
+        if (r?.error) return { error: r.error };
+        const g = r?.data?.categoryGridRetrieve;
+        return { totalCount: g?.pageInfo?.totalCount ?? null, sample: (g?.products || []).map(p => p.name) };
+      };
+      return res.status(200).json({ byGenre: summarize(byGenre), comingSoon: summarize(comingSoon) });
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -394,8 +415,8 @@ const GQL_URL = "https://web.np.playstation.com/api/graphql/v1/op";
 const CATEGORY_GRID_HASH = "88c0b9a1273c6d320c51cd73e390924e21ae28bf09f01cde8b84b1034b16cd03";
 const CATEGORY_GRID_PAGE_SIZE = 24;
 
-async function fetchCategoryGridGql(catId, offset, size = CATEGORY_GRID_PAGE_SIZE) {
-  const variables = { id: catId, pageArgs: { size, offset }, sortBy: null, filterBy: [], facetOptions: [] };
+async function fetchCategoryGridGql(catId, offset, size = CATEGORY_GRID_PAGE_SIZE, filterBy = []) {
+  const variables = { id: catId, pageArgs: { size, offset }, sortBy: null, filterBy, facetOptions: [] };
   const extensions = { persistedQuery: { version: 1, sha256Hash: CATEGORY_GRID_HASH } };
   const url = `${GQL_URL}?operationName=categoryGridRetrieve&variables=${encodeURIComponent(JSON.stringify(variables))}&extensions=${encodeURIComponent(JSON.stringify(extensions))}`;
   const r = await fetch(url, {
