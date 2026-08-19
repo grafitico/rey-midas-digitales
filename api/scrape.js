@@ -179,22 +179,25 @@ export default async function handler(req, res) {
   //    sin el locale en-us. /api/scrape?debug=gqlfilter
   if ((req.query.debug || "") === "gqlfilter") {
     try {
-      const [byGenre, comingSoon] = await Promise.all([
-        fetchCategoryGridGql(CATEGORIES[0], 0, 3, [{ name: "productGenres", value: "ACTION" }]).catch(e => ({ error: e.message })),
-        fetchCategoryGridGql(COMING_SOON_CATEGORIES[0], 0, 3).catch(e => ({ error: e.message })),
-      ]);
-      const summarize = (r) => {
-        if (r?.error) return { error: r.error };
-        const g = r?.data?.categoryGridRetrieve;
-        return {
-          totalCount: g?.pageInfo?.totalCount ?? null,
-          productSample: (g?.products || []).map(p => p.name),
-          conceptsIsArray: Array.isArray(g?.concepts),
-          conceptsLength: Array.isArray(g?.concepts) ? g.concepts.length : null,
-          conceptsSample: Array.isArray(g?.concepts) ? g.concepts.slice(0, 3) : g?.concepts,
-        };
-      };
-      return res.status(200).json({ byGenre: summarize(byGenre), comingSoon: summarize(comingSoon) });
+      // filterBy espera un ARRAY DE STRINGS (el error anterior fue mandar
+      // objetos). Probamos varios formatos plausibles para dar con el real.
+      const candidates = [
+        "productGenres:ACTION",
+        "productGenres=ACTION",
+        "ACTION",
+        JSON.stringify({ name: "productGenres", value: "ACTION" }),
+        "storeDisplayClassification:productGenres:ACTION",
+      ];
+      const results = await Promise.all(candidates.map(async (c) => {
+        try {
+          const r = await fetchCategoryGridGql(CATEGORIES[0], 0, 3, [c]);
+          const g = r?.data?.categoryGridRetrieve;
+          return { filterBy: c, ok: true, totalCount: g?.pageInfo?.totalCount ?? null, sample: (g?.products || []).map(p => p.name) };
+        } catch (e) {
+          return { filterBy: c, ok: false, error: e.message };
+        }
+      }));
+      return res.status(200).json({ genreFilterAttempts: results });
     } catch (e) {
       return res.status(200).json({ error: e.message });
     }
@@ -273,15 +276,14 @@ export default async function handler(req, res) {
       }
     });
 
-    // Categorías dedicadas de "próximos lanzamientos" en PSN. Se scrapen igual
-    // que el catálogo principal pero con forceComingSoon=true: todos los juegos
-    // que vienen de ahí son preventas por definición, sin importar precio/fecha.
+    // Categoría dedicada de "próximos lanzamientos" en PSN. A diferencia del
+    // catálogo normal, esta categoría trae los juegos bajo `concepts` (no
+    // `products`) — GTA VI, EA Sports FC, etc. son Concept con uno o más SKU
+    // de preventa colgando. Confirmado que responde igual sin el locale
+    // en-us: el propio ID de categoría ya acota la región.
     const comingSoonCatWork = COMING_SOON_CATEGORIES.map(async (catId) => {
-      // maxPages bajo: la categoría de próximos lanzamientos tiene pocas páginas
-      // y NO debe poder disparar el timeout de 30s del catálogo completo.
-      const items = await fetchCategoryPaginated(catId, stats, { forceComingSoon: true, maxPages: 6, base: COMING_SOON_BASE });
+      const items = await fetchComingSoonConcepts(catId, stats);
       for (const g of items) {
-        g.comingSoon = true;
         comingSoonIds.add(g.id);
         if (!map.has(g.id)) map.set(g.id, g);
         else map.set(g.id, { ...map.get(g.id), comingSoon: true, imageUrl: map.get(g.id).imageUrl || g.imageUrl });
@@ -499,6 +501,82 @@ function normalizeGqlProduct(p) {
     isBundle: type === "bundle" || type === "edition",
     directGenres: [],
   };
+}
+
+// La categoría de "próximos lanzamientos" no trae `products` sino `concepts`
+// (un juego con varias ediciones/SKUs de preventa agrupados). Tomamos el
+// precio/portada del propio Concept y, de los SKUs colgados, inferimos
+// plataforma por el prefijo del npTitleId (PPSA = PS5, CUSA = PS4/PS5 dual).
+function normalizeGqlConcept(c) {
+  if (!c || !c.id || !c.name) return null;
+  const priceInfo = c.price || {};
+  const isFree = !!priceInfo.isFree;
+  const current = isFree ? 0 : parsePrice(priceInfo.discountedPrice);
+  const original = isFree ? 0 : (parsePrice(priceInfo.basePrice) || current);
+
+  const prodIds = (c.products || []).map(sku => sku.id).filter(Boolean);
+  const hasPS5 = prodIds.some(id => /PPSA/i.test(id));
+  const hasPS4 = prodIds.some(id => /CUSA/i.test(id));
+  let platform = "PS5/PS4";
+  if (hasPS5 && !hasPS4) platform = "PS5";
+  else if (hasPS4 && !hasPS5) platform = "PS4";
+
+  const onSale = original > current;
+  return {
+    id: `concept:${c.id}`,
+    title: c.name,
+    platform,
+    imageUrl: pickPsnCover(c.media),
+    url: prodIds[0]
+      ? `https://store.playstation.com/es-cr/product/${prodIds[0]}`
+      : `https://store.playstation.com/es-cr/concept/${c.id}`,
+    priceUSD: current,
+    originalPriceUSD: original,
+    onSale,
+    discount: onSale ? Math.round((1 - current / original) * 100) : 0,
+    type: "full-game",
+    releaseDate: "",
+    comingSoon: true,
+    ageRating: "",
+    isBundle: false,
+    directGenres: [],
+  };
+}
+
+// Trae la categoría de preventas completa (típicamente ~100-200 juegos, no
+// miles) — mismo mecanismo de paginación por totalCount, pero leyendo
+// `concepts` en vez de `products`.
+async function fetchComingSoonConcepts(catId, stats) {
+  const all = [];
+  const size = CATEGORY_GRID_PAGE_SIZE;
+  const push = (grid) => {
+    if (!grid || !grid.concepts || !grid.concepts.length) { if (stats) stats.pagesEmpty++; return; }
+    if (stats) stats.pagesFetched++;
+    for (const c of grid.concepts) {
+      const g = normalizeGqlConcept(c);
+      if (g) all.push(g);
+    }
+  };
+  let first;
+  try {
+    first = await fetchCategoryGridGql(catId, 0, size);
+  } catch (e) {
+    if (stats) stats.pagesFailed++;
+    return all;
+  }
+  const grid = first?.data?.categoryGridRetrieve;
+  push(grid);
+  if (!grid) return all;
+
+  const total = grid.pageInfo?.totalCount || 0;
+  const offsets = [];
+  for (let off = size; off < total; off += size) offsets.push(off);
+  const results = await Promise.allSettled(offsets.map(off => fetchCategoryGridGql(catId, off, size)));
+  for (const r of results) {
+    if (r.status === "fulfilled") push(r.value?.data?.categoryGridRetrieve);
+    else if (stats) stats.pagesFailed++;
+  }
+  return all;
 }
 
 // Pagina una categoría entera vía GraphQL: pide el primer bloque, lee el
