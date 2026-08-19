@@ -715,9 +715,12 @@ async function debugGqlProbe() {
   const out = { buildId, categoryChunkUrl: chunkMatch ? chunkMatch[0] : null };
   if (!chunkMatch) return out;
 
-  const chunkUrl = chunkMatch[0].startsWith("http") ? chunkMatch[0] : `${PSN_BASE.replace(/\/es-cr$/, "")}${chunkMatch[0]}`;
+  const decodedPath = decodeURIComponent(chunkMatch[0]);
+  const chunkUrl = chunkMatch[0].startsWith("http") ? chunkMatch[0] : `${PSN_BASE.replace(/\/es-cr$/, "")}${decodedPath}`;
+  out.chunkUrlUsed = chunkUrl;
   const js = await fetchHtml(chunkUrl);
   out.chunkLength = js.length;
+  if (js.length < 5000) out.chunkSnippet = js.slice(0, 1000);
 
   // sha256Hash de persisted queries: "sha256Hash":"<64 hex>"
   const hashMatches = Array.from(js.matchAll(/sha256Hash["']?\s*:\s*["']([a-f0-9]{64})["']/gi)).map(x => x[1]);
