@@ -180,19 +180,21 @@ export default async function handler(req, res) {
   if ((req.query.debug || "") === "gqlfilter") {
     try {
       // Confirmado: filterBy = ["productGenres:ACTION"] (totalCount 2605,
-      // coincide exacto con la faceta). Queda por probar si `size` acepta
-      // más de 24 para abaratar el tageo de género en el sync.
-      const sizes = [24, 48, 100, 200];
-      const results = await Promise.all(sizes.map(async (size) => {
+      // coincide exacto con la faceta). Traemos la lista COMPLETA de géneros
+      // (key + displayName en español, ya localizado por PSN) para tagear
+      // sin mantener una lista fija a mano.
+      const sizeR = await Promise.all([24, 100, 300].map(async (size) => {
         try {
           const r = await fetchCategoryGridGql(CATEGORIES[0], 0, size, ["productGenres:ACTION"]);
           const g = r?.data?.categoryGridRetrieve;
-          return { size, ok: true, totalCount: g?.pageInfo?.totalCount ?? null, productsReturned: (g?.products || []).length };
+          return { size, ok: true, productsReturned: (g?.products || []).length };
         } catch (e) {
           return { size, ok: false, error: e.message };
         }
       }));
-      return res.status(200).json({ sizeAttempts: results });
+      const first = await fetchCategoryGridGql(CATEGORIES[0], 0, 1);
+      const genreFacet = (first?.data?.categoryGridRetrieve?.facetOptions || []).find(f => f.name === "productGenres");
+      return res.status(200).json({ sizeAttempts: sizeR, genres: genreFacet?.values || [] });
     } catch (e) {
       return res.status(200).json({ error: e.message });
     }
