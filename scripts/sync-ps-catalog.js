@@ -4,7 +4,8 @@
 //
 //   • Categoría principal PS5/PS4 — paginada hasta MAX_PAGES (cientos de páginas)
 //   • Páginas de browse general (es-cr y en-us) — captura lo que la categoría omite
-//   • Búsquedas por género — para taggear cada juego (acción, rpg, terror, …)
+//   • Género vía la faceta productGenres de categoryGridRetrieve — taggea cada
+//     juego (acción, rpg, terror, …) filtrando la misma consulta por género
 //
 // El JSON resultante lo sirve Vercel como archivo estático y el frontend lo
 // mergea con /api/scrape (que sigue dando frescura de precios/preventas). Así
@@ -23,9 +24,10 @@
 import {
   fetchAndParse,
   fetchCategoryPaginated,
+  fetchGenreProductIds,
   CATEGORIES,
   PS5_CATEGORY,
-  GENRE_SEARCHES,
+  GENRE_FACET_MAP,
   PSN_BASE,
   COMING_SOON_BASE,
 } from "../api/scrape.js";
@@ -111,24 +113,28 @@ async function main() {
     }
   }
 
-  // 3) Búsquedas por género — alimentan los tags de cada juego.
-  for (const { tag, query } of GENRE_SEARCHES) {
-    try {
-      const games = await withRetry(
-        () => fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`, stats),
-        `género ${tag}`
-      );
-      for (const g of games) {
-        if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
-        genreMap.get(g.id).add(tag);
-        // Un juego que solo aparece en una búsqueda de género igual se suma.
-        if (!map.has(g.id)) map.set(g.id, g);
+  // 3) Género vía la faceta `productGenres` de categoryGridRetrieve — mismo
+  //    mecanismo que el catálogo, filtrado por género. Se corre por cada
+  //    categoría (PS4 + PS5, tienen conteos de faceta independientes).
+  for (const [tag, facetKey] of Object.entries(GENRE_FACET_MAP)) {
+    let total = 0;
+    for (const catId of SYNC_CATEGORIES) {
+      try {
+        const ids = await withRetry(
+          () => fetchGenreProductIds(catId, facetKey, stats),
+          `género ${tag}`
+        );
+        for (const id of ids) {
+          if (!genreMap.has(id)) genreMap.set(id, new Set());
+          genreMap.get(id).add(tag);
+        }
+        total += ids.length;
+      } catch (e) {
+        console.warn(`[sync-ps] género ${tag} (${catId}) falló: ${e.message}`);
       }
-      console.log(`[sync-ps] género ${tag}: ${games.length} resultados`);
-    } catch (e) {
-      console.warn(`[sync-ps] género ${tag} falló: ${e.message}`);
+      await sleep(150);
     }
-    await sleep(150);
+    console.log(`[sync-ps] género ${tag}: ${total} resultados`);
   }
 
   // 4) Merge de tags de género + facetas (edición/preventa/estreno) y orden.

@@ -71,29 +71,6 @@ const STATIC_PAGES = [
 // Las primeras 5 páginas son ~120 juegos; se mergean por ID sin duplicados.
 export const BROWSE_PAGES_COUNT = 5;
 
-// Búsquedas por género — usamos el buscador de PSN como "discovery" de
-// géneros. Cada query trae ~24-48 juegos clasificados en ese género por
-// PSN. Después taggeamos cada juego del catálogo con sus géneros para
-// que cuando el usuario escriba "terror" en la búsqueda interna también
-// le aparezcan los juegos de terror, no solo los que tengan "terror" en
-// el título.
-//
-// Los tags están normalizados (sin tilde, minúsculas) para matchear
-// fácil contra la búsqueda del cliente. La query usa español porque la
-// tienda es es-cr y devuelve resultados más relevantes.
-export const GENRE_SEARCHES = [
-  { tag: "accion",     query: "acción" },
-  { tag: "aventura",   query: "aventura" },
-  { tag: "terror",     query: "terror" },
-  { tag: "rpg",        query: "rpg" },
-  { tag: "deportes",   query: "deportes" },
-  { tag: "carreras",   query: "carreras" },
-  { tag: "shooter",    query: "shooter" },
-  { tag: "lucha",      query: "lucha" },
-  { tag: "estrategia", query: "estrategia" },
-  { tag: "infantiles", query: "infantil" },
-];
-
 // Búsqueda de PREVENTAS como fuente secundaria (la principal es la categoría
 // de próximos lanzamientos en en-us). Se consulta en en-us con término en
 // inglés porque "preventa" en es-cr devolvió 0 resultados (confirmado en vivo).
@@ -173,33 +150,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── Diagnóstico temporal (2026-08): prueba si categoryGridRetrieve acepta
-  //    filterBy con las keys de facetOptions (para tagear género sin una
-  //    persisted query nueva) y si la categoría de preventas responde igual
-  //    sin el locale en-us. /api/scrape?debug=gqlfilter
-  if ((req.query.debug || "") === "gqlfilter") {
-    try {
-      // Confirmado: filterBy = ["productGenres:ACTION"] (totalCount 2605,
-      // coincide exacto con la faceta). Traemos la lista COMPLETA de géneros
-      // (key + displayName en español, ya localizado por PSN) para tagear
-      // sin mantener una lista fija a mano.
-      const sizeR = await Promise.all([24, 100, 300].map(async (size) => {
-        try {
-          const r = await fetchCategoryGridGql(CATEGORIES[0], 0, size, ["productGenres:ACTION"]);
-          const g = r?.data?.categoryGridRetrieve;
-          return { size, ok: true, productsReturned: (g?.products || []).length };
-        } catch (e) {
-          return { size, ok: false, error: e.message };
-        }
-      }));
-      const first = await fetchCategoryGridGql(CATEGORIES[0], 0, 1);
-      const genreFacet = (first?.data?.categoryGridRetrieve?.facetOptions || []).find(f => f.name === "productGenres");
-      return res.status(200).json({ sizeAttempts: sizeR, genres: genreFacet?.values || [] });
-    } catch (e) {
-      return res.status(200).json({ error: e.message });
-    }
-  }
-
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -247,16 +197,11 @@ export default async function handler(req, res) {
       }
     });
 
-    const genreWork = GENRE_SEARCHES.map(async ({ tag, query }) => {
-      try {
-        const games = await fetchAndParse(`${PSN_BASE}/search/${encodeURIComponent(query)}`, stats);
-        stats.genresFetched++;
-        for (const g of games) {
-          if (!genreMap.has(g.id)) genreMap.set(g.id, new Set());
-          genreMap.get(g.id).add(tag);
-        }
-      } catch {
-        stats.genresFailed++;
+    const genreWork = Object.entries(GENRE_FACET_MAP).map(async ([tag, facetKey]) => {
+      const ids = await fetchGenreProductIds(CATEGORIES[0], facetKey, stats);
+      for (const id of ids) {
+        if (!genreMap.has(id)) genreMap.set(id, new Set());
+        genreMap.get(id).add(tag);
       }
     });
 
@@ -574,6 +519,72 @@ async function fetchComingSoonConcepts(catId, stats) {
     else if (stats) stats.pagesFailed++;
   }
   return all;
+}
+
+// Tags de género fijos de la UI (app.js:1702-1711, con sus iconos/orden) →
+// key real de la faceta `productGenres` de PSN. Confirmado contra
+// categoryGridRetrieve.facetOptions en vivo (nombres en español que PSN ya
+// localiza, ej. "Terror"→HORROR, "Pelea"→FIGHTING, "Familia"→FAMILY para
+// "infantiles"). filterBy = ["productGenres:<KEY>"] (string, no objeto).
+export const GENRE_FACET_MAP = {
+  accion: "ACTION",
+  aventura: "ADVENTURE",
+  rpg: "ROLE_PLAYING_GAMES",
+  shooter: "SHOOTER",
+  terror: "HORROR",
+  deportes: "SPORTS",
+  carreras: "RACING",
+  lucha: "FIGHTING",
+  estrategia: "STRATEGY",
+  infantiles: "FAMILY",
+};
+// El tamaño de página no está limitado a los 24 que usa la UI — confirmado
+// que 300 funciona — así que tagear género sale barato (pocas páginas).
+const GENRE_FILTER_PAGE_SIZE = 300;
+
+// IDs de producto de una categoría filtrados por género. Solo IDs (no el
+// objeto completo): el precio/portada/plataforma ya salen del fetch
+// principal de la categoría, acá solo necesitamos el tag.
+export async function fetchGenreProductIds(catId, facetKey, stats, opts = {}) {
+  const ids = [];
+  const size = GENRE_FILTER_PAGE_SIZE;
+  const filterBy = [`productGenres:${facetKey}`];
+  // 10 géneros × varias páginas cada uno, todo en paralelo, podría mandarle
+  // a PSN decenas de requests simultáneas y gatillar un rate-limit — igual
+  // que le pasaba al scraper HTML viejo. Chunk chico acota el pico.
+  const chunkSize = opts.chunkSize || 4;
+  const delayMs = opts.delayMs || 0;
+
+  let first;
+  try {
+    first = await fetchCategoryGridGql(catId, 0, size, filterBy);
+  } catch (e) {
+    if (stats) stats.genresFailed++;
+    return ids;
+  }
+  const grid = first?.data?.categoryGridRetrieve;
+  if (!grid) return ids;
+  if (stats) stats.genresFetched++;
+  for (const p of grid.products || []) if (p.id) ids.push(p.id);
+
+  const total = grid.pageInfo?.totalCount || 0;
+  const offsets = [];
+  for (let off = size; off < total; off += size) offsets.push(off);
+
+  for (let i = 0; i < offsets.length; i += chunkSize) {
+    const batch = offsets.slice(i, i + chunkSize);
+    const results = await Promise.allSettled(batch.map(off => fetchCategoryGridGql(catId, off, size, filterBy)));
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        const g = r.value?.data?.categoryGridRetrieve;
+        for (const p of g?.products || []) if (p.id) ids.push(p.id);
+      } else if (stats) {
+        stats.genresFailed++;
+      }
+    }
+    if (delayMs) await new Promise(res => setTimeout(res, delayMs));
+  }
+  return ids;
 }
 
 // Pagina una categoría entera vía GraphQL: pide el primer bloque, lee el
