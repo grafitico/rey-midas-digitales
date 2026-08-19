@@ -179,25 +179,20 @@ export default async function handler(req, res) {
   //    sin el locale en-us. /api/scrape?debug=gqlfilter
   if ((req.query.debug || "") === "gqlfilter") {
     try {
-      // filterBy espera un ARRAY DE STRINGS (el error anterior fue mandar
-      // objetos). Probamos varios formatos plausibles para dar con el real.
-      const candidates = [
-        "productGenres:ACTION",
-        "productGenres=ACTION",
-        "ACTION",
-        JSON.stringify({ name: "productGenres", value: "ACTION" }),
-        "storeDisplayClassification:productGenres:ACTION",
-      ];
-      const results = await Promise.all(candidates.map(async (c) => {
+      // Confirmado: filterBy = ["productGenres:ACTION"] (totalCount 2605,
+      // coincide exacto con la faceta). Queda por probar si `size` acepta
+      // más de 24 para abaratar el tageo de género en el sync.
+      const sizes = [24, 48, 100, 200];
+      const results = await Promise.all(sizes.map(async (size) => {
         try {
-          const r = await fetchCategoryGridGql(CATEGORIES[0], 0, 3, [c]);
+          const r = await fetchCategoryGridGql(CATEGORIES[0], 0, size, ["productGenres:ACTION"]);
           const g = r?.data?.categoryGridRetrieve;
-          return { filterBy: c, ok: true, totalCount: g?.pageInfo?.totalCount ?? null, sample: (g?.products || []).map(p => p.name) };
+          return { size, ok: true, totalCount: g?.pageInfo?.totalCount ?? null, productsReturned: (g?.products || []).length };
         } catch (e) {
-          return { filterBy: c, ok: false, error: e.message };
+          return { size, ok: false, error: e.message };
         }
       }));
-      return res.status(200).json({ genreFilterAttempts: results });
+      return res.status(200).json({ sizeAttempts: results });
     } catch (e) {
       return res.status(200).json({ error: e.message });
     }
