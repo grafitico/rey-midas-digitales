@@ -159,7 +159,8 @@ export default async function handler(req, res) {
     try {
       const term = String(req.query.q || "black ops 4");
       const size = parseInt(req.query.size || "24", 10);
-      const raw = await fetchSearchGql(term, 0, size);
+      const offset = parseInt(req.query.offset || "0", 10);
+      const raw = await fetchSearchGql(term, offset, size);
       const search = raw?.data?.universalSearch;
       const filter = req.query.filter ? String(req.query.filter).toUpperCase() : null;
       let results = search?.results || [];
