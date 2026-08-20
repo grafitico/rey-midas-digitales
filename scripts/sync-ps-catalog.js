@@ -146,6 +146,15 @@ async function main() {
 
   // 4) Rescate por franquicia vía el buscador de PSN (getSearchResults):
   //    suma al catálogo juegos que la categoría de navegación se saltó.
+  //    Confirmado con Black Ops 4: buscar "call of duty" (128 resultados,
+  //    paginados completos) encuentra el juego base pero NUNCA la edición
+  //    Digital Deluxe — el buscador de PSN da resultados genuinamente
+  //    distintos según qué tan específico sea el término, no un
+  //    superconjunto. Por eso el paso 4b: para cada juego BASE (full-game,
+  //    sin edición) que este paso descubre, se hace una búsqueda de
+  //    seguimiento por su nombre exacto — así sí aparecen las ediciones
+  //    Deluxe/GOTY hermanas que "call of duty" solo no encontró.
+  const followUpTitles = new Set();
   for (const term of CATALOG_GAP_SEARCH_TERMS) {
     try {
       const items = await withRetry(
@@ -154,7 +163,11 @@ async function main() {
       );
       let added = 0;
       for (const g of items) {
-        if (!map.has(g.id)) { map.set(g.id, g); added++; }
+        if (!map.has(g.id)) {
+          map.set(g.id, g);
+          added++;
+          if (g.type === "full-game") followUpTitles.add(g.title);
+        }
       }
       if (added) console.log(`[sync-ps] rescate "${term}": +${added} nuevos — acumulado ${map.size}`);
     } catch (e) {
@@ -162,6 +175,26 @@ async function main() {
     }
     await sleep(150);
   }
+
+  // 4b) Seguimiento por nombre exacto de cada juego base recién descubierto,
+  //     para atrapar ediciones Deluxe/GOTY que el término de franquicia solo
+  //     no trae (ver comentario arriba).
+  let followUpAdded = 0;
+  for (const title of followUpTitles) {
+    try {
+      const items = await withRetry(
+        () => fetchSearchProducts(title, stats, { chunkSize: 4, delayMs: 150 }),
+        `seguimiento "${title}"`
+      );
+      for (const g of items) {
+        if (!map.has(g.id)) { map.set(g.id, g); followUpAdded++; }
+      }
+    } catch (e) {
+      console.warn(`[sync-ps] seguimiento "${title}" falló: ${e.message}`);
+    }
+    await sleep(150);
+  }
+  if (followUpAdded) console.log(`[sync-ps] seguimiento por título: +${followUpAdded} nuevos (ediciones hermanas) — acumulado ${map.size}`);
 
   // 5) Merge de tags de género + facetas (edición/preventa/estreno) y orden.
   const games = Array.from(map.values())
