@@ -159,7 +159,15 @@ export default async function handler(req, res) {
     try {
       const term = String(req.query.q || "black ops 4");
       const raw = await fetchSearchGql(term, 0);
-      return res.status(200).json(raw);
+      const search = raw?.data?.universalSearch;
+      return res.status(200).json({
+        ok: !!search,
+        totalCount: search?.pageInfo?.totalCount ?? null,
+        sample: (search?.results || []).slice(0, 5).map(p => ({
+          id: p.id, name: p.name, platforms: p.platforms,
+          discountedPrice: p.price?.discountedPrice,
+        })),
+      });
     } catch (e) {
       return res.status(200).json({ error: e.message });
     }
@@ -438,6 +446,69 @@ async function fetchSearchGql(searchTerm, pageOffset = 0, size = SEARCH_PAGE_SIZ
   const json = JSON.parse(text);
   if (json.errors) throw new Error(`GraphQL: ${json.errors[0]?.message || "error desconocido"}`);
   return json;
+}
+
+// Franquicias grandes y viejas que confirmamos NO salen en la categoría de
+// navegación (categoryGridRetrieve) aunque su página de producto siga viva
+// — ej. Call of Duty: Black Ops 4 (2018), reportado por el negocio. La
+// categoría parece listar solo un subconjunto curado; el buscador
+// (getSearchResults) indexa más ampliamente. Lista corta y acotada a
+// propósito — esto es un rescate dirigido, no un intento de enumerar todo
+// PSN por búsqueda (sería carísimo y no confiable).
+export const CATALOG_GAP_SEARCH_TERMS = [
+  "call of duty", "grand theft auto", "battlefield", "fifa", "ea sports fc",
+  "assassin's creed", "far cry", "uncharted", "god of war", "the last of us",
+  "gran turismo", "resident evil", "final fantasy", "mortal kombat", "tekken",
+  "nba 2k", "madden nfl", "watch dogs", "lego", "need for speed",
+];
+// Tope de items por término: los nombres de franquicia son específicos (no
+// como "acción"), así que el total real ronda decenas/pocos cientos: no
+// hace falta paginar sin límite.
+const SEARCH_MAX_ITEMS = 300;
+
+// Pagina una búsqueda completa y devuelve juegos normalizados (misma forma
+// que el catálogo — reusa normalizeGqlProduct). opts.chunkSize/delayMs para
+// pacing en el sync (igual patrón que fetchCategoryGridPaginated).
+export async function fetchSearchProducts(term, stats, opts = {}) {
+  const all = [];
+  const size = SEARCH_PAGE_SIZE;
+  const chunkSize = opts.chunkSize || 4;
+  const delayMs = opts.delayMs || 0;
+
+  let first;
+  try {
+    first = await fetchSearchGql(term, 0, size);
+  } catch (e) {
+    if (stats) stats.searchFailed = (stats.searchFailed || 0) + 1;
+    return all;
+  }
+  const search = first?.data?.universalSearch;
+  if (!search) return all;
+  for (const p of search.results || []) {
+    const g = normalizeGqlProduct(p);
+    if (g) all.push(g);
+  }
+
+  const total = Math.min(search.pageInfo?.totalCount || 0, SEARCH_MAX_ITEMS);
+  const offsets = [];
+  for (let off = size; off < total; off += size) offsets.push(off);
+
+  for (let i = 0; i < offsets.length; i += chunkSize) {
+    const batch = offsets.slice(i, i + chunkSize);
+    const results = await Promise.allSettled(batch.map(off => fetchSearchGql(term, off, size)));
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        for (const p of r.value?.data?.universalSearch?.results || []) {
+          const g = normalizeGqlProduct(p);
+          if (g) all.push(g);
+        }
+      } else if (stats) {
+        stats.searchFailed = (stats.searchFailed || 0) + 1;
+      }
+    }
+    if (delayMs) await new Promise(res => setTimeout(res, delayMs));
+  }
+  return all;
 }
 
 // Clasificación del producto vía el enum `storeDisplayClassification` que

@@ -6,6 +6,11 @@
 //   • Páginas de browse general (es-cr y en-us) — captura lo que la categoría omite
 //   • Género vía la faceta productGenres de categoryGridRetrieve — taggea cada
 //     juego (acción, rpg, terror, …) filtrando la misma consulta por género
+//   • Rescate por franquicia (buscador de PSN) — la categoría de navegación
+//     resultó ser un subconjunto curado: juegos viejos como Call of Duty:
+//     Black Ops 4 (2018) tienen página de producto viva pero no salen ahí.
+//     El buscador SÍ los indexa, así que buscamos por nombre de franquicia
+//     y sumamos al catálogo lo que la categoría se saltó.
 //
 // El JSON resultante lo sirve Vercel como archivo estático y el frontend lo
 // mergea con /api/scrape (que sigue dando frescura de precios/preventas). Así
@@ -25,9 +30,11 @@ import {
   fetchAndParse,
   fetchCategoryPaginated,
   fetchGenreProductIds,
+  fetchSearchProducts,
   CATEGORIES,
   PS5_CATEGORY,
   GENRE_FACET_MAP,
+  CATALOG_GAP_SEARCH_TERMS,
   PSN_BASE,
   COMING_SOON_BASE,
 } from "../api/scrape.js";
@@ -137,7 +144,26 @@ async function main() {
     console.log(`[sync-ps] género ${tag}: ${total} resultados`);
   }
 
-  // 4) Merge de tags de género + facetas (edición/preventa/estreno) y orden.
+  // 4) Rescate por franquicia vía el buscador de PSN (getSearchResults):
+  //    suma al catálogo juegos que la categoría de navegación se saltó.
+  for (const term of CATALOG_GAP_SEARCH_TERMS) {
+    try {
+      const items = await withRetry(
+        () => fetchSearchProducts(term, stats, { chunkSize: 4, delayMs: 150 }),
+        `rescate "${term}"`
+      );
+      let added = 0;
+      for (const g of items) {
+        if (!map.has(g.id)) { map.set(g.id, g); added++; }
+      }
+      if (added) console.log(`[sync-ps] rescate "${term}": +${added} nuevos — acumulado ${map.size}`);
+    } catch (e) {
+      console.warn(`[sync-ps] rescate "${term}" falló: ${e.message}`);
+    }
+    await sleep(150);
+  }
+
+  // 5) Merge de tags de género + facetas (edición/preventa/estreno) y orden.
   const games = Array.from(map.values())
     .map(g => {
       const direct = new Set(g.directGenres || []);
