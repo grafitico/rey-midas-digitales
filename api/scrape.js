@@ -158,12 +158,17 @@ export default async function handler(req, res) {
   if ((req.query.debug || "") === "searchtest") {
     try {
       const term = String(req.query.q || "black ops 4");
-      const raw = await fetchSearchGql(term, 0);
+      const size = parseInt(req.query.size || "24", 10);
+      const raw = await fetchSearchGql(term, 0, size);
       const search = raw?.data?.universalSearch;
+      const filter = req.query.filter ? String(req.query.filter).toUpperCase() : null;
+      let results = search?.results || [];
+      if (filter) results = results.filter(p => String(p.id).toUpperCase().includes(filter) || String(p.name).toUpperCase().includes(filter));
       return res.status(200).json({
         ok: !!search,
         totalCount: search?.pageInfo?.totalCount ?? null,
-        sample: (search?.results || []).slice(0, 5).map(p => ({
+        resultsReturned: (search?.results || []).length,
+        matches: results.map(p => ({
           id: p.id, name: p.name, platforms: p.platforms,
           discountedPrice: p.price?.discountedPrice,
         })),
