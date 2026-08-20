@@ -150,6 +150,21 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── Diagnóstico temporal (2026-08): prueba getSearchResults (capturado del
+  //    buscador real de PSN con DevTools) contra un término de búsqueda, para
+  //    ver la forma de la respuesta antes de usarlo para rescatar juegos
+  //    viejos que categoryGridRetrieve no lista.
+  //    /api/scrape?debug=searchtest&q=black+ops+4
+  if ((req.query.debug || "") === "searchtest") {
+    try {
+      const term = String(req.query.q || "black ops 4");
+      const raw = await fetchSearchGql(term, 0);
+      return res.status(200).json(raw);
+    } catch (e) {
+      return res.status(200).json({ error: e.message });
+    }
+  }
+
   try {
     const map = new Map();
     const genreMap = new Map();    // gameId -> Set<genreTag>
@@ -379,6 +394,43 @@ async function fetchCategoryGridGql(catId, offset, size = CATEGORY_GRID_PAGE_SIZ
       // CSRF; estos headers fuerzan el preflight y no son form-urlencoded.
       "apollo-require-preflight": "true",
       "x-apollo-operation-name": "categoryGridRetrieve",
+    },
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text.slice(0, 300)}`);
+  const json = JSON.parse(text);
+  if (json.errors) throw new Error(`GraphQL: ${json.errors[0]?.message || "error desconocido"}`);
+  return json;
+}
+
+// Buscador de PSN (getSearchResults, capturado del sitio real con DevTools
+// el 2026-08-19). Sirve para rescatar juegos viejos que ya no aparecen en la
+// categoría de navegación (categoryGridRetrieve parece listar solo un
+// subconjunto "curado" — confirmado con Call of Duty: Black Ops 4, que
+// tiene página de producto viva pero no sale en ninguna categoría).
+const SEARCH_HASH = "4df6284f982e57bec70f23c77e2c219dc792eb19af7fb3d3a81767aa3f1958aa";
+const SEARCH_PAGE_SIZE = 24;
+
+async function fetchSearchGql(searchTerm, pageOffset = 0, size = SEARCH_PAGE_SIZE) {
+  const variables = {
+    countryCode: "CR",
+    languageCode: "es",
+    nextCursor: "",
+    pageOffset,
+    pageSize: size,
+    searchTerm,
+  };
+  const extensions = { persistedQuery: { version: 1, sha256Hash: SEARCH_HASH } };
+  const url = `${GQL_URL}?operationName=getSearchResults&variables=${encodeURIComponent(JSON.stringify(variables))}&extensions=${encodeURIComponent(JSON.stringify(extensions))}`;
+  const r = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "application/json",
+      "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+      "Referer": `${PSN_BASE}/search/${encodeURIComponent(searchTerm)}`,
+      "Origin": "https://store.playstation.com",
+      "apollo-require-preflight": "true",
+      "x-apollo-operation-name": "getSearchResults",
     },
   });
   const text = await r.text();
