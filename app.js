@@ -99,6 +99,11 @@ let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let featuredGames = []; // catálogo curado de "más buscados" (featured-games.json)
 let coversIndex = {};   // covers.json: { id de featured → URL de carátula } cosechada offline (cero cupo de API)
 let hiddenGames = { ids: new Set(), titles: new Set() }; // exclusión manual (hidden-games.json)
+let psnGamesRaw = [];     // juegos del scrape en vivo (/api/scrape), guardados para re-mergear en ensureFullCatalog()
+let featuredRaw = [];     // featured-games.json crudo, guardado para recalcular featuredGames al llegar el catálogo completo
+let featuredLivePrices = {}; // /api/featured-prices crudo (mapa featuredId → precio en vivo)
+let fullCatalogPromise = null;
+let fullCatalogLoaded = false; // true cuando ps-catalog.json + xbox-catalog.json ya se mergearon a allGames
 let banners = [];
 let testimonials = [];
 let reviewStats = { totalClients: "500+", yearsInBusiness: "5", averageRating: 4.9, totalReviews: 247 };
@@ -509,11 +514,108 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // ============================================================
 // Carga inicial desde /api/scrape
 // ============================================================
+// Arma/reemplaza featuredGames a partir de featuredRaw + featuredLivePrices,
+// dedupeando contra lo que ya haya en `gamesSoFar` (scrape en vivo + catálogo
+// completo si ya llegó). Se llama dos veces: al final de load() (fase rápida,
+// gamesSoFar = scrape en vivo) y de nuevo en ensureFullCatalog() (fase
+// completa, gamesSoFar = scrape + ps-catalog + xbox-catalog) para no dejar
+// tarjetas duplicadas cuando el catálogo completo termina de llegar.
+function buildFeaturedGames(gamesSoFar) {
+  if (!featuredRaw.length) return [];
+  // Mapa: matchKey(título) → psnId del juego scrapeado (solo los que tienen precio real).
+  // Sirve para detectar cuando el scraper encontró una EDICIÓN DIFERENTE
+  // (ej: Deluxe) del mismo juego que está curado con psnId propio (ej: Standard).
+  const seenById = new Map();
+  for (const g of gamesSoFar) {
+    if (Number(g.priceUSD) > 0) {
+      const key = matchKey(g.title);
+      if (!seenById.has(key)) seenById.set(key, g.id);
+    }
+  }
+  return featuredRaw
+    .filter(g => {
+      if (!g || !g.title) return false;
+      const key = matchKey(g.title);
+      const scrapedId = seenById.get(key);
+      if (!scrapedId) return true; // no está en el catálogo scrapeado → mostrar
+      // El curado tiene psnId distinto al scrapeado (ej: Standard vs Deluxe) → mostrar ambos
+      if (g.psnId && g.psnId !== scrapedId) return true;
+      // Si no hay psnId o coincide, deduplicar (el scrapeado ya cubre ese producto)
+      return false;
+    })
+    .map(g => {
+      const live = featuredLivePrices[g.id];
+      const fixedUSD = Number(g.priceUSD) || 0;
+      return {
+        id: g.id,
+        title: g.title,
+        platform: g.platform || "PS5/PS4",
+        // Portada: 1) la oficial de PlayStation Store si PSN resolvió el título;
+        // 2) la cosechada en covers.json (CDN, sin cupo de API); 3) si ninguna,
+        // queda vacía y enrichFeaturedCovers() busca un fallback en vivo.
+        imageUrl: live?.imageUrl || coversIndex[g.id] || "",
+        url: live?.url || `https://wa.me/${CONFIG.whatsapp}`,
+        priceUSD: live ? live.priceUSD : fixedUSD,
+        originalPriceUSD: live ? live.originalPriceUSD : fixedUSD,
+        onSale: live ? !!live.onSale : false,
+        discount: live ? (live.discount || 0) : 0,
+        isBundle: false,
+        genres: Array.isArray(g.genres) ? g.genres : [],
+        psnId: live?.psnId,
+        _featured: true,
+        _livePrice: !!live,
+      };
+    });
+}
+
+// Dedup + exclusión manual + orden final. Reutilizable: se corre una vez con
+// el catálogo rápido (load()) y de nuevo cuando llega el catálogo completo
+// (ensureFullCatalog()), así ambas fases terminan en el mismo `allGames`
+// consistente sin duplicar la lógica.
+function finalizeAllGames(games) {
+  // Deduplicación de duplicados EXACTOS: el catálogo a veces trae el mismo
+  // juego dos veces (mismo título, MISMA plataforma, MISMO precio y MISMO
+  // tipo) con SKUs de PSN distintos → se veían dos tarjetas idénticas.
+  // Colapsamos a una sola. Se conserva TODO lo que sea legítimamente
+  // distinto: otra plataforma (PS4 vs PS4/PS5 optimizada), otra edición
+  // (precio distinto), y los productos curados/ofertas manuales.
+  const dedupSeen = new Set();
+  const dedupedGames = [];
+  for (const g of games) {
+    if (g._manualPrices || g._featured) { dedupedGames.push(g); continue; }
+    const key = [matchKey(g.title || ""), g.platform || "", g.priceUSD ?? "", g.type || ""].join("|");
+    if (dedupSeen.has(key)) continue;
+    dedupSeen.add(key);
+    dedupedGames.push(g);
+  }
+  // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
+  // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
+  // búsqueda, relacionados), no solo del filtro AAA.
+  const filteredGames = (hiddenGames.ids.size || hiddenGames.titles.size)
+    ? dedupedGames.filter(g => !isHiddenGame(g))
+    : dedupedGames;
+  // Renombra ediciones que comparten título (Standard/Deluxe/Bundle) para que
+  // no se vean como "el mismo juego a varios precios".
+  disambiguateEditions(filteredGames);
+  allGames = filteredGames.sort((a, b) => {
+    if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
+    return (b.discount || 0) - (a.discount || 0);
+  });
+}
+
+// ============================================================
+// Carga inicial: SOLO lo liviano (scrape en vivo + destacados + ofertas +
+// contenido de la home). El catálogo completo de PS (ps-catalog.json, ~17 MB)
+// y el de Xbox (xbox-catalog.json, ~1 MB) NO se piden acá — antes se
+// descargaban ~19 MB de una sola vez en CADA visita, antes de poder pintar
+// nada. Ahora se traen en segundo plano justo después de este primer render
+// (ver ensureFullCatalog()), igual que ya se hacía con los bundles de
+// Nintendo (nintendo-bundles.json).
+// ============================================================
 async function load() {
   try {
-    const [psn, xbox, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers, psCat] = await Promise.allSettled([
+    const [psn, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
-      fetch("/xbox-catalog.json").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -527,7 +629,6 @@ async function load() {
       fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
       fetch("/covers.json").then(r => r.json()).catch(() => ({})),
-      fetch("/ps-catalog.json").then(r => r.json()).catch(() => ({})),
     ]);
     // Carátulas cosechadas offline (covers.json): { id de featured → URL del CDN }.
     // Es la fuente PRINCIPAL de portadas del catálogo curado: se resuelve sin tocar
@@ -556,20 +657,8 @@ async function load() {
     if (resv.status === "fulfilled" && Array.isArray(resv.value?.items)) reservaciones = resv.value.items;
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
-      games.push(...(psn.value.games || []));
-    }
-    // Catálogo PSN completo (ps-catalog.json, generado por GitHub Action sin el
-    // timeout de 30s de Vercel). Trae cientos/miles de juegos que el scrape en
-    // vivo no alcanza a paginar. Mergeamos por ID: el scrape en vivo gana
-    // (precios/preventas más frescos); ps-catalog aporta toda la cobertura extra.
-    if (psCat.status === "fulfilled" && Array.isArray(psCat.value?.games)) {
-      const scrapeIds = new Set(games.map(g => g.id));
-      for (const g of psCat.value.games) {
-        if (!scrapeIds.has(g.id)) { games.push(g); scrapeIds.add(g.id); }
-      }
-    }
-    if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {
-      games.push(...xbox.value.games.filter(g => !g._placeholder));
+      psnGamesRaw = psn.value.games || [];
+      games.push(...psnGamesRaw);
     }
     if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
       psBundles = psB.value;
@@ -594,90 +683,19 @@ async function load() {
     // scraper ya trajo ese juego (con precio real en vivo), preferimos ese y
     // descartamos el curado para no mostrar la tarjeta dos veces.
     if (feat.status === "fulfilled" && Array.isArray(feat.value?.games)) {
+      featuredRaw = feat.value.games;
       // Precios en vivo resueltos por /api/featured-prices (mapa featuredId →
       // { priceUSD, originalPriceUSD, onSale, discount, url, psnId }). Si el
       // título se pudo resolver contra PSN, usamos su precio/oferta real; si
       // no, caemos al priceUSD fijo de featured-games.json.
-      const livePrices = (featPrices.status === "fulfilled" && featPrices.value?.prices) || {};
-
-      // Mapa: matchKey(título) → psnId del juego scrapeado (solo los que tienen precio real).
-      // Sirve para detectar cuando el scraper encontró una EDICIÓN DIFERENTE
-      // (ej: Deluxe) del mismo juego que está curado con psnId propio (ej: Standard).
-      const seenById = new Map();
-      for (const g of games) {
-        if (Number(g.priceUSD) > 0) {
-          const key = matchKey(g.title);
-          if (!seenById.has(key)) seenById.set(key, g.id);
-        }
-      }
-
-      featuredGames = feat.value.games
-        .filter(g => {
-          if (!g || !g.title) return false;
-          const key = matchKey(g.title);
-          const scrapedId = seenById.get(key);
-          if (!scrapedId) return true; // no está en el catálogo scrapeado → mostrar
-          // El curado tiene psnId distinto al scrapeado (ej: Standard vs Deluxe) → mostrar ambos
-          if (g.psnId && g.psnId !== scrapedId) return true;
-          // Si no hay psnId o coincide, deduplicar (el scrapeado ya cubre ese producto)
-          return false;
-        })
-        .map(g => {
-          const live = livePrices[g.id];
-          const fixedUSD = Number(g.priceUSD) || 0;
-          return {
-            id: g.id,
-            title: g.title,
-            platform: g.platform || "PS5/PS4",
-            // Portada: 1) la oficial de PlayStation Store si PSN resolvió el título;
-            // 2) la cosechada en covers.json (CDN, sin cupo de API); 3) si ninguna,
-            // queda vacía y enrichFeaturedCovers() busca un fallback en vivo.
-            imageUrl: live?.imageUrl || coversIndex[g.id] || "",
-            url: live?.url || `https://wa.me/${CONFIG.whatsapp}`,
-            priceUSD: live ? live.priceUSD : fixedUSD,
-            originalPriceUSD: live ? live.originalPriceUSD : fixedUSD,
-            onSale: live ? !!live.onSale : false,
-            discount: live ? (live.discount || 0) : 0,
-            isBundle: false,
-            genres: Array.isArray(g.genres) ? g.genres : [],
-            psnId: live?.psnId,
-            _featured: true,
-            _livePrice: !!live,
-          };
-        });
+      featuredLivePrices = (featPrices.status === "fulfilled" && featPrices.value?.prices) || {};
+      featuredGames = buildFeaturedGames(games);
       games.push(...featuredGames);
     }
     if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
-    // Deduplicación de duplicados EXACTOS: el catálogo a veces trae el mismo
-    // juego dos veces (mismo título, MISMA plataforma, MISMO precio y MISMO
-    // tipo) con SKUs de PSN distintos → se veían dos tarjetas idénticas.
-    // Colapsamos a una sola. Se conserva TODO lo que sea legítimamente
-    // distinto: otra plataforma (PS4 vs PS4/PS5 optimizada), otra edición
-    // (precio distinto), y los productos curados/ofertas manuales.
-    const dedupSeen = new Set();
-    const dedupedGames = [];
-    for (const g of games) {
-      if (g._manualPrices || g._featured) { dedupedGames.push(g); continue; }
-      const key = [matchKey(g.title || ""), g.platform || "", g.priceUSD ?? "", g.type || ""].join("|");
-      if (dedupSeen.has(key)) continue;
-      dedupSeen.add(key);
-      dedupedGames.push(g);
-    }
-    // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
-    // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
-    // búsqueda, relacionados), no solo del filtro AAA.
-    const filteredGames = (hiddenGames.ids.size || hiddenGames.titles.size)
-      ? dedupedGames.filter(g => !isHiddenGame(g))
-      : dedupedGames;
-    // Renombra ediciones que comparten título (Standard/Deluxe/Bundle) para que
-    // no se vean como "el mismo juego a varios precios".
-    disambiguateEditions(filteredGames);
-    allGames = filteredGames.sort((a, b) => {
-      if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
-      return (b.discount || 0) - (a.discount || 0);
-    });
+    finalizeAllGames(games);
     hydrateRawgMetaFromCache(allGames);
   } catch (err) {
     loadError = err.message;
@@ -688,7 +706,54 @@ async function load() {
     enrichReservaCovers();
     // Enriquecer en background: la primera vez tarda, después todo cacheado.
     scheduleAAAEnrichForVisible();
+    // Catálogo completo (ps-catalog.json + xbox-catalog.json) recién ahora,
+    // en segundo plano: no bloquea el primer render de la home.
+    ensureFullCatalog();
   }
+}
+
+// Carga diferida del catálogo completo: ps-catalog.json (~17 MB, cobertura
+// extra de PS que el scrape en vivo de 30s no alcanza a paginar) y
+// xbox-catalog.json (~1 MB, única fuente de juegos de Xbox). Se piden en
+// segundo plano apenas termina load() y, si el usuario ya está en una vista
+// que depende del catálogo completo (plataforma, búsqueda, categoría,
+// producto no encontrado en el catálogo rápido), esas vistas la esperan
+// (ver ensureFullCatalog() en renderPlatform/renderProduct/etc.) igual que ya
+// se hacía con nintendo-bundles.json.
+function ensureFullCatalog() {
+  if (!fullCatalogPromise) {
+    fullCatalogPromise = Promise.allSettled([
+      fetch("/ps-catalog.json").then(r => r.json()),
+      fetch("/xbox-catalog.json").then(r => r.json()),
+    ]).then(([psCat, xbox]) => {
+      const games = [...psnGamesRaw];
+      // Catálogo PSN completo (ps-catalog.json, generado por GitHub Action sin el
+      // timeout de 30s de Vercel). Trae cientos/miles de juegos que el scrape en
+      // vivo no alcanza a paginar. Mergeamos por ID: el scrape en vivo gana
+      // (precios/preventas más frescos); ps-catalog aporta toda la cobertura extra.
+      if (psCat.status === "fulfilled" && Array.isArray(psCat.value?.games)) {
+        const scrapeIds = new Set(games.map(g => g.id));
+        for (const g of psCat.value.games) {
+          if (!scrapeIds.has(g.id)) { games.push(g); scrapeIds.add(g.id); }
+        }
+      }
+      if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {
+        games.push(...xbox.value.games.filter(g => !g._placeholder));
+      }
+      games.push(...manualOffers);
+      // Recalculamos featuredGames contra el catálogo YA completo para no
+      // dejar tarjetas duplicadas (un juego curado que ahora sí aparece en
+      // ps-catalog/xbox-catalog debe deduplicarse, igual que ya pasaba con el
+      // scrape en vivo).
+      featuredGames = buildFeaturedGames(games);
+      games.push(...featuredGames);
+      finalizeAllGames(games);
+      fullCatalogLoaded = true;
+      hydrateRawgMetaFromCache(allGames);
+      render();
+    }).catch(() => {});
+  }
+  return fullCatalogPromise;
 }
 
 // Trae la carátula (y Metacritic) de cada juego del catálogo curado, primero
@@ -999,7 +1064,7 @@ function renderHome(page = 1) {
   mountCyberStats();
 }
 
-function renderPlatform(platform, page = 1) {
+async function renderPlatform(platform, page = 1) {
   setPageMeta(
     `Juegos ${platform} en Costa Rica | Rey Midas Digitales`,
     `Comprá juegos digitales de ${platform} en Costa Rica. Entrega inmediata por WhatsApp. Pago con SINPE Móvil o transferencia bancaria.`
@@ -1015,6 +1080,21 @@ function renderPlatform(platform, page = 1) {
       </section>
     `;
     return;
+  }
+  // Xbox solo tiene juegos vía xbox-catalog.json (no hay scrape en vivo para
+  // Xbox); si el catálogo completo todavía no llegó, esperamos en vez de
+  // mostrar "0 juegos disponibles" un instante y que se autocorrija después.
+  if (/^Xbox/.test(platform) && !fullCatalogLoaded) {
+    app.innerHTML = `
+      ${heroSlimHTML(platform)}
+      <section class="container catalog-section">
+        <div class="section-title"><h2>Juegos ${escapeHtml(platform)}</h2></div>
+        <div class="status">Cargando catálogo...</div>
+      </section>
+    `;
+    await ensureFullCatalog();
+    const r = parseRoute();
+    if (!(r.name === "platform" && r.platform === platform)) return;
   }
   const list = allGames.filter(g => g.platform.includes(platform));
   app.innerHTML = `
@@ -1080,12 +1160,23 @@ function productFacetsHTML(g) {
   return bits.length ? `<div class="product-facets">${bits.join("")}</div>` : "";
 }
 
-function renderProduct(id) {
+async function renderProduct(id) {
   if (!loaded) {
     app.innerHTML = `<section class="container empty-state"><p>Cargando juego...</p></section>`;
     return;
   }
-  const g = allGames.find(x => String(x.id) === String(id));
+  let g = allGames.find(x => String(x.id) === String(id));
+  // No está en el catálogo rápido (scrape en vivo + destacados + ofertas): puede
+  // ser un juego que solo vive en ps-catalog/xbox-catalog. Antes de declararlo
+  // "no encontrado" esperamos a que termine de llegar el catálogo completo
+  // (crítico para links directos desde WhatsApp/buscadores a /producto/:id).
+  if (!g && !fullCatalogLoaded) {
+    app.innerHTML = `<section class="container empty-state"><p>Cargando juego...</p></section>`;
+    await ensureFullCatalog();
+    const r = parseRoute();
+    if (!(r.name === "product" && String(r.id) === String(id))) return;
+    g = allGames.find(x => String(x.id) === String(id));
+  }
   if (!g) {
     app.innerHTML = `
       <section class="container empty-state">
