@@ -587,9 +587,14 @@ function finalizeAllGames(games) {
   // Tampoco entra el precio: antes sí entraba, y por eso el MISMO producto con
   // dos SKUs de PSN (uno en oferta y otro no) se veía como dos tarjetas con
   // precios distintos. Ahora colapsan en una y gana la que está en oferta.
+  // Fuera todo lo que quedaría en ₡0: juegos free-to-play y entradas del
+  // catálogo a las que PSN no les devolvió precio. Sin esto se mostraban ~1.285
+  // tarjetas con "₡0", que no son vendibles. No afecta preventas (ninguna viene
+  // sin precio) ni a las reservaciones, que salen de reservaciones.json aparte.
+  const sellableGames = games.filter(hasSellablePrice);
   const dedupSeen = new Map();
   const dedupedGames = [];
-  for (const g of games) {
+  for (const g of sellableGames) {
     if (g._manualPrices || g._featured) { dedupedGames.push(g); continue; }
     const key = [productKey(g.title || ""), g.platform || "", g.type || ""].join("|");
     const prevIdx = dedupSeen.get(key);
@@ -676,11 +681,12 @@ async function load() {
       psnGamesRaw = psn.value.games || [];
       games.push(...psnGamesRaw);
     }
+    // Igual que con los juegos: un bundle sin precio se vería como "₡0".
     if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
-      psBundles = psB.value;
+      psBundles = { ...psB.value, bundles: psB.value.bundles.filter(hasBundlePrice) };
     }
     if (xboxB.status === "fulfilled" && xboxB.value && Array.isArray(xboxB.value.bundles)) {
-      xboxBundles = xboxB.value;
+      xboxBundles = { ...xboxB.value, bundles: xboxB.value.bundles.filter(hasBundlePrice) };
     }
     if (offers.status === "fulfilled" && offers.value && Array.isArray(offers.value.offers)) {
       manualOffers = offers.value.offers.map(o => ({
@@ -922,7 +928,10 @@ function ensureNintendo() {
     nintendoPromise = fetch("/nintendo-bundles.json")
       .then(r => r.json())
       .then(data => {
-        if (data && Array.isArray(data.bundles)) nintendo = data;
+        // Fuera los bundles sin precio: se veían como "₡0" y no son vendibles.
+        if (data && Array.isArray(data.bundles)) {
+          nintendo = { ...data, bundles: data.bundles.filter(hasBundlePrice) };
+        }
         enrichBundleCovers(); // best-effort en background, cacheado en localStorage
       })
       .catch(() => {});
@@ -2213,6 +2222,24 @@ function productKey(t) {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+// ¿Este producto tiene un precio real que podamos cobrar? Los free-to-play y
+// las entradas a las que PSN no les devolvió precio quedan en ₡0, y una tarjeta
+// en ₡0 no se puede vender: se ocultan de TODAS las vistas (catálogo, búsqueda,
+// categorías, ofertas, relacionados). Las ofertas manuales llevan el precio ya
+// en colones (priceCRC_principal) en vez de USD.
+function hasSellablePrice(g) {
+  if (!g) return false;
+  if (g._manualPrices) return Number(g.priceCRC_principal) > 0;
+  return Number(g.priceUSD) > 0;
+}
+
+// Misma idea para los bundles (Nintendo/PS/Xbox), que llevan el precio ya en
+// colones. OJO: no se aplica al Cofre de Oro, donde el juego gratis sí es ₡0
+// a propósito y se muestra en su propia sección.
+function hasBundlePrice(b) {
+  return !!b && Number(b.priceCRC) > 0;
 }
 
 // Entre dos entradas del MISMO producto, ¿cuál mostramos? La que está en
