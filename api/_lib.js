@@ -21,6 +21,46 @@ export function checkConfig() {
   }
 }
 
+// ===== Cifrado en reposo de credenciales de cuentas de juego =====
+// account_password y verifier_codes (api/purchases.js) son las credenciales
+// reales de las cuentas de PSN/Xbox que se venden: si Supabase se filtra, no
+// deben quedar legibles en texto plano. Se cifran con AES-256-GCM usando
+// ACCOUNT_SECRET (cualquier string largo y random, se hashea a 32 bytes).
+// Si ACCOUNT_SECRET no está configurado, se guarda/lee tal cual (texto
+// plano) para no romper nada — mismo patrón tolerante que el resto del
+// proyecto. decryptSecret() además reconoce texto plano heredado (filas
+// guardadas antes de configurar ACCOUNT_SECRET) y lo devuelve sin tocar.
+// Para migrar filas viejas a cifrado: scripts/encrypt-existing-accounts.mjs.
+const ACCOUNT_KEY = process.env.ACCOUNT_SECRET
+  ? crypto.createHash("sha256").update(process.env.ACCOUNT_SECRET).digest()
+  : null;
+const ENC_PREFIX = "enc:v1:";
+
+export function encryptSecret(plain) {
+  if (!ACCOUNT_KEY || plain == null || plain === "") return plain;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", ACCOUNT_KEY, iv);
+  const ciphertext = Buffer.concat([cipher.update(String(plain), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return ENC_PREFIX + Buffer.concat([iv, tag, ciphertext]).toString("base64");
+}
+
+export function decryptSecret(value) {
+  if (typeof value !== "string" || !value.startsWith(ENC_PREFIX)) return value; // vacío o texto plano heredado
+  if (!ACCOUNT_KEY) return value; // sin clave no se puede descifrar: se devuelve el valor cifrado tal cual
+  try {
+    const buf = Buffer.from(value.slice(ENC_PREFIX.length), "base64");
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const ciphertext = buf.subarray(28);
+    const decipher = crypto.createDecipheriv("aes-256-gcm", ACCOUNT_KEY, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+  } catch {
+    return value; // clave rotada/corrupto: no reventar la respuesta, devolver tal cual
+  }
+}
+
 export async function sb(path, options = {}) {
   checkConfig();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {

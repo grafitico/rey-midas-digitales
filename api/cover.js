@@ -5,6 +5,8 @@
 //                                          distribuidora, géneros, fecha, capturas y video
 //   GET /api/cover?vandal=<titulo>       → ficha de respaldo desde vandal.elespanol.com (español)
 
+import { requireAdmin, handleError } from "./_lib.js";
+
 const PSN_BASE = "https://store.playstation.com/es-cr";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -15,9 +17,14 @@ export default async function handler(req, res) {
 
   // ── Diagnóstico: estructura real del apolloState de PSN para un título ───────
   //    /api/cover?psnDebug=<titulo>  (busca el juego, abre su producto y resume)
+  // Herramienta del dueño del sitio, no la usa el frontend. Al aceptar texto
+  // libre, cualquiera podía usarla para esquivar la caché de la CDN (una URL
+  // distinta por cada búsqueda) y disparar scrapes en vivo gratis y sin
+  // límite. Detrás de sesión de administrador.
   const psnDebug = (req.query.psnDebug || "").toString().trim();
   if (psnDebug) {
     try {
+      await requireAdmin(req);
       const id = await psnSearchFirstId(psnDebug);
       if (!id) return res.status(200).json({ error: "sin match en PSN", title: psnDebug });
       const r = await fetch(`${PSN_BASE}/product/${encodeURIComponent(id)}`, {

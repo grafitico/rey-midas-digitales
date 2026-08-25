@@ -1,8 +1,20 @@
 // CRUD de compras. Cliente ve las propias, admin ve/crea/borra todas.
 // POST /api/purchases con { action: "mine" | "list-all" | "create" | "delete", ... }
 
-import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
+import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
 import { selectClients } from "./clients.js";
+
+// account_password y verifier_codes son las credenciales reales de la cuenta
+// de PSN/Xbox vendida: viajan cifradas en Supabase (ver encryptSecret en
+// _lib.js). Se descifran acá, del lado del servidor, antes de mandarlas al
+// panel/cliente — nunca quedan en texto plano en la base.
+function decryptPurchaseRow(p) {
+  return {
+    ...p,
+    account_password: decryptSecret(p.account_password),
+    verifier_codes: decryptSecret(p.verifier_codes),
+  };
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -49,13 +61,13 @@ async function sbWithAmount(path, options, hasAmount) {
 async function mine(req, res) {
   const user = await requireAuth(req);
   const data = await sb(`purchases?user_id=eq.${user.id}&select=*&order=purchase_date.desc`);
-  res.status(200).json({ purchases: data });
+  res.status(200).json({ purchases: data.map(decryptPurchaseRow) });
 }
 
 async function listAll(req, res) {
   await requireAdmin(req);
   const data = await sb(`purchases?select=*,app_users(email,full_name,customer_number)&order=created_at.desc&limit=20`);
-  res.status(200).json({ purchases: data });
+  res.status(200).json({ purchases: data.map(decryptPurchaseRow) });
 }
 
 async function create(req, res, body) {
@@ -72,8 +84,8 @@ async function create(req, res, body) {
     platform: body.platform,
     modality: body.modality || null,
     account_email: body.account_email,
-    account_password: body.account_password,
-    verifier_codes: body.verifier_codes || null,
+    account_password: encryptSecret(body.account_password),
+    verifier_codes: body.verifier_codes ? encryptSecret(body.verifier_codes) : null,
     games: body.games || null,
     game_name: body.game_name || null,
     notes: body.notes || null,
@@ -104,8 +116,8 @@ async function update(req, res, body) {
     platform: body.platform,
     modality: body.modality || null,
     account_email: body.account_email,
-    account_password: body.account_password,
-    verifier_codes: body.verifier_codes || null,
+    account_password: encryptSecret(body.account_password),
+    verifier_codes: body.verifier_codes ? encryptSecret(body.verifier_codes) : null,
     games: body.games || null,
     game_name: body.game_name || null,
     notes: body.notes || null,
@@ -134,7 +146,7 @@ async function byClient(req, res, body) {
   if (!users.length) return res.status(404).json({ error: "Cliente no encontrado" });
   const client = users[0];
   const data = await sb(`purchases?user_id=eq.${client.id}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.desc`);
-  res.status(200).json({ purchases: data, client });
+  res.status(200).json({ purchases: data.map(decryptPurchaseRow), client });
 }
 
 // Filtro combinado de compras: cliente (email o RM-código) + consola + fecha.
@@ -157,7 +169,7 @@ async function filter(req, res, body) {
   if (body.platform) q += `&platform=eq.${encodeURIComponent(String(body.platform))}`;
   if (body.date) q += `&purchase_date=eq.${encodeURIComponent(String(body.date))}`;
   const purchases = await sb(q);
-  res.status(200).json({ purchases, client });
+  res.status(200).json({ purchases: purchases.map(decryptPurchaseRow), client });
 }
 
 // Historial de ventas para reportes: trae las compras dentro de un rango de

@@ -28,6 +28,8 @@
 // Diagnóstico rápido: GET /api/scrape?debug=gqltest (catálogo nuevo)
 //                      GET /api/scrape?debug=classification (HTML clásico)
 
+import { requireAdmin, handleError } from "./_lib.js";
+
 export const PSN_BASE = "https://store.playstation.com/es-cr";
 
 // Tienda de la que leemos las PREVENTAS. La categoría de próximos lanzamientos
@@ -104,6 +106,19 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
+
+  // Los modos ?debug=... son herramientas de diagnóstico para el dueño del
+  // sitio, no las usa el frontend público. searchtest en particular acepta
+  // texto libre (?q=...), lo que antes permitía a cualquiera esquivar la
+  // caché de la CDN (URL distinta = cache miss) y disparar scrapes en vivo
+  // contra PSN gratis y sin límite. Quedan detrás de sesión de administrador.
+  if (req.query && typeof req.query.debug !== "undefined") {
+    try {
+      await requireAdmin(req);
+    } catch (e) {
+      return handleError(res, e);
+    }
+  }
 
   // ── Diagnóstico de campos: confirma contra PSN en vivo qué campo trae la
   //    clasificación (type) y la clasificación por edad, sin adivinar.
