@@ -83,7 +83,7 @@ export default async function handler(req, res) {
     for (const r of fetched) {
       if (r.status !== "fulfilled") continue;
       for (const g of r.value) {
-        const key = matchKey(g.name);
+        const key = editionKey(g.name); // juego + edición, no solo el juego
         const prev = liveMap.get(key);
         if (!prev || g.priceUSD < prev.priceUSD) liveMap.set(key, g);
       }
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
     const phase1Resolved = new Set();
     for (const game of featured) {
       if (resolvedIds.has(game.id)) continue;
-      const live = liveMap.get(matchKey(game.title));
+      const live = liveMap.get(editionKey(game.title));
       if (!live) continue;
       prices[game.id] = toPriceEntry(live);
       phase1Resolved.add(game.id);
@@ -121,6 +121,15 @@ export default async function handler(req, res) {
       );
     }
 
+    // Destacados que NO se pudieron casar con un producto real de PSN. Esos
+    // muestran en la web el precio fijo escrito a mano en featured-games.json,
+    // que puede estar desactualizado o corresponder a un producto que ya no
+    // está en la tienda. Se listan acá para poder depurar el catálogo curado:
+    // GET /api/featured-prices y mirar `unresolved`.
+    const unresolved = featured
+      .filter(g => !prices[g.id])
+      .map(g => ({ id: g.id, title: g.title, platform: g.platform, precioFijoUSD: g.priceUSD }));
+
     return res.status(200).json({
       success: true,
       stats: {
@@ -130,9 +139,11 @@ export default async function handler(req, res) {
         phase1: phase1Resolved.size,
         phase2Total: toSearch.length,
         resolved: Object.keys(prices).length,
+        unresolved: unresolved.length,
         elapsedMs: Date.now() - started,
       },
       prices,
+      unresolved,
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e.message });
@@ -145,8 +156,12 @@ export default async function handler(req, res) {
 async function resolveViaSearch(game) {
   const searchUrl = `${PSN_BASE}/search/${encodeURIComponent(game.title)}`;
   const results = await fetchAndParse(searchUrl);
-  const target = matchKey(game.title);
-  const exact = results.filter(p => matchKey(p.name) === target);
+  // Exigimos que coincidan juego Y edición: si el curado es el juego base y en
+  // PSN solo existe la GOTY/Deluxe, NO es el mismo producto y no se usa su
+  // precio. Antes se tomaba el más barato de cualquier edición, o —cuando el
+  // título venía en español y no casaba— se caía al precio fijo del JSON.
+  const target = editionKey(game.title);
+  const exact = results.filter(p => editionKey(p.name) === target);
   if (!exact.length) return null;
 
   // Filtrar por plataforma si el destacado tiene una específica
@@ -277,12 +292,47 @@ function matchKey(t) {
   return String(t || "")
     .replace(/[™®©]/g, "")
     .replace(/\s*\[(PS5|PS4|XBOX|Xbox|Series X\|S|Series X)\]/gi, "")
+    // Marcadores de plataforma que PSN mete en el título ("PS4 & PS5",
+    // "para PS4™ y PS5™"): no son parte del nombre del juego. Sin esto,
+    // "Grand Theft Auto V" no casaba con "Grand Theft Auto V (PS4™ y PS5™)"
+    // y el destacado terminaba mostrando el precio fijo escrito a mano.
+    .replace(/\s*[([]?\s*(?:para\s+)?PS4\s*(?:&|y)\s*PS5\s*[)\]]?/gi, "")
+    .replace(/\s*[([]?\s*(?:para\s+)?PS5\s*(?:&|y)\s*PS4\s*[)\]]?/gi, "")
     .replace(/\b(Standard|Deluxe|Ultimate|Gold|Premium|Definitive|Complete|GOTY|Game of the Year|Collector'?s)\s+Edition\b/gi, "")
+    // Ediciones localizadas: la tienda es-CR las devuelve en español.
+    .replace(/\b(?:Edici[oó]n|Edi[cç][ãa]o|[ÉE]dition|Edizione)\s+(?:de\s+|del\s+|digital\s+|super\s+)*(?:Deluxe|lujo|Definitiva|Completa|Completo|Est[áa]ndar|Especial|Coleccionista|Pr[ée]mium|Premium|Ultimate|Gold|Oro|GOTY|Juego\s+del\s+A[ñn]o)\b/gi, "")
     .replace(/\b(Cross[- ]?Gen Bundle|Bundle|Pack)\b/gi, "")
+    .replace(/\s*[-–—:]\s*$/, "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+// Edición del producto leída del título. "Estándar"/"Standard" cuenta como
+// versión base (null), porque es exactamente el juego base.
+// matchKey borra estas palabras para poder emparejar el juego; editionOf las
+// recupera para poder EXIGIR que la edición coincida.
+function editionOf(title) {
+  const t = String(title || "");
+  if (/juego\s+del\s+a[ñn]o|game\s+of\s+the\s+year|\bGOTY\b/i.test(t)) return "goty";
+  if (/\bdeluxe\b|de\s+lujo\b/i.test(t)) return "deluxe";
+  if (/\bultimate\b/i.test(t)) return "ultimate";
+  if (/\bgold\b|\boro\b/i.test(t)) return "gold";
+  if (/\bpr[ée]mium\b/i.test(t)) return "premium";
+  if (/\bcoleccionista\b|\bcollector'?s?\b/i.test(t)) return "collector";
+  if (/\bdefinitiv[ao]\b|\bdefinitive\b/i.test(t)) return "definitive";
+  if (/\bcomplet[ao]\b|\bcomplete\b/i.test(t)) return "complete";
+  return "base"; // incluye "Edición Estándar"
+}
+
+// Clave que identifica juego + EDICIÓN. Es la que usamos para emparejar el
+// catálogo curado con PSN: así un juego base nunca hereda el precio de una
+// Deluxe/GOTY. Si PSN solo tiene la GOTY (caso real: Sekiro), el destacado
+// base no resuelve y queda registrado en `unresolved` para poder depurarlo,
+// en vez de inventar un precio.
+function editionKey(title) {
+  return matchKey(title) + "|" + editionOf(title);
 }
 
 function parsePrice(str) {
