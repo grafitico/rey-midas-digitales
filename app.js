@@ -522,20 +522,23 @@ window.addEventListener("popstate", () => { render(); window.scrollTo(0, 0); });
 // tarjetas duplicadas cuando el catálogo completo termina de llegar.
 function buildFeaturedGames(gamesSoFar) {
   if (!featuredRaw.length) return [];
-  // Mapa: matchKey(título) → psnId del juego scrapeado (solo los que tienen precio real).
-  // Sirve para detectar cuando el scraper encontró una EDICIÓN DIFERENTE
-  // (ej: Deluxe) del mismo juego que está curado con psnId propio (ej: Standard).
+  // Mapa: productKey(título) → psnId del juego scrapeado (solo los que tienen
+  // precio real). Va por productKey y NO por matchKey a propósito: matchKey
+  // borra la edición, así que un "Sekiro - Edición Juego del Año" del catálogo
+  // tapaba al "Sekiro" base del catálogo curado y lo sacaba de la web. Con
+  // productKey solo se descarta el curado cuando el scraper trae EXACTAMENTE la
+  // misma versión (ahí sí gana el scrapeado, que tiene el precio en vivo).
   const seenById = new Map();
   for (const g of gamesSoFar) {
     if (Number(g.priceUSD) > 0) {
-      const key = matchKey(g.title);
+      const key = productKey(g.title);
       if (!seenById.has(key)) seenById.set(key, g.id);
     }
   }
   return featuredRaw
     .filter(g => {
       if (!g || !g.title) return false;
-      const key = matchKey(g.title);
+      const key = productKey(g.title);
       const scrapedId = seenById.get(key);
       if (!scrapedId) return true; // no está en el catálogo scrapeado → mostrar
       // El curado tiene psnId distinto al scrapeado (ej: Standard vs Deluxe) → mostrar ambos
@@ -579,14 +582,23 @@ function finalizeAllGames(games) {
   // Colapsamos a una sola. Se conserva TODO lo que sea legítimamente
   // distinto: otra plataforma (PS4 vs PS4/PS5 optimizada), otra edición
   // (precio distinto), y los productos curados/ofertas manuales.
-  const dedupSeen = new Set();
+  // La clave es productKey (NO matchKey): conserva la edición, así "Sekiro" y
+  // "Sekiro - Edición Juego del Año" siguen siendo dos productos distintos.
+  // Tampoco entra el precio: antes sí entraba, y por eso el MISMO producto con
+  // dos SKUs de PSN (uno en oferta y otro no) se veía como dos tarjetas con
+  // precios distintos. Ahora colapsan en una y gana la que está en oferta.
+  const dedupSeen = new Map();
   const dedupedGames = [];
   for (const g of games) {
     if (g._manualPrices || g._featured) { dedupedGames.push(g); continue; }
-    const key = [matchKey(g.title || ""), g.platform || "", g.priceUSD ?? "", g.type || ""].join("|");
-    if (dedupSeen.has(key)) continue;
-    dedupSeen.add(key);
-    dedupedGames.push(g);
+    const key = [productKey(g.title || ""), g.platform || "", g.type || ""].join("|");
+    const prevIdx = dedupSeen.get(key);
+    if (prevIdx === undefined) {
+      dedupSeen.set(key, dedupedGames.length);
+      dedupedGames.push(g);
+      continue;
+    }
+    if (isBetterOffer(g, dedupedGames[prevIdx])) dedupedGames[prevIdx] = g;
   }
   // Exclusión manual: sacamos del catálogo cualquier juego cuyo ID de PSN o
   // título esté en hidden-games.json. Se quita de TODAS las vistas (catálogo,
@@ -597,6 +609,10 @@ function finalizeAllGames(games) {
   // Renombra ediciones que comparten título (Standard/Deluxe/Bundle) para que
   // no se vean como "el mismo juego a varios precios".
   disambiguateEditions(filteredGames);
+  // Y marca la versión base como "Edición Estándar" cuando el mismo juego tiene
+  // además una Deluxe/Gold/GOTY, para que nunca queden dos tarjetas que
+  // PAREZCAN iguales (misma portada, mismo nombre) con precios distintos.
+  labelBaseEditions(filteredGames);
   allGames = filteredGames.sort((a, b) => {
     if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
     return (b.discount || 0) - (a.discount || 0);
@@ -1893,8 +1909,19 @@ function cleanTitleForRawg(t) {
   return String(t || "")
     .replace(/[™®©]/g, "")
     .replace(/\s*\[(PS5|PS4|XBOX|Xbox|Series X\|S|Series X)\]/gi, "")
+    // Marcadores de plataforma que PSN mete en el título ("PS4 & PS5",
+    // "para PS4 y PS5", "(PS4™ y PS5™)"): no son parte del nombre del juego.
+    .replace(/\s*[([]?\s*(?:para\s+)?PS4\s*(?:&|y)\s*PS5\s*[)\]]?/gi, "")
+    .replace(/\s*[([]?\s*(?:para\s+)?PS5\s*(?:&|y)\s*PS4\s*[)\]]?/gi, "")
     .replace(/\b(Standard|Deluxe|Ultimate|Gold|Premium|Definitive|Complete|GOTY|Game of the Year|Collector'?s)\s+Edition\b/gi, "")
+    // Ediciones localizadas: la tienda es-CR devuelve "Edición Deluxe",
+    // "Edición Juego del Año", "Edición Definitiva"… y sin esto el sistema creía
+    // que eran juegos totalmente distintos al del catálogo en inglés.
+    .replace(/\b(?:Edici[oó]n|Edi[cç][ãa]o|[ÉE]dition|Edizione)\s+(?:de\s+|del\s+|digital\s+|super\s+)*(?:Deluxe|lujo|Definitiva|Completa|Completo|Est[áa]ndar|Especial|Coleccionista|Pr[ée]mium|Premium|Ultimate|Gold|Oro|GOTY|Juego\s+del\s+A[ñn]o)\b/gi, "")
+    // Turco ("GOTY Sürümü"): aparece en el catálogo de Xbox.
+    .replace(/\s*\b(?:GOTY|Deluxe|Ultimate|Standart|Gold|Premium)?\s*S[uü]r[uü]m[uü]*/gi, "")
     .replace(/\b(Cross[- ]?Gen Bundle|Bundle|Pack)\b/gi, "")
+    .replace(/\s*[-–—:]\s*$/, "") // separador huérfano que queda al sacar el sufijo
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -1914,6 +1941,54 @@ function editionKeywordFromId(id) {
   if (/CLASSIC/.test(tail)) return "Clásico";
   if (/STANDARD|STND/.test(tail)) return "Edición Estándar";
   return null;
+}
+
+// Lee la edición directamente del TÍTULO visible, en español o inglés (PSN
+// es-CR devuelve "Edición Juego del Año", el catálogo de Xbox a veces viene en
+// otro idioma). Devuelve null si el título no menciona ninguna edición — eso
+// significa que es la versión base.
+function editionLabelFromTitle(title) {
+  const t = String(title || "");
+  if (/juego\s+del\s+a[ñn]o|game\s+of\s+the\s+year|\bGOTY\b/i.test(t)) return "Edición Juego del Año";
+  if (/\bdeluxe\b|de\s+lujo\b/i.test(t)) return "Edición Deluxe";
+  if (/\bultimate\b/i.test(t)) return "Edición Ultimate";
+  if (/\bgold\b|\boro\b/i.test(t)) return "Edición Gold";
+  if (/\bpr[ée]mium\b/i.test(t)) return "Edición Premium";
+  if (/\bcoleccionista\b|\bcollector'?s?\b/i.test(t)) return "Edición Coleccionista";
+  if (/\bdefinitiv[ao]\b|\bdefinitive\b/i.test(t)) return "Edición Definitiva";
+  if (/\bcomplet[ao]\b|\bcomplete\b/i.test(t)) return "Edición Completa";
+  if (/\bespecial\b|\bspecial\b/i.test(t)) return "Edición Especial";
+  if (/\best[áa]ndar\b|\bstandard\b/i.test(t)) return "Edición Estándar";
+  return null;
+}
+
+// Cuando un mismo juego (misma plataforma) tiene varias versiones y al menos
+// una dice su edición en el título, marcamos la que NO dice nada como "Edición
+// Estándar". Sin esto quedaban dos tarjetas con la MISMA portada y el mismo
+// nombre a precios distintos (base vs GOTY) y parecían un error de precio.
+// No toca ofertas manuales ni el catálogo curado, ni títulos que ya indican su
+// edición. Se ejecuta DESPUÉS de deduplicar.
+function labelBaseEditions(list) {
+  const byGame = new Map();
+  for (const g of list) {
+    if (!g || !g.title || g._manualPrices) continue;
+    const key = matchKey(g.title) + "||" + (g.platform || "");
+    if (!byGame.has(key)) byGame.set(key, []);
+    byGame.get(key).push(g);
+  }
+  for (const group of byGame.values()) {
+    if (group.length < 2) continue;
+    const labeled = group.filter(g => editionLabelFromTitle(g.title));
+    // Solo aclaramos si conviven una versión con edición explícita y otra sin
+    // ella; si ninguna la dice, no inventamos etiquetas.
+    if (!labeled.length || labeled.length === group.length) continue;
+    for (const g of group) {
+      if (editionLabelFromTitle(g.title)) continue;
+      const fromSku = editionKeywordFromId(g.id);
+      g.title = `${g.title} — ${fromSku || "Edición Estándar"}`;
+    }
+  }
+  return list;
 }
 
 // Desambigua ediciones que comparten EXACTAMENTE el mismo título visible y
@@ -2119,6 +2194,33 @@ function matchKey(t) {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "");
+}
+
+// Clave de PRODUCTO: identifica una edición CONCRETA de un juego.
+// A diferencia de matchKey —que borra las palabras de edición porque su trabajo
+// es buscar metadatos/portadas del juego base— acá las CONSERVAMOS a propósito:
+// "Sekiro" y "Sekiro - Edición Juego del Año" son productos distintos y tienen
+// que seguir siendo dos tarjetas. Solo limpiamos el ruido que NO cambia el
+// producto: símbolos, los marcadores de plataforma que PSN mete en el título
+// ("PS4 & PS5", "para PS4™ y PS5™") y la puntuación. Así "Uragun" y "Uragun"
+// con dos SKUs distintos sí colapsan, pero base y Deluxe no.
+function productKey(t) {
+  return String(t || "")
+    .replace(/[™®©]/g, "")
+    .replace(/\s*[([]?\s*(?:para\s+)?PS4\s*(?:&|y)\s*PS5\s*[)\]]?/gi, "")
+    .replace(/\s*[([]?\s*(?:para\s+)?PS5\s*(?:&|y)\s*PS4\s*[)\]]?/gi, "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+// Entre dos entradas del MISMO producto, ¿cuál mostramos? La que está en
+// oferta; si ambas o ninguna lo están, la más barata. Así el cliente nunca ve
+// el precio de lista cuando existe el mismo juego con descuento activo.
+function isBetterOffer(a, b) {
+  if (!!a.onSale !== !!b.onSale) return !!a.onSale;
+  return (Number(a.priceUSD) || Infinity) < (Number(b.priceUSD) || Infinity);
 }
 
 // ============================================================
