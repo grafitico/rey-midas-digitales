@@ -618,10 +618,13 @@ function finalizeAllGames(games) {
   // además una Deluxe/Gold/GOTY, para que nunca queden dos tarjetas que
   // PAREZCAN iguales (misma portada, mismo nombre) con precios distintos.
   labelBaseEditions(filteredGames);
-  allGames = filteredGames.sort((a, b) => {
-    if (a.onSale !== b.onSale) return a.onSale ? -1 : 1;
-    return (b.discount || 0) - (a.discount || 0);
-  });
+  // Orden por relevancia comercial (ver relevanceScore): los AAA y los títulos
+  // elegidos por el negocio primero, el relleno al fondo. El descuento sigue
+  // contando, pero como desempate dentro del mismo nivel — no como criterio
+  // principal, que era lo que llenaba la portada de indies al 90%.
+  allGames = filteredGames
+    .map(g => { g._score = relevanceScore(g); return g; })
+    .sort((a, b) => (b._score - a._score) || ((b.discount || 0) - (a.discount || 0)));
 }
 
 // ============================================================
@@ -2285,6 +2288,48 @@ function isHiddenGame(g) {
   return false;
 }
 
+// Puntaje de relevancia comercial: define el ORDEN del catálogo. Arriba lo que
+// el cliente entra buscando (AAA conocidos), abajo el relleno.
+//
+// Antes el catálogo se ordenaba por MAYOR DESCUENTO, y ahí está el problema de
+// la primera impresión: el shovelware se descuenta 90-95% de rutina mientras un
+// AAA rara vez pasa del 50-70%, así que lo barato copaba las primeras pantallas.
+//
+// La señal principal es el PRECIO DE LISTA (originalPriceUSD): un AAA lista a
+// $60-70 aunque hoy esté al 90% de descuento, y el relleno lista a $2-15. Es un
+// dato que ya viene en el catálogo, así que ordena bien desde el PRIMER render,
+// sin depender de RAWG (que llega en segundo plano y tarda). Cuando el
+// Metacritic de RAWG sí llega, afina el orden.
+function relevanceScore(g) {
+  if (!g) return 0;
+  let score = 0;
+
+  // 1. Elegidos a mano por el negocio: siempre primero.
+  if (g._manualPrices || g._featured) score += 10000;
+  const prio = priorityScore(g);
+  if (prio < Infinity) score += 9000 - Math.min(prio, 500);
+
+  // 2. Precio de lista: la señal más fiable que tenemos sin llamar a una API.
+  const listUSD = Number(g.originalPriceUSD) || Number(g.priceUSD) || 0;
+  if (listUSD >= 60) score += 600;
+  else if (listUSD >= 40) score += 450;
+  else if (listUSD >= 25) score += 300;
+  else if (listUSD >= 15) score += 150;
+  else if (listUSD >= 5) score += 40;
+
+  // 3. Metacritic (llega en segundo plano): sube los juegos bien valorados.
+  const meta = Number(g._rawgMeta);
+  if (Number.isFinite(meta)) score += Math.max(0, meta - 50) * 4;
+  // RAWG lo marcó indie: al fondo, pero sigue estando en el catálogo.
+  if (g._rawgIndie === true) score -= 500;
+
+  // 4. Recién dentro del mismo nivel manda la oferta, así una rebaja real de un
+  //    AAA sí destaca, pero sin que un indie al 90% se salte a los AAA.
+  if (g.onSale) score += 30 + Math.min(Number(g.discount) || 0, 90) / 3;
+
+  return score;
+}
+
 function isAAA(g) {
   // Ofertas curadas a mano y catálogo curado de "más buscados" siempre se
   // muestran: son títulos elegidos por nosotros, no pasan por la heurística.
@@ -2311,9 +2356,13 @@ function isAAA(g) {
   // Barato y RAWG YA confirmó que no llega al umbral: es indie/relleno.
   if (typeof meta === "number") return false;
 
-  // Sin datos RAWG todavía: beneficio de la duda — se muestra ahora y
-  // desaparece si el enriquecimiento en background lo confirma como indie.
-  return true;
+  // Sin datos de RAWG: decidimos por el precio de LISTA, que ya tenemos.
+  // Si llegamos acá el juego cuesta menos de $15 hoy Y listaba a menos de $20:
+  // es relleno. Antes se le daba "beneficio de la duda" y se mostraba igual,
+  // pero como RAWG se consulta en segundo plano y de 8 en 8, en la práctica
+  // NINGÚN juego tenía veredicto en el primer render y el filtro "Solo AAA"
+  // no filtraba nada: el cliente entraba y veía puro indie.
+  return false;
 }
 
 // Títulos destacados que siempre aparecen primeros en los catálogos de
