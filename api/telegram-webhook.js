@@ -18,10 +18,20 @@
 //   GITHUB_REPO              — ej "grafitico/rey-midas-digitales"
 //   GITHUB_BRANCH            — opcional, default "main"
 
+import crypto from "crypto";
 import { requireAdmin, handleError } from "./_lib.js";
 
 const JSON_PATH = "nintendo-bundles.json";
 const TG_API = "https://api.telegram.org";
+
+// Comparación en tiempo constante: evita que un atacante infiera el secreto
+// midiendo cuánto tarda la respuesta según cuántos caracteres coincidan.
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a || ""));
+  const bufB = Buffer.from(String(b || ""));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 export default async function handler(req, res) {
   // Rama de administración del webhook (antes vivía en /api/telegram-setup).
@@ -40,7 +50,7 @@ export default async function handler(req, res) {
 
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
   const received = req.headers["x-telegram-bot-api-secret-token"];
-  if (!expected || received !== expected) {
+  if (!expected || !safeEqual(received, expected)) {
     return res.status(401).json({ ok: false, error: "bad secret" });
   }
 
