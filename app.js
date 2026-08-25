@@ -5522,6 +5522,30 @@ async function renderAdmin() {
         <button type="submit">Crear cuenta</button>
         <p id="createClientStatus" class="form-status"></p>
       </form>
+
+      <div class="admin-list">
+        <h2>Buscar cliente</h2>
+        <div class="admin-filters">
+          <label class="af-field af-term">
+            <span>Nombre / Apellido</span>
+            <input id="clientSearchName" type="text" placeholder="Ej: Pérez" autocomplete="off">
+          </label>
+          <label class="af-field">
+            <span>Celular</span>
+            <input id="clientSearchPhone" type="text" placeholder="8888-8888" autocomplete="off">
+          </label>
+          <label class="af-field af-term">
+            <span>Email</span>
+            <input id="clientSearchEmail" type="text" placeholder="cliente@ejemplo.com" autocomplete="off">
+          </label>
+          <div class="af-actions">
+            <button id="clientSearchClear" type="button" hidden>✕ Limpiar</button>
+          </div>
+        </div>
+        <div id="clientSearchResults"></div>
+      </div>
+      <div id="clientDetailCard" class="client-profile-card" hidden></div>
+      <div id="clientDetailPurchases"></div>
       </div>
 
       <div class="admin-panel" data-panel="compras" role="tabpanel" hidden>
@@ -5831,6 +5855,7 @@ async function renderAdmin() {
   document.getElementById("ofertaPlatform").addEventListener("change", updateOfertaSecundariaLabel);
   updateOfertaSecundariaLabel();
   setupSalesReport();
+  setupClientSearch();
   loadAdminPurchases();
   loadClientsDropdown();
   loadAdminBundles();
@@ -6373,14 +6398,21 @@ async function handleCreateClient(e) {
   }
 }
 
+// Cache en memoria de todos los clientes (para el <select> de Compras y para
+// la búsqueda de la pestaña Clientes). Se refresca cada vez que se crea o
+// edita un cliente.
+let allClientsCache = [];
+
 async function loadClientsDropdown() {
   const sel = document.getElementById("clientSelect");
-  if (!sel) return;
   try {
     const { clients } = await apiPost("/api/clients", { action: "list" });
+    allClientsCache = clients || [];
+    renderClientSearchResults();
+    if (!sel) return;
     const prev = sel.value;
     sel.innerHTML = `<option value="">— Seleccionar cliente —</option>`;
-    (clients || []).forEach(c => {
+    allClientsCache.forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.email;
       const id = fmtClientId(c.customer_number);
@@ -6389,6 +6421,99 @@ async function loadClientsDropdown() {
     });
     if (prev) sel.value = prev;
   } catch (_) {}
+}
+
+// Compara números de celular ignorando formato (espacios, guiones, +506, etc).
+function normalizePhone(s) {
+  return String(s || "").replace(/\D/g, "");
+}
+
+// Filtra el cache de clientes por nombre/apellido (busca en full_name, sin
+// tildes ni mayúsculas), celular (solo dígitos) y/o email. Los tres campos
+// son opcionales y se combinan con AND; sin ninguno, no muestra nada (evita
+// listar cientos de clientes de una).
+function filterClientSearch() {
+  const name = normalizeSearch(document.getElementById("clientSearchName")?.value.trim() || "");
+  const phone = normalizePhone(document.getElementById("clientSearchPhone")?.value || "");
+  const email = normalizeSearch(document.getElementById("clientSearchEmail")?.value.trim() || "");
+  if (!name && !phone && !email) return null; // sin filtros: no buscar todavía
+  return allClientsCache.filter(c => {
+    if (name && !normalizeSearch(c.full_name || "").includes(name)) return false;
+    if (phone && !normalizePhone(c.phone).includes(phone)) return false;
+    if (email && !normalizeSearch(c.email || "").includes(email)) return false;
+    return true;
+  });
+}
+
+function renderClientSearchResults() {
+  const box = document.getElementById("clientSearchResults");
+  if (!box) return;
+  const clearBtn = document.getElementById("clientSearchClear");
+  const results = filterClientSearch();
+  if (clearBtn) {
+    const anyFilter = document.getElementById("clientSearchName")?.value.trim()
+      || document.getElementById("clientSearchPhone")?.value.trim()
+      || document.getElementById("clientSearchEmail")?.value.trim();
+    clearBtn.hidden = !anyFilter;
+  }
+  if (results === null) {
+    box.innerHTML = `<p class="empty-state-small">Escribí un nombre, celular o email para buscar (${allClientsCache.length} clientes en total).</p>`;
+    return;
+  }
+  if (!results.length) {
+    box.innerHTML = `<p class="empty-state-small">No se encontraron clientes con ese criterio.</p>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="client-search-list">
+      ${results.map(c => `
+        <div class="client-search-row" data-email="${escapeAttr(c.email)}">
+          <span class="csr-id">${c.customer_number ? escapeHtml(fmtClientId(c.customer_number)) : ""}</span>
+          <span class="csr-name">${escapeHtml(c.full_name || "(sin nombre)")}</span>
+          <span class="csr-email">${escapeHtml(c.email)}</span>
+          <span class="csr-phone">${c.phone ? "📱 " + escapeHtml(c.phone) : ""}</span>
+          <span class="csr-console">${c.console ? "🎮 " + escapeHtml(c.console) : ""}</span>
+          <button type="button" data-view-client="${escapeAttr(c.email)}">Ver</button>
+        </div>
+      `).join("")}
+    </div>
+  `;
+  box.querySelectorAll("[data-view-client]").forEach(btn => {
+    btn.addEventListener("click", () => loadClientDetail(btn.dataset.viewClient));
+  });
+}
+
+// Trae el perfil completo + historial de compras (con email/contraseña de
+// cada cuenta vendida) de un cliente puntual, y los pinta en la pestaña
+// Clientes (contenedores separados de los que usa el filtro de Compras).
+async function loadClientDetail(email) {
+  const purchasesBox = document.getElementById("clientDetailPurchases");
+  if (!purchasesBox) return;
+  purchasesBox.innerHTML = "Cargando compras...";
+  try {
+    const { purchases, client } = await apiPost("/api/purchases", { action: "by-client", client_email: email });
+    showClientProfile(client, "clientDetailCard");
+    renderPurchaseCards(purchases, purchasesBox, () => loadClientDetail(email));
+  } catch (err) {
+    purchasesBox.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function setupClientSearch() {
+  const inputs = ["clientSearchName", "clientSearchPhone", "clientSearchEmail"];
+  let debounce;
+  inputs.forEach(id => {
+    document.getElementById(id)?.addEventListener("input", () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(renderClientSearchResults, 150);
+    });
+  });
+  document.getElementById("clientSearchClear")?.addEventListener("click", () => {
+    inputs.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+    document.getElementById("clientDetailCard").hidden = true;
+    document.getElementById("clientDetailPurchases").innerHTML = "";
+    renderClientSearchResults();
+  });
 }
 
 function renderPurchaseCards(purchases, box, onDelete) {
@@ -6674,8 +6799,9 @@ function renderSalesReport(sales) {
   `;
 }
 
-function showClientProfile(client) {
-  const card = document.getElementById("clientProfileCard");
+function showClientProfile(client, cardId = "clientProfileCard") {
+  const card = document.getElementById(cardId);
+  if (!card) return;
   card.hidden = false;
   card.innerHTML = `
     <div class="cp-header">
@@ -6758,7 +6884,7 @@ function showClientProfile(client) {
       client.console = fd.get("console") || null;
       loadClientsDropdown();
       showToast("✓ Datos actualizados");
-      showClientProfile(client); // re-render con los datos nuevos (cierra el form)
+      showClientProfile(client, cardId); // re-render con los datos nuevos (cierra el form)
     } catch (err) {
       status.textContent = `Error: ${err.message}`;
       status.className = "form-status error";
