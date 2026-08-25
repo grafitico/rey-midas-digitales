@@ -5587,10 +5587,6 @@ async function renderAdmin() {
 
         <div class="admin-list">
           <h2>Compras</h2>
-          <div class="admin-onetime-action">
-            <button id="encryptLegacyAccountsBtn" type="button" class="cta-secondary">🔒 Cifrar credenciales antiguas (una sola vez)</button>
-            <span id="encryptLegacyAccountsStatus" class="form-status"></span>
-          </div>
           <div class="admin-filters">
             <label class="af-field af-term">
               <span>Cliente / Código</span>
@@ -5815,7 +5811,6 @@ async function renderAdmin() {
   setupAdminTabs();
   document.getElementById("purchaseForm").addEventListener("submit", handleAdminSubmit);
   document.getElementById("createClientForm").addEventListener("submit", handleCreateClient);
-  document.getElementById("encryptLegacyAccountsBtn").addEventListener("click", handleEncryptLegacyAccounts);
   document.getElementById("filterApply").addEventListener("click", doAdminFilter);
   document.getElementById("filterTerm").addEventListener("keydown", e => { if (e.key === "Enter") doAdminFilter(); });
   document.getElementById("filterConsole").addEventListener("change", doAdminFilter);
@@ -6429,29 +6424,6 @@ function renderPurchaseCards(purchases, box, onDelete) {
     const p = purchases.find(x => x.id === btn.dataset.editId);
     btn.addEventListener("click", () => openEditModal(p));
   });
-}
-
-// Migración ÚNICA: cifra las credenciales (account_password/verifier_codes)
-// de las compras guardadas antes de configurar ACCOUNT_SECRET en Vercel.
-// Botón temporal — una vez corrido con éxito se puede quitar del código
-// junto con la acción "encrypt-legacy-accounts" en api/purchases.js.
-async function handleEncryptLegacyAccounts() {
-  if (!confirm("Esto cifra en Supabase las contraseñas de cuentas guardadas antes de hoy. Es seguro correrlo, incluso más de una vez. ¿Continuar?")) return;
-  const btn = document.getElementById("encryptLegacyAccountsBtn");
-  const status = document.getElementById("encryptLegacyAccountsStatus");
-  btn.disabled = true;
-  status.textContent = "Cifrando...";
-  status.className = "form-status";
-  try {
-    const data = await apiPost("/api/purchases", { action: "encrypt-legacy-accounts" });
-    status.textContent = `✓ Listo: ${data.updated} cifrada(s), ${data.skipped} ya estaban al día.`;
-    status.className = "form-status ok";
-  } catch (err) {
-    status.textContent = `Error: ${err.message}`;
-    status.className = "form-status error";
-  } finally {
-    btn.disabled = false;
-  }
 }
 
 async function loadAdminPurchases() {
