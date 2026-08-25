@@ -591,7 +591,9 @@ function finalizeAllGames(games) {
   // catálogo a las que PSN no les devolvió precio. Sin esto se mostraban ~1.285
   // tarjetas con "₡0", que no son vendibles. No afecta preventas (ninguna viene
   // sin precio) ni a las reservaciones, que salen de reservaciones.json aparte.
-  const sellableGames = games.filter(hasSellablePrice);
+  // Fuera lo que no es un juego vendible: precio ₡0, y complementos como monedas
+  // del juego, pases de temporada y DLC suelto (ver isAddOnProduct).
+  const sellableGames = games.filter(g => hasSellablePrice(g) && !isAddOnProduct(g));
   const dedupSeen = new Map();
   const dedupedGames = [];
   for (const g of sellableGames) {
@@ -2236,6 +2238,47 @@ function hasSellablePrice(g) {
   if (!g) return false;
   if (g._manualPrices) return Number(g.priceCRC_principal) > 0;
   return Number(g.priceUSD) > 0;
+}
+
+// ============================================================
+// Complementos que NO son juegos: monedas del juego (FC Points, Robux, V-Bucks,
+// créditos, gemas...), pases de temporada y DLC suelto. No se pueden vender como
+// una cuenta, así que no tienen por qué ocupar espacio en el catálogo.
+//
+// Hay que detectarlos por el TÍTULO: el campo `type` de PSN no sirve, marca como
+// "full-game" hasta los "Helix Credits" y los "FC Points", y el catálogo de Xbox
+// ni siquiera trae ese campo.
+//
+// Regla de oro: ante la duda, se CONSERVA. Ocultar un juego real es mucho peor
+// que dejar pasar un DLC, así que los patrones son estrechos a propósito y
+// cualquier título que diga que el juego viene incluido queda exento.
+// ============================================================
+
+// Excepción: el título dice que el JUEGO viene incluido ("Game + DLC Bundle",
+// "juego completo más...", "Gas Station Simulator and ... DLC Bundle").
+const ADDON_INCLUYE_JUEGO = /juego\s+completo|full\s+game|(?:game|juego)s?\s*\+|\+\s*(?:game|juego)s?|\bDLC\s+bundle\b|\blote\s+de\s+DLC\b|(?:game|juego)s?\s+(?:and|y|más|mas)\s+.*\b(?:bundle|lote|pack)\b/i;
+
+const ADDON_PATTERNS = [
+  // Cantidad REAL + moneda: "7.250 créditos", "18,500 FC Points", "22.500 Robux",
+  // "1.050 UFC POINTS" (admite hasta 2 palabras de marca entre medio).
+  // Se exigen 3+ dígitos (o separador de miles) para no confundir el número del
+  // título con una cantidad: "Far Cry 5 Gold" o "Paper Dolls 2 Gold" son juegos.
+  /\b(?:\d{1,3}(?:[.,]\d{3})+|\d{3,})\s*(?:[a-zà-ÿ™®'’]{2,15}\s+){0,2}(?:v-?bucks|cr[ée]ditos?|credits?|monedas?|coins?|gemas?|gems?|cristales?|crystals?|puntos?|points?|fichas?|tokens?|diamantes?|diamonds?)\b/i,
+  // Monedas con nombre propio: no hay ambigüedad posible.
+  /\b(?:v-?bucks|fc\s*points?|puntos?\s*fc|cod\s*points?|puntos?\s*cod|apex\s*coins?|riot\s*points?|helix\s*credits?|cr[ée]ditos?\s+helix|robux|minecoins?|virtual\s*currency|moneda\s+virtual|monedas?\s+virtuales?|premium\s*currency|primogems?|barras?\s+de\s+plata|silver\s+bars?)\b/i,
+  // Pases de temporada / batalla / expansión / personajes. Admite que venga
+  // entre paréntesis o corchetes: "...Upgrade (Season Pass) - Ghostbusters".
+  /(?:^|[-–—:([\]]\s*|\s)\b(?:season\s*pass|pase\s+de\s+temporada|battle\s*pass|pase\s+de\s+batalla|expansion\s*pass|pase\s+de\s+expansi[oó]n|character\s*pass|pase\s+de\s+personajes?)\b/i,
+  // DLC declarado como tal.
+  /(?:^|[-–—:([\]]\s*|\s)\bDLC\b|\bcontenido\s+descargable\b|\badd-?on\s+pack\b/i,
+];
+
+function isAddOnProduct(g) {
+  // Lo curado a mano por el negocio manda: nunca se filtra por heurística.
+  if (!g || !g.title || g._manualPrices || g._featured) return false;
+  const t = String(g.title);
+  if (ADDON_INCLUYE_JUEGO.test(t)) return false;
+  return ADDON_PATTERNS.some(re => re.test(t));
 }
 
 // Misma idea para los bundles (Nintendo/PS/Xbox), que llevan el precio ya en
