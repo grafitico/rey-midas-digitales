@@ -99,6 +99,8 @@ let manualOffers = []; // ofertas con precio fijo (no derivado del USD)
 let featuredGames = []; // catálogo curado de "más buscados" (featured-games.json)
 let coversIndex = {};   // covers.json: { id de featured → URL de carátula } cosechada offline (cero cupo de API)
 let hiddenGames = { ids: new Set(), titles: new Set() }; // exclusión manual (hidden-games.json)
+let alwaysShowGames = { ids: new Set(), titles: new Set() }; // lista blanca (always-show.json)
+let filteredOut = []; // lo que el filtro automático ocultó, para poder auditarlo en el panel admin
 let psnGamesRaw = [];     // juegos del scrape en vivo (/api/scrape), guardados para re-mergear en ensureFullCatalog()
 let featuredRaw = [];     // featured-games.json crudo, guardado para recalcular featuredGames al llegar el catálogo completo
 let featuredLivePrices = {}; // /api/featured-prices crudo (mapa featuredId → precio en vivo)
@@ -593,7 +595,16 @@ function finalizeAllGames(games) {
   // sin precio) ni a las reservaciones, que salen de reservaciones.json aparte.
   // Fuera lo que no es un juego vendible: precio ₡0, y complementos como monedas
   // del juego, pases de temporada y DLC suelto (ver isAddOnProduct).
-  const sellableGames = games.filter(g => hasSellablePrice(g) && !isAddOnProduct(g));
+  // Se registra lo descartado (no se borra nada del catálogo: solo no se pinta)
+  // para poder auditarlo desde el Panel Admin → pestaña "Ocultos". Sin esa
+  // visibilidad, un error del filtro sería silencioso y nadie se enteraría.
+  const descartados = [];
+  const sellableGames = games.filter(g => {
+    if (!hasSellablePrice(g)) { descartados.push({ g, motivo: "Precio en ₡0" }); return false; }
+    if (isAddOnProduct(g)) { descartados.push({ g, motivo: addOnReason(g) }); return false; }
+    return true;
+  });
+  filteredOut = descartados;
   const dedupSeen = new Map();
   const dedupedGames = [];
   for (const g of sellableGames) {
@@ -640,7 +651,7 @@ function finalizeAllGames(games) {
 // ============================================================
 async function load() {
   try {
-    const [psn, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers] = await Promise.allSettled([
+    const [psn, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers, always] = await Promise.allSettled([
       fetch("/api/scrape").then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
@@ -655,7 +666,19 @@ async function load() {
       fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
       fetch("/covers.json").then(r => r.json()).catch(() => ({})),
+      fetch("/always-show.json").then(r => r.json()).catch(() => ({})),
     ]);
+    // Lista blanca: rescata juegos que el filtro automático de complementos
+    // (isAddOnProduct) haya ocultado por error. Se arma igual que hiddenGames.
+    if (always.status === "fulfilled" && always.value && Array.isArray(always.value.alwaysShow)) {
+      for (const entry of always.value.alwaysShow) {
+        if (entry == null) continue;
+        const val = String(entry).trim();
+        if (!val) continue;
+        if (/^(EP|UP|HP|JP)\d/i.test(val)) alwaysShowGames.ids.add(val);
+        else alwaysShowGames.titles.add(matchKey(val));
+      }
+    }
     // Carátulas cosechadas offline (covers.json): { id de featured → URL del CDN }.
     // Es la fuente PRINCIPAL de portadas del catálogo curado: se resuelve sin tocar
     // ninguna API (cero cupo de RAWG/IGDB). Si un juego no está aquí, cae a los
@@ -2276,9 +2299,31 @@ const ADDON_PATTERNS = [
 function isAddOnProduct(g) {
   // Lo curado a mano por el negocio manda: nunca se filtra por heurística.
   if (!g || !g.title || g._manualPrices || g._featured) return false;
+  // Lista blanca (always-show.json): el rescate manual gana SIEMPRE sobre la
+  // heurística. Es la válvula de escape para cuando el filtro se equivoca con un
+  // juego de verdad — se arregla editando un JSON, sin tocar código.
+  if (isAlwaysShown(g)) return false;
   const t = String(g.title);
   if (ADDON_INCLUYE_JUEGO.test(t)) return false;
   return ADDON_PATTERNS.some(re => re.test(t));
+}
+
+// ¿Está este juego rescatado a mano en always-show.json?
+function isAlwaysShown(g) {
+  if (!g) return false;
+  if (g.id && alwaysShowGames.ids.has(String(g.id))) return true;
+  if (g.title && alwaysShowGames.titles.has(matchKey(g.title))) return true;
+  return false;
+}
+
+// Motivo por el que se ocultó un producto (para el panel de admin).
+function addOnReason(g) {
+  const t = String(g?.title || "");
+  if (ADDON_PATTERNS[0].test(t)) return "Moneda del juego";
+  if (ADDON_PATTERNS[1].test(t)) return "Moneda del juego";
+  if (ADDON_PATTERNS[2].test(t)) return "Pase de temporada";
+  if (ADDON_PATTERNS[3].test(t)) return "DLC";
+  return "Complemento";
 }
 
 // Misma idea para los bundles (Nintendo/PS/Xbox), que llevan el precio ya en
@@ -5710,6 +5755,7 @@ async function renderAdmin() {
         <button type="button" class="admin-tab" data-tab="canje" role="tab" aria-selected="false"><img class="tab-coin" src="/assets/coin.png" alt="" aria-hidden="true"> Canje</button>
         <button type="button" class="admin-tab" data-tab="ofertas" role="tab" aria-selected="false">⭐ Ofertas VIP</button>
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
+        <button type="button" class="admin-tab" data-tab="ocultos" role="tab" aria-selected="false">🚫 Ocultos</button>
       </nav>
 
       <div class="admin-panel is-active" data-panel="clientes" role="tabpanel">
@@ -5992,6 +6038,36 @@ async function renderAdmin() {
       </div>
       </div>
 
+      <div class="admin-panel" data-panel="ocultos" role="tabpanel" hidden>
+        <div class="admin-list">
+          <h2>Productos ocultos del catálogo</h2>
+          <p class="field-hint">
+            Estos productos <strong>siguen en el catálogo</strong>, solo no se muestran en la web: son monedas del
+            juego, pases de temporada, DLC suelto o cosas sin precio. Si ves acá un <strong>juego de verdad</strong>,
+            copiá su título y agregalo a <code>always-show.json</code> (campo <code>alwaysShow</code>) para que vuelva a
+            aparecer. Nada se borra: quitarlo de esa lista lo vuelve a ocultar.
+          </p>
+          <div class="admin-filters">
+            <label class="af-field af-term">
+              <span>Buscar</span>
+              <input id="ocultosSearch" type="text" placeholder="Nombre del producto…" autocomplete="off">
+            </label>
+            <label class="af-field">
+              <span>Motivo</span>
+              <select id="ocultosMotivo">
+                <option value="">Todos</option>
+                <option value="Moneda del juego">Moneda del juego</option>
+                <option value="Pase de temporada">Pase de temporada</option>
+                <option value="DLC">DLC</option>
+                <option value="Precio en ₡0">Precio en ₡0</option>
+              </select>
+            </label>
+          </div>
+          <div id="ocultosMeta" class="bundles-meta"></div>
+          <div id="ocultosList"></div>
+        </div>
+      </div>
+
       <div class="admin-panel" data-panel="bundles" role="tabpanel" hidden>
       <div class="admin-grid admin-bundles">
         <form id="bundleForm" class="admin-form">
@@ -6077,6 +6153,7 @@ async function renderAdmin() {
   updateOfertaSecundariaLabel();
   setupSalesReport();
   setupClientSearch();
+  setupOcultos();
   loadAdminPurchases();
   loadClientsDropdown();
   loadAdminBundles();
@@ -6783,6 +6860,63 @@ async function loadAdminPurchases() {
   }
 }
 
+// ===== Pestaña "Ocultos": auditoría del filtro automático =====
+// El filtro de complementos (isAddOnProduct) y el de precio ₡0 aciertan hoy,
+// pero el catálogo se sincroniza a diario con títulos nuevos. Sin poder ver qué
+// se ocultó, un error del filtro sería invisible y permanente. Acá se lista todo
+// lo descartado para poder revisarlo y rescatarlo vía always-show.json.
+const OCULTOS_LIMITE = 300;
+
+function renderOcultos() {
+  const box = document.getElementById("ocultosList");
+  const meta = document.getElementById("ocultosMeta");
+  if (!box) return;
+  const q = normalizeSearch(document.getElementById("ocultosSearch")?.value.trim() || "");
+  const motivo = document.getElementById("ocultosMotivo")?.value || "";
+  const todos = filteredOut || [];
+  const list = todos.filter(x =>
+    (!motivo || x.motivo === motivo) &&
+    (!q || normalizeSearch(x.g?.title || "").includes(q))
+  );
+  const visibles = list.slice(0, OCULTOS_LIMITE);
+
+  if (meta) {
+    const porMotivo = {};
+    for (const x of todos) porMotivo[x.motivo] = (porMotivo[x.motivo] || 0) + 1;
+    const resumen = Object.entries(porMotivo).sort((a, b) => b[1] - a[1])
+      .map(([m, n]) => `${escapeHtml(m)}: ${n}`).join(" · ");
+    meta.innerHTML = `Mostrando ${visibles.length} de ${list.length}${list.length !== todos.length ? ` (${todos.length} en total)` : ""}. ${resumen ? `<br>${resumen}` : ""}`;
+  }
+  if (!visibles.length) {
+    box.innerHTML = `<p class="empty-state-small">${todos.length ? "Ningún producto coincide con ese criterio." : "No hay productos ocultos todavía. Entrá al catálogo primero para que cargue."}</p>`;
+    return;
+  }
+  box.innerHTML = `<div class="client-search-list">${visibles.map(x => `
+    <div class="client-search-row">
+      <span class="csr-id">${escapeHtml(x.motivo)}</span>
+      <span class="csr-name">${escapeHtml(x.g?.title || "?")}</span>
+      <span class="csr-phone">${escapeHtml(String(x.g?.platform || ""))}</span>
+      <span class="csr-console">${x.g?.priceUSD ? "$" + escapeHtml(String(x.g.priceUSD)) : ""}</span>
+      <button type="button" class="copy-able" data-copy="${escapeAttr(x.g?.title || "")}">Copiar título</button>
+    </div>`).join("")}</div>`;
+  box.querySelectorAll("[data-copy]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      navigator.clipboard?.writeText(btn.dataset.copy || "").then(
+        () => showToast("✓ Título copiado — pegalo en always-show.json"),
+        () => showToast("No se pudo copiar")
+      );
+    });
+  });
+}
+
+function setupOcultos() {
+  let t;
+  document.getElementById("ocultosSearch")?.addEventListener("input", () => {
+    clearTimeout(t); t = setTimeout(renderOcultos, 150);
+  });
+  document.getElementById("ocultosMotivo")?.addEventListener("change", renderOcultos);
+}
+
 // Cambia entre las pestañas Clientes / Compras / Bundles.
 function setupAdminTabs() {
   const tabs = Array.from(document.querySelectorAll(".admin-tab"));
@@ -6802,6 +6936,9 @@ function setupAdminTabs() {
       });
       // El reporte de ventas se carga la primera vez que se abre la pestaña.
       if (target === "ventas" && !salesReportLoaded) loadSalesReport();
+      // La lista de ocultos se arma al abrir la pestaña: depende de que el
+      // catálogo ya haya terminado de cargar.
+      if (target === "ocultos") renderOcultos();
     });
   });
 }

@@ -1,0 +1,8 @@
+{
+  "_help": "Lista blanca: RESCATA juegos que el filtro automático ocultó por error. El filtro esconde monedas del juego (FC Points, Robux...), pases de temporada y DLC suelto; si alguna vez se traga un juego DE VERDAD, agregalo acá y vuelve a aparecer al instante, sin tocar código. Podés poner el TÍTULO (ej: 'Gold Coins') o el ID de PSN (ej: 'EP9000-CUSA00000_00-...', empieza con EP/UP/HP/JP). El título se compara sin tildes ni mayúsculas. Para VER qué se está ocultando: entrá al Panel Admin, pestaña 'Ocultos'.",
+  "_ejemplos": [
+    "The Coin Game",
+    "UP0001-CUSA12345_00-EXAMPLE000000000"
+  ],
+  "alwaysShow": []
+}
