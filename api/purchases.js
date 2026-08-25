@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     if (body.action === "by-client") return await byClient(req, res, body);
     if (body.action === "filter") return await filter(req, res, body);
     if (body.action === "sales") return await sales(req, res, body);
+    if (body.action === "encrypt-legacy-accounts") return await encryptLegacyAccounts(req, res);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -194,4 +195,29 @@ async function sales(req, res, body) {
     }
   }
   res.status(200).json({ sales: rows });
+}
+
+// Migración ÚNICA: cifra las filas de purchases guardadas en texto plano
+// antes de configurar ACCOUNT_SECRET en Vercel. Botón temporal en el panel
+// de admin (Compras) — se corre una sola vez y después se puede sacar del
+// código junto con este botón. Es idempotente: una fila ya cifrada
+// (prefijo "enc:v1:") se saltea, así que no rompe nada si se corre de más.
+async function encryptLegacyAccounts(req, res) {
+  await requireAdmin(req);
+  if (!process.env.ACCOUNT_SECRET) {
+    return res.status(400).json({ error: "Falta ACCOUNT_SECRET en Vercel. Agregala en Settings → Environment Variables, hacé Redeploy, y volvé a intentar." });
+  }
+  const rows = await sb(`purchases?select=id,account_password,verifier_codes`);
+  let updated = 0, skipped = 0;
+  for (const row of rows) {
+    const needsPassword = row.account_password && !String(row.account_password).startsWith("enc:v1:");
+    const needsCodes = row.verifier_codes && !String(row.verifier_codes).startsWith("enc:v1:");
+    if (!needsPassword && !needsCodes) { skipped++; continue; }
+    const patch = {};
+    if (needsPassword) patch.account_password = encryptSecret(row.account_password);
+    if (needsCodes) patch.verifier_codes = encryptSecret(row.verifier_codes);
+    await sb(`purchases?id=eq.${row.id}`, { method: "PATCH", body: JSON.stringify(patch) });
+    updated++;
+  }
+  res.status(200).json({ ok: true, updated, skipped });
 }
