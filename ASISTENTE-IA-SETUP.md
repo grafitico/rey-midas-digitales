@@ -72,9 +72,36 @@ O directamente: abrí **reymidascr.com**, tocá **"Asistente"** y escribí
 | `GROQ_MODEL` | forzar un modelo de Groq | `llama-3.3-70b-versatile`, luego `llama-3.1-8b-instant` |
 | `GEMINI_API_KEY` | clave de Gemini (alternativa) | — |
 | `GEMINI_MODEL` | forzar un modelo de Gemini | autodescubre |
+| `CHAT_TIMEOUT_MS` | cuánto espera cada intento contra el proveedor | `12000` (12s) |
+| `CHAT_BUDGET_MS` | tope total de una consulta, sumando reintentos | `24000` (24s) |
 
-Si algún modelo dejara de existir, el `?selftest` lista los modelos disponibles
-de tu clave para poder ajustar `GROQ_MODEL`/`GEMINI_MODEL`.
+Si algún modelo dejara de existir, el asistente lo detecta solo: pregunta a la
+API qué modelos tiene tu clave y sigue respondiendo con el mejor disponible. El
+`?selftest` te dice cuál quedó usando, por si querés fijarlo en `GROQ_MODEL`.
+
+---
+
+## Si el asistente devuelve errores
+
+El chat nunca deja al cliente colgado: si el modelo falla, muestra un aviso con
+botón **Reintentar** y el botón de WhatsApp. Para saber qué está pasando:
+
+1. Abrí `https://reymidascr.com/api/chat?selftest` — te dice el problema en
+   castellano (clave inválida, límite alcanzado, ningún modelo disponible).
+2. Si querés el detalle exacto: Vercel → tu proyecto → **Logs**, filtrando por
+   `[chat]`. Cada fallo deja una línea con su causa:
+
+| Línea en los logs | Qué pasó | Qué hacer |
+|---|---|---|
+| `rate_limit` | se agotó la cuota del proveedor | esperar unos minutos; si se repite seguido, ver la nota de abajo |
+| `bad_key` | la clave es inválida o está mal copiada | crear una nueva y hacer Redeploy |
+| `timeout` | el proveedor no contestó a tiempo | casi siempre pasa solo; si se repite, probá otro `GROQ_MODEL` |
+| `provider_error` | error del proveedor | el detalle va en la misma línea |
+
+> **Sobre la cuota:** el catálogo viaja dentro de cada consulta, así que cuanto
+> más largo es `featured-games.json`, menos consultas entran en la capa gratuita
+> de Groq. Si empiezan a aparecer muchos `rate_limit`, la salida es recortar el
+> catálogo destacado o pasar a un plan pago del proveedor.
 
 ---
 

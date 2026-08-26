@@ -29,7 +29,11 @@ const MODEL_CANDIDATES = [
   "gemini-2.5-flash-lite",
 ].filter(Boolean);
 
-// Modelos Groq a intentar (override con GROQ_MODEL).
+// Modelos Groq a intentar (override con GROQ_MODEL). La lista es solo un punto
+// de partida: cuando Groq retira un modelo responde 404 o 400
+// "model_decommissioned", y ahí el asistente descubre solo cuáles tiene la
+// clave (discoverGroqModels) en vez de quedarse mudo hasta que alguien edite
+// este archivo.
 const GROQ_MODELS = [
   process.env.GROQ_MODEL,
   "llama-3.3-70b-versatile",
@@ -37,6 +41,46 @@ const GROQ_MODELS = [
 ].filter(Boolean);
 const GROQ_BASE = "https://api.groq.com/openai/v1";
 let GROQ_WORKING = null;
+let GROQ_DISCOVERY_CACHE = null;
+
+// Tope por llamada al proveedor. La función tiene 30s (vercel.json): sin este
+// tope una sola llamada colgada se come el presupuesto entero, Vercel corta con
+// 504 y el cliente ve el error genérico sin que quede rastro de por qué.
+const LLM_TIMEOUT_MS = Number(process.env.CHAT_TIMEOUT_MS) || 12000;
+
+// Presupuesto total de la invocación. La función tiene 30s (vercel.json) y
+// tiene que sobrar tiempo para devolver el JSON: si cada intento usara los 12s
+// completos, cuatro intentos colgados llegarían a 48s y Vercel cortaría con un
+// 504 — el cliente vería el chat "pensando" hasta que el navegador se rinde.
+// Cada intento toma lo que quede, nunca más que LLM_TIMEOUT_MS.
+const TOTAL_BUDGET_MS = Number(process.env.CHAT_BUDGET_MS) || 24000;
+function startBudget() {
+  const until = Date.now() + TOTAL_BUDGET_MS;
+  return {
+    slice: () => Math.max(0, Math.min(LLM_TIMEOUT_MS, until - Date.now())),
+    exhausted: () => until - Date.now() < 1500,
+  };
+}
+
+// fetch que aborta en vez de colgarse. El error va marcado con .timeout para
+// poder reintentar solo lo que vale la pena reintentar.
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const ms = timeoutMs || LLM_TIMEOUT_MS;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } catch (e) {
+    if (e && (e.name === "AbortError" || /abort/i.test(e.message || ""))) {
+      const err = new Error(`el proveedor no respondió en ${Math.round(ms / 1000)}s`);
+      err.timeout = true;
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // ===== Precios (misma tabla e interpolación que app.js) =====
 const PRICING = {
@@ -116,9 +160,15 @@ function secundariaCRC(usd, platform = "") {
   const floor = ps5OnlyFloorCRC(usd, platform, PRICING.ps5Only.secundariaPct);
   return withMinCRC(Math.max(base, floor), usd);
 }
-const crc = (n) => "₡" + Number(n || 0).toLocaleString("es-CR");
-
 // ===== Carga del catálogo (memoizado en warm start) =====
+// El catálogo viaja dentro del prompt de sistema en CADA consulta, así que su
+// tamaño es el costo fijo de todo el asistente: con el formato largo anterior
+// ("· Principal ₡X / Secundaria ₡Y · Géneros: ...") eran ~5.500 tokens por
+// mensaje, suficiente para agotar el límite por minuto de la capa gratuita de
+// Groq con dos o tres preguntas seguidas — y cada límite alcanzado es un error
+// en la cara del cliente. El formato compacto de abajo dice exactamente lo
+// mismo con ~40% menos tokens.
+const CATALOG_MAX_LINES = 220;
 let CATALOG_CACHE = null;
 function loadCatalog() {
   if (CATALOG_CACHE) return CATALOG_CACHE;
@@ -131,10 +181,14 @@ function loadCatalog() {
       .map((g) => {
         const p = principalCRC(g.priceUSD, g.platform);
         const s = secundariaCRC(g.priceUSD, g.platform);
-        const genres = Array.isArray(g.genres) && g.genres.length ? g.genres.join(", ") : "—";
-        return `- ${g.title} (${g.platform}) · Principal ${crc(p)} / Secundaria ${crc(s)} · Géneros: ${genres}`;
+        const genres = Array.isArray(g.genres) && g.genres.length ? g.genres.join(",") : "—";
+        return `${g.title}|${g.platform}|${p}/${s}|${genres}`;
       });
-    CATALOG_CACHE = lines.join("\n");
+    const shown = lines.slice(0, CATALOG_MAX_LINES);
+    if (lines.length > shown.length) {
+      shown.push(`(y ${lines.length - shown.length} títulos más: si preguntan por uno que no está en esta lista, confirmalo por WhatsApp)`);
+    }
+    CATALOG_CACHE = shown.join("\n");
   } catch {
     CATALOG_CACHE = "(catálogo no disponible en este momento)";
   }
@@ -193,6 +247,8 @@ Ejemplos:
 El sistema convierte esa línea en un botón "Seguir por WhatsApp". Nunca muestres la línea [[WA: ...]] como texto normal ni la expliques; solo ponela al final cuando corresponda cerrar. No la pongas en cada mensaje, solo cuando el cliente muestra intención de compra o pide ayuda humana.
 
 # Catálogo de juegos destacados (títulos, plataforma y precios reales)
+Formato de cada línea: Título|Plataforma|PrecioPrincipal/PrecioSecundaria|Géneros.
+Los precios están en colones y sin puntos: escribilos siempre como ₡25.000, nunca "25000".
 ${loadCatalog()}
 
 Recordá: sos la cara de la tienda a las 2am cuando no hay nadie más. Ayudá de verdad, recomendá bien y cerrá la venta con onda.`;
@@ -210,12 +266,12 @@ let WORKING_MODEL = null;
 let DISCOVERY_CACHE = null;
 
 // Una sola llamada a generateContent. Devuelve { ok, status, text, data }.
-async function generateOnce(apiKey, model, body) {
-  const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent`, {
+async function generateOnce(apiKey, model, body, timeoutMs) {
+  const res = await fetchWithTimeout(`${GEMINI_BASE}/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body,
-  });
+  }, timeoutMs);
   const data = await res.json().catch(() => ({}));
   const text = res.ok
     ? (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim()
@@ -225,9 +281,9 @@ async function generateOnce(apiKey, model, body) {
 
 // Lista los modelos que la clave tiene disponibles.
 async function listModels(apiKey) {
-  const res = await fetch(`${GEMINI_BASE}/models?pageSize=200`, {
+  const res = await fetchWithTimeout(`${GEMINI_BASE}/models?pageSize=200`, {
     headers: { "x-goog-api-key": apiKey },
-  });
+  }, 8000);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `ListModels ${res.status}`);
   return Array.isArray(data.models) ? data.models : [];
@@ -258,7 +314,7 @@ async function discoverModels(apiKey) {
   return DISCOVERY_CACHE;
 }
 
-async function callGemini(apiKey, contents) {
+async function callGemini(apiKey, contents, budget) {
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: systemPrompt() }] },
     contents,
@@ -281,8 +337,9 @@ async function callGemini(apiKey, contents) {
 
   const tryList = async (models) => {
     for (const model of models) {
+      if (budget && budget.exhausted()) break; // no arrancar lo que no da tiempo
       try {
-        const r = await generateOnce(apiKey, model, body);
+        const r = await generateOnce(apiKey, model, body, budget && budget.slice());
         if (r.ok && r.text) { WORKING_MODEL = model; return r.text; }
         if (r.ok) { lastErr = new Error("respuesta vacía de Gemini"); continue; }
         if (r.status === 404) { any404 = true; lastErr = new Error(`modelo ${model} no disponible`); continue; }
@@ -290,6 +347,7 @@ async function callGemini(apiKey, contents) {
         // modelos: comparten la misma cuota/clave. Cortamos para no empeorar.
         if (r.status === 429) { const e = new Error("RATE_LIMIT"); e.rate = true; throw e; }
         lastErr = new Error(r.data?.error?.message || `Gemini ${r.status}`);
+        lastErr.status = r.status;
         if (r.status === 400 || r.status === 403) throw lastErr;
       } catch (e) {
         if (e.rate || /API key|PERMISSION|SERVICE_DISABLED|INVALID_ARGUMENT/i.test(e.message)) throw e;
@@ -314,48 +372,141 @@ async function callGemini(apiKey, contents) {
 }
 
 // ===== Groq (API compatible con OpenAI) =====
-async function groqOnce(apiKey, model, messages, maxTokens) {
-  const res = await fetch(`${GROQ_BASE}/chat/completions`, {
+async function groqOnce(apiKey, model, messages, maxTokens, timeoutMs) {
+  const res = await fetchWithTimeout(`${GROQ_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model, messages, temperature: 0.7, top_p: 0.95, max_tokens: maxTokens || 700 }),
-  });
+  }, timeoutMs);
   const data = await res.json().catch(() => ({}));
   const text = res.ok ? (data?.choices?.[0]?.message?.content || "").trim() : "";
   return { ok: res.ok, status: res.status, text, data };
 }
 
 async function groqModelList(apiKey) {
-  const res = await fetch(`${GROQ_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } });
+  const res = await fetchWithTimeout(`${GROQ_BASE}/models`, { headers: { Authorization: `Bearer ${apiKey}` } }, 8000);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `Groq models ${res.status}`);
   return (data?.data || []).map((m) => m.id).filter(Boolean);
 }
 
-async function callGroq(apiKey, messages) {
+// ¿El error dice que ese modelo ya no existe? Groq contesta 404, o 400 con
+// code "model_decommissioned" / "model_not_found" cuando retira un modelo.
+function isModelGone(status, data) {
+  if (status === 404) return true;
+  if (status !== 400) return false;
+  const blob = JSON.stringify(data?.error || data || "");
+  return /model_decommissioned|model_not_found|decommission|deprecat|does not exist|no longer/i.test(blob);
+}
+
+// Modelos de chat que la clave tiene disponibles hoy, el más conveniente
+// primero. Se consulta solo cuando los modelos escritos arriba ya no existen.
+async function discoverGroqModels(apiKey) {
+  if (GROQ_DISCOVERY_CACHE) return GROQ_DISCOVERY_CACHE;
+  const ids = await groqModelList(apiKey);
+  const usable = ids.filter((id) => !/whisper|tts|guard|embed|vision|audio|distil/i.test(id));
+  const score = (id) => {
+    let s = 0;
+    if (/instant|8b|scout|mini/i.test(id)) s += 40;        // rápidos y con cuota holgada
+    if (/versatile|70b|120b|maverick/i.test(id)) s += 30;  // mejores respuestas
+    if (/llama|gpt-oss/i.test(id)) s += 10;
+    if (/preview|beta|alpha/i.test(id)) s -= 20;           // preferir estables
+    return s;
+  };
+  GROQ_DISCOVERY_CACHE = [...new Set(usable)].sort((a, b) => score(b) - score(a));
+  return GROQ_DISCOVERY_CACHE;
+}
+
+async function callGroq(apiKey, messages, budget) {
   const order = [];
   if (GROQ_WORKING) order.push(GROQ_WORKING);
   for (const m of GROQ_MODELS) if (!order.includes(m)) order.push(m);
 
   let lastErr = null;
-  for (const model of order) {
-    const r = await groqOnce(apiKey, model, messages);
-    if (r.ok && r.text) { GROQ_WORKING = model; return r.text; }
-    if (r.ok) { lastErr = new Error("respuesta vacía de Groq"); continue; }
-    if (r.status === 404) { lastErr = new Error(`modelo ${model} no disponible`); continue; }
-    if (r.status === 429) { const e = new Error("RATE_LIMIT"); e.rate = true; throw e; }
-    lastErr = new Error(r.data?.error?.message || `Groq ${r.status}`);
-    if (r.status === 401 || r.status === 403) throw lastErr; // clave inválida: cortar
+  let anyGone = false;
+  let rateLimited = 0;
+  let otherFail = 0;
+
+  const tryList = async (models) => {
+    for (const model of models) {
+      if (budget && budget.exhausted()) break; // no arrancar lo que no da tiempo
+      let r;
+      try {
+        r = await groqOnce(apiKey, model, messages, undefined, budget && budget.slice());
+      } catch (e) {
+        // Timeout o corte de red: el siguiente modelo suele ser más chico y más
+        // rápido, así que vale más probarlo que rendirse acá.
+        otherFail++;
+        lastErr = e;
+        continue;
+      }
+      if (r.ok && r.text) { GROQ_WORKING = model; return r.text; }
+      if (r.ok) { otherFail++; lastErr = new Error("respuesta vacía de Groq"); continue; }
+
+      if (isModelGone(r.status, r.data)) {
+        anyGone = true;
+        otherFail++;
+        if (GROQ_WORKING === model) GROQ_WORKING = null;
+        lastErr = new Error(`modelo ${model} ya no está disponible en Groq`);
+        continue;
+      }
+      if (r.status === 429) {
+        // La cuota de Groq es POR MODELO. Antes cortábamos en el primer 429 y
+        // el cliente veía "estoy con muchas consultas" aunque el modelo chico
+        // estuviera libre; ahora seguimos con el resto de la lista.
+        rateLimited++;
+        if (GROQ_WORKING === model) GROQ_WORKING = null;
+        lastErr = new Error("RATE_LIMIT");
+        lastErr.rate = true;
+        continue;
+      }
+      if (r.status === 401 || r.status === 403) {
+        const e = new Error(r.data?.error?.message || `Groq ${r.status}: clave rechazada`);
+        e.badKey = true;
+        throw e; // probar otro modelo no arregla una clave inválida
+      }
+      otherFail++;
+      lastErr = new Error(r.data?.error?.message || `Groq ${r.status}`);
+      lastErr.status = r.status; // isRetryable() decide por el código, no por el texto
+    }
+    return null;
+  };
+
+  let text = await tryList(order);
+  if (text) return text;
+
+  // Si Groq retiró los modelos que tenemos escritos, le preguntamos cuáles hay
+  // y probamos los mejores. Así una baja de modelo no deja el chat caído.
+  if (anyGone) {
+    try {
+      const discovered = (await discoverGroqModels(apiKey)).filter((m) => !order.includes(m));
+      text = await tryList(discovered.slice(0, 3));
+      if (text) return text;
+    } catch (e) {
+      lastErr = lastErr || e;
+    }
+  }
+
+  if (rateLimited > 0 && otherFail === 0) {
+    const e = new Error("RATE_LIMIT");
+    e.rate = true;
+    throw e;
   }
   throw lastErr || new Error("Groq no respondió");
 }
 
 // Extrae la línea [[WA: ...]] y devuelve { reply, whatsapp }.
+// El modelo a veces repite el marcador o lo deja sin cerrar; en los dos casos
+// el resto tiene que quedar limpio, porque un "[[WA:" suelto en la burbuja se
+// le muestra tal cual al cliente.
 function extractWhatsApp(text) {
   const m = text.match(/\[\[WA:\s*([\s\S]*?)\]\]/i);
-  if (!m) return { reply: text.trim(), whatsapp: null };
+  if (!m) return { reply: text.replace(/\[\[WA:[\s\S]*$/i, "").trim(), whatsapp: null };
   const msg = m[1].trim();
-  const reply = text.replace(m[0], "").trim();
+  const reply = text
+    .replace(/\[\[WA:\s*[\s\S]*?\]\]/gi, "")
+    .replace(/\[\[WA:[\s\S]*$/i, "")
+    .trim();
   const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg || "Hola, vengo del asistente de reymidascr.com y quiero hacer una compra.")}`;
   return { reply: reply || "¡Listo! Seguimos por WhatsApp para cerrar tu pedido. 👑", whatsapp: url };
 }
@@ -373,6 +524,26 @@ function diagnose(status, data) {
     return "Se alcanzó el límite de la capa gratuita de Gemini por ahora. Esperá unos minutos y volvé a probar.";
   }
   return "Google devolvió un error inesperado. Revisá que la clave sea correcta y que hayas hecho Redeploy en Vercel.";
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Qué vale la pena reintentar: cortes de red, timeouts, 5xx y respuestas
+// vacías. La cuota agotada y la clave inválida no mejoran repitiendo.
+function isRetryable(e) {
+  if (!e || e.rate || e.badKey) return false;
+  if (e.timeout) return true;
+  if (e.status) return e.status >= 500; // un 4xx no cambia por repetirlo
+  return /respuesta vacía|no respondió|fetch failed|network|ECONN|ETIMEDOUT|socket/i.test(e.message || "");
+}
+
+// Etiqueta corta y sin datos sensibles para logs y para el widget.
+function errorCode(e) {
+  if (!e) return "unknown";
+  if (e.rate) return "rate_limit";
+  if (e.badKey) return "bad_key";
+  if (e.timeout) return "timeout";
+  return "provider_error";
 }
 
 export default async function handler(req, res) {
@@ -404,8 +575,20 @@ export default async function handler(req, res) {
           if (r.status === 429) return res.status(200).json({ ok: false, proveedor: "groq", http: 429, reason: "RATE_LIMIT", mensaje: "Límite temporal de Groq alcanzado. Esperá un momento y probá de nuevo.", detalle: r.data?.error?.message || null });
           if (r.status === 401 || r.status === 403) return res.status(200).json({ ok: false, proveedor: "groq", http: r.status, reason: "BAD_KEY", mensaje: "La clave GROQ_API_KEY es inválida o está mal copiada. Creá una nueva en https://console.groq.com/keys, reemplazala en Vercel y hacé Redeploy.", detalle: r.data?.error?.message || null });
         }
-        const names = await groqModelList(apiKey);
-        return res.status(200).json({ ok: false, proveedor: "groq", http: last?.http ?? 404, reason: "NO_USABLE_MODEL", mensaje: "La clave es válida pero ningún modelo respondió. Abajo van los modelos disponibles; decímelos y ajusto.", modelos_disponibles: names.slice(0, 20) });
+        // Los modelos escritos en el código fallaron. Antes esto terminaba en
+        // "decímelos y ajusto"; ahora probamos de verdad los que la clave tiene
+        // y, si alguno anda, el asistente ya está funcionando con ese.
+        const disponibles = await discoverGroqModels(apiKey);
+        for (const model of disponibles.slice(0, 2)) {
+          const r = await groqOnce(apiKey, model, [{ role: "user", content: "ping" }], 5);
+          if (r.ok) {
+            GROQ_WORKING = model;
+            return res.status(200).json({ ok: true, proveedor: "groq", modelo: model, mensaje: `✅ La clave de Groq funciona. Los modelos por defecto ya no existen, así que el asistente pasó solo a "${model}". Anda igual; si querés fijarlo, poné GROQ_MODEL=${model} en Vercel.` });
+          }
+          last = { http: r.status, data: r.data };
+          if (r.status === 429) return res.status(200).json({ ok: false, proveedor: "groq", http: 429, reason: "RATE_LIMIT", mensaje: "Límite temporal de Groq alcanzado. Esperá un momento y probá de nuevo.", detalle: r.data?.error?.message || null });
+        }
+        return res.status(200).json({ ok: false, proveedor: "groq", http: last?.http ?? 404, reason: "NO_USABLE_MODEL", mensaje: "La clave es válida pero ningún modelo respondió. Abajo van los modelos disponibles; decímelos y ajusto.", modelos_disponibles: disponibles.slice(0, 20) });
       } catch (e) {
         return res.status(200).json({ ok: false, proveedor: "groq", mensaje: "No pude contactar a Groq: " + e.message });
       }
@@ -490,29 +673,50 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Falta el mensaje del usuario." });
     }
 
-    let raw;
-    if (provider.name === "groq") {
-      // Groq / OpenAI: system + turnos user/assistant.
-      const gmsgs = [{ role: "system", content: systemPrompt() }].concat(
-        messages.map((m) => ({ role: m.role, content: m.content }))
-      );
-      raw = await callGroq(apiKey, gmsgs);
-    } else {
+    const budget = startBudget();
+    const ask = async () => {
+      if (provider.name === "groq") {
+        // Groq / OpenAI: system + turnos user/assistant.
+        const gmsgs = [{ role: "system", content: systemPrompt() }].concat(
+          messages.map((m) => ({ role: m.role, content: m.content }))
+        );
+        return await callGroq(apiKey, gmsgs, budget);
+      }
       // Gemini usa role "model" en vez de "assistant".
       const contents = messages.map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
       }));
-      raw = await callGemini(apiKey, contents);
+      return await callGemini(apiKey, contents, budget);
+    };
+
+    let raw;
+    try {
+      raw = await ask();
+    } catch (e) {
+      // Un tropiezo puntual (timeout, 5xx del proveedor, respuesta vacía) no
+      // tiene por qué llegarle al cliente como error: un reintento resuelve la
+      // mayoría. No se reintenta lo que no mejora repitiendo: clave inválida y
+      // límite de cuota.
+      if (!isRetryable(e) || budget.exhausted()) throw e;
+      console.warn("[chat] reintentando tras:", e?.message || e);
+      await sleep(700);
+      raw = await ask();
     }
     const { reply, whatsapp } = extractWhatsApp(raw);
     return res.status(200).json({ reply, whatsapp });
   } catch (e) {
+    // Sin este log en Vercel no queda ningún rastro de POR QUÉ falló: el
+    // cliente ve una disculpa y quien mantiene la tienda no puede diagnosticar.
+    console.error("[chat] fallo respondiendo:", errorCode(e), "—", e?.message || e);
     const reply = e && e.rate
       ? "¡Uf, estoy con muchas consultas en este momento! 🙏 Dame un minutito y volvé a escribirme, o si querés te atendemos ya por WhatsApp."
       : "Uy, se me trabó la conexión un momento 😅. Probá de nuevo o escribinos por WhatsApp y te atendemos de una.";
     return res.status(200).json({
       reply,
+      // El widget usa este código para no guardar el error en el historial del
+      // chat. Es una etiqueta corta: nunca lleva la clave ni datos del cliente.
+      error: errorCode(e),
       whatsapp: `https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Hola, quiero hacer una consulta.")}`,
     });
   }
