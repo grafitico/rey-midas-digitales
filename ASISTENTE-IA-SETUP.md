@@ -69,7 +69,7 @@ O directamente: abrí **reymidascr.com**, tocá **"Asistente"** y escribí
 | Variable | Para qué sirve | Default |
 |---|---|---|
 | `GROQ_API_KEY` | clave de Groq (recomendado) | — |
-| `GROQ_MODEL` | forzar un modelo de Groq | `llama-3.3-70b-versatile`, luego `llama-3.1-8b-instant` |
+| `GROQ_MODEL` | forzar un modelo de Groq | `openai/gpt-oss-120b`, luego `openai/gpt-oss-20b` y `qwen/qwen3.8-27b` |
 | `GEMINI_API_KEY` | clave de Gemini (alternativa) | — |
 | `GEMINI_MODEL` | forzar un modelo de Gemini | autodescubre |
 | `CHAT_TIMEOUT_MS` | cuánto espera cada intento contra el proveedor | `12000` (12s) |
@@ -97,6 +97,12 @@ botón **Reintentar** y el botón de WhatsApp. Para saber qué está pasando:
 | `bad_key` | la clave es inválida o está mal copiada | crear una nueva y hacer Redeploy |
 | `timeout` | el proveedor no contestó a tiempo | casi siempre pasa solo; si se repite, probá otro `GROQ_MODEL` |
 | `provider_error` | error del proveedor | el detalle va en la misma línea |
+
+> **Los modelos se retiran cada tanto.** En agosto de 2026 Groq dio de baja los
+> `llama-3.x` que usaba el asistente y el chat empezó a fallar en la primera
+> pregunta. Ahora, si eso vuelve a pasar, el asistente pregunta a la API qué
+> modelos quedan y sigue con el mejor sin que haya que tocar nada; el
+> `?selftest` te dice cuál eligió por si lo querés fijar en `GROQ_MODEL`.
 
 > **Sobre la cuota:** el catálogo viaja dentro de cada consulta, así que cuanto
 > más largo es `featured-games.json`, menos consultas entran en la capa gratuita

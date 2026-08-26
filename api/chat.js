@@ -34,10 +34,16 @@ const MODEL_CANDIDATES = [
 // "model_decommissioned", y ahí el asistente descubre solo cuáles tiene la
 // clave (discoverGroqModels) en vez de quedarse mudo hasta que alguien edite
 // este archivo.
+//
+// Los llama-3.x que estaban acá dejaron de existir (el ?selftest del 26/08/2026
+// devolvió 404 en los dos y ningún llama de chat en la lista de la cuenta), que
+// es exactamente por qué el asistente respondía "se me trabó la conexión" en la
+// primera pregunta.
 const GROQ_MODELS = [
   process.env.GROQ_MODEL,
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "qwen/qwen3.8-27b",
 ].filter(Boolean);
 const GROQ_BASE = "https://api.groq.com/openai/v1";
 let GROQ_WORKING = null;
@@ -274,7 +280,7 @@ async function generateOnce(apiKey, model, body, timeoutMs) {
   }, timeoutMs);
   const data = await res.json().catch(() => ({}));
   const text = res.ok
-    ? (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim()
+    ? stripThinking((data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join(""))
     : "";
   return { ok: res.ok, status: res.status, text, data };
 }
@@ -371,6 +377,15 @@ async function callGemini(apiKey, contents, budget) {
   throw lastErr || new Error("Gemini no respondió");
 }
 
+// Los modelos de razonamiento (gpt-oss, qwen3) a veces devuelven su borrador
+// entre <think>…</think>. Es texto interno: el cliente no tiene por qué leerlo.
+function stripThinking(text) {
+  return String(text || "")
+    .replace(/<(think|thinking|reasoning)>[\s\S]*?<\/\1>/gi, "")
+    .replace(/^\s*<\/(?:think|thinking|reasoning)>/i, "")
+    .trim();
+}
+
 // ===== Groq (API compatible con OpenAI) =====
 async function groqOnce(apiKey, model, messages, maxTokens, timeoutMs) {
   const res = await fetchWithTimeout(`${GROQ_BASE}/chat/completions`, {
@@ -379,7 +394,7 @@ async function groqOnce(apiKey, model, messages, maxTokens, timeoutMs) {
     body: JSON.stringify({ model, messages, temperature: 0.7, top_p: 0.95, max_tokens: maxTokens || 700 }),
   }, timeoutMs);
   const data = await res.json().catch(() => ({}));
-  const text = res.ok ? (data?.choices?.[0]?.message?.content || "").trim() : "";
+  const text = res.ok ? stripThinking(data?.choices?.[0]?.message?.content) : "";
   return { ok: res.ok, status: res.status, text, data };
 }
 
@@ -401,19 +416,29 @@ function isModelGone(status, data) {
 
 // Modelos de chat que la clave tiene disponibles hoy, el más conveniente
 // primero. Se consulta solo cuando los modelos escritos arriba ya no existen.
+// Modelos que no sirven para conversar. El nombre no siempre lo canta:
+// "orpheus" es voz y "safeguard" es un clasificador de seguridad, así que la
+// lista va explícita en vez de adivinar por palabras sueltas.
+const GROQ_NOT_CHAT = /whisper|tts|orpheus|canopylabs|playai|guard|moderation|embed|vision|distil/i;
+
+function scoreGroqModel(id) {
+  let s = 0;
+  if (/gpt-oss/i.test(id)) s += 60;            // los mejores siguiendo instrucciones
+  if (/qwen/i.test(id)) s += 40;
+  if (/llama/i.test(id)) s += 35;
+  if (/120b|70b|versatile/i.test(id)) s += 10; // a igual familia, el grande primero
+  // Los "compound" son sistemas agénticos: buscan en la web por su cuenta, así
+  // que podrían citar precios de otro lado como si fueran nuestros.
+  if (/compound/i.test(id)) s -= 50;
+  if (/preview|beta|alpha/i.test(id)) s -= 20; // preferir estables
+  return s;
+}
+
 async function discoverGroqModels(apiKey) {
   if (GROQ_DISCOVERY_CACHE) return GROQ_DISCOVERY_CACHE;
   const ids = await groqModelList(apiKey);
-  const usable = ids.filter((id) => !/whisper|tts|guard|embed|vision|audio|distil/i.test(id));
-  const score = (id) => {
-    let s = 0;
-    if (/instant|8b|scout|mini/i.test(id)) s += 40;        // rápidos y con cuota holgada
-    if (/versatile|70b|120b|maverick/i.test(id)) s += 30;  // mejores respuestas
-    if (/llama|gpt-oss/i.test(id)) s += 10;
-    if (/preview|beta|alpha/i.test(id)) s -= 20;           // preferir estables
-    return s;
-  };
-  GROQ_DISCOVERY_CACHE = [...new Set(usable)].sort((a, b) => score(b) - score(a));
+  const usable = ids.filter((id) => !GROQ_NOT_CHAT.test(id));
+  GROQ_DISCOVERY_CACHE = [...new Set(usable)].sort((a, b) => scoreGroqModel(b) - scoreGroqModel(a));
   return GROQ_DISCOVERY_CACHE;
 }
 
