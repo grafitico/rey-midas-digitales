@@ -7,6 +7,13 @@
   var STORAGE_KEY = "rmd_chat_history_v1";
   var OPEN_KEY = "rmd_chat_open";
   var MAX_HISTORY = 30;
+  // La función de Vercel tiene 30s de tope; damos margen para la respuesta.
+  var REQUEST_TIMEOUT_MS = 40000;
+  var WA_FALLBACK =
+    "https://wa.me/50661468733?text=" +
+    encodeURIComponent("Hola, quiero hacer una consulta.");
+  var ERROR_TEXT =
+    "Uy, no pude responder ahora 😅. Probá de nuevo o escribinos por WhatsApp y te atendemos de una.";
 
   // Historial en memoria: [{role:'user'|'assistant', content, whatsapp?}]
   var history = [];
@@ -33,12 +40,21 @@
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-MAX_HISTORY)));
     } catch (e) { /* ignore */ }
   }
+  // Errores guardados por versiones anteriores del widget: si siguen en el
+  // historial de la pestaña, se le reenvían al modelo como si fueran respuestas
+  // suyas. Se limpian al cargar.
+  var STALE_ERROR = /^(uy, (no pude responder|se me trabó)|se me cayó la conexión)/i;
+
   function loadHistory() {
     try {
       var raw = sessionStorage.getItem(STORAGE_KEY);
       if (raw) {
         var arr = JSON.parse(raw);
-        if (Array.isArray(arr)) history = arr;
+        if (Array.isArray(arr)) {
+          history = arr.filter(function (m) {
+            return !(m && m.role === "assistant" && STALE_ERROR.test(String(m.content || "")));
+          });
+        }
       }
     } catch (e) { history = []; }
   }
@@ -74,6 +90,34 @@
     return row;
   }
 
+  // Los errores se muestran, pero NO entran al historial: si se guardaran, el
+  // modelo leería sus propias disculpas como contexto en cada consulta
+  // siguiente y el cliente se las encontraría de nuevo al recargar la página.
+  function clearError() {
+    var old = document.getElementById("rmdChatError");
+    if (old) old.remove();
+  }
+
+  function showError(text, wa) {
+    clearError();
+    var row = appendMessage("assistant", text || ERROR_TEXT, wa || WA_FALLBACK);
+    row.id = "rmdChatError";
+
+    var retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "rmd-chat-chip";
+    retry.textContent = "Reintentar";
+    retry.addEventListener("click", function () {
+      clearError();
+      requestReply();
+    });
+    var wrap = document.createElement("div");
+    wrap.className = "rmd-chat-chips";
+    wrap.appendChild(retry);
+    row.appendChild(wrap);
+    scrollDown();
+  }
+
   function showTyping() {
     var row = document.createElement("div");
     row.className = "rmd-chat-msg rmd-chat-msg--bot";
@@ -98,13 +142,13 @@
     ];
     var wrap = document.createElement("div");
     wrap.className = "rmd-chat-chips";
+    wrap.id = "rmdChatChips";
     chips.forEach(function (c) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "rmd-chat-chip";
       b.textContent = c;
       b.addEventListener("click", function () {
-        wrap.remove();
         sendMessage(c);
       });
       wrap.appendChild(b);
@@ -130,49 +174,109 @@
   }
 
   // ---------- envío ----------
-  function sendMessage(text) {
-    text = (text || "").trim();
-    if (!text || sending) return;
+  function setSending(on) {
+    sending = on;
+    els.send.disabled = on;
+    if (!on) els.input.focus();
+  }
 
-    sending = true;
-    els.send.disabled = true;
-    els.input.value = "";
-    autoGrow();
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
 
-    history.push({ role: "user", content: text });
-    appendMessage("user", text, null);
-    saveHistory();
-    showTyping();
-
-    var payload = { messages: history.map(function (m) { return { role: m.role, content: m.content }; }) };
-
-    fetch("/api/chat", {
+  // POST a /api/chat con timeout. Marca como .retryable lo que puede salir bien
+  // en un segundo intento (red caída, 5xx, respuesta ilegible).
+  function postChat(payload) {
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = ctrl
+      ? setTimeout(function () { ctrl.abort(); }, REQUEST_TIMEOUT_MS)
+      : null;
+    var opts = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    })
-      .then(function (r) { return r.json().catch(function () { return {}; }); })
+    };
+    if (ctrl) opts.signal = ctrl.signal;
+
+    return fetch("/api/chat", opts).then(
+      function (r) {
+        if (timer) clearTimeout(timer);
+        if (r.status >= 500) {
+          var e = new Error("HTTP " + r.status);
+          e.retryable = true;
+          throw e;
+        }
+        return r.json().catch(function () {
+          var e2 = new Error("respuesta ilegible");
+          e2.retryable = true;
+          throw e2;
+        });
+      },
+      function (err) {
+        // fetch rechaza por red caída o por el abort del timeout: los dos casos
+        // valen un reintento.
+        if (timer) clearTimeout(timer);
+        var e = err || new Error("fallo de red");
+        e.retryable = true;
+        throw e;
+      }
+    );
+  }
+
+  // Pide la respuesta al último turno del cliente. Es su propia función para
+  // que el botón "Reintentar" reenvíe el mismo historial sin duplicar mensajes.
+  function requestReply() {
+    if (sending) return;
+    var last = history[history.length - 1];
+    if (!last || last.role !== "user") return;
+
+    setSending(true);
+    clearError();
+    showTyping();
+
+    var payload = {
+      messages: history.map(function (m) { return { role: m.role, content: m.content }; }),
+    };
+
+    postChat(payload)
+      .catch(function (err) {
+        if (!err || !err.retryable) throw err;
+        return wait(900).then(function () { return postChat(payload); });
+      })
       .then(function (data) {
         hideTyping();
-        var reply = (data && data.reply) ||
-          "Uy, no pude responder ahora 😅. Probá de nuevo o escribinos por WhatsApp.";
+        var reply = data && data.reply;
         var wa = (data && data.whatsapp) || null;
+        if (!reply) throw new Error("sin respuesta");
+        // El servidor contestó, pero el modelo falló: es un error, no una
+        // respuesta del asistente, así que no se guarda como tal.
+        if (data.error) { showError(reply, wa); return; }
         history.push({ role: "assistant", content: reply, whatsapp: wa });
         appendMessage("assistant", reply, wa);
         saveHistory();
       })
       .catch(function () {
         hideTyping();
-        var reply = "Se me cayó la conexión un momento 😅. Probá otra vez en un ratito.";
-        history.push({ role: "assistant", content: reply, whatsapp: null });
-        appendMessage("assistant", reply, null);
-        saveHistory();
+        showError(ERROR_TEXT, WA_FALLBACK);
       })
-      .then(function () {
-        sending = false;
-        els.send.disabled = false;
-        els.input.focus();
-      });
+      .then(function () { setSending(false); });
+  }
+
+  function sendMessage(text) {
+    text = (text || "").trim();
+    if (!text || sending) return;
+
+    // Las sugerencias del saludo son para arrancar: una vez que el cliente
+    // escribió, estorban arriba de la conversación.
+    var chips = document.getElementById("rmdChatChips");
+    if (chips) chips.remove();
+
+    els.input.value = "";
+    autoGrow();
+    history.push({ role: "user", content: text });
+    appendMessage("user", text, null);
+    saveHistory();
+    requestReply();
   }
 
   // ---------- UI ----------
