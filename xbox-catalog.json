@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-09-05T08:54:23.479Z",
-  "count": 1976,
+  "updatedAt": "2026-09-06T09:14:24.706Z",
+  "count": 1975,
   "games": [
     {
       "id": "xbox-9NZVDWD2424H",
@@ -1333,22 +1333,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9PB3TP3MT2Q0",
-      "title": "Observer: System Redux",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.20021.14130880933980547.238f6421-fed2-49c3-af03-5f8b6847e13d.47590aff-ce42-4b1e-97cd-bbb68fff7e3a",
-      "url": "https://www.xbox.com/games/store/_/9PB3TP3MT2Q0",
-      "priceUSD": 3.07,
-      "originalPriceUSD": 12.26,
-      "onSale": true,
-      "discount": 75,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9PL2QBRJ0M3J",
       "title": "Otherworldly Horror Bundle",
       "platform": "Xbox",
@@ -1904,35 +1888,6 @@
       "isBundle": false
     },
     {
-      "id": "xbox-9P6VM3TM22ZJ",
-      "title": "Yello Adventures",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.32283.14612446684827609.9e025164-b003-4fbe-a9bd-5d3fe936d5d6.fa76b7b8-0bde-4ff7-8326-cf457e143fa2",
-      "url": "https://www.xbox.com/games/store/_/9P6VM3TM22ZJ",
-      "priceUSD": 0.19,
-      "originalPriceUSD": 0.48,
-      "onSale": true,
-      "discount": 60,
-      "consoles": [
-        "Xbox Series X|S",
-        "Xbox One"
-      ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9P05SK6N77CL",
-      "title": "Azerothian Chess: Battle of the Ages",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45123.14462557937848167.21f628c0-0a22-4856-bdaf-0eb331b865fb.65e6845e-c851-41e1-8c9f-7fcc1367b7ed",
-      "url": "https://www.xbox.com/games/store/_/9P05SK6N77CL",
-      "priceUSD": 2.69,
-      "originalPriceUSD": 6.72,
-      "onSale": true,
-      "discount": 60,
-      "consoles": [],
-      "isBundle": false
-    },
-    {
       "id": "xbox-9N6WQFSK8R3X",
       "title": "EBOLA VILLAGE",
       "platform": "Xbox",
@@ -2394,19 +2349,6 @@
       "consoles": [
         "Xbox Series X|S"
       ],
-      "isBundle": false
-    },
-    {
-      "id": "xbox-9NH5N7SVZCQB",
-      "title": "CT Wars Tower Defense",
-      "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.60138.13636567081890853.c24fff7c-fd62-42a2-a473-17c3620d6464.f3c648ee-1dba-4ac2-94e9-b182ec9add94",
-      "url": "https://www.xbox.com/games/store/_/9NH5N7SVZCQB",
-      "priceUSD": 3.36,
-      "originalPriceUSD": 6.72,
-      "onSale": true,
-      "discount": 50,
-      "consoles": [],
       "isBundle": false
     },
     {
@@ -10583,6 +10525,22 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P6VM3TM22ZJ",
+      "title": "Yello Adventures",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.32283.14612446684827609.9e025164-b003-4fbe-a9bd-5d3fe936d5d6.fa76b7b8-0bde-4ff7-8326-cf457e143fa2",
+      "url": "https://www.xbox.com/games/store/_/9P6VM3TM22ZJ",
+      "priceUSD": 0.48,
+      "originalPriceUSD": 0.48,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [
+        "Xbox Series X|S",
+        "Xbox One"
+      ],
+      "isBundle": false
+    },
+    {
       "id": "xbox-C3QT3QJ9GZPL",
       "title": "Adventure Time: Pirates of the Enchiridion",
       "platform": "Xbox",
@@ -12158,6 +12116,19 @@
       "isBundle": false
     },
     {
+      "id": "xbox-9P05SK6N77CL",
+      "title": "Azerothian Chess: Battle of the Ages",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.45123.14462557937848167.21f628c0-0a22-4856-bdaf-0eb331b865fb.65e6845e-c851-41e1-8c9f-7fcc1367b7ed",
+      "url": "https://www.xbox.com/games/store/_/9P05SK6N77CL",
+      "priceUSD": 6.72,
+      "originalPriceUSD": 6.72,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [],
+      "isBundle": false
+    },
+    {
       "id": "xbox-9PL5K9XJ9DNC",
       "title": "Aztech Forgotten Gods",
       "platform": "Xbox",
@@ -13324,6 +13295,19 @@
       "consoles": [
         "Xbox Series X|S"
       ],
+      "isBundle": false
+    },
+    {
+      "id": "xbox-9NH5N7SVZCQB",
+      "title": "CT Wars Tower Defense",
+      "platform": "Xbox",
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.60138.13636567081890853.c24fff7c-fd62-42a2-a473-17c3620d6464.f3c648ee-1dba-4ac2-94e9-b182ec9add94",
+      "url": "https://www.xbox.com/games/store/_/9NH5N7SVZCQB",
+      "priceUSD": 6.72,
+      "originalPriceUSD": 6.72,
+      "onSale": false,
+      "discount": 0,
+      "consoles": [],
       "isBundle": false
     },
     {
@@ -24375,13 +24359,13 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9PP0JBCHTNVR",
-      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv2",
+      "id": "xbox-9PHZXCT3Q9Q7",
+      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv1",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.9570.14334081643979100.1bb04652-e83f-4ef4-b41c-24eb5b39c358.8b1aae7b-1cbb-4f12-a8a9-a60efefc6b06",
-      "url": "https://www.xbox.com/games/store/_/9PP0JBCHTNVR",
-      "priceUSD": 0.53,
-      "originalPriceUSD": 0.53,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.12128.14226490296279096.0e5fa053-8068-48a5-9b8b-1e3d50920f49.74a71522-3024-45c2-bd4a-328eb8103253",
+      "url": "https://www.xbox.com/games/store/_/9PHZXCT3Q9Q7",
+      "priceUSD": 0.28,
+      "originalPriceUSD": 0.28,
       "onSale": false,
       "discount": 0,
       "consoles": [
@@ -24391,13 +24375,13 @@
       "isBundle": true
     },
     {
-      "id": "xbox-9PHZXCT3Q9Q7",
-      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv1",
+      "id": "xbox-9PP0JBCHTNVR",
+      "title": "SD GUNDAM BATTLE ALLIANCE MS Development - Super Pack Lv2",
       "platform": "Xbox",
-      "imageUrl": "https://store-images.s-microsoft.com/image/apps.12128.14226490296279096.0e5fa053-8068-48a5-9b8b-1e3d50920f49.74a71522-3024-45c2-bd4a-328eb8103253",
-      "url": "https://www.xbox.com/games/store/_/9PHZXCT3Q9Q7",
-      "priceUSD": 0.28,
-      "originalPriceUSD": 0.28,
+      "imageUrl": "https://store-images.s-microsoft.com/image/apps.9570.14334081643979100.1bb04652-e83f-4ef4-b41c-24eb5b39c358.8b1aae7b-1cbb-4f12-a8a9-a60efefc6b06",
+      "url": "https://www.xbox.com/games/store/_/9PP0JBCHTNVR",
+      "priceUSD": 0.53,
+      "originalPriceUSD": 0.53,
       "onSale": false,
       "discount": 0,
       "consoles": [
