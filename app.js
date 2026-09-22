@@ -174,12 +174,25 @@ async function initAuth() {
   }
   renderAuthSlot();
   const r = parseRoute();
-  if (["mi-cuenta", "admin", "login"].includes(r.name)) render();
+  if (["mi-cuenta", "admin", "login", "crear-cuenta"].includes(r.name)) render();
 }
 
 async function loginWithPassword(email, password) {
   try {
     const { user } = await apiPost("/api/auth", { action: "login", email, password });
+    setSessionHint();
+    currentUser = user;
+    usersExist = true;
+    renderAuthSlot();
+    return null;
+  } catch (err) {
+    return err;
+  }
+}
+
+async function registerClient(payload) {
+  try {
+    const { user } = await apiPost("/api/auth", { action: "register", ...payload });
     setSessionHint();
     currentUser = user;
     usersExist = true;
@@ -491,6 +504,7 @@ function parseRoute() {
   if (partes[0] === "resenas" || partes[0] === "reviews") return { name: "resenas" };
   if (partes[0] === "cofre") return { name: "cofre" };
   if (partes[0] === "login") return { name: "login" };
+  if (partes[0] === "crear-cuenta") return { name: "crear-cuenta" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
   if (partes[0] === "admin") return { name: "admin" };
   if (partes[0] === "p" && partes[1]) {
@@ -1069,6 +1083,7 @@ function render() {
   if (route.name === "cart") return renderCart();
   if (route.name === "cofre") return renderCofre();
   if (route.name === "login") return renderLogin();
+  if (route.name === "crear-cuenta") return renderRegister();
   if (route.name === "mi-cuenta") return renderMyAccount();
   if (route.name === "admin") return renderAdmin();
   return renderHome(route.page);
@@ -5546,8 +5561,8 @@ function renderLogin() {
           </label>
           <button type="submit" class="login-submit-btn">Entrar</button>
         </form>
-        <p class="auth-note">¿No tenés cuenta? Escribinos por WhatsApp y te creamos una al instante.</p>
-        <a class="cta-secondary" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito que me creen una cuenta para ver mis compras.")}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:0.6rem;">Pedir cuenta por WhatsApp</a>
+        <p class="auth-note">¿No tenés cuenta? <a href="/crear-cuenta" data-route="crear-cuenta">Creá la tuya gratis</a>, es un minuto.</p>
+        <a class="cta-secondary" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito ayuda para crear mi cuenta.")}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:0.6rem;">Pedir ayuda por WhatsApp</a>
 
         <div class="auth-download" id="authDownload">
           <span class="auth-download-sep">o descargá la app</span>
@@ -5579,6 +5594,68 @@ function renderLogin() {
       return;
     }
     navigate(currentUser.is_admin ? "/admin" : "/mi-cuenta");
+  });
+}
+
+function renderRegister() {
+  setPageMeta("Crear cuenta | Rey Midas Digitales");
+  if (currentUser) { navigate("/mi-cuenta"); return; }
+
+  app.innerHTML = `
+    <section class="container auth-page">
+      <div class="auth-card">
+        <h1>Creá tu cuenta</h1>
+        <p>Registrate para ver tus compras y tu progreso del Cofre de Oro. Te asignamos un número de cliente al instante.</p>
+        <form id="registerForm" class="login-form">
+          <label>Email
+            <input id="regEmail" type="email" required placeholder="vos@ejemplo.com" autocomplete="email">
+          </label>
+          <label>Nombre completo (opcional)
+            <input id="regName" type="text" placeholder="Tu nombre" autocomplete="name">
+          </label>
+          <label>Contraseña (mínimo 6 caracteres)
+            <input id="regPassword" type="password" required minlength="6" autocomplete="new-password">
+          </label>
+          <label>Celular (opcional)
+            <input id="regPhone" type="tel" placeholder="8888-8888" autocomplete="tel">
+          </label>
+          <label>Consola (opcional)
+            <select id="regConsole">
+              <option value="">— Seleccionar —</option>
+              <option value="PS5">PS5</option>
+              <option value="PS4">PS4</option>
+              <option value="XBOX">XBOX</option>
+              <option value="NINTENDO">NINTENDO</option>
+            </select>
+          </label>
+          <button type="submit" class="login-submit-btn">Crear cuenta</button>
+        </form>
+        <p class="auth-note">¿Ya tenés cuenta? <a href="/login" data-route="login">Iniciá sesión</a></p>
+      </div>
+    </section>
+  `;
+
+  const form = document.getElementById("registerForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("regEmail").value.trim();
+    const full_name = document.getElementById("regName").value.trim();
+    const password = document.getElementById("regPassword").value;
+    const phone = document.getElementById("regPhone").value.trim();
+    const consoleVal = document.getElementById("regConsole").value;
+    const btn = form.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.textContent = "Creando...";
+    const error = await registerClient({ email, password, full_name: full_name || null, phone: phone || null, console: consoleVal || null });
+    if (error) {
+      btn.disabled = false;
+      btn.textContent = "Crear cuenta";
+      showToast(error.message || "No pudimos crear la cuenta. Intentá de nuevo.");
+      return;
+    }
+    const idLabel = currentUser?.customer_number ? ` Tu número de cliente es ${fmtClientId(currentUser.customer_number)}.` : "";
+    showToast(`Cuenta creada ✓${idLabel}`);
+    navigate("/mi-cuenta");
   });
 }
 
@@ -5628,7 +5705,7 @@ async function renderMyAccount() {
     <section class="container account-page">
       <div class="account-header">
         <h1>Mi cuenta</h1>
-        <p>${escapeHtml(currentUser.full_name || currentUser.email)}</p>
+        <p>${escapeHtml(currentUser.full_name || currentUser.email)}${currentUser.customer_number ? ` · <span class="cp-id">${escapeHtml(fmtClientId(currentUser.customer_number))}</span>` : ""}</p>
         <div class="account-actions">
           <button class="cta-secondary small" id="changePwdBtn">Cambiar contraseña</button>
           <div id="acctDownload" class="account-download">

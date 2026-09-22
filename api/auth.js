@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     const body = await readJson(req);
     const action = body.action;
     if (action === "login") return await login(req, res, body);
+    if (action === "register") return await register(req, res, body);
     if (action === "me") return await me(req, res);
     if (action === "change-password") return await changePassword(req, res, body);
     if (action === "bootstrap") return await bootstrap(req, res, body);
@@ -84,6 +85,57 @@ async function login(req, res, body) {
       email: user.email,
       full_name: user.full_name,
       is_admin: user.is_admin,
+      customer_number: user.customer_number,
+    },
+  });
+}
+
+// Alta de cuenta de cliente por el propio usuario (sin admin de por medio).
+// Mismo patrón tolerante que api/clients.js create(): phone/console solo
+// viajan al insert si vienen con valor, para no romper si la migración
+// add_client_fields.sql todavía no corrió. El número de cliente lo asigna
+// solo la secuencia de la tabla (app_users_customer_number_seq).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function register(req, res, body) {
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  const fullName = body.full_name ? String(body.full_name).trim() : null;
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: "Ingresá un email válido" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres" });
+  }
+  const existing = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id`);
+  if (existing.length) {
+    return res.status(400).json({ error: "Ya existe una cuenta con ese email. Iniciá sesión." });
+  }
+  const insert = {
+    email,
+    password_hash: hashPassword(password),
+    is_admin: false,
+    full_name: fullName,
+  };
+  const phone = body.phone ? String(body.phone).trim() : null;
+  const consoleVal = body.console ? String(body.console).trim() : null;
+  if (phone) insert.phone = phone;
+  if (consoleVal) insert.console = consoleVal;
+  const inserted = await sb(`app_users`, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(insert),
+  });
+  const user = inserted[0];
+  const token = makeSessionToken(user.id);
+  setSessionCookie(res, token); // sesión en cookie HttpOnly, no en localStorage
+  res.status(200).json({
+    user: {
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      is_admin: false,
+      customer_number: user.customer_number,
     },
   });
 }

@@ -202,7 +202,7 @@ export async function requireAuth(req) {
     err.status = 401;
     throw err;
   }
-  const users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin`);
+  const users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin,customer_number`);
   const user = users[0];
   if (!user) {
     const err = new Error("Usuario no encontrado");
