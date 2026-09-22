@@ -124,6 +124,13 @@ const SESSION_HINT_KEY = "rmd_has_session";
 let currentUser = null;
 let usersExist = true; // se actualiza en initAuth(); controla el botón "Crear primer admin"
 
+// Volvemos de /api/auth-google con ?google=nuevo|ok en la URL. Lo capturamos
+// ACÁ (antes de que corra nada más) porque el render() de boot, si la ruta
+// es /mi-cuenta o /admin y currentUser todavía es null, hace un navigate()
+// a /login que pisa la query string — para cuando initAuth() lee
+// location.search, el ?google= ya no estaría.
+const initialGoogleFlag = new URLSearchParams(location.search).get("google");
+
 function hasSessionHint() { return localStorage.getItem(SESSION_HINT_KEY) === "1"; }
 function setSessionHint() { localStorage.setItem(SESSION_HINT_KEY, "1"); }
 function clearSessionHint() { localStorage.removeItem(SESSION_HINT_KEY); }
@@ -150,6 +157,11 @@ async function apiPost(path, body) {
 async function initAuth() {
   // Limpieza del esquema viejo (token en localStorage) por si quedó de antes.
   localStorage.removeItem("rmd_token_v1");
+  // Volvemos de /api/auth-google: el server ya dejó la cookie de sesión
+  // puesta, pero como el login pasó fuera del JS del cliente, el hint de
+  // localStorage todavía no existe. Lo forzamos para que dispare el "me".
+  const googleFlag = initialGoogleFlag;
+  if (googleFlag) setSessionHint();
   if (hasSessionHint()) {
     try {
       const { user } = await apiPost("/api/auth", { action: "me" });
@@ -171,6 +183,13 @@ async function initAuth() {
       const data = await test.json().catch(() => ({}));
       usersExist = data.usersExist === true;
     } catch { usersExist = true; }
+  }
+  if (googleFlag && currentUser) {
+    history.replaceState(null, "", location.pathname); // saca el ?google= de la URL
+    const idLabel = googleFlag === "nuevo" && currentUser.customer_number
+      ? ` Tu número de cliente es ${fmtClientId(currentUser.customer_number)}.`
+      : "";
+    showToast(googleFlag === "nuevo" ? `Cuenta creada con Google ✓${idLabel}` : "Sesión iniciada con Google ✓");
   }
   renderAuthSlot();
   const r = parseRoute();
@@ -5500,9 +5519,33 @@ function placeholderHTML() {
 // ============================================================
 // Login / Mi cuenta / Admin
 // ============================================================
+// Botón "Continuar con Google" — reusado en login y en crear-cuenta.
+// Es un link normal a /api/auth-google (GET): el server redirige a Google y
+// vuelve con la sesión ya creada, no hace falta JS ni tocar la CSP.
+function googleAuthButtonHTML() {
+  return `
+    <div class="auth-divider">o</div>
+    <a class="google-btn" href="/api/auth-google">
+      <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.85.87-3.04.87-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.97 10.73A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.19.29-1.73V4.94H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.06l3.01-2.33z"/>
+        <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.01 2.33C4.68 5.15 6.66 3.58 9 3.58z"/>
+      </svg>
+      Continuar con Google
+    </a>
+  `;
+}
+
 function renderLogin() {
   setPageMeta("Iniciar sesión | Rey Midas Digitales");
   if (currentUser) { navigate("/mi-cuenta"); return; }
+
+  const googleError = new URLSearchParams(location.search).get("google_error");
+  if (googleError) {
+    history.replaceState(null, "", location.pathname);
+    showToast(googleError, "error");
+  }
 
   // Si NO existe ningún usuario todavía, mostramos el form de "Crear primer admin".
   if (!usersExist) {
@@ -5561,6 +5604,7 @@ function renderLogin() {
           </label>
           <button type="submit" class="login-submit-btn">Entrar</button>
         </form>
+        ${googleAuthButtonHTML()}
         <p class="auth-note">¿No tenés cuenta? <a href="/crear-cuenta" data-route="crear-cuenta">Creá la tuya gratis</a>, es un minuto.</p>
         <a class="cta-secondary" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola, necesito ayuda para crear mi cuenta.")}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:0.6rem;">Pedir ayuda por WhatsApp</a>
 
@@ -5630,6 +5674,7 @@ function renderRegister() {
           </label>
           <button type="submit" class="login-submit-btn">Crear cuenta</button>
         </form>
+        ${googleAuthButtonHTML()}
         <p class="auth-note">¿Ya tenés cuenta? <a href="/login" data-route="login">Iniciá sesión</a></p>
       </div>
     </section>

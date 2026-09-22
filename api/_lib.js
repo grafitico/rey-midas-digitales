@@ -128,7 +128,11 @@ function b64urlDecode(s) {
   return Buffer.from(s, "base64");
 }
 
-function signPayload(payload) {
+// Genérico: firma cualquier payload con expiración opcional. Lo usan tanto
+// las cookies de sesión (makeSessionToken) como el "state" anti-CSRF del
+// login con Google (api/auth-google.js) — no hace falta guardar el state
+// en ningún lado, alcanza con que la firma y el exp den bien al volver.
+export function signPayload(payload) {
   if (!AUTH_SECRET) throw new Error("AUTH_SECRET no configurado");
   const head = b64url(JSON.stringify(payload));
   const sig = b64url(crypto.createHmac("sha256", AUTH_SECRET).update(head).digest());
