@@ -5540,7 +5540,7 @@ function googleAuthButtonHTML() {
 
 function renderLogin() {
   setPageMeta("Iniciar sesión | Rey Midas Digitales");
-  if (currentUser) { navigate("/mi-cuenta"); return; }
+  if (currentUser) { navigate(currentUser.is_admin ? "/admin" : "/mi-cuenta"); return; }
 
   const googleError = new URLSearchParams(location.search).get("google_error");
   if (googleError) {
@@ -5942,11 +5942,26 @@ async function renderAdmin() {
       <div class="admin-grid">
         <form id="purchaseForm" class="admin-form">
           <h2>Cargar nueva compra</h2>
-          <label>ID de cliente
-            <select name="client_email" id="clientSelect" required>
-              <option value="">— Seleccionar cliente —</option>
-            </select>
-          </label>
+          <div class="pf-client-field">
+            <span class="pf-client-label">Cliente</span>
+            <div id="pfSearchRow" class="admin-filters">
+              <label class="af-field">
+                <span>Código</span>
+                <input type="text" id="pfSearchCode" placeholder="RM-0001" autocomplete="off">
+              </label>
+              <label class="af-field af-term">
+                <span>Email</span>
+                <input type="text" id="pfSearchEmail" placeholder="cliente@ejemplo.com" autocomplete="off">
+              </label>
+              <label class="af-field af-term">
+                <span>Nombre</span>
+                <input type="text" id="pfSearchName" placeholder="Nombre o apellido" autocomplete="off">
+              </label>
+            </div>
+            <div id="pfClientResults" class="pf-client-results" hidden></div>
+            <div id="pfClientSelected" class="pf-client-selected" hidden></div>
+            <input type="hidden" name="client_email" id="clientSelect">
+          </div>
           <div class="row">
             <label>Fecha de compra
               <input name="purchase_date" type="date" required value="${new Date().toISOString().slice(0,10)}">
@@ -6276,9 +6291,10 @@ async function renderAdmin() {
   updateOfertaSecundariaLabel();
   setupSalesReport();
   setupClientSearch();
+  setupPurchaseClientPicker();
   setupOcultos();
   loadAdminPurchases();
-  loadClientsDropdown();
+  loadClientsCache();
   loadAdminBundles();
   loadCofreGamesAdmin();
   loadOfertasAdmin();
@@ -6812,35 +6828,24 @@ async function handleCreateClient(e) {
     form.querySelector('input[name="password"]').value = "";
     form.querySelector('input[name="phone"]').value = "";
     form.querySelector('select[name="console"]').value = "";
-    loadClientsDropdown();
+    loadClientsCache();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;
     status.className = "form-status error";
   }
 }
 
-// Cache en memoria de todos los clientes (para el <select> de Compras y para
-// la búsqueda de la pestaña Clientes). Se refresca cada vez que se crea o
-// edita un cliente.
+// Cache en memoria de todos los clientes (para el buscador de "Cargar
+// compra" y para la búsqueda de la pestaña Clientes). Se refresca cada vez
+// que se crea o edita un cliente.
 let allClientsCache = [];
 
-async function loadClientsDropdown() {
-  const sel = document.getElementById("clientSelect");
+async function loadClientsCache() {
   try {
     const { clients } = await apiPost("/api/clients", { action: "list" });
     allClientsCache = clients || [];
     renderClientSearchResults();
-    if (!sel) return;
-    const prev = sel.value;
-    sel.innerHTML = `<option value="">— Seleccionar cliente —</option>`;
-    allClientsCache.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.email;
-      const id = fmtClientId(c.customer_number);
-      opt.textContent = [id, c.email, c.full_name].filter(Boolean).join(" — ");
-      sel.appendChild(opt);
-    });
-    if (prev) sel.value = prev;
+    renderPurchaseClientResults();
   } catch (_) {}
 }
 
@@ -6934,6 +6939,94 @@ function setupClientSearch() {
     document.getElementById("clientDetailCard").hidden = true;
     document.getElementById("clientDetailPurchases").innerHTML = "";
     renderClientSearchResults();
+  });
+}
+
+// ===== Buscador de cliente en "Cargar nueva compra" =====
+// Reemplaza el <select> gigante de antes por 3 campos (código/email/nombre)
+// que filtran allClientsCache en vivo — mucho más rápido con muchos clientes.
+function filterPurchaseClientPicker() {
+  const code = normalizeSearch(document.getElementById("pfSearchCode")?.value.trim() || "");
+  const email = normalizeSearch(document.getElementById("pfSearchEmail")?.value.trim() || "");
+  const name = normalizeSearch(document.getElementById("pfSearchName")?.value.trim() || "");
+  if (!code && !email && !name) return null;
+  return allClientsCache.filter(c => {
+    if (code && !normalizeSearch(fmtClientId(c.customer_number)).includes(code)) return false;
+    if (email && !normalizeSearch(c.email || "").includes(email)) return false;
+    if (name && !normalizeSearch(c.full_name || "").includes(name)) return false;
+    return true;
+  }).slice(0, 8);
+}
+
+function renderPurchaseClientResults() {
+  const box = document.getElementById("pfClientResults");
+  if (!box) return;
+  const results = filterPurchaseClientPicker();
+  if (results === null) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  box.hidden = false;
+  if (!results.length) {
+    box.innerHTML = `<p class="empty-state-small">Sin resultados.</p>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="client-search-list">
+      ${results.map(c => `
+        <div class="client-search-row" data-email="${escapeAttr(c.email)}">
+          <span class="csr-id">${c.customer_number ? escapeHtml(fmtClientId(c.customer_number)) : ""}</span>
+          <span class="csr-name">${escapeHtml(c.full_name || "(sin nombre)")}</span>
+          <span class="csr-email">${escapeHtml(c.email)}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+  box.querySelectorAll("[data-email]").forEach(row => {
+    row.addEventListener("click", () => selectPurchaseClient(row.dataset.email));
+  });
+}
+
+function selectPurchaseClient(email) {
+  const client = allClientsCache.find(c => c.email === email);
+  if (!client) return;
+  document.getElementById("clientSelect").value = client.email;
+  ["pfSearchCode", "pfSearchEmail", "pfSearchName"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  document.getElementById("pfSearchRow").hidden = true;
+  const resultsBox = document.getElementById("pfClientResults");
+  resultsBox.hidden = true;
+  resultsBox.innerHTML = "";
+  const id = client.customer_number ? fmtClientId(client.customer_number) : "";
+  const selBox = document.getElementById("pfClientSelected");
+  selBox.hidden = false;
+  selBox.innerHTML = `
+    <span>${escapeHtml([id, client.full_name, client.email].filter(Boolean).join(" — "))}</span>
+    <button type="button" id="pfClientChange">✕ Cambiar</button>
+  `;
+  document.getElementById("pfClientChange").addEventListener("click", clearPurchaseClientSelection);
+}
+
+function clearPurchaseClientSelection() {
+  document.getElementById("clientSelect").value = "";
+  const selBox = document.getElementById("pfClientSelected");
+  selBox.hidden = true;
+  selBox.innerHTML = "";
+  document.getElementById("pfSearchRow").hidden = false;
+  document.getElementById("pfSearchCode")?.focus();
+}
+
+function setupPurchaseClientPicker() {
+  const inputs = ["pfSearchCode", "pfSearchEmail", "pfSearchName"];
+  let debounce;
+  inputs.forEach(id => {
+    document.getElementById(id)?.addEventListener("input", () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(renderPurchaseClientResults, 150);
+    });
   });
 }
 
@@ -7363,7 +7456,7 @@ function showClientProfile(client, cardId = "clientProfileCard") {
       client.full_name = fd.get("full_name") || null;
       client.phone = fd.get("phone") || null;
       client.console = fd.get("console") || null;
-      loadClientsDropdown();
+      loadClientsCache();
       showToast("✓ Datos actualizados");
       showClientProfile(client, cardId); // re-render con los datos nuevos (cierra el form)
     } catch (err) {
@@ -7490,13 +7583,20 @@ async function handleAdminSubmit(e) {
   const status = document.getElementById("purchaseFormStatus");
   const fd = new FormData(form);
 
+  const clientEmail = String(fd.get("client_email") || "").trim().toLowerCase();
+  if (!clientEmail) {
+    status.textContent = "Elegí un cliente primero (buscalo por código, email o nombre).";
+    status.className = "form-status error";
+    return;
+  }
+
   status.textContent = "Guardando...";
   status.className = "form-status";
 
   try {
     await apiPost("/api/purchases", {
       action: "create",
-      client_email: String(fd.get("client_email")).trim().toLowerCase(),
+      client_email: clientEmail,
       purchase_date: fd.get("purchase_date"),
       platform: fd.get("platform"),
       modality: fd.get("modality") || null,
@@ -7513,6 +7613,7 @@ async function handleAdminSubmit(e) {
     status.className = "form-status ok";
     form.reset();
     form.querySelector('input[name="purchase_date"]').value = new Date().toISOString().slice(0,10);
+    clearPurchaseClientSelection();
     loadAdminPurchases();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;

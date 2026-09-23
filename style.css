@@ -736,6 +736,44 @@ body {
 }
 .client-search-row button:hover { background: var(--gold); color: #1a0e02; }
 
+/* Buscador de cliente en "Cargar nueva compra" (código / email / nombre) */
+.pf-client-field { margin-bottom: 0.85rem; }
+.pf-client-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pf-client-field .admin-filters { margin-bottom: 0.5rem; }
+.pf-client-results { margin-bottom: 0.5rem; }
+.pf-client-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  background: rgba(245, 196, 81, 0.08);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.pf-client-selected button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+}
+.pf-client-selected button:hover { color: var(--magenta); border-color: var(--magenta); }
+
 /* Admin search bar */
 /* Admin tabs (Clientes / Compras / Bundles) */
 .admin-tabs {
