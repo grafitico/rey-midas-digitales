@@ -460,6 +460,7 @@ document.addEventListener("click", e => {
   if (url.origin !== location.origin) return;       // link externo
   if (a.download || a.target === "_blank") return;  // descarga / nueva pestaña
   if (url.pathname === location.pathname && url.hash) return; // ancla in-page
+  if (url.pathname.startsWith("/api/")) return;      // endpoint del server (ej: /api/auth-google), no una ruta de la SPA
   e.preventDefault();
   navigate(url.pathname);
 });
