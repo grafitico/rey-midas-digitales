@@ -30,6 +30,7 @@
     { "source": "/reservaciones", "destination": "/vip", "permanent": true }
   ],
   "rewrites": [
+    { "source": "/api/auth-google", "destination": "/api/auth" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
