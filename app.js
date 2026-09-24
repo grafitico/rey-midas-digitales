@@ -453,6 +453,7 @@ function navigate(path) {
 
 // Intercepta clicks en links internos para evitar recarga completa de página.
 document.addEventListener("click", e => {
+  if (e.target.closest("[data-share-url]")) return; // el botón de compartir maneja su propio click
   const a = e.target.closest("a[href]");
   if (!a) return;
   let url;
@@ -1344,6 +1345,7 @@ async function renderProduct(id) {
           ${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}">` : `${placeholderHTML()}`}
           ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
           ${g.comingSoon ? `<span class="badge-preventa">Preventa</span>` : ""}
+          ${shareButtonHTML(g, principal, "product-share-btn")}
         </div>
         <div class="product-info">
           <span class="product-platform">${escapeHtml(g.platform)}</span>
@@ -5314,6 +5316,7 @@ function cardHTML(g) {
         ${g.onSale && g.discount ? `<span class="badge-sale">-${g.discount}%</span>` : ""}
         ${g.comingSoon ? `<span class="badge-preventa">Preventa</span>` : ""}
         <span class="badge-platform">${escapeHtml(g.platform)}</span>
+        ${shareButtonHTML(g, principal, "card-share-btn")}
       </div>
       <div class="card-body">
         <div class="card-title">${escapeHtml(g.title)}</div>
@@ -5435,6 +5438,52 @@ function formatCRC(amount) {
   }).format(amount);
 }
 
+// ============================================================
+// Compartir juego
+// ============================================================
+// El middleware (middleware.js) prerenderiza og:image/og:title/og:description
+// con la portada, el nombre y el precio de cuenta principal para bots como
+// WhatsApp/Facebook, así que basta con compartir la URL del producto: la
+// vista previa ya sale con portada + precio + nombre sin generar nada extra.
+function productUrl(g) {
+  return `${location.origin}/producto/${encodeURIComponent(g.id)}`;
+}
+
+function shareButtonHTML(g, principal, extraClass = "") {
+  const priceLabel = principal != null ? formatCRC(principal) : "";
+  return `
+    <button type="button" class="share-btn ${extraClass}" data-share-url="${escapeAttr(productUrl(g))}" data-share-title="${escapeAttr(g.title)}" data-share-price="${escapeAttr(priceLabel)}" aria-label="Compartir ${escapeAttr(g.title)}" title="Compartir">
+      ${ICONS.share}
+    </button>
+  `;
+}
+
+async function shareGame(url, title, priceLabel) {
+  const text = priceLabel ? `${title} — ${priceLabel}` : title;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+    } catch (err) {
+      if (err && err.name !== "AbortError") showToast("No se pudo compartir", "error");
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast("Enlace copiado");
+  } catch {
+    window.open(`https://wa.me/?text=${encodeURIComponent(text + " " + url)}`, "_blank", "noopener");
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-share-url]");
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  shareGame(btn.dataset.shareUrl, btn.dataset.shareTitle, btn.dataset.sharePrice || "");
+});
+
 // Actualiza <title> y las meta tags og:title / description / og:url de la página.
 function setPageMeta(title, description, image) {
   document.title = title;
@@ -5510,6 +5559,7 @@ const ICONS = {
   warning: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   chevronLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
   chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  share: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
 };
 
 function placeholderHTML() {

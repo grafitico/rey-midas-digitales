@@ -1892,6 +1892,36 @@ body {
   border: 1px solid rgba(0, 229, 255, 0.3);
 }
 
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.18s, transform 0.18s, border-color 0.18s;
+}
+.share-btn svg { width: 16px; height: 16px; }
+.share-btn:hover { background: var(--cyan); color: #001018; border-color: var(--cyan); transform: scale(1.08); }
+.card-share-btn {
+  position: absolute;
+  bottom: 0.65rem;
+  right: 0.65rem;
+  width: 32px;
+  height: 32px;
+}
+.product-share-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 42px;
+  height: 42px;
+}
+.product-share-btn svg { width: 19px; height: 19px; }
+
 /* Sello de preventa/próximamente (esquina superior izquierda) */
 .badge-preventa {
   position: absolute;
