@@ -97,13 +97,29 @@ async function fetchAllMessages() {
     const url = beforeId ? `${TG_BASE}?before=${beforeId}` : TG_BASE;
     console.log(`[scrape] Page ${page + 1}: GET ${url}`);
 
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
-      },
-    });
+    // Los errores de red transitorios ("fetch failed") reintentan con espera;
+    // si persisten se trata como un corte de paginación (escaneo NO CONFIABLE)
+    // en vez de tirar abajo toda la corrida.
+    let r = null;
+    for (let attempt = 1; attempt <= 4 && !r; attempt++) {
+      try {
+        r = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml",
+            "Accept-Language": "es-CR,es;q=0.9,en;q=0.8",
+          },
+        });
+      } catch (err) {
+        console.error(`[scrape] Error de red en ${url} (intento ${attempt}/4): ${err.message}`);
+        if (attempt < 4) await new Promise(res => setTimeout(res, 2000 * attempt));
+      }
+    }
+    if (!r) {
+      console.error(`[scrape] Sin respuesta tras 4 intentos — corto la paginación (escaneo NO CONFIABLE).`);
+      trustworthy = false;
+      break;
+    }
     if (!r.ok) {
       console.error(`[scrape] HTTP ${r.status} en ${url} — corto la paginación (escaneo NO CONFIABLE).`);
       trustworthy = false;
