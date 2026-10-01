@@ -3694,7 +3694,7 @@ function comboEligible(g, t) {
   return p > 0 && p <= t.maxJuegoCRC;
 }
 function comboWaURL(t, picks) {
-  const lines = picks.map((p, i) => `${i + 1}. ${p.title} (${p.platform}) — CUENTA SECUNDARIA`);
+  const lines = picks.map((p, i) => `${i + 1}. ${p.title} (${p.platform})`);
   const msg = [
     `Hola Rey Midas, quiero armar mi *3X1 Combo: 3 juegos por ${formatCRC(t.precio)}*`,
     "",
@@ -3756,7 +3756,7 @@ async function renderCombo(precio) {
           </div>
         </aside>
       </div>
-      <p class="cofre-fine-print">Los juegos del combo se entregan en <strong>cuenta secundaria</strong>. Te confirmamos disponibilidad y los datos de pago (SINPE Móvil o transferencia) por WhatsApp.</p>
+      <p class="cofre-fine-print">Te confirmamos disponibilidad y los datos de pago (SINPE Móvil o transferencia) por WhatsApp.</p>
     </section>
   `;
 
