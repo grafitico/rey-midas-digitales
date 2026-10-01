@@ -524,6 +524,7 @@ function parseRoute() {
   }
   if (partes[0] === "resenas" || partes[0] === "reviews") return { name: "resenas" };
   if (partes[0] === "cofre") return { name: "cofre" };
+  if (partes[0] === "combo") return { name: "combo", precio: parseInt(partes[1], 10) || 0 };
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "crear-cuenta") return { name: "crear-cuenta" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
@@ -541,7 +542,8 @@ function navigateActive() {
     const active =
       (route.name === "home" && r === "home") ||
       (route.name === "platform" && r === route.platform) ||
-      (route.name === "cart" && r === "cart");
+      (route.name === "cart" && r === "cart") ||
+      (route.name === "combo" && r === (route.precio ? `combo-${route.precio}` : "combo-all"));
     a.classList.toggle("active", active);
   });
 }
@@ -1103,6 +1105,7 @@ function render() {
   if (route.name === "resenas") return renderResenas();
   if (route.name === "cart") return renderCart();
   if (route.name === "cofre") return renderCofre();
+  if (route.name === "combo") return renderCombo(route.precio);
   if (route.name === "login") return renderLogin();
   if (route.name === "crear-cuenta") return renderRegister();
   if (route.name === "mi-cuenta") return renderMyAccount();
@@ -3647,6 +3650,233 @@ async function renderCofre() {
       </div>
     </article>
   `).join("");
+}
+
+
+// ============================================================
+// 3X1 Combo — el cliente arma 3 juegos por un precio fijo (₡5.000 / ₡7.500 /
+// ₡10.000) y envía el pedido por WhatsApp. Los tramos y el precio máximo de
+// cada juego (cuenta secundaria) se editan en combos.json.
+// ============================================================
+const COMBO_SLOTS = 3;
+const COMBO_KEY = "rmd_combo_v1";
+const COMBO_DEFAULT_TRAMOS = [
+  { precio: 5000, maxJuegoCRC: 2000, incluir: [], excluir: [] },
+  { precio: 7500, maxJuegoCRC: 3000, incluir: [], excluir: [] },
+  { precio: 10000, maxJuegoCRC: 4000, incluir: [], excluir: [] },
+];
+let comboTramos = null;
+async function ensureComboTramos() {
+  if (comboTramos) return comboTramos;
+  try {
+    const data = await fetch("/combos.json").then(r => r.json());
+    const t = (data?.tramos || []).filter(x => Number(x.precio) > 0 && Number(x.maxJuegoCRC) > 0);
+    comboTramos = t.length ? t : COMBO_DEFAULT_TRAMOS;
+  } catch { comboTramos = COMBO_DEFAULT_TRAMOS; }
+  return comboTramos;
+}
+function loadComboState() {
+  try { return JSON.parse(localStorage.getItem(COMBO_KEY) || "{}"); } catch { return {}; }
+}
+function saveComboState(state) {
+  try { localStorage.setItem(COMBO_KEY, JSON.stringify(state)); } catch {}
+}
+function comboPrice(g) {
+  return g._manualPrices ? Number(g.priceCRC_secundaria) : secundariaCRC(g.priceUSD, g.platform);
+}
+function comboEligible(g, t) {
+  if (!g || !g.title || g.isBundle || g.type === "bundle" || g.comingSoon) return false;
+  if (!/PS|Xbox/i.test(g.platform || "")) return false;
+  if ((t.excluir || []).includes(g.id)) return false;
+  if ((t.incluir || []).includes(g.id)) return true;
+  if (!hasSellablePrice(g)) return false;
+  const p = comboPrice(g);
+  return p > 0 && p <= t.maxJuegoCRC;
+}
+function comboWaURL(t, picks) {
+  const lines = picks.map((p, i) => `${i + 1}. ${p.title} (${p.platform}) — CUENTA SECUNDARIA`);
+  const msg = [
+    `Hola Rey Midas, quiero armar mi *3X1 Combo: 3 juegos por ${formatCRC(t.precio)}*`,
+    "",
+    ...lines,
+    "",
+    `*Total: ${formatCRC(t.precio)}*`,
+    "",
+    "¿Me confirman disponibilidad y datos de pago? Gracias.",
+  ].join("\n");
+  return `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`;
+}
+
+async function renderCombo(precio) {
+  const tramos = await ensureComboTramos();
+  const t = tramos.find(x => x.precio === precio);
+  if (!t) return renderComboIndex(tramos);
+
+  setPageMeta(
+    `3X1 Combo: 3 juegos por ${formatCRC(t.precio)} | Rey Midas Digitales`,
+    `Armá tu combo de 3 juegos de PS5, PS4 o Xbox por ${formatCRC(t.precio)} y envialo por WhatsApp. Rey Midas Digitales, Costa Rica.`
+  );
+  const tabs = tramos.map(x => `
+    <a class="combo-tab${x.precio === t.precio ? " active" : ""}" href="/combo/${x.precio}">
+      <span class="combo-tab-n">3 juegos</span>
+      <span class="combo-tab-p">${formatCRC(x.precio)}</span>
+    </a>`).join("");
+  app.innerHTML = `
+    <section class="container combo-page">
+      <div class="combo-hero">
+        <h1>3X1 Combo</h1>
+        <p>Elegí tu combo, escogé <strong>3 juegos</strong> y envianos el pedido por WhatsApp.</p>
+      </div>
+      <div class="combo-tabs">${tabs}</div>
+      <div class="combo-layout">
+        <div class="combo-main">
+          <p class="combo-count" id="comboCount"></p>
+          <div id="comboGrid" class="combo-grid"><div class="status">Cargando juegos...</div></div>
+          <div id="comboMore" class="pagination"></div>
+        </div>
+        <aside class="combo-side">
+          <div class="combo-box">
+            <h3>Tu combo</h3>
+            <div class="combo-slots" id="comboSlots"></div>
+            <div class="combo-send" id="comboSend"></div>
+          </div>
+          <div class="combo-box">
+            <input type="search" id="comboSearch" class="combo-search" placeholder="Buscar juego..." aria-label="Buscar juego" autocomplete="off">
+            <h3>Ordenar</h3>
+            <select id="comboSort" class="combo-search" aria-label="Ordenar">
+              <option value="rel">Los más vendidos</option>
+              <option value="asc">Precio: menor a mayor</option>
+              <option value="desc">Precio: mayor a menor</option>
+              <option value="az">Nombre A-Z</option>
+            </select>
+            <h3>Plataforma</h3>
+            <div class="combo-radios" id="comboChips">
+              ${["Todos", "PS5", "PS4", "Xbox"].map((p, i) => `<button type="button" class="combo-radio${i === 0 ? " active" : ""}" data-plat="${p}"><span>${p}</span><i></i></button>`).join("")}
+            </div>
+          </div>
+        </aside>
+      </div>
+      <p class="cofre-fine-print">Los juegos del combo se entregan en <strong>cuenta secundaria</strong>. Te confirmamos disponibilidad y los datos de pago (SINPE Móvil o transferencia) por WhatsApp.</p>
+    </section>
+  `;
+
+  const state = loadComboState();
+  let picks = Array.isArray(state[t.precio]) ? state[t.precio].slice(0, COMBO_SLOTS) : [];
+  let query = "", plat = "Todos", sort = "rel", shown = 24;
+  let eligible = [];
+  const slotsBox = document.getElementById("comboSlots");
+  const sendBox = document.getElementById("comboSend");
+  const gridBox = document.getElementById("comboGrid");
+  const moreBox = document.getElementById("comboMore");
+
+  const persist = () => { state[t.precio] = picks; saveComboState(state); };
+  const paintSlots = () => {
+    slotsBox.innerHTML = Array.from({ length: COMBO_SLOTS }, (_, i) => {
+      const p = picks[i];
+      if (!p) return `<div class="combo-slot empty"><span class="combo-slot-n">${i + 1}</span><span>Elegí un juego</span></div>`;
+      return `<div class="combo-slot filled">
+        <div class="combo-slot-img">${p.imageUrl ? `<img src="${escapeAttr(p.imageUrl)}" alt="">` : placeholderHTML()}</div>
+        <div class="combo-slot-info"><span class="cart-platform">${escapeHtml(p.platform)}</span><strong>${escapeHtml(p.title)}</strong></div>
+        <button type="button" class="combo-slot-x" data-slot="${i}" aria-label="Quitar ${escapeAttr(p.title)}">&times;</button>
+      </div>`;
+    }).join("");
+    const full = picks.length === COMBO_SLOTS;
+    sendBox.innerHTML = full
+      ? `<a class="cta combo-send-btn" href="${comboWaURL(t, picks)}" target="_blank" rel="noopener">Enviar mi combo por WhatsApp · ${formatCRC(t.precio)}</a>`
+      : `<p class="combo-send-hint">Llevás <strong>${picks.length}/${COMBO_SLOTS}</strong> juegos. ${picks.length ? "Te faltan " + (COMBO_SLOTS - picks.length) + "." : "Elegí 3 para enviar tu combo."}</p>`;
+  };
+  const paintGrid = () => {
+    const q = query.trim().toLowerCase();
+    const list = eligible.filter(g =>
+      (plat === "Todos" || g.platform.includes(plat)) && (!q || g.title.toLowerCase().includes(q)));
+    if (sort === "asc") list.sort((x, y) => comboPrice(x) - comboPrice(y));
+    else if (sort === "desc") list.sort((x, y) => comboPrice(y) - comboPrice(x));
+    else if (sort === "az") list.sort((x, y) => x.title.localeCompare(y.title, "es"));
+    document.getElementById("comboCount").textContent = `Mostrando ${Math.min(shown, list.length)} de ${list.length} juegos`;
+    if (!list.length) {
+      gridBox.innerHTML = `<p class="empty-state-small">No encontramos juegos con ese filtro para este combo.</p>`;
+      moreBox.innerHTML = "";
+      return;
+    }
+    const taken = new Set(picks.map(p => p.id));
+    const full = picks.length >= COMBO_SLOTS;
+    gridBox.innerHTML = list.slice(0, shown).map(g => {
+      const on = taken.has(g.id);
+      return `<button type="button" class="combo-game${on ? " selected" : ""}" data-id="${escapeAttr(g.id)}"${!on && full ? " disabled" : ""}>
+        <span class="combo-game-img">${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="" loading="lazy" decoding="async">` : placeholderHTML()}<span class="badge-platform">${escapeHtml(g.platform)}</span></span>
+        <span class="combo-game-title">${escapeHtml(g.title)}</span>
+        <span class="combo-game-act">${on ? "✓ En tu combo" : "Agregar"}</span>
+      </button>`;
+    }).join("");
+    moreBox.innerHTML = list.length > shown
+      ? `<button type="button" class="cta-secondary" id="comboMoreBtn">Ver más juegos (${list.length - shown})</button>` : "";
+  };
+
+  slotsBox.addEventListener("click", e => {
+    const b = e.target.closest("[data-slot]");
+    if (!b) return;
+    picks.splice(Number(b.dataset.slot), 1);
+    persist(); paintSlots(); paintGrid();
+  });
+  gridBox.addEventListener("click", e => {
+    const b = e.target.closest("[data-id]");
+    if (!b || b.disabled) return;
+    const idx = picks.findIndex(p => p.id === b.dataset.id);
+    if (idx >= 0) picks.splice(idx, 1);
+    else {
+      if (picks.length >= COMBO_SLOTS) return;
+      const g = eligible.find(x => x.id === b.dataset.id);
+      if (!g) return;
+      picks.push({ id: g.id, title: g.title, platform: g.platform, imageUrl: g.imageUrl || "" });
+    }
+    persist(); paintSlots(); paintGrid();
+  });
+  moreBox.addEventListener("click", e => {
+    if (e.target.closest("#comboMoreBtn")) { shown += 24; paintGrid(); }
+  });
+  document.getElementById("comboSearch").addEventListener("input", e => { query = e.target.value; shown = 24; paintGrid(); });
+  document.getElementById("comboSort").addEventListener("change", e => { sort = e.target.value; shown = 24; paintGrid(); });
+  document.getElementById("comboChips").addEventListener("click", e => {
+    const b = e.target.closest("[data-plat]");
+    if (!b) return;
+    plat = b.dataset.plat; shown = 24;
+    document.querySelectorAll("#comboChips .combo-radio").forEach(c => c.classList.toggle("active", c === b));
+    paintGrid();
+  });
+
+  paintSlots();
+  if (!fullCatalogLoaded) await ensureFullCatalog();
+  const r = parseRoute();
+  if (!(r.name === "combo" && r.precio === t.precio)) return; // el usuario ya navegó a otra vista
+  const seen = new Set();
+  eligible = allGames.filter(g => comboEligible(g, t) && !seen.has(g.id) && seen.add(g.id));
+  // Si un juego guardado ya no está en este combo (cambió el tramo o el precio), se descarta.
+  picks = picks.filter(p => seen.has(p.id));
+  persist(); paintSlots(); paintGrid();
+}
+
+function renderComboIndex(tramos) {
+  setPageMeta(
+    "3X1 Combo: armá tu combo de 3 juegos | Rey Midas Digitales",
+    "Elegí 3 juegos de PS5, PS4 o Xbox por ₡5.000, ₡7.500 o ₡10.000 y enviá tu pedido por WhatsApp."
+  );
+  app.innerHTML = `
+    <section class="container combo-page">
+      <div class="combo-hero">
+        <h1>3X1 Combo</h1>
+        <p><strong>Armá tu combo de juegos</strong>: elegí el combo, escogé 3 juegos y enviá el pedido por WhatsApp.</p>
+      </div>
+      <div class="combo-index">
+        ${tramos.map(x => `
+          <a class="combo-card" href="/combo/${x.precio}">
+            <span class="combo-card-n">3 juegos</span>
+            <span class="combo-card-p">${formatCRC(x.precio)}</span>
+            <span class="combo-card-sub">Juegos de hasta ${formatCRC(x.maxJuegoCRC)} c/u</span>
+            <span class="cta combo-card-cta">Armar este combo</span>
+          </a>`).join("")}
+      </div>
+    </section>
+  `;
 }
 
 // ============================================================

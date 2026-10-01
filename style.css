@@ -5473,3 +5473,74 @@ html { scroll-behavior: smooth; }
     border: none;
   }
 }
+
+/* ============================================================
+   3X1 Combo
+   ============================================================ */
+.nav-combo { color: var(--gold-bright); }
+.combo-page { padding-top: 1.5rem; padding-bottom: 3rem; }
+.combo-hero { text-align: center; margin-bottom: 1.25rem; }
+.combo-hero h1 { font-size: 2rem; color: var(--gold); }
+.combo-hero p { color: var(--text-dim); margin-top: .35rem; }
+.combo-tabs, .combo-index { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; margin-bottom: 1.25rem; }
+.combo-tab, .combo-card {
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  padding: .85rem .5rem; border-radius: 12px; text-decoration: none; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border); transition: all .15s;
+}
+.combo-tab:hover, .combo-card:hover { border-color: var(--gold); }
+.combo-tab.active { border-color: var(--gold); background: linear-gradient(135deg, rgba(245,196,81,.18), rgba(0,229,255,.06)); }
+.combo-tab-n, .combo-card-n { font-size: .8rem; color: var(--text-dim); }
+.combo-tab-p { font-size: 1.15rem; font-weight: 800; color: var(--gold-bright); }
+.combo-card { padding: 1.5rem 1rem; gap: .4rem; }
+.combo-card-p { font-size: 1.8rem; font-weight: 800; color: var(--gold-bright); }
+.combo-card-sub { font-size: .8rem; color: var(--text-dim); }
+.combo-card-cta { margin-top: .6rem; }
+.combo-slots { display: grid; gap: .6rem; }
+.combo-slot {
+  position: relative; display: flex; align-items: center; gap: .6rem; min-height: 76px; padding: .6rem;
+  border-radius: 12px; background: var(--bg-card); border: 1px dashed var(--border); color: var(--text-dim); font-size: .85rem;
+}
+.combo-slot.filled { border-style: solid; border-color: var(--gold); color: var(--text); }
+.combo-slot-n { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-elev); font-weight: 800; }
+.combo-slot-img { flex: 0 0 52px; height: 52px; border-radius: 8px; overflow: hidden; background: var(--bg-elev); }
+.combo-slot-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.combo-slot-info { display: flex; flex-direction: column; min-width: 0; gap: .15rem; }
+.combo-slot-info strong { font-size: .85rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.combo-slot-x { position: absolute; top: 2px; right: 6px; background: none; border: 0; color: var(--text-dim); font-size: 1.3rem; cursor: pointer; }
+.combo-slot-x:hover { color: var(--magenta); }
+.combo-send { margin-top: .9rem; text-align: center; }
+.combo-send-hint { color: var(--text-dim); }
+.combo-send-btn { display: block; width: 100%; background: var(--green); color: #04130c; }
+.combo-layout { display: grid; grid-template-columns: 1fr 290px; gap: 1.5rem; align-items: start; }
+.combo-count { color: var(--text-dim); font-size: .85rem; margin-bottom: .75rem; }
+.combo-side { position: sticky; top: 90px; display: flex; flex-direction: column; gap: 1rem; }
+.combo-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+.combo-box h3 { font-size: .95rem; margin: .9rem 0 .5rem; }
+.combo-box h3:first-child { margin-top: 0; }
+.combo-search { width: 100%; padding: .65rem .9rem; border-radius: 10px; background: var(--bg-elev); border: 1px solid var(--border); color: var(--text); font: inherit; }
+.combo-radios { display: flex; flex-direction: column; }
+.combo-radio { display: flex; justify-content: space-between; align-items: center; padding: .65rem .2rem; background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text); font: inherit; font-size: .9rem; cursor: pointer; }
+.combo-radio i { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text-dim); }
+.combo-radio.active i { border-color: var(--gold); background: radial-gradient(var(--gold) 45%, transparent 50%); }
+.combo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem; }
+.combo-game {
+  display: flex; flex-direction: column; text-align: left; padding: 0; overflow: hidden; cursor: pointer; font: inherit;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; color: var(--text); transition: all .15s;
+}
+.combo-game:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-2px); }
+.combo-game:disabled { opacity: .4; cursor: not-allowed; }
+.combo-game.selected { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.combo-game-img { position: relative; aspect-ratio: 1; background: var(--bg-elev); }
+.combo-game-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.combo-game-title { padding: .5rem .6rem 0; font-size: .82rem; font-weight: 600; min-height: 2.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.combo-game-act { padding: .3rem .6rem .6rem; font-size: .78rem; font-weight: 700; color: var(--gold-bright); }
+.combo-game.selected .combo-game-act { color: var(--green); }
+@media (max-width: 640px) {
+  .combo-layout { grid-template-columns: 1fr; } .combo-side { position: static; order: -1; }
+  .combo-grid { grid-template-columns: repeat(2, 1fr); }
+  .combo-card { padding: 1rem .4rem; } .combo-card-p { font-size: 1.2rem; }
+  .combo-card-cta { display: none; }
+}
+.combo-slot-info .cart-platform { align-self: flex-start; }
+@media (max-width: 640px) { .combo-slot { min-height: 56px; } .combo-slot.empty { padding: .4rem .6rem; } }
