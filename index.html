@@ -32,6 +32,9 @@
   <meta name="apple-mobile-web-app-title" content="Rey Midas">
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 
+  <!-- El banner principal se descubre tarde (banners.json → JS → slider); lo precargamos. -->
+  <link rel="preload" as="image" href="/assets/banner-1.webp" type="image/webp" fetchpriority="high">
+  <link rel="preconnect" href="https://image.api.playstation.com">
   <link rel="preconnect" href="https://www.youtube-nocookie.com">
   <link rel="preconnect" href="https://www.youtube.com">
   <link rel="stylesheet" href="/style.css?v=20260825-mt8wrhrm">
@@ -40,7 +43,7 @@
   <header class="topbar">
     <div class="container topbar-inner">
       <a href="/" class="brand">
-        <img src="/assets/logo.png?v=2" alt="Rey Midas Digitales" class="brand-logo" width="960" height="540">
+        <img src="/assets/logo-sm.webp?v=1" alt="Rey Midas Digitales" class="brand-logo" width="320" height="180" fetchpriority="high">
       </a>
 
       <div class="topbar-actions">
@@ -177,7 +180,7 @@
     </div>
     <div class="container footer-grid">
       <div class="footer-col">
-        <img src="/assets/logo.png?v=2" alt="" class="footer-logo">
+        <img src="/assets/logo-sm.webp?v=1" alt="" class="footer-logo" width="320" height="180" loading="lazy" decoding="async">
         <p class="footer-tagline">Tu tienda de juegos digitales en Costa Rica. PS5, PS4, Xbox y Nintendo Switch al mejor precio.</p>
         <div class="footer-social">
           <a id="waLink" href="#" target="_blank" rel="noopener" aria-label="WhatsApp">

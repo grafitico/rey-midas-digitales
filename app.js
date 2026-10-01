@@ -687,7 +687,7 @@ function finalizeAllGames(games) {
 async function load() {
   try {
     const [psn, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers, always] = await Promise.allSettled([
-      fetch("/api/scrape").then(r => r.json()),
+      fetch("/api/scrape", { signal: AbortSignal.timeout(8000) }).then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -698,7 +698,7 @@ async function load() {
       fetch("/game-pass.json").then(r => r.json()),
       fetch("/reservaciones.json").then(r => r.json()),
       fetch("/featured-games.json").then(r => r.json()),
-      fetch("/api/featured-prices").then(r => r.json()).catch(() => ({})),
+      fetch("/api/featured-prices", { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
       fetch("/covers.json").then(r => r.json()).catch(() => ({})),
       fetch("/always-show.json").then(r => r.json()).catch(() => ({})),
@@ -3939,7 +3939,7 @@ function heroHTML() {
       <section class="hero-slider" id="heroSlider">
         ${banners.map((b, i) => `
           <div class="hero-slide ${i === 0 ? "active" : ""}" data-index="${i}">
-            <img src="${escapeAttr(b.image)}" alt="${escapeAttr(b.title || "")}" loading="${i === 0 ? "eager" : "lazy"}" onerror="this.parentElement.classList.add('no-img')">
+            <img src="${escapeAttr(b.image)}" alt="${escapeAttr(b.title || "")}" loading="${i === 0 ? "eager" : "lazy"}"${i === 0 ? ' fetchpriority="high"' : ""} onerror="this.parentElement.classList.add('no-img')">
             <div class="hero-slide-overlay">
               <div class="container">
                 ${b.title ? `<h1 class="hero-title">${escapeHtml(b.title)}</h1>` : ""}
@@ -3963,7 +3963,7 @@ function heroHTML() {
     <section class="hero">
       <div class="hero-glow"></div>
       <div class="container hero-inner">
-        <img src="/assets/logo.png?v=2" alt="Rey Midas Digitales" class="logo">
+        <img src="/assets/logo-sm.webp?v=1" alt="Rey Midas Digitales" class="logo">
         <p class="tagline">Tu tienda de juegos digitales en Costa Rica</p>
         <a class="cta" href="/plataforma/PS5">Ver juegos PS5</a>
       </div>
@@ -4684,9 +4684,9 @@ function heroSlimHTML(platform) {
   const hasVideo = isPs4 || isPs5;
   const extraClass = isPs4 ? ' hero--ps4' : isPs5 ? ' hero--ps5' : '';
   const videoHTML = isPs4
-    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline><source src="/ps4-banner.mp4?v=20260606f" type="video/mp4"></video>'
+    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline preload="metadata"><source src="/ps4-banner.mp4?v=20260606f" type="video/mp4"></video>'
     : isPs5
-      ? '<video class="ps5-banner-video" autoplay muted loop playsinline><source src="/ps5-banner.mp4?v=20260606f" type="video/mp4"></video>'
+      ? '<video class="ps5-banner-video" autoplay muted loop playsinline preload="metadata"><source src="/ps5-banner.mp4?v=20260606f" type="video/mp4"></video>'
       : '';
   return `
     <section class="hero slim${extraClass}">
@@ -5307,7 +5307,7 @@ function cardHTML(g) {
   const principal = g._manualPrices ? g.priceCRC_principal : principalCRC(g.priceUSD, g.platform);
   const secundaria = g._manualPrices ? g.priceCRC_secundaria : secundariaCRC(g.priceUSD, g.platform);
   const img = g.imageUrl
-    ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy">`
+    ? `<img src="${escapeAttr(g.imageUrl)}" alt="${escapeAttr(g.title)}" loading="lazy" decoding="async">`
     : `${placeholderHTML()}`;
   return `
     <a class="card" href="/producto/${encodeURIComponent(g.id)}">
