@@ -686,10 +686,22 @@ function finalizeAllGames(games) {
 // (ver ensureFullCatalog()), igual que ya se hacía con los bundles de
 // Nintendo (nintendo-bundles.json).
 // ============================================================
+// AbortSignal.timeout() no existe en iOS/Safari < 16 ni en navegadores viejos
+// de Android: llamarlo tiraba un TypeError que abortaba load() entera y el
+// sitio quedaba sin ningún juego en el celular. Esto hace lo mismo y funciona
+// en todos lados.
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+  if (typeof AbortController === "undefined") return undefined;
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(), ms);
+  return ctrl.signal;
+}
+
 async function load() {
   try {
     const [psn, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers, always] = await Promise.allSettled([
-      fetch("/api/scrape", { signal: AbortSignal.timeout(8000) }).then(r => r.json()),
+      fetch("/api/scrape", { signal: timeoutSignal(8000) }).then(r => r.json()),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -700,7 +712,7 @@ async function load() {
       fetch("/game-pass.json").then(r => r.json()),
       fetch("/reservaciones.json").then(r => r.json()),
       fetch("/featured-games.json").then(r => r.json()),
-      fetch("/api/featured-prices", { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(() => ({})),
+      fetch("/api/featured-prices", { signal: timeoutSignal(8000) }).then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
       fetch("/covers.json").then(r => r.json()).catch(() => ({})),
       fetch("/always-show.json").then(r => r.json()).catch(() => ({})),
