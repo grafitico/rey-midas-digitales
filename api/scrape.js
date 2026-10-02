@@ -550,7 +550,7 @@ const ADDON_STRICT_RE = /\b(?:atuendos?|aspectos?|skins?|de avatar|avatar (?:pac
 // también tenga "season", "pack", etc. ("TEKKEN 8 Season 2 Deluxe Edition").
 const EDITION_STRONG_RE = /\b(?:edition|edici[oó]n|deluxe|ultimate|gold|goty|game of the year|definitive|definitiva|complete|completa|collection|colecci[oó]n|trilog(?:y|[ií]a))\b/i;
 
-function classifyTypeGql(cls, name = "") {
+export function classifyTypeGql(cls, name = "") {
   const raw = String(cls || "").toUpperCase().trim();
   if (!raw) {
     const t = String(name || "");

@@ -17,6 +17,7 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
+import { classifyTypeGql } from "./scrape.js";
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
 
@@ -259,6 +260,13 @@ function parseGames(html) {
 
 function normalize(p) {
   if (!p.id || !p.name) return null;
+  // En PSN los paquetes de monedas/puntos se llaman IGUAL que el juego
+  // ("Apex Legends" = 1,000 Apex Coins, "EA SPORTS College Football 25" =
+  // 500 Points) y son lo más barato que coincide por nombre: el destacado
+  // terminaba con el precio y la portada de las monedas. Se descarta todo lo
+  // que PSN no clasifica como juego/edición/bundle (misma regla del catálogo).
+  const cls = p.storeDisplayClassification ?? p.displayClassification ?? p.topCategory ?? "";
+  if (classifyTypeGql(cls, p.name) === "add-on") return null;
   const priceInfo = p.price || {};
   // discountedPrice = campo real de PSN (SkuPrice). discountedValue = alias
   // de vistas más antiguas. Caemos a basePrice si no hay oferta.

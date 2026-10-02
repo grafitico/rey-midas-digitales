@@ -2346,6 +2346,12 @@ const ADDON_PATTERNS = [
   /(?:^|[-–—:([\]]\s*|\s)\b(?:season\s*pass|pase\s+de\s+temporada|battle\s*pass|pase\s+de\s+batalla|expansion\s*pass|pase\s+de\s+expansi[oó]n|character\s*pass|pase\s+de\s+personajes?)\b/i,
   // DLC declarado como tal.
   /(?:^|[-–—:([\]]\s*|\s)\bDLC\b|\bcontenido\s+descargable\b|\badd-?on\s+pack\b/i,
+  // Juegos gratuitos: lo que PSN/Xbox venden con su nombre son monedas,
+  // paquetes de inicio o expansiones ("eFootball: Messi Edition", "Destiny 2:
+  // The Witch Queen", "Apex Legends" = 1,000 Apex Coins). No se venden.
+  /^(?:roblox|fall guys|rocket league|apex legends|genshin impact|overwatch|destiny 2|efootball|call of duty:?\s*warzone|fortnite|warframe|marvel rivals|the finals|honkai|zenless|brawlhalla|smite|paladins|war thunder|world of (?:tanks|warships)|multiversus|splitgate|pubg|naraka|palia|dauntless|neverwinter(?! nights)|xdefiant|delta force|once human|wuthering waves|infinity nikki|stumble guys|enlisted|crossout|dc universe online|the first descendant|path of exile|marvel snap)\b/i,
+  // Versiones de PC que se cuelan en el catálogo de Xbox: no son para consola.
+  /\((?:for\s+)?(?:pc|windows)\s*\d*\)|\bfor\s+windows\s*\d*\b/i,
 ];
 
 function isAddOnProduct(g) {
@@ -2375,6 +2381,8 @@ function addOnReason(g) {
   if (ADDON_PATTERNS[1].test(t)) return "Moneda del juego";
   if (ADDON_PATTERNS[2].test(t)) return "Pase de temporada";
   if (ADDON_PATTERNS[3].test(t)) return "DLC";
+  if (ADDON_PATTERNS[4].test(t)) return "Juego gratuito";
+  if (ADDON_PATTERNS[5].test(t)) return "Versión de PC";
   return "Complemento";
 }
 
