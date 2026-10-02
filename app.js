@@ -101,6 +101,7 @@ let coversIndex = {};   // covers.json: { id de featured → URL de carátula } 
 let hiddenGames = { ids: new Set(), titles: new Set() }; // exclusión manual (hidden-games.json)
 let alwaysShowGames = { ids: new Set(), titles: new Set() }; // lista blanca (always-show.json)
 let filteredOut = []; // lo que el filtro automático ocultó, para poder auditarlo en el panel admin
+let fullCatalogRaw = { ps: [], xbox: [] }; // ps-catalog.json (+ ps-prices.json) y xbox-catalog.json, ver mergeFullCatalog()
 let psnGamesRaw = [];     // juegos del scrape en vivo (/api/scrape), guardados para re-mergear en ensureFullCatalog()
 let featuredRaw = [];     // featured-games.json crudo, guardado para recalcular featuredGames al llegar el catálogo completo
 let featuredLivePrices = {}; // /api/featured-prices crudo (mapa featuredId → precio en vivo)
@@ -756,7 +757,7 @@ async function load() {
     const games = [];
     if (psn.status === "fulfilled" && psn.value.success) {
       psnGamesRaw = psn.value.games || [];
-      games.push(...psnGamesRaw);
+      games.push(...psnGamesRaw.map(g => ({ ...g }))); // copia: ver mergeFullCatalog()
     }
     // Igual que con los juegos: un bundle sin precio se vería como "₡0".
     if (psB.status === "fulfilled" && psB.value && Array.isArray(psB.value.bundles)) {
@@ -791,10 +792,13 @@ async function load() {
       featuredGames = buildFeaturedGames(games);
       games.push(...featuredGames);
     }
-    if (!games.length && !psBundles.bundles.length && !xboxBundles.bundles.length) {
+    if (!games.length && !fullCatalogLoaded && !psBundles.bundles.length && !xboxBundles.bundles.length) {
       throw new Error("No se pudo cargar ningún juego");
     }
-    finalizeAllGames(games);
+    // Si el catálogo completo ya llegó (ver mergeFullCatalog), no pisarlo con
+    // la lista parcial: se vuelve a unir todo.
+    if (fullCatalogLoaded) mergeFullCatalog();
+    else finalizeAllGames(games);
     hydrateRawgMetaFromCache(allGames);
   } catch (err) {
     loadError = err.message;
@@ -819,6 +823,36 @@ async function load() {
 // producto no encontrado en el catálogo rápido), esas vistas la esperan
 // (ver ensureFullCatalog() en renderPlatform/renderProduct/etc.) igual que ya
 // se hacía con nintendo-bundles.json.
+// Une TODO lo que haya llegado hasta ahora: scrape en vivo + catálogo completo
+// + ofertas manuales + destacados. Se llama desde load() y desde
+// ensureFullCatalog(), en el orden en que terminen. Antes, si el catálogo
+// completo llegaba primero (pasa en el 3X1 Combo, que lo pide de entrada) y el
+// scrape en vivo después, load() reemplazaba allGames por solo el scrape +
+// destacados (~170 juegos): la lista del combo aparecía y a los segundos
+// desaparecía, y seguía vacía al volver a la página.
+function mergeFullCatalog() {
+  // Copias: finalizeAllGames() renombra ediciones ("— Edición Estándar") sobre
+  // los objetos, y esta función puede correr más de una vez. Sobre los
+  // originales ya renombrados, los destacados dejaban de reconocerse como el
+  // mismo juego y salían tarjetas repetidas.
+  const copy = g => ({ ...g });
+  const games = psnGamesRaw.map(copy);
+  // Mergeamos por ID: el scrape en vivo gana (precios/preventas más frescos);
+  // ps-catalog aporta toda la cobertura extra.
+  const ids = new Set(games.map(g => g.id));
+  for (const g of fullCatalogRaw.ps) {
+    if (!ids.has(g.id)) { games.push(copy(g)); ids.add(g.id); }
+  }
+  games.push(...fullCatalogRaw.xbox.map(copy));
+  games.push(...manualOffers.map(copy));
+  // Recalculamos featuredGames contra el catálogo YA completo para no dejar
+  // tarjetas duplicadas (un juego curado que ahora sí aparece en
+  // ps-catalog/xbox-catalog debe deduplicarse).
+  featuredGames = buildFeaturedGames(games);
+  games.push(...featuredGames);
+  finalizeAllGames(games);
+}
+
 function ensureFullCatalog() {
   if (!fullCatalogPromise) {
     fullCatalogPromise = Promise.allSettled([
@@ -826,7 +860,6 @@ function ensureFullCatalog() {
       fetch("/xbox-catalog.json").then(r => r.json()),
       fetch("/ps-prices.json").then(r => r.json()),
     ]).then(([psCat, xbox, psPrices]) => {
-      const games = [...psnGamesRaw];
       // ps-prices.json: precios de las categorías PS4/PS5 cada 3 h (ver
       // scripts/sync-ps-prices.js). Pisan los de ps-catalog.json (diario) para
       // que una oferta nueva aparezca y una vencida desaparezca a tiempo.
@@ -838,27 +871,11 @@ function ensureFullCatalog() {
         const onSale = original > price;
         return { ...g, priceUSD: price, originalPriceUSD: original, onSale, discount: onSale ? Math.round((1 - price / original) * 100) : 0 };
       };
-      // Catálogo PSN completo (ps-catalog.json, generado por GitHub Action sin el
-      // timeout de 30s de Vercel). Trae cientos/miles de juegos que el scrape en
-      // vivo no alcanza a paginar. Mergeamos por ID: el scrape en vivo gana
-      // (precios/preventas más frescos); ps-catalog aporta toda la cobertura extra.
-      if (psCat.status === "fulfilled" && Array.isArray(psCat.value?.games)) {
-        const scrapeIds = new Set(games.map(g => g.id));
-        for (const g of psCat.value.games) {
-          if (!scrapeIds.has(g.id)) { games.push(withFreshPrice(g)); scrapeIds.add(g.id); }
-        }
-      }
-      if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {
-        games.push(...xbox.value.games.filter(g => !g._placeholder));
-      }
-      games.push(...manualOffers);
-      // Recalculamos featuredGames contra el catálogo YA completo para no
-      // dejar tarjetas duplicadas (un juego curado que ahora sí aparece en
-      // ps-catalog/xbox-catalog debe deduplicarse, igual que ya pasaba con el
-      // scrape en vivo).
-      featuredGames = buildFeaturedGames(games);
-      games.push(...featuredGames);
-      finalizeAllGames(games);
+      fullCatalogRaw = {
+        ps: (psCat.status === "fulfilled" && Array.isArray(psCat.value?.games)) ? psCat.value.games.map(withFreshPrice) : [],
+        xbox: (xbox.status === "fulfilled" && Array.isArray(xbox.value?.games)) ? xbox.value.games.filter(g => !g._placeholder) : [],
+      };
+      mergeFullCatalog();
       fullCatalogLoaded = true;
       hydrateRawgMetaFromCache(allGames);
       render();
