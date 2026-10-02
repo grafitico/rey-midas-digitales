@@ -5544,3 +5544,5 @@ html { scroll-behavior: smooth; }
 }
 .combo-slot-info .cart-platform { align-self: flex-start; }
 @media (max-width: 640px) { .combo-slot { min-height: 56px; } .combo-slot.empty { padding: .4rem .6rem; } }
+.combo-consola { font-size: .82rem; color: var(--text-dim); margin: -.2rem 0 .7rem; }
+.combo-consola strong { color: var(--gold-bright); }

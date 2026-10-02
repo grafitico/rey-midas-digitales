@@ -3742,10 +3742,26 @@ function comboEligible(g, t, baseTitles) {
   if ((t.incluir || []).includes(g.id)) return true;
   return !COMBO_F2P.test(g.title) && !comboIsDLC(g, baseTitles);
 }
+// Consolas de un juego: "PS5/PS4" (cross-gen) sirve para las dos; Xbox aparte.
+function comboConsolas(platform) {
+  const pl = String(platform || "");
+  if (/xbox/i.test(pl)) return ["Xbox"];
+  return ["PS5", "PS4"].filter(c => pl.includes(c));
+}
+// Consolas en común de los juegos elegidos: los 3 tienen que ser de la misma
+// consola (no se mezclan PS4, PS5 y Xbox). null = todavía no hay juegos.
+function comboConsolaDe(picks) {
+  if (!picks.length) return null;
+  return picks.reduce((acc, p) => acc.filter(c => comboConsolas(p.platform).includes(c)), ["PS5", "PS4", "Xbox"]);
+}
+function comboConsolaTexto(consola) {
+  return consola && consola.length ? consola.join(" o ") : "";
+}
 function comboWaURL(t, picks) {
   const lines = picks.map((p, i) => `${i + 1}. ${p.title} (${p.platform}) — CUENTA PRINCIPAL`);
   const msg = [
     `Hola Rey Midas, quiero armar mi *3X1 Combo: 3 juegos por ${formatCRC(t.precio)}*`,
+    `Consola: *${comboConsolaTexto(comboConsolaDe(picks))}*`,
     "",
     ...lines,
     "",
@@ -3786,6 +3802,7 @@ async function renderCombo(precio) {
         <aside class="combo-side">
           <div class="combo-box">
             <h3>Tu combo</h3>
+            <p class="combo-consola" id="comboConsola"></p>
             <div class="combo-slots" id="comboSlots"></div>
             <div class="combo-send" id="comboSend"></div>
           </div>
@@ -3814,6 +3831,7 @@ async function renderCombo(precio) {
   let query = "", plat = "Todos", sort = "rel", shown = 24;
   let eligible = [];
   const slotsBox = document.getElementById("comboSlots");
+  const consolaBox = document.getElementById("comboConsola");
   const sendBox = document.getElementById("comboSend");
   const gridBox = document.getElementById("comboGrid");
   const moreBox = document.getElementById("comboMore");
@@ -3830,6 +3848,10 @@ async function renderCombo(precio) {
       </div>`;
     }).join("");
     const full = picks.length === COMBO_SLOTS;
+    const consola = comboConsolaTexto(comboConsolaDe(picks));
+    consolaBox.innerHTML = consola
+      ? `Tu combo es de <strong>${escapeHtml(consola)}</strong>. Los 3 juegos tienen que ser de la misma consola.`
+      : "Los 3 juegos tienen que ser de la misma consola (PS5, PS4 o Xbox).";
     sendBox.innerHTML = full
       ? `<a class="cta combo-send-btn" href="${comboWaURL(t, picks)}" target="_blank" rel="noopener">Enviar mi combo por WhatsApp · ${formatCRC(t.precio)}</a>`
       : `<p class="combo-send-hint">Llevás <strong>${picks.length}/${COMBO_SLOTS}</strong> juegos. ${picks.length ? "Te faltan " + (COMBO_SLOTS - picks.length) + "." : "Elegí 3 para enviar tu combo."}</p>`;
@@ -3841,7 +3863,9 @@ async function renderCombo(precio) {
     // Presupuesto: lo que queda del combo, guardando el mínimo para los espacios libres.
     const restante = t.precio - picks.reduce((sum, p) => sum + p.price, 0);
     const libres = COMBO_SLOTS - picks.length - 1;
-    const cabe = g => comboPrice(g) + libres * CONFIG.pricing.minCRC <= restante;
+    const consola = comboConsolaDe(picks);
+    const cabe = g => comboPrice(g) + libres * CONFIG.pricing.minCRC <= restante &&
+      (!consola || comboConsolas(g.platform).some(c => consola.includes(c)));
     const list = eligible.filter(g =>
       (plat === "Todos" || g.platform.includes(plat)) && (!q || g.title.toLowerCase().includes(q)) &&
       (full || taken.has(g.id) || cabe(g)));
@@ -3908,12 +3932,15 @@ async function renderCombo(precio) {
   // Lo guardado se revalida contra el catálogo actual: si un juego salió del
   // combo o cambió de precio y ya no entra en el presupuesto, se descarta.
   let usado = 0;
+  const ok = [];
   picks = picks.filter(p => {
     const g = seen.get(p.id);
     if (!g) return false;
     p.price = comboPrice(g);
     if (usado + p.price > t.precio) return false;
+    if (!comboConsolaDe([...ok, p]).length) return false; // misma consola
     usado += p.price;
+    ok.push(p);
     return true;
   });
   persist(); paintSlots(); paintGrid();
