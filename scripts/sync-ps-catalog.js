@@ -155,6 +155,7 @@ async function main() {
   //    seguimiento por su nombre exacto — así sí aparecen las ediciones
   //    Deluxe/GOTY hermanas que "call of duty" solo no encontró.
   const followUpTitles = new Set();
+  const rescued = [];
   for (const term of CATALOG_GAP_SEARCH_TERMS) {
     try {
       const items = await withRetry(
@@ -166,7 +167,7 @@ async function main() {
         if (!map.has(g.id)) {
           map.set(g.id, g);
           added++;
-          if (g.type === "full-game") followUpTitles.add(g.title);
+          rescued.push(g);
         }
       }
       if (added) console.log(`[sync-ps] rescate "${term}": +${added} nuevos — acumulado ${map.size}`);
@@ -175,6 +176,16 @@ async function main() {
     }
     await sleep(150);
   }
+
+  // Solo se sigue por nombre a JUEGOS reales. Antes se seguía a todo lo que el
+  // buscador devolvía (que no trae el tipo de producto), así que cada DLC
+  // encontrado se volvía a buscar y traía más DLC: +10.000 productos y 25
+  // minutos de corrida por una bola de nieve de monedas, personajes y mapas.
+  let baseIndex = buildBaseIndex(map.values());
+  for (const g of rescued) {
+    if (g.type === "full-game" && !isSearchDLC(g, baseIndex)) followUpTitles.add(g.title);
+  }
+  console.log(`[sync-ps] juegos base para seguimiento: ${followUpTitles.size}`);
 
   // 4b) Seguimiento por nombre exacto de cada juego base recién descubierto,
   //     para atrapar ediciones Deluxe/GOTY que el término de franquicia solo
@@ -196,6 +207,18 @@ async function main() {
   }
   if (followUpAdded) console.log(`[sync-ps] seguimiento por título: +${followUpAdded} nuevos (ediciones hermanas) — acumulado ${map.size}`);
 
+  // 4c) Lo que vino del buscador (sin clasificación de PSN) pasa por un filtro
+  //     extra: "Juego: Subtítulo" / "Juego - Subtítulo" donde "Juego" existe
+  //     en el catálogo y cuesta bastante más → es un DLC de ese juego
+  //     ("Horizon Forbidden West: The Burning Shores", "TEKKEN 8 - Bob").
+  baseIndex = buildBaseIndex(map.values());
+  let searchDLC = 0;
+  for (const [id, g] of map) {
+    if (g._sinTipo && isSearchDLC(g, baseIndex)) { map.delete(id); searchDLC++; }
+  }
+  stats.searchDLCExcluded = searchDLC;
+  console.log(`[sync-ps] DLC del buscador descartados por nombre: ${searchDLC}`);
+
   // 5) Merge de tags de género + facetas (edición/preventa/estreno) y orden.
   const games = Array.from(map.values())
     .map(g => {
@@ -204,7 +227,7 @@ async function main() {
       const merged = new Set([...direct, ...search]);
       if (g.type === "edition" || g.type === "bundle") merged.add("edicion");
       if (g.comingSoon) merged.add("preventa");
-      const { directGenres, ...rest } = g;
+      const { directGenres, _sinTipo, ...rest } = g;
       return { ...rest, genres: Array.from(merged) };
     })
     .sort((a, b) => {
@@ -279,6 +302,49 @@ async function commitCatalog(catalog) {
   }
   const result = await putRes.json();
   console.log(`[sync-ps] Commit: ${result.commit?.sha?.slice(0, 7)} en ${repo}@${branch}`);
+}
+
+// ===== Filtro de DLC por nombre (productos del buscador) =====
+
+const EDITION_SUFFIX_RE = /^(?:edici[oó]n|edition|premium|remaster|definitive|complete|completa|goty|game of the year|deluxe|ultimate|gold|standard|est[aá]ndar|director'?s cut|ps4|ps5)\b/i;
+
+function titleKey(t) {
+  return String(t || "").toLowerCase().replace(/[™®©‎]/g, "").replace(/\s+/g, " ").trim();
+}
+
+// Título → precio más alto de los juegos del catálogo.
+function buildBaseIndex(games) {
+  const m = new Map();
+  for (const g of games) {
+    if (g.type === "add-on") continue;
+    const k = titleKey(g.title);
+    const precio = g.originalPriceUSD || g.priceUSD || 0;
+    if (k.length >= 4 && precio > (m.get(k) || 0)) m.set(k, precio);
+  }
+  return m;
+}
+
+// ¿Es un DLC? El título empieza con el nombre de un juego del catálogo, sigue
+// ":" o "-" (no una secuela como "Ghostrunner 2") y cuesta menos del 60% de
+// ese juego y menos de US$20 (precios de lista) (por encima casi siempre es un juego completo,
+// tipo "Spider-Man: Miles Morales").
+function isSearchDLC(g, baseIndex) {
+  const key = titleKey(g.title);
+  // Precio de lista (sin oferta): una rebaja no debe hacer pasar un juego por DLC.
+  const p = g.originalPriceUSD || g.priceUSD || 0;
+  if (p >= 20) return false;
+  const words = key.split(" ");
+  for (let i = 1; i < words.length; i++) {
+    const base = words.slice(0, i).join(" ").replace(/[\s:–—-]+$/, "");
+    const basePrice = baseIndex.get(base);
+    if (!basePrice || base === key) continue;
+    const sep = key.slice(base.length);
+    if (!/^\s*[:–—-]/.test(sep)) continue;
+    const resto = sep.replace(/^[\s:–—-]+/, "");
+    if (EDITION_SUFFIX_RE.test(resto)) continue;
+    if (p < basePrice * 0.6) return true;
+  }
+  return false;
 }
 
 // ===== Utilidades =====

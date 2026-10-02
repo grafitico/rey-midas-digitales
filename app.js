@@ -812,8 +812,20 @@ function ensureFullCatalog() {
     fullCatalogPromise = Promise.allSettled([
       fetch("/ps-catalog.json").then(r => r.json()),
       fetch("/xbox-catalog.json").then(r => r.json()),
-    ]).then(([psCat, xbox]) => {
+      fetch("/ps-prices.json").then(r => r.json()),
+    ]).then(([psCat, xbox, psPrices]) => {
       const games = [...psnGamesRaw];
+      // ps-prices.json: precios de las categorías PS4/PS5 cada 3 h (ver
+      // scripts/sync-ps-prices.js). Pisan los de ps-catalog.json (diario) para
+      // que una oferta nueva aparezca y una vencida desaparezca a tiempo.
+      const fresh = (psPrices.status === "fulfilled" && psPrices.value?.prices) || {};
+      const withFreshPrice = g => {
+        const p = fresh[g.id];
+        if (!p) return g;
+        const [price, original] = p;
+        const onSale = original > price;
+        return { ...g, priceUSD: price, originalPriceUSD: original, onSale, discount: onSale ? Math.round((1 - price / original) * 100) : 0 };
+      };
       // Catálogo PSN completo (ps-catalog.json, generado por GitHub Action sin el
       // timeout de 30s de Vercel). Trae cientos/miles de juegos que el scrape en
       // vivo no alcanza a paginar. Mergeamos por ID: el scrape en vivo gana
@@ -821,7 +833,7 @@ function ensureFullCatalog() {
       if (psCat.status === "fulfilled" && Array.isArray(psCat.value?.games)) {
         const scrapeIds = new Set(games.map(g => g.id));
         for (const g of psCat.value.games) {
-          if (!scrapeIds.has(g.id)) { games.push(g); scrapeIds.add(g.id); }
+          if (!scrapeIds.has(g.id)) { games.push(withFreshPrice(g)); scrapeIds.add(g.id); }
         }
       }
       if (xbox.status === "fulfilled" && xbox.value && Array.isArray(xbox.value.games) && xbox.value.games.length > 0) {

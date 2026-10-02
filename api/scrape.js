@@ -533,22 +533,42 @@ export async function fetchSearchProducts(term, stats, opts = {}) {
 }
 
 // Clasificación del producto vía el enum `storeDisplayClassification` que
-// devuelve la propia API GraphQL (FULL_GAME, PREMIUM_EDITION, GAME_BUNDLE,
-// ADD_ON, SOUNDTRACK, DEMO, GAME_APPLICATION…). El negocio no vende nada que
-// no sea un juego completo/edición/bundle.
-function classifyTypeGql(cls) {
-  const raw = String(cls || "").toUpperCase();
+// devuelve la propia API GraphQL. La PS Store tiene muchos tipos (en su filtro
+// "Tipo": Juego completo, Paquete de juego, Nivel, Complemento, Edición
+// premium, Vehículo, Disfraz, Paquete de complementos, Personaje, Moneda
+// virtual…). El negocio solo vende juego completo / edición / bundle, así que
+// se reconocen ESOS y todo lo demás cuenta como complemento. (Antes se hacía al
+// revés — solo ADD_ON era complemento — y Nivel/Vehículo/Disfraz/Personaje
+// entraban como "juego completo".)
+//
+// El buscador (getSearchResults) NO trae la clasificación: ahí se infiere por
+// el título con una lista estricta (ADDON_STRICT_RE). Sin esto, los ~10.000
+// productos que suma el rescate por búsqueda del sync entraban todos como
+// "juego completo": monedas, personajes de TEKKEN 8, mapas zombies, etc.
+const ADDON_STRICT_RE = /\b(?:atuendos?|aspectos?|skins?|de avatar|avatar (?:pack|set)|soundtrack|banda sonora|upgrade|expansi[oó]n|expansion|paquetes?|packs?|trajes?|costumes?|disfraz|kits?|add-?ons?|complementos?|season|temporada|dlc|bonus|mascota|outfits?|emotes?|stickers?|pegatinas?|gestos?|vestidos?|maps?|mapas?|arma de lujo|llave espada|desbloquead[oa]s?|unlock|tickets?|colgantes?|peinados?|adornos?|ropa|set de|mejoras?|pases?|pass|contenido|personajes?|characters?|di[aá]logos?|voces|voice ?pack|alubiones|fragmentos?|gemas?|cr[eé]ditos?|monedas?|coins?|points|puntos|tokens?|v-?bucks|currency|divisas?)\b/i;
+// Palabras que dicen "esto es el juego en otra edición", aunque el título
+// también tenga "season", "pack", etc. ("TEKKEN 8 Season 2 Deluxe Edition").
+const EDITION_STRONG_RE = /\b(?:edition|edici[oó]n|deluxe|ultimate|gold|goty|game of the year|definitive|definitiva|complete|completa|collection|colecci[oó]n|trilog(?:y|[ií]a))\b/i;
+
+function classifyTypeGql(cls, name = "") {
+  const raw = String(cls || "").toUpperCase().trim();
+  if (!raw) {
+    const t = String(name || "");
+    if (ADDON_TITLE_RE.test(t) || /\bupgrade\b/i.test(t)) return "add-on";
+    if (ADDON_STRICT_RE.test(t) && !EDITION_STRONG_RE.test(t)) return "add-on";
+    if (EDITION_TITLE_RE.test(t)) return "edition";
+    return "full-game";
+  }
   if (/ADD[_-]?ON|DLC/.test(raw)) return "add-on";
   if (/BUNDLE/.test(raw)) return "bundle";
   if (/PREMIUM|EDITION/.test(raw)) return "edition";
-  if (/FULL[_-]?GAME/.test(raw)) return "full-game";
-  if (/SOUNDTRACK|DEMO|APPLICATION/.test(raw)) return "add-on";
-  return "full-game";
+  if (/^(?:FULL[_-]?GAME|GAME)$/.test(raw)) return "full-game";
+  return "add-on"; // LEVEL, VEHICLE, COSTUME, CHARACTER, VIRTUAL_CURRENCY, SOUNDTRACK, DEMO…
 }
 
 function normalizeGqlProduct(p) {
   if (!p || !p.id || !p.name) return null;
-  const type = classifyTypeGql(p.storeDisplayClassification);
+  const type = classifyTypeGql(p.storeDisplayClassification, p.name);
   if (type === "add-on") return null;
 
   const priceInfo = p.price || {};
@@ -585,6 +605,9 @@ function normalizeGqlProduct(p) {
     ageRating: "",
     isBundle: type === "bundle" || type === "edition",
     directGenres: [],
+    // Vino sin clasificación (buscador): el sync le aplica un filtro extra de
+    // DLC contra el resto del catálogo y después borra esta marca.
+    ...(p.storeDisplayClassification ? {} : { _sinTipo: true }),
   };
 }
 
@@ -746,7 +769,7 @@ async function fetchCategoryGridPaginated(catId, stats, opts = {}) {
     for (const p of grid.products) {
       const g = normalizeGqlProduct(p);
       if (g) all.push(g);
-      else if (stats && classifyTypeGql(p.storeDisplayClassification) === "add-on") stats.addonsExcluded++;
+      else if (stats && classifyTypeGql(p.storeDisplayClassification, p.name) === "add-on") stats.addonsExcluded++;
     }
   };
 

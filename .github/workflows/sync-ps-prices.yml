@@ -1,0 +1,39 @@
+name: Sync PlayStation prices
+
+# Precios frescos (ofertas que empiezan o terminan) de las categorías PS4 y
+# PS5 cada 3 horas, en ps-prices.json. El catálogo completo sigue siendo
+# diario (sync-ps-catalog.yml). Ver scripts/sync-ps-prices.js.
+#
+# Schedule en UTC. GitHub puede atrasar los crons varias horas en momentos de
+# carga; por eso es cada 3 h y no una hora fija.
+
+on:
+  schedule:
+    - cron: "23 */3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-ps-prices
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Sync PlayStation prices
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+        run: node scripts/sync-ps-prices.js
