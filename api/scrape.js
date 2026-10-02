@@ -510,7 +510,7 @@ export async function fetchSearchProducts(term, stats, opts = {}) {
     if (g) all.push(g);
   }
 
-  const total = Math.min(search.pageInfo?.totalCount || 0, SEARCH_MAX_ITEMS);
+  const total = Math.min(search.pageInfo?.totalCount || 0, opts.maxItems || SEARCH_MAX_ITEMS);
   const offsets = [];
   for (let off = size; off < total; off += size) offsets.push(off);
 

@@ -26,6 +26,7 @@
 //   MAX_PAGES      — páginas máx por categoría (default 400)
 //   BROWSE_PAGES   — páginas de browse por región (default 60)
 
+import { readFileSync } from "fs";
 import {
   fetchAndParse,
   fetchCategoryPaginated,
@@ -207,7 +208,35 @@ async function main() {
   }
   if (followUpAdded) console.log(`[sync-ps] seguimiento por título: +${followUpAdded} nuevos (ediciones hermanas) — acumulado ${map.size}`);
 
-  // 4c) Lo que vino del buscador (sin clasificación de PSN) pasa por un filtro
+  // 4c) Ediciones/bundles reales que PSN no lista en ninguna categoría
+  //     (Ghost Recon Breakpoint Ultimate, Civilization VI Platinum, Detroit
+  //     Digital Deluxe…). Antes aparecían de rebote con la búsqueda en bola
+  //     de nieve; ahora se buscan por nombre desde una lista fija
+  //     (ps-rescate-ediciones.json) y solo se agrega el producto exacto.
+  let rescueList = [];
+  try { rescueList = JSON.parse(readFileSync("ps-rescate-ediciones.json", "utf8")).ediciones || []; }
+  catch (e) { console.warn(`[sync-ps] ps-rescate-ediciones.json no se pudo leer: ${e.message}`); }
+  let rescueAdded = 0, rescueMissing = 0;
+  for (const { title, ids = [] } of rescueList) {
+    try {
+      const items = await withRetry(
+        () => fetchSearchProducts(title, stats, { maxItems: 24 }),
+        `edición "${title}"`
+      );
+      const key = titleKey(title);
+      const hits = items.filter(g => ids.includes(g.id) || titleKey(g.title) === key);
+      if (!hits.length) rescueMissing++;
+      for (const g of hits) {
+        if (!map.has(g.id)) { map.set(g.id, g); rescueAdded++; }
+      }
+    } catch (e) {
+      console.warn(`[sync-ps] edición "${title}" falló: ${e.message}`);
+    }
+    await sleep(150);
+  }
+  console.log(`[sync-ps] ediciones rescatadas: +${rescueAdded} (${rescueMissing} de ${rescueList.length} ya no están en PSN)`);
+
+  // 4d) Lo que vino del buscador (sin clasificación de PSN) pasa por un filtro
   //     extra: "Juego: Subtítulo" / "Juego - Subtítulo" donde "Juego" existe
   //     en el catálogo y cuesta bastante más → es un DLC de ese juego
   //     ("Horizon Forbidden West: The Burning Shores", "TEKKEN 8 - Bob").
