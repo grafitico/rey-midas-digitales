@@ -3654,23 +3654,36 @@ async function renderCofre() {
 
 
 // ============================================================
-// 3X1 Combo — el cliente arma 3 juegos por un precio fijo (₡5.000 / ₡7.500 /
-// ₡10.000) y envía el pedido por WhatsApp. Los tramos y el precio máximo de
-// cada juego (cuenta secundaria) se editan en combos.json.
+// 3X1 Combo — el cliente arma 3 juegos (cuenta principal) por un precio fijo
+// (₡5.000 / ₡7.500 / ₡10.000) y envía el pedido por WhatsApp. El precio del
+// combo funciona como presupuesto: los 3 juegos, a su precio normal de cuenta
+// principal, tienen que sumar como máximo el precio del combo. Así nunca se
+// vende por debajo del margen. Los tramos se editan en combos.json.
 // ============================================================
 const COMBO_SLOTS = 3;
-const COMBO_KEY = "rmd_combo_v1";
+const COMBO_KEY = "rmd_combo_v2";
 const COMBO_DEFAULT_TRAMOS = [
-  { precio: 5000, maxJuegoCRC: 2000, incluir: [], excluir: [] },
-  { precio: 7500, maxJuegoCRC: 3000, incluir: [], excluir: [] },
-  { precio: 10000, maxJuegoCRC: 4000, incluir: [], excluir: [] },
+  { precio: 5000, incluir: [], excluir: [] },
+  { precio: 7500, incluir: [], excluir: [] },
+  { precio: 10000, incluir: [], excluir: [] },
 ];
+// El filtro general (isAddOnProduct) deja pasar expansiones y DLC con nombre
+// propio ("Horizon Forbidden West: The Burning Shores"); en un combo eso no
+// sirve porque requieren el juego base. Acá se filtra más estricto.
+const COMBO_DLC_WORDS = /\b(?:atuendos?|aspectos?|skins?|avatar(?:es)?|temas?|themes?|soundtrack|banda sonora|upgrade|actualizaci[oó]n|expansi[oó]n|expansion|paquetes?|packs?|trajes?|costumes?|disfraz|kits?|missions?|misi[oó]n|episod(?:e|io)s?|cap[ií]tulos?|chapters?|demo|add-?ons?|complementos?|season|temporada|dlc|bonus|mascota|pet|outfits?|emotes?|stickers?|pegatinas?|gestos?|vestidos?|maps?|mapas?|arma de lujo|llave espada|desbloquead[oa]s?|unlock|tickets?|colgantes?|peinados?|adornos?|ropa|set de|mejoras?|zombies? map|pases?|pass|contenido|genişletme)\b|\((?:pc|windows)\)|\bfor windows\b/i;
+// Por encima de este precio, "Juego: Subtítulo" casi siempre es un juego
+// completo (Spider-Man: Miles Morales, Call of Duty: Black Ops III).
+const COMBO_DLC_MAX_CRC = 4000;
+// Sufijos que indican el juego base en otra edición, no un DLC.
+const COMBO_EDITION = /^(?:edici[oó]n|edition|premium|remaster|definitive|complete|completa|goty|game of the year|deluxe|ultimate|gold|standard|est[aá]ndar|director'?s cut)\b/i;
+// Juegos gratuitos que PSN igual lista con precio (paquetes de inicio, etc.).
+const COMBO_F2P = /^(?:roblox|fall guys|rocket league|apex legends|genshin impact|overwatch|destiny 2|efootball|call of duty:?\s*warzone|fortnite|warframe|marvel rivals|the finals|honkai|zenless|brawlhalla|smite|paladins|war thunder|world of (?:tanks|warships)|multiversus|splitgate|pubg|naraka|palia|dauntless|neverwinter|star wars:? hunters|xdefiant|delta force|once human|wuthering waves|infinity nikki)\b/i;
 let comboTramos = null;
 async function ensureComboTramos() {
   if (comboTramos) return comboTramos;
   try {
     const data = await fetch("/combos.json").then(r => r.json());
-    const t = (data?.tramos || []).filter(x => Number(x.precio) > 0 && Number(x.maxJuegoCRC) > 0);
+    const t = (data?.tramos || []).filter(x => Number(x.precio) > 0);
     comboTramos = t.length ? t : COMBO_DEFAULT_TRAMOS;
   } catch { comboTramos = COMBO_DEFAULT_TRAMOS; }
   return comboTramos;
@@ -3682,19 +3695,55 @@ function saveComboState(state) {
   try { localStorage.setItem(COMBO_KEY, JSON.stringify(state)); } catch {}
 }
 function comboPrice(g) {
-  return g._manualPrices ? Number(g.priceCRC_secundaria) : secundariaCRC(g.priceUSD, g.platform);
+  return g._manualPrices ? Number(g.priceCRC_principal) : principalCRC(g.priceUSD, g.platform);
 }
-function comboEligible(g, t) {
+function comboTitleKey(t) {
+  return String(t || "").toLowerCase().replace(/[™®©]/g, "").replace(/\s+[—–-]\s+edici[oó]n.*$/, "").replace(/\s+/g, " ").trim();
+}
+// Mapa título base → precio más alto, para reconocer DLC de otro juego del catálogo.
+function comboBaseTitles(games) {
+  const m = new Map();
+  for (const g of games) {
+    const k = comboTitleKey(g.title), p = comboPrice(g);
+    if (k.length >= 4 && p > (m.get(k) || 0)) m.set(k, p);
+  }
+  return m;
+}
+// ¿Es un DLC? Por palabras típicas, o porque el título empieza con el nombre
+// de otro juego del catálogo + ":" o "-" y es barato frente a ese juego
+// ("Horizon Forbidden West: The Burning Shores", "TEKKEN 8 - Bob"). Lo que se
+// escape o sobre se corrige con incluir/excluir en combos.json.
+function comboIsDLC(g, baseTitles) {
+  const t = String(g.title);
+  if (COMBO_DLC_WORDS.test(t)) return true;
+  const key = comboTitleKey(t);
+  const p = comboPrice(g);
+  const words = key.split(" ");
+  for (let i = 1; i < words.length; i++) {
+    const base = words.slice(0, i).join(" ").replace(/[\s:–—-]+$/, "");
+    const basePrice = baseTitles.get(base);
+    if (!basePrice || base === key) continue;
+    const sep = key.slice(base.length);
+    if (!/^\s*[:–—-]/.test(sep)) continue; // "Ghostrunner 2", "RE4 (2005)": secuelas/versiones, no DLC
+    const resto = sep.replace(/^[\s:–—-]+/, "");
+    if (COMBO_EDITION.test(resto)) continue;
+    if (p < COMBO_DLC_MAX_CRC && p < basePrice * 0.6) return true;
+  }
+  return false;
+}
+function comboEligible(g, t, baseTitles) {
   if (!g || !g.title || g.isBundle || g.type === "bundle" || g.comingSoon) return false;
   if (!/PS|Xbox/i.test(g.platform || "")) return false;
   if ((t.excluir || []).includes(g.id)) return false;
-  if ((t.incluir || []).includes(g.id)) return true;
   if (!hasSellablePrice(g)) return false;
   const p = comboPrice(g);
-  return p > 0 && p <= t.maxJuegoCRC;
+  // Tiene que caber junto con otros 2 juegos del precio más bajo posible.
+  if (!(p > 0 && p <= t.precio - (COMBO_SLOTS - 1) * CONFIG.pricing.minCRC)) return false;
+  if ((t.incluir || []).includes(g.id)) return true;
+  return !COMBO_F2P.test(g.title) && !comboIsDLC(g, baseTitles);
 }
 function comboWaURL(t, picks) {
-  const lines = picks.map((p, i) => `${i + 1}. ${p.title} (${p.platform})`);
+  const lines = picks.map((p, i) => `${i + 1}. ${p.title} (${p.platform}) — CUENTA PRINCIPAL`);
   const msg = [
     `Hola Rey Midas, quiero armar mi *3X1 Combo: 3 juegos por ${formatCRC(t.precio)}*`,
     "",
@@ -3725,7 +3774,7 @@ async function renderCombo(precio) {
     <section class="container combo-page">
       <div class="combo-hero">
         <h1>3X1 Combo</h1>
-        <p>Elegí tu combo, escogé <strong>3 juegos</strong> y envianos el pedido por WhatsApp.</p>
+        <p>Elegí tu combo, escogé <strong>3 juegos en cuenta principal</strong> y envianos el pedido por WhatsApp.</p>
       </div>
       <div class="combo-tabs">${tabs}</div>
       <div class="combo-layout">
@@ -3756,7 +3805,7 @@ async function renderCombo(precio) {
           </div>
         </aside>
       </div>
-      <p class="cofre-fine-print">Te confirmamos disponibilidad y los datos de pago (SINPE Móvil o transferencia) por WhatsApp.</p>
+      <p class="cofre-fine-print">Los juegos del combo se entregan en <strong>cuenta principal</strong>. Solo podés elegir juegos que entren en el combo junto con los que ya escogiste. Te confirmamos disponibilidad y los datos de pago (SINPE Móvil o transferencia) por WhatsApp.</p>
     </section>
   `;
 
@@ -3787,8 +3836,15 @@ async function renderCombo(precio) {
   };
   const paintGrid = () => {
     const q = query.trim().toLowerCase();
+    const taken = new Set(picks.map(p => p.id));
+    const full = picks.length >= COMBO_SLOTS;
+    // Presupuesto: lo que queda del combo, guardando el mínimo para los espacios libres.
+    const restante = t.precio - picks.reduce((sum, p) => sum + p.price, 0);
+    const libres = COMBO_SLOTS - picks.length - 1;
+    const cabe = g => comboPrice(g) + libres * CONFIG.pricing.minCRC <= restante;
     const list = eligible.filter(g =>
-      (plat === "Todos" || g.platform.includes(plat)) && (!q || g.title.toLowerCase().includes(q)));
+      (plat === "Todos" || g.platform.includes(plat)) && (!q || g.title.toLowerCase().includes(q)) &&
+      (full || taken.has(g.id) || cabe(g)));
     if (sort === "asc") list.sort((x, y) => comboPrice(x) - comboPrice(y));
     else if (sort === "desc") list.sort((x, y) => comboPrice(y) - comboPrice(x));
     else if (sort === "az") list.sort((x, y) => x.title.localeCompare(y.title, "es"));
@@ -3798,8 +3854,6 @@ async function renderCombo(precio) {
       moreBox.innerHTML = "";
       return;
     }
-    const taken = new Set(picks.map(p => p.id));
-    const full = picks.length >= COMBO_SLOTS;
     gridBox.innerHTML = list.slice(0, shown).map(g => {
       const on = taken.has(g.id);
       return `<button type="button" class="combo-game${on ? " selected" : ""}" data-id="${escapeAttr(g.id)}"${!on && full ? " disabled" : ""}>
@@ -3827,7 +3881,7 @@ async function renderCombo(precio) {
       if (picks.length >= COMBO_SLOTS) return;
       const g = eligible.find(x => x.id === b.dataset.id);
       if (!g) return;
-      picks.push({ id: g.id, title: g.title, platform: g.platform, imageUrl: g.imageUrl || "" });
+      picks.push({ id: g.id, title: g.title, platform: g.platform, imageUrl: g.imageUrl || "", price: comboPrice(g) });
     }
     persist(); paintSlots(); paintGrid();
   });
@@ -3848,17 +3902,27 @@ async function renderCombo(precio) {
   if (!fullCatalogLoaded) await ensureFullCatalog();
   const r = parseRoute();
   if (!(r.name === "combo" && r.precio === t.precio)) return; // el usuario ya navegó a otra vista
-  const seen = new Set();
-  eligible = allGames.filter(g => comboEligible(g, t) && !seen.has(g.id) && seen.add(g.id));
-  // Si un juego guardado ya no está en este combo (cambió el tramo o el precio), se descarta.
-  picks = picks.filter(p => seen.has(p.id));
+  const baseTitles = comboBaseTitles(allGames);
+  const seen = new Map();
+  eligible = allGames.filter(g => !seen.has(g.id) && comboEligible(g, t, baseTitles) && seen.set(g.id, g));
+  // Lo guardado se revalida contra el catálogo actual: si un juego salió del
+  // combo o cambió de precio y ya no entra en el presupuesto, se descarta.
+  let usado = 0;
+  picks = picks.filter(p => {
+    const g = seen.get(p.id);
+    if (!g) return false;
+    p.price = comboPrice(g);
+    if (usado + p.price > t.precio) return false;
+    usado += p.price;
+    return true;
+  });
   persist(); paintSlots(); paintGrid();
 }
 
 function renderComboIndex(tramos) {
   setPageMeta(
     "3X1 Combo: armá tu combo de 3 juegos | Rey Midas Digitales",
-    "Elegí 3 juegos de PS5, PS4 o Xbox por ₡5.000, ₡7.500 o ₡10.000 y enviá tu pedido por WhatsApp."
+    "Elegí 3 juegos de PS5, PS4 o Xbox en cuenta principal por ₡5.000, ₡7.500 o ₡10.000 y enviá tu pedido por WhatsApp."
   );
   app.innerHTML = `
     <section class="container combo-page">
@@ -3871,7 +3935,7 @@ function renderComboIndex(tramos) {
           <a class="combo-card" href="/combo/${x.precio}">
             <span class="combo-card-n">3 juegos</span>
             <span class="combo-card-p">${formatCRC(x.precio)}</span>
-            <span class="combo-card-sub">Juegos de hasta ${formatCRC(x.maxJuegoCRC)} c/u</span>
+            <span class="combo-card-sub">Cuenta principal</span>
             <span class="cta combo-card-cta">Armar este combo</span>
           </a>`).join("")}
       </div>

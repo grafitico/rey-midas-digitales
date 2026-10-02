@@ -1,9 +1,9 @@
 {
-  "updatedAt": "2026-10-01",
-  "nota": "Configuración de 3X1 Combo. Cada tramo vende 3 juegos (cuenta secundaria) por un precio fijo. maxJuegoCRC = precio máximo de cuenta secundaria de un juego para entrar en ese tramo. incluir/excluir = ids de juegos (el id del catálogo, el de /producto/<id>) para forzar o sacar juegos de un tramo sin importar su precio.",
+  "updatedAt": "2026-10-02",
+  "nota": "Configuración de 3X1 Combo (cuenta principal). El precio del combo es un presupuesto: los 3 juegos, a su precio normal de cuenta principal, tienen que sumar como máximo ese precio. incluir = ids de juegos que el filtro de DLC/free-to-play sacó por error y sí deben aparecer (igual tienen que entrar en el presupuesto). excluir = ids de juegos que no querés en ese combo. El id es el de /producto/<id>.",
   "tramos": [
-    { "precio": 5000,  "maxJuegoCRC": 2000, "incluir": [], "excluir": [] },
-    { "precio": 7500,  "maxJuegoCRC": 3000, "incluir": [], "excluir": [] },
-    { "precio": 10000, "maxJuegoCRC": 4000, "incluir": [], "excluir": [] }
+    { "precio": 5000,  "incluir": [], "excluir": [] },
+    { "precio": 7500,  "incluir": [], "excluir": [] },
+    { "precio": 10000, "incluir": [], "excluir": [] }
   ]
 }
