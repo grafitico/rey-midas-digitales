@@ -687,22 +687,13 @@ function finalizeAllGames(games) {
 // (ver ensureFullCatalog()), igual que ya se hacía con los bundles de
 // Nintendo (nintendo-bundles.json).
 // ============================================================
-// AbortSignal.timeout() no existe en iOS/Safari < 16 ni en navegadores viejos
-// de Android: llamarlo tiraba un TypeError que abortaba load() entera y el
-// sitio quedaba sin ningún juego en el celular. Esto hace lo mismo y funciona
-// en todos lados.
-function timeoutSignal(ms) {
-  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
-  if (typeof AbortController === "undefined") return undefined;
-  const ctrl = new AbortController();
-  setTimeout(() => ctrl.abort(), ms);
-  return ctrl.signal;
-}
-
 async function load() {
   try {
     const [psn, psB, xboxB, offers, bann, test, fq, psp, gp, resv, feat, featPrices, hidden, covers, always] = await Promise.allSettled([
-      fetch("/api/scrape", { signal: timeoutSignal(8000) }).then(r => r.json()),
+      // Antes: /api/scrape (precios en vivo, función de Vercel que se recalculaba
+      // cada hora y agotó la CPU del plan gratuito). Ahora esos precios llegan por
+      // ps-catalog.json + ps-prices.json (robot de GitHub cada 3 h).
+      Promise.resolve({ success: false }),
       fetch("/ps-bundles.json").then(r => r.json()),
       fetch("/xbox-bundles.json").then(r => r.json()),
       fetch("/offers.json").then(r => r.json()),
@@ -713,7 +704,9 @@ async function load() {
       fetch("/game-pass.json").then(r => r.json()),
       fetch("/reservaciones.json").then(r => r.json()),
       fetch("/featured-games.json").then(r => r.json()),
-      fetch("/api/featured-prices", { signal: timeoutSignal(8000) }).then(r => r.json()).catch(() => ({})),
+      // Precios de los destacados: los calcula un robot de GitHub cada 3 h
+      // (scripts/sync-featured-prices.js); antes era /api/featured-prices.
+      fetch("/featured-prices.json").then(r => r.json()).catch(() => ({})),
       fetch("/hidden-games.json").then(r => r.json()).catch(() => ({})),
       fetch("/covers.json").then(r => r.json()).catch(() => ({})),
       fetch("/always-show.json").then(r => r.json()).catch(() => ({})),
@@ -1109,7 +1102,13 @@ function applyCoverUpdates(bundleIds) {
 // ============================================================
 // Render principal
 // ============================================================
+// Una visita por página: render() corre varias veces en la misma página
+// (al terminar de cargar el catálogo, al iniciar sesión, etc.) y antes cada
+// una mandaba un registro: visitas infladas y llamadas de más al servidor.
+let lastTrackedPath = null;
 function trackPageView() {
+  if (location.pathname === lastTrackedPath) return;
+  lastTrackedPath = location.pathname;
   let sid = sessionStorage.getItem("rmd_sid");
   if (!sid) {
     sid = Math.random().toString(36).slice(2) + Date.now().toString(36);

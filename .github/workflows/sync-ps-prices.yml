@@ -1,7 +1,8 @@
 name: Sync PlayStation prices
 
 # Precios frescos (ofertas que empiezan o terminan) de las categorías PS4 y
-# PS5 cada 3 horas, en ps-prices.json. El catálogo completo sigue siendo
+# PS5 cada 3 horas, en ps-prices.json, y los de los juegos destacados en
+# featured-prices.json. El catálogo completo sigue siendo
 # diario (sync-ps-catalog.yml). Ver scripts/sync-ps-prices.js.
 #
 # Schedule en UTC. GitHub puede atrasar los crons varias horas en momentos de
@@ -37,3 +38,13 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}
         run: node scripts/sync-ps-prices.js
+
+      # Precios de los juegos destacados (antes /api/featured-prices en Vercel).
+      # Corre aunque el paso anterior falle: son independientes.
+      - name: Sync featured prices
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+        run: node scripts/sync-featured-prices.js
