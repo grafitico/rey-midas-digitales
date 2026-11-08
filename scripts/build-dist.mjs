@@ -17,7 +17,7 @@ const DIST = path.join(ROOT, "dist");
 // que solo usan los robots de GitHub.
 const EXCLUDE = new Set([
   ".git", ".github", ".gitignore", "node_modules", "dist", "deploy",
-  "api", "scripts", "migrations", "telegram-userbot",
+  "api", "server", "scripts", "migrations", "telegram-userbot",
   "middleware.js", "vercel.json", "package.json", "package-lock.json",
   "ps-rescate-ediciones.json",
 ]);
