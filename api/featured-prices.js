@@ -339,7 +339,7 @@ function editionOf(title) {
 // Deluxe/GOTY. Si PSN solo tiene la GOTY (caso real: Sekiro), el destacado
 // base no resuelve y queda registrado en `unresolved` para poder depurarlo,
 // en vez de inventar un precio.
-function editionKey(title) {
+export function editionKey(title) {
   return matchKey(title) + "|" + editionOf(title);
 }
 

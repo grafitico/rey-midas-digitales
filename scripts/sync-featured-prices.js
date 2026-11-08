@@ -1,55 +1,109 @@
 // Precios en vivo de los juegos destacados (featured-games.json) → featured-prices.json.
 //
-// Antes los calculaba /api/featured-prices en Vercel: ~150 búsquedas en PSN que
-// se recalculaban solas cada hora, entrara o no gente. Junto con /api/scrape
-// agotaron el tiempo de CPU del plan gratuito (Fluid Active CPU, nov 2026) y
-// Vercel pausó el sitio. Ahora lo corre GitHub Actions cada 3 h (mismo
-// workflow que los precios PS) y la web lee el archivo estático: cero servidor.
+// Antes los calculaba /api/featured-prices en Vercel leyendo el HTML de la PS
+// Store. Ese HTML dejó de traer los productos con el rediseño de PSN de agosto
+// 2026, así que desde entonces no resolvía NINGÚN precio (los destacados
+// mostraban el precio fijo escrito a mano) y aun así gastaba CPU cada hora:
+// junto con /api/scrape agotó el plan gratuito y Vercel pausó el sitio.
 //
-// Reutiliza la misma lógica del endpoint (api/featured-prices.js) llamándolo
-// con un req/res de mentira. Solo commitea si algún precio cambió.
+// Ahora lo corre GitHub Actions cada 3 h (workflow de precios PS):
+//   1) busca cada destacado en el catálogo ya descargado (ps-catalog.json +
+//      ps-prices.json), sin red;
+//   2) lo que no aparezca, lo busca en el buscador GraphQL de PSN (el mismo que
+//      usa el sync del catálogo y que sí funciona).
+// Se exige mismo juego Y misma edición (editionKey) y se descartan monedas y
+// complementos (clasificación de PSN). Solo commitea si algún precio cambió.
 
 import { readFileSync } from "fs";
-import handler from "../api/featured-prices.js";
+import { editionKey } from "../api/featured-prices.js";
+import { fetchSearchProducts } from "../api/scrape.js";
 
 const OUTPUT_FILE = "featured-prices.json";
 const GITHUB_API = "https://api.github.com";
 
-function runHandler() {
-  return new Promise((resolve) => {
-    let statusCode = 200;
-    const res = {
-      setHeader() {},
-      status(code) { statusCode = code; return res; },
-      json(body) { resolve({ statusCode, body }); },
-      end() { resolve({ statusCode, body: null }); },
-    };
-    handler({ method: "GET", query: {}, headers: {} }, res);
-  });
+const readJson = (f) => { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return null; } };
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function toEntry(g) {
+  return {
+    priceUSD: g.priceUSD,
+    originalPriceUSD: g.originalPriceUSD || g.priceUSD,
+    onSale: !!g.onSale,
+    discount: g.discount || 0,
+    url: g.url || `https://store.playstation.com/es-cr/product/${g.id}`,
+    psnId: g.id,
+    platform: g.platform,
+    imageUrl: g.imageUrl || "",
+  };
+}
+
+// Mejor candidato: misma edición, plataforma compatible, el más barato.
+function pick(game, candidates) {
+  const key = editionKey(game.title);
+  let list = candidates.filter(p => p.priceUSD > 0 && p.type !== "add-on" && editionKey(p.title) === key);
+  const wantsPS5 = /PS5/.test(game.platform) && !/PS4/.test(game.platform);
+  const wantsPS4 = /PS4/.test(game.platform) && !/PS5/.test(game.platform);
+  if (wantsPS5) { const f = list.filter(p => /PS5/.test(p.platform)); if (f.length) list = f; }
+  if (wantsPS4) { const f = list.filter(p => /PS4/.test(p.platform)); if (f.length) list = f; }
+  list.sort((a, b) => a.priceUSD - b.priceUSD);
+  return list[0] || null;
 }
 
 async function main() {
-  const { statusCode, body } = await runHandler();
-  if (statusCode !== 200 || !body?.success) {
-    console.error(`[featured-prices] Falló (${statusCode}): ${body?.error || "sin respuesta"}`);
-    process.exit(1);
+  const featured = (readJson("featured-games.json")?.games || []).filter(g => g && g.title);
+  const fresh = readJson("ps-prices.json")?.prices || {};
+  const catalog = (readJson("ps-catalog.json")?.games || []).map(g => {
+    const p = fresh[g.id];
+    if (!p) return g;
+    const [price, original] = p, onSale = original > price;
+    return { ...g, priceUSD: price, originalPriceUSD: original, onSale, discount: onSale ? Math.round((1 - price / original) * 100) : 0 };
+  });
+  const byKey = new Map();
+  for (const g of catalog) {
+    const k = editionKey(g.title);
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(g);
   }
-  const resolved = Object.keys(body.prices || {}).length;
-  console.log(`[featured-prices] ${resolved} precios resueltos, ${body.unresolved?.length || 0} sin resolver. Stats: ${JSON.stringify(body.stats)}`);
+  const byId = new Map(catalog.map(g => [g.id, g]));
 
-  // Salvaguarda: si PSN bloqueó al runner, no pisamos los precios buenos con nada.
-  let prev = {};
-  try { prev = JSON.parse(readFileSync(OUTPUT_FILE, "utf8")).prices || {}; } catch {}
+  const prices = {};
+  let fromCatalog = 0, fromSearch = 0;
+  const pending = [];
+  for (const game of featured) {
+    const hit = (game.psnId && byId.get(game.psnId)) || pick(game, byKey.get(editionKey(game.title)) || []);
+    if (hit) { prices[game.id] = toEntry(hit); fromCatalog++; }
+    else pending.push(game);
+  }
+  for (const game of pending) {
+    try {
+      const results = await fetchSearchProducts(game.title, null, { maxItems: 48 });
+      const hit = pick(game, results);
+      if (hit) { prices[game.id] = toEntry(hit); fromSearch++; }
+    } catch (e) {
+      console.warn(`[featured-prices] búsqueda "${game.title}" falló: ${e.message}`);
+    }
+    await sleep(200);
+  }
+  const unresolved = featured.filter(g => !prices[g.id]).map(g => ({ id: g.id, title: g.title, platform: g.platform, precioFijoUSD: g.priceUSD }));
+  const resolved = Object.keys(prices).length;
+  console.log(`[featured-prices] ${resolved}/${featured.length} resueltos (${fromCatalog} del catálogo, ${fromSearch} del buscador). Sin resolver: ${unresolved.map(u => u.title).join(" | ")}`);
+
+  // DRY_RUN=1: muestra a qué producto de PSN quedó emparejado cada destacado y no publica nada.
+  if (process.env.DRY_RUN) {
+    for (const g of featured) if (prices[g.id]) console.log(`${g.id}\t${g.title}\t${g.priceUSD}\t${prices[g.id].psnId}\t${prices[g.id].priceUSD}`);
+    return;
+  }
+
+  // Salvaguarda: si PSN bloqueó al runner y el catálogo vino vacío, no pisamos lo bueno.
+  const prev = readJson(OUTPUT_FILE)?.prices || {};
   if (resolved < Math.max(10, Object.keys(prev).length * 0.5)) {
-    console.error(`[featured-prices] Muy pocos precios (${resolved}, antes ${Object.keys(prev).length}): probable bloqueo de PSN. No se commitea.`);
+    console.error(`[featured-prices] Muy pocos precios (${resolved}, antes ${Object.keys(prev).length}). No se commitea.`);
     process.exit(1);
   }
-  const same = JSON.stringify(prev) === JSON.stringify(body.prices);
-  if (same) { console.log("[featured-prices] Sin cambios — no se commitea."); return; }
-
+  if (JSON.stringify(prev) === JSON.stringify(prices)) { console.log("[featured-prices] Sin cambios — no se commitea."); return; }
   await commitFile(
-    { updatedAt: new Date().toISOString(), success: true, prices: body.prices, unresolved: body.unresolved },
-    `chore: precios destacados — ${resolved} resueltos`,
+    { updatedAt: new Date().toISOString(), success: true, prices, unresolved },
+    `chore: precios destacados — ${resolved}/${featured.length} resueltos`,
   );
 }
 
