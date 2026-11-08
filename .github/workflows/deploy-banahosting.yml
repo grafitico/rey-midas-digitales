@@ -1,0 +1,87 @@
+name: Deploy to Banahosting
+
+# Publica el sitio en Banahosting por FTP, igual que Vercel lo hacía solo con
+# cada cambio: arma el sitio (npm run build), deja en dist/ solo lo público
+# (scripts/build-dist.mjs) y sube ÚNICAMENTE los archivos que cambiaron.
+#
+# Cuándo corre:
+#   - cada push a main (cambios de código);
+#   - cuando termina un robot de datos (precios, catálogos, bundles, portadas):
+#     sus commits los hace GITHUB_TOKEN y esos pushes no disparan workflows,
+#     por eso se engancha a workflow_run;
+#   - a mano desde la pestaña Actions (Run workflow).
+#
+# Configuración (una sola vez, en GitHub → Settings → Secrets and variables →
+# Actions):
+#   Secrets:   BANAHOSTING_FTP_SERVER    (ej. ftp.reymidascr.com)
+#              BANAHOSTING_FTP_USERNAME
+#              BANAHOSTING_FTP_PASSWORD
+#   Variables (opcionales):
+#              BANAHOSTING_FTP_DIR       carpeta del sitio en el servidor (por defecto public_html/)
+#              BANAHOSTING_FTP_PROTOCOL  ftps (por defecto) o ftp si el servidor no acepta TLS
+# Sin los secrets el workflow no hace nada (no falla).
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows:
+      - Sync PlayStation catalog
+      - Sync PlayStation prices
+      - Sync Xbox catalog from Microsoft APIs
+      - Sync bundles from Telegram
+      - Harvest covers to covers.json
+      - Harvest box art from Microsoft Store
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Un despliegue a la vez; si llega otro mientras tanto, espera y sube lo último.
+concurrency:
+  group: deploy-banahosting
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+    env:
+      FTP_SERVER: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+    steps:
+      - name: Sin credenciales de FTP, no hay nada que hacer
+        if: env.FTP_SERVER == ''
+        run: echo "Faltan los secrets BANAHOSTING_FTP_* — ver el comentario al inicio de este archivo."
+
+      - name: Checkout (último main)
+        if: env.FTP_SERVER != ''
+        uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Setup Node
+        if: env.FTP_SERVER != ''
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Build
+        if: env.FTP_SERVER != ''
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          node scripts/build-dist.mjs
+
+      - name: Subir por FTP (solo lo que cambió)
+        if: env.FTP_SERVER != ''
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+          username: ${{ secrets.BANAHOSTING_FTP_USERNAME }}
+          password: ${{ secrets.BANAHOSTING_FTP_PASSWORD }}
+          protocol: ${{ vars.BANAHOSTING_FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./dist/
+          server-dir: ${{ vars.BANAHOSTING_FTP_DIR || 'public_html/' }}
+          timeout: 120000
