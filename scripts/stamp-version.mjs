@@ -14,24 +14,30 @@
 //   - index.html          → ?v=<version> de app.js, style.css, pwa.js y chat-widget.js
 //   - service-worker.js   → CACHE_VERSION (invalida también la caché del PWA)
 //
-// La versión sale del commit que Vercel está desplegando (VERCEL_GIT_COMMIT_SHA);
-// si no existe, se usa la fecha y hora, que también es única por build.
+// La versión es un hash del contenido del código (ver buildVersion): cambia
+// solo cuando cambia el código, no con cada commit de datos de los robots.
 
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 const ROOT = path.join(import.meta.dirname, "..");
 
+// La versión sale del CONTENIDO del código del sitio (no del commit): los
+// robots de precios y catálogos publican varias veces al día sin tocar el
+// código, y con el commit cada publicación era "versión nueva" → el service
+// worker se reinstalaba y a todos les salía el aviso de actualizar.
 function buildVersion() {
-  const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA;
-  const d = new Date();
-  const stamp = [
-    d.getUTCFullYear(),
-    String(d.getUTCMonth() + 1).padStart(2, "0"),
-    String(d.getUTCDate()).padStart(2, "0"),
-  ].join("");
-  // Fecha + commit corto: legible y distinto en cada despliegue.
-  return sha ? `${stamp}-${sha.slice(0, 7)}` : `${stamp}-${Date.now().toString(36)}`;
+  const files = ["index.html", "app.js", "style.css", "pwa.js", "chat-widget.js", "service-worker.js", "manifest.webmanifest"];
+  const h = crypto.createHash("sha256");
+  for (const f of files) {
+    let txt;
+    try { txt = fs.readFileSync(path.join(ROOT, f), "utf8"); } catch { continue; }
+    // Quitar lo que este mismo script sella, para que el hash no dependa de él.
+    txt = txt.replace(/\?v=[A-Za-z0-9._-]*/g, "?v=").replace(/const CACHE_VERSION = ['"][^'"]*['"];/, "");
+    h.update(f + "\0" + txt + "\0");
+  }
+  return h.digest("hex").slice(0, 12);
 }
 
 const version = buildVersion();

@@ -7,52 +7,26 @@
   /* ---------- 1. Registro del Service Worker ---------- */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
-      // Si ya había un controlador al cargar, un cambio posterior = actualización
-      // (hay que recargar). En la PRIMERA visita el claim() inicial no debe recargar.
-      var hadController = !!navigator.serviceWorker.controller;
-      var refreshing = false;
-
       navigator.serviceWorker
         .register('/service-worker.js')
         .then(function (reg) {
-          // Detecta un SW nuevo esperando y ofrece recargar.
+          // Versión nueva: se activa sola en segundo plano, sin aviso ni recarga.
+          // La página abierta sigue igual y la próxima visita ya usa lo nuevo
+          // (antes salía un botón "Actualizar" que molestaba en cada publicación).
+          function activate(sw) { if (sw) sw.postMessage('SKIP_WAITING'); }
+          if (reg.waiting && navigator.serviceWorker.controller) activate(reg.waiting);
           reg.addEventListener('updatefound', function () {
             var nw = reg.installing;
             if (!nw) return;
             nw.addEventListener('statechange', function () {
-              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                showUpdateToast(reg);
-              }
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) activate(nw);
             });
           });
         })
         .catch(function () {
           /* Sin SW la web sigue funcionando igual; no rompemos nada. */
         });
-
-      // Cuando el SW nuevo toma control tras una actualización, recargamos una vez.
-      navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (!hadController) return; // primera instalación: no recargar
-        if (refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
     });
-  }
-
-  function showUpdateToast(reg) {
-    if (document.getElementById('pwaUpdateToast')) return;
-    var t = document.createElement('div');
-    t.id = 'pwaUpdateToast';
-    t.className = 'pwa-toast';
-    t.innerHTML =
-      '<span>Hay una versión nueva disponible.</span>' +
-      '<button type="button" class="pwa-toast-btn">Actualizar</button>';
-    t.querySelector('button').addEventListener('click', function () {
-      if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
-      t.remove();
-    });
-    document.body.appendChild(t);
   }
 
   /* ---------- 2. Botón de instalación (Android / escritorio) ---------- */
