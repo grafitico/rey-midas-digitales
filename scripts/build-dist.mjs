@@ -43,6 +43,9 @@ for (const name of fs.readdirSync(ROOT)) {
   copy(path.join(ROOT, name), path.join(DIST, name));
 }
 copy(path.join(ROOT, "deploy", ".htaccess"), path.join(DIST, ".htaccess"));
+// Marca visible para saber qué hosting está respondiendo: reymidascr.com/hosting.txt
+// solo existe en Banahosting (Vercel devolvería la tienda en esa ruta).
+fs.writeFileSync(path.join(DIST, "hosting.txt"), `Banahosting — publicado ${new Date().toISOString()} (${(process.env.GITHUB_SHA || "local").slice(0, 7)})\n`);
 
 console.log(`[build-dist] ${files} archivos, ${(bytes / 1024 / 1024).toFixed(1)} MB en dist/`);
 
