@@ -12,6 +12,8 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// api/chat.js y api/featured-prices.js leen featured-games.json desde process.cwd().
+process.chdir(ROOT);
 const API_DIR = path.join(ROOT, "api");
 
 // Mismas reescrituras que vercel.json.
