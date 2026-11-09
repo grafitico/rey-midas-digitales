@@ -3832,10 +3832,19 @@ function comboWaURL(t, picks) {
   return `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`;
 }
 
+// Refresca la lista del combo ya montado (sin rehacer la página) cuando llega
+// más catálogo. Ver renderCombo().
+let comboRefresh = null;
+
 async function renderCombo(precio) {
   const tramos = await ensureComboTramos();
   const t = tramos.find(x => x.precio === precio);
   if (!t) return renderComboIndex(tramos);
+  // render() vuelve a correr cuando termina load() y cuando llega el catálogo
+  // completo. Si este combo ya está en pantalla, solo se actualiza la lista:
+  // rehacer la página borraba la búsqueda, el filtro y el "ver más".
+  if (comboRefresh && document.querySelector(`.combo-page[data-precio="${t.precio}"]`)) return comboRefresh();
+  comboRefresh = null;
 
   setPageMeta(
     `3X1 Combo: 3 juegos por ${formatCRC(t.precio)} | Rey Midas Digitales`,
@@ -3847,7 +3856,7 @@ async function renderCombo(precio) {
       <span class="combo-tab-p">${formatCRC(x.precio)}</span>
     </a>`).join("");
   app.innerHTML = `
-    <section class="container combo-page">
+    <section class="container combo-page" data-precio="${t.precio}">
       <div class="combo-hero">
         <h1>3X1 Combo</h1>
         <p>Elegí tu combo, escogé <strong>3 juegos en cuenta principal</strong> y envianos el pedido por WhatsApp.</p>
@@ -3932,9 +3941,12 @@ async function renderCombo(precio) {
     if (sort === "asc") list.sort((x, y) => comboPrice(x) - comboPrice(y));
     else if (sort === "desc") list.sort((x, y) => comboPrice(y) - comboPrice(x));
     else if (sort === "az") list.sort((x, y) => x.title.localeCompare(y.title, "es"));
-    document.getElementById("comboCount").textContent = `Mostrando ${Math.min(shown, list.length)} de ${list.length} juegos`;
+    document.getElementById("comboCount").textContent = `Mostrando ${Math.min(shown, list.length)} de ${list.length} juegos` +
+      (fullCatalogLoaded ? "" : " · cargando más juegos…");
     if (!list.length) {
-      gridBox.innerHTML = `<p class="empty-state-small">No encontramos juegos con ese filtro para este combo.</p>`;
+      gridBox.innerHTML = fullCatalogLoaded
+        ? `<p class="empty-state-small">No encontramos juegos con ese filtro para este combo.</p>`
+        : `<div class="status">Cargando juegos...</div>`;
       moreBox.innerHTML = "";
       return;
     }
@@ -3982,28 +3994,36 @@ async function renderCombo(precio) {
     paintGrid();
   });
 
-  paintSlots();
-  if (!fullCatalogLoaded) await ensureFullCatalog();
-  const r = parseRoute();
-  if (!(r.name === "combo" && r.precio === t.precio)) return; // el usuario ya navegó a otra vista
-  const baseTitles = comboBaseTitles(allGames);
-  const seen = new Map();
-  eligible = allGames.filter(g => !seen.has(g.id) && comboEligible(g, t, baseTitles) && seen.set(g.id, g));
-  // Lo guardado se revalida contra el catálogo actual: si un juego salió del
-  // combo o cambió de precio y ya no entra en el presupuesto, se descarta.
-  let usado = 0;
-  const ok = [];
-  picks = picks.filter(p => {
-    const g = seen.get(p.id);
-    if (!g) return false;
-    p.price = comboPrice(g);
-    if (usado + p.price > t.precio) return false;
-    if (!comboConsolaDe([...ok, p]).length) return false; // misma consola
-    usado += p.price;
-    ok.push(p);
-    return true;
-  });
-  persist(); paintSlots(); paintGrid();
+  // Lista con lo que ya hay cargado (destacados = los más vendidos) apenas se
+  // abre la página; se completa sola cuando llega el catálogo entero. Antes se
+  // esperaba todo el catálogo (~2 MB) con la pantalla en "Cargando juegos...".
+  const refresh = () => {
+    const baseTitles = comboBaseTitles(allGames);
+    const seen = new Map();
+    eligible = allGames.filter(g => !seen.has(g.id) && comboEligible(g, t, baseTitles) && seen.set(g.id, g));
+    // Lo guardado se revalida contra el catálogo completo (con la lista
+    // parcial no: el juego elegido puede no haber llegado todavía). Si salió
+    // del combo o cambió de precio y ya no entra en el presupuesto, se descarta.
+    if (fullCatalogLoaded) {
+      let usado = 0;
+      const ok = [];
+      picks = picks.filter(p => {
+        const g = seen.get(p.id);
+        if (!g) return false;
+        p.price = comboPrice(g);
+        if (usado + p.price > t.precio) return false;
+        if (!comboConsolaDe([...ok, p]).length) return false; // misma consola
+        usado += p.price;
+        ok.push(p);
+        return true;
+      });
+      persist();
+    }
+    paintSlots(); paintGrid();
+  };
+  comboRefresh = refresh;
+  refresh();
+  if (!fullCatalogLoaded) ensureFullCatalog(); // al llegar llama a render() → refresh()
 }
 
 function renderComboIndex(tramos) {
