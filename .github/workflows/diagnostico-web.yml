@@ -31,6 +31,15 @@ jobs:
               grep -oE '<title>[^<]*|property="og:(title|image|description)" content="[^"]{0,140}' body.html | head -4 || true
               head -c 200 body.html | tr '\n' ' '; echo
             done
+            # Facebook manda cabeceras extra (Range, Accept, compresión): probar
+            # cada una por separado para ver si alguna cambia el código.
+            fb="facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
+            for h in "Range: bytes=0-524287" "Accept: */*" "Accept-Encoding: gzip, deflate, br" "Accept-Language: es-LA,es;q=0.9" "X-Forwarded-For: 66.220.149.1"; do
+              curl -s -o /dev/null -A "$fb" -H "$h" -w "    [$h] HTTP %{http_code} · %{size_download} bytes\n" "https://reymidascr.com$p" || true
+            done
+            curl -s -o /dev/null -A "$fb" -H "Range: bytes=0-524287" -H "Accept: */*" -H "Accept-Encoding: gzip, deflate, br" -w "    [todas] HTTP %{http_code}\n" "https://reymidascr.com$p" || true
+            curl -s -o /dev/null -A "facebookexternalhit/1.1" -w "    [UA corto] HTTP %{http_code}\n" "https://reymidascr.com$p" || true
+            curl -s -o /dev/null -A "meta-externalagent/1.1" -w "    [meta-externalagent] HTTP %{http_code}\n" "https://reymidascr.com$p" || true
             # La portada que verían WhatsApp/Facebook: ¿descarga? ¿cuánto pesa?
             curl -s -o og.html -A "WhatsApp/2.23.20.0 A" "https://reymidascr.com$p" || true
             img=$(grep -oE 'property="og:image" content="[^"]+' og.html | head -1 | sed 's/.*content="//; s/&amp;/\&/g')
