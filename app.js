@@ -2603,8 +2603,20 @@ const _priorityMap = new Map(PRIORITY_TITLES.map((t, i) => [normTitleForPriority
 
 // Devuelve la posición del juego en la lista de prioridad (menor = más arriba).
 // Si no está en la lista devuelve Infinity.
+// Se cachea por juego: el orden de /plataforma/ la llama dos veces en cada
+// comparación del sort (~9.000 juegos → cientos de miles de llamadas), y cada
+// una normalizaba el título y recorría toda la lista. En un celular de gama
+// media eso bloqueaba la página más de 40 s (Lighthouse, nov 2026). La clave
+// incluye el título porque disambiguateEditions() puede renombrarlo.
 function priorityScore(g) {
-  const n = normTitleForPriority(g.title);
+  if (g._prioTitle === g.title) return g._prio;
+  const p = computePriorityScore(g.title);
+  g._prioTitle = g.title;
+  g._prio = p;
+  return p;
+}
+function computePriorityScore(title) {
+  const n = normTitleForPriority(title);
   if (_priorityMap.has(n)) return _priorityMap.get(n);
   // Coincidencia parcial: uno contiene al otro (maneja variaciones de subtítulo).
   // Se prefiere el overlap más largo para evitar falsos positivos.
@@ -5799,12 +5811,12 @@ function secundariaCRC(usd, platform = "") {
   const floor = ps5OnlyFloorCRC(usd, platform, CONFIG.pricing.ps5Only.secundariaPct);
   return withMinCRC(Math.max(base, floor), usd);
 }
+// Un solo formateador (creado la primera vez que se usa): crear un
+// Intl.NumberFormat por cada precio era de lo más caro al pintar la grilla.
+var crcFormat = null; // var: puede usarse antes de llegar a esta línea al cargar el script
 function formatCRC(amount) {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  if (!crcFormat) crcFormat = new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC", maximumFractionDigits: 0 });
+  return crcFormat.format(amount);
 }
 
 // ============================================================
