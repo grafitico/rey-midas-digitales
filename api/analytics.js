@@ -2,7 +2,13 @@
 // POST /api/analytics  — registra una visita (page_path + session ID)
 // GET  /api/analytics  — devuelve estadísticas: total, hoy, en línea ahora
 
-import { sb, sbCount, readJson, checkConfig } from "./_lib.js";
+import { sb, sbCount, readJson, checkConfig, clientIp, createRateLimiter } from "./_lib.js";
+
+// Cualquiera podía mandar visitas falsas sin límite: inflar el contador o
+// llenar la tabla page_views. Una persona navegando normal no pasa de unas
+// pocas páginas por minuto.
+const limit = createRateLimiter({ perMinute: 30, perHour: 300, globalPerHour: 30000 });
+const SID_RE = /^[a-z0-9]{8,64}$/i;
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -36,12 +42,17 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     try {
       const body = await readJson(req);
+      const sid = String(body?.sid || "");
+      const path = String(body?.path || "/");
+      // Visitas sin sesión válida o con rutas raras no se guardan (no es la web).
+      if (!SID_RE.test(sid) || !path.startsWith("/")) return res.status(200).json({ ok: false });
+      if (limit(clientIp(req))) return res.status(429).json({ ok: false });
       await sb("page_views", {
         method: "POST",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({
-          page_path: String(body.path || "/").slice(0, 200),
-          sid:       String(body.sid  || "").slice(0, 64),
+          page_path: path.slice(0, 200),
+          sid,
         }),
       });
       return res.status(200).json({ ok: true });

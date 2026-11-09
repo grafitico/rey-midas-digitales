@@ -32,7 +32,7 @@ export const config = {
 
 const BASE = "https://reymidascr.com";
 
-const BOT_RE = /facebookexternalhit|facebot|WhatsApp|Twitterbot|Slackbot|Slack-ImgProxy|Discordbot|TelegramBot|LinkedInBot|Pinterest|redditbot|Googlebot|Google-InspectionTool|Storebot-Google|bingbot|DuckDuckBot|Applebot|Embedly|Iframely|vkShare|baiduspider|YandexBot|Quora Link Preview|Skype|Viber|bitlybot|flipboard|tumblr|nuzzel|outbrain/i;
+export const BOT_RE = /facebookexternalhit|facebot|WhatsApp|Twitterbot|Slackbot|Slack-ImgProxy|Discordbot|TelegramBot|LinkedInBot|Pinterest|redditbot|Googlebot|Google-InspectionTool|Storebot-Google|bingbot|DuckDuckBot|Applebot|Embedly|Iframely|vkShare|baiduspider|YandexBot|Quora Link Preview|Skype|Viber|bitlybot|flipboard|tumblr|nuzzel|outbrain/i;
 
 // ---- Precios: espejo de CONFIG.pricing en app.js ----
 const EXCHANGE = 530;
@@ -136,7 +136,7 @@ function setProp(html, prop, content) {
   const re = new RegExp(`(<meta property="${prop}" content=")[^"]*(">)`);
   return re.test(html) ? html.replace(re, `$1${esc(content)}$2`) : html;
 }
-function applyMeta(html, m) {
+export function applyMeta(html, m) {
   let out = html;
   if (m.title) {
     out = out.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(m.title)}</title>`);
@@ -179,7 +179,7 @@ const STATIC_PAGES = {
   "/privacidad": ["Política de privacidad | Rey Midas Digitales", "Política de privacidad de Rey Midas Digitales."],
 };
 
-function buildMeta(pathname, data) {
+export function buildMeta(pathname, data) {
   const clean = (pathname.replace(/\/+$/, "")) || "/";
   const url = BASE + (clean === "/" ? "/" : clean);
   const parts = clean.split("/").filter(Boolean).map(p => { try { return decodeURIComponent(p); } catch { return p; } });
@@ -219,6 +219,17 @@ function buildMeta(pathname, data) {
     return {
       title: `Juegos ${p} en Costa Rica | Rey Midas Digitales`,
       description: `Catálogo de juegos digitales para ${p} en Costa Rica. Cuenta principal y secundaria, entrega inmediata por WhatsApp.`,
+      url,
+    };
+  }
+
+  if (parts[0] === "combo") {
+    const precio = Number(parts[1]) || 0;
+    return {
+      title: precio ? `3X1 Combo: 3 juegos por ${formatCRC(precio)} | Rey Midas Digitales` : "3X1 Combo: armá tu combo de 3 juegos | Rey Midas Digitales",
+      description: precio
+        ? `Elegí 3 juegos de PS5, PS4 o Xbox en cuenta principal por ${formatCRC(precio)} y envianos tu pedido por WhatsApp.`
+        : "Elegí 3 juegos de PS5, PS4 o Xbox en cuenta principal por ₡5.000, ₡7.500 o ₡10.000 y envianos tu pedido por WhatsApp.",
       url,
     };
   }

@@ -243,3 +243,35 @@ export async function readJson(req) {
     req.on("error", reject);
   });
 }
+
+// ---- Límites de uso (en memoria del proceso) ----
+// IP real del cliente: detrás de Cloudflare viene en cf-connecting-ip.
+export function clientIp(req) {
+  const h = req.headers || {};
+  return String(h["cf-connecting-ip"] || String(h["x-forwarded-for"] || "").split(",")[0] || req.socket?.remoteAddress || "?").trim();
+}
+
+// Límite por IP (por minuto y por hora) y global por hora. check(ip) devuelve
+// null si puede pasar o { retryAfter (s), global }. No usa la base de datos: si
+// el hosting corre varios procesos, cada uno cuenta aparte (suficiente para
+// frenar abusos).
+export function createRateLimiter({ perMinute = Infinity, perHour = Infinity, globalPerHour = Infinity } = {}) {
+  const HOUR = 3600000, MINUTE = 60000;
+  const hits = new Map();
+  let global = [];
+  return function check(ip, now = Date.now()) {
+    global = global.filter(t => now - t < HOUR);
+    const mine = (hits.get(ip) || []).filter(t => now - t < HOUR);
+    const lastMinute = mine.filter(t => now - t < MINUTE);
+    if (global.length >= globalPerHour) return { retryAfter: Math.ceil((global[0] + HOUR - now) / 1000), global: true };
+    if (lastMinute.length >= perMinute) return { retryAfter: Math.ceil((lastMinute[0] + MINUTE - now) / 1000), global: false };
+    if (mine.length >= perHour) return { retryAfter: Math.ceil((mine[0] + HOUR - now) / 1000), global: false };
+    mine.push(now);
+    hits.set(ip, mine);
+    global.push(now);
+    if (hits.size > 5000) {
+      for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] >= HOUR) hits.delete(k);
+    }
+    return null;
+  };
+}

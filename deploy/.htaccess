@@ -34,6 +34,13 @@ AddType video/mp4 .mp4
   # mandarlo a index.html.
   RewriteRule ^api(/|$) - [L]
 
+  # Vista previa al compartir (foto, nombre y precio del juego): SOLO los robots
+  # de redes sociales van a la app Node.js (api/og.js); las personas reciben la
+  # tienda normal. Los buscadores (Google, Bing) quedan afuera a propósito:
+  # ejecutan el JavaScript de la tienda y así no dependen de esta pieza.
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|facebot|WhatsApp|Twitterbot|Slackbot|Discordbot|TelegramBot|LinkedInBot|Pinterest|redditbot|SkypeUriPreview|Viber|Iframely|Embedly|vkShare) [NC]
+  RewriteRule ^(|producto/.+|reserva/.+|plataforma/.+|bundles/.*|combo.*|ofertas|playstation-plus|game-pass|vip|resenas|faq|como-comprar|garantia|nosotros|terminos|privacidad)/?$ /api/og?path=/$1 [B,L]
+
   # Archivos y carpetas reales se sirven tal cual; cualquier otra ruta de la
   # tienda (/plataforma/PS5, /combo/5000, /producto/...) la resuelve index.html.
   RewriteCond %{REQUEST_FILENAME} -f [OR]

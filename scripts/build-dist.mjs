@@ -55,7 +55,7 @@ const DIST_API = path.join(ROOT, "dist-api");
 fs.rmSync(DIST_API, { recursive: true, force: true });
 fs.mkdirSync(DIST_API);
 files = 0; bytes = 0;
-for (const name of ["api", "server", "featured-games.json"]) copy(path.join(ROOT, name), path.join(DIST_API, name));
+for (const name of ["api", "server", "featured-games.json", "middleware.js"]) copy(path.join(ROOT, name), path.join(DIST_API, name));
 // api/*.js son módulos ES: Node necesita "type": "module". Sin dependencias,
 // así que no hace falta npm install en el servidor.
 fs.writeFileSync(path.join(DIST_API, "package.json"), JSON.stringify({ name: "rey-midas-api", private: true, type: "module" }, null, 2) + "\n");

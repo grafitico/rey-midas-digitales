@@ -8,7 +8,7 @@
 // La CSP del sitio permite connect-src 'self', así que el widget solo habla
 // con este endpoint mismo-origen; la llamada al LLM la hace este servidor.
 
-import { readJson } from "./_lib.js";
+import { readJson, clientIp, createRateLimiter } from "./_lib.js";
 import fs from "fs";
 import path from "path";
 
@@ -577,40 +577,7 @@ function errorCode(e) {
 // gasta la base de datos y alcanza para frenar abusos (si el hosting corre
 // varios procesos, cada uno cuenta aparte). Además del límite por persona hay
 // uno global, que acota el daño aunque alguien rote IPs.
-const CHAT_LIMITS = { perMinute: 6, perHour: 20, globalPerHour: 400 };
-const HOUR = 60 * 60 * 1000, MINUTE = 60 * 1000;
-const chatHits = new Map(); // ip -> [timestamps]
-let chatGlobalHits = [];
-
-function clientIp(req) {
-  const h = req.headers || {};
-  // Detrás de Cloudflare la IP real del cliente viene en cf-connecting-ip.
-  return String(h["cf-connecting-ip"] || String(h["x-forwarded-for"] || "").split(",")[0] || req.socket?.remoteAddress || "?").trim();
-}
-
-// Devuelve null si puede pasar, o { retryAfter (s), global } si se pasó.
-function chatRateLimit(ip, now = Date.now()) {
-  chatGlobalHits = chatGlobalHits.filter(t => now - t < HOUR);
-  const mine = (chatHits.get(ip) || []).filter(t => now - t < HOUR);
-  const lastMinute = mine.filter(t => now - t < MINUTE);
-  if (chatGlobalHits.length >= CHAT_LIMITS.globalPerHour) {
-    return { retryAfter: Math.ceil((chatGlobalHits[0] + HOUR - now) / 1000), global: true };
-  }
-  if (lastMinute.length >= CHAT_LIMITS.perMinute) {
-    return { retryAfter: Math.ceil((lastMinute[0] + MINUTE - now) / 1000), global: false };
-  }
-  if (mine.length >= CHAT_LIMITS.perHour) {
-    return { retryAfter: Math.ceil((mine[0] + HOUR - now) / 1000), global: false };
-  }
-  mine.push(now);
-  chatHits.set(ip, mine);
-  chatGlobalHits.push(now);
-  // Que el mapa no crezca sin fin: se descartan las IPs sin actividad en la última hora.
-  if (chatHits.size > 5000) {
-    for (const [k, v] of chatHits) if (!v.length || now - v[v.length - 1] >= HOUR) chatHits.delete(k);
-  }
-  return null;
-}
+const chatRateLimit = createRateLimiter({ perMinute: 6, perHour: 20, globalPerHour: 400 });
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
