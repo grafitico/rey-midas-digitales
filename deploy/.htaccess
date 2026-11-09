@@ -5,6 +5,14 @@
 Options -Indexes
 DirectoryIndex index.html
 
+AddDefaultCharset UTF-8
+AddCharset UTF-8 .txt .json .js .css .webmanifest .xml
+
+# Archivo interno del robot de publicación (lista de archivos y hashes): no es público.
+<Files ".ftp-deploy-sync-state.json">
+  Require all denied
+</Files>
+
 AddType application/manifest+json .webmanifest
 AddType image/webp .webp
 AddType video/mp4 .mp4
