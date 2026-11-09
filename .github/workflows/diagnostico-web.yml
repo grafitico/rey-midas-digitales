@@ -1,0 +1,34 @@
+name: Diagnóstico web
+
+# Visita reymidascr.com como lo hacen los robots de WhatsApp/Facebook y una
+# persona normal, y muestra qué responde el servidor (código, cabeceras y las
+# etiquetas de vista previa). Solo lee páginas públicas; se corre a mano desde
+# Actions → Diagnóstico web → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: "Rutas a revisar, separadas por espacios"
+        required: false
+        default: "/ /combo/5000 /producto/feat-witcher-3 /api/og?path=/producto/feat-witcher-3 /hosting.txt"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Revisar
+        env:
+          PATHS: ${{ inputs.paths }}
+        run: |
+          for p in $PATHS; do
+            for ua in "WhatsApp/2.23.20.0 A" "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1"; do
+              echo "=================== $p  ·  ${ua:0:30}"
+              curl -s -o body.html -D headers.txt -A "$ua" -w "HTTP %{http_code} · %{size_download} bytes · %{time_total}s\n" "https://reymidascr.com$p" || true
+              grep -iE "^(server|content-type|x-prerender|cf-cache-status|location|x-powered-by):" headers.txt || true
+              grep -oE '<title>[^<]*|property="og:(title|image|description)" content="[^"]{0,140}' body.html | head -4 || true
+              head -c 200 body.html | tr '\n' ' '; echo
+            done
+          done
