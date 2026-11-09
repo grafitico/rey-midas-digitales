@@ -31,4 +31,12 @@ jobs:
               grep -oE '<title>[^<]*|property="og:(title|image|description)" content="[^"]{0,140}' body.html | head -4 || true
               head -c 200 body.html | tr '\n' ' '; echo
             done
+            # La portada que verían WhatsApp/Facebook: ¿descarga? ¿cuánto pesa?
+            curl -s -o og.html -A "WhatsApp/2.23.20.0 A" "https://reymidascr.com$p" || true
+            img=$(grep -oE 'property="og:image" content="[^"]+' og.html | head -1 | sed 's/.*content="//; s/&amp;/\&/g')
+            if [ -n "$img" ]; then
+              echo "--- og:image: ${img:0:150}"
+              curl -s -o img.bin -A "WhatsApp/2.23.20.0 A" -w "    imagen: HTTP %{http_code} · %{content_type} · %{size_download} bytes · %{time_total}s\n" "$img" || true
+              file img.bin | sed 's/^/    /'
+            fi
           done
