@@ -571,6 +571,47 @@ function errorCode(e) {
   return "provider_error";
 }
 
+// ---- Límite de uso ----
+// Sin esto, cualquiera podía llamar /api/chat sin parar y agotar el cupo gratis
+// de Groq (y los procesos del hosting). Se lleva en memoria del proceso: no
+// gasta la base de datos y alcanza para frenar abusos (si el hosting corre
+// varios procesos, cada uno cuenta aparte). Además del límite por persona hay
+// uno global, que acota el daño aunque alguien rote IPs.
+const CHAT_LIMITS = { perMinute: 6, perHour: 20, globalPerHour: 400 };
+const HOUR = 60 * 60 * 1000, MINUTE = 60 * 1000;
+const chatHits = new Map(); // ip -> [timestamps]
+let chatGlobalHits = [];
+
+function clientIp(req) {
+  const h = req.headers || {};
+  // Detrás de Cloudflare la IP real del cliente viene en cf-connecting-ip.
+  return String(h["cf-connecting-ip"] || String(h["x-forwarded-for"] || "").split(",")[0] || req.socket?.remoteAddress || "?").trim();
+}
+
+// Devuelve null si puede pasar, o { retryAfter (s), global } si se pasó.
+function chatRateLimit(ip, now = Date.now()) {
+  chatGlobalHits = chatGlobalHits.filter(t => now - t < HOUR);
+  const mine = (chatHits.get(ip) || []).filter(t => now - t < HOUR);
+  const lastMinute = mine.filter(t => now - t < MINUTE);
+  if (chatGlobalHits.length >= CHAT_LIMITS.globalPerHour) {
+    return { retryAfter: Math.ceil((chatGlobalHits[0] + HOUR - now) / 1000), global: true };
+  }
+  if (lastMinute.length >= CHAT_LIMITS.perMinute) {
+    return { retryAfter: Math.ceil((lastMinute[0] + MINUTE - now) / 1000), global: false };
+  }
+  if (mine.length >= CHAT_LIMITS.perHour) {
+    return { retryAfter: Math.ceil((mine[0] + HOUR - now) / 1000), global: false };
+  }
+  mine.push(now);
+  chatHits.set(ip, mine);
+  chatGlobalHits.push(now);
+  // Que el mapa no crezca sin fin: se descartan las IPs sin actividad en la última hora.
+  if (chatHits.size > 5000) {
+    for (const [k, v] of chatHits) if (!v.length || now - v[v.length - 1] >= HOUR) chatHits.delete(k);
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
@@ -676,6 +717,18 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+
+  const limit = chatRateLimit(clientIp(req));
+  if (limit) {
+    res.setHeader("Retry-After", String(limit.retryAfter));
+    return res.status(429).json({
+      error: true,
+      reply: limit.global
+        ? "El asistente está recibiendo muchas consultas en este momento 🙏. Escribinos directo por WhatsApp y te atendemos enseguida."
+        : "Enviaste muchos mensajes seguidos 😅. Esperá un momento o escribinos directo por WhatsApp y te atendemos enseguida.",
+      whatsapp: `https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Hola, vengo del asistente de reymidascr.com y quiero hacer una consulta.")}`,
+    });
+  }
 
   if (!apiKey) {
     return res.status(200).json({
