@@ -83,11 +83,20 @@ export const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
     // Passenger puede entregar la ruta con o sin el prefijo /api.
     const parts = url.pathname.replace(/^\/+/, "").split("/");
-    if (parts[0] === "api") parts.shift();
-    const name = ALIASES[parts[0]] || parts[0];
+    const isApi = parts[0] === "api";
+    if (isApi) parts.shift();
+    let name = ALIASES[parts[0]] || parts[0];
+    req.query = Object.fromEntries(url.searchParams);
+    // Una ruta de la tienda (no /api/...) solo llega acá porque deploy/.htaccess
+    // le mandó un robot de redes sociales: Passenger entrega la dirección
+    // ORIGINAL de la petición, no la reescrita a /api/og. Se arma la vista previa
+    // de esa página.
+    if (!isApi && !ROUTES.has(name)) {
+      name = "og";
+      req.query = { path: url.pathname };
+    }
     if (!ROUTES.has(name)) return res.status(404).json({ error: "No encontrado" });
 
-    req.query = Object.fromEntries(url.searchParams);
     if (req.method !== "GET" && req.method !== "HEAD") {
       req.body = parseBody(await readBody(req), req.headers["content-type"] || "");
     }
