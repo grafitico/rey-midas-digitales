@@ -37,7 +37,16 @@ jobs:
             for h in "Range: bytes=0-524287" "Accept: */*" "Accept-Encoding: gzip, deflate, br" "Accept-Language: es-LA,es;q=0.9" "X-Forwarded-For: 66.220.149.1"; do
               curl -s -o /dev/null -A "$fb" -H "$h" -w "    [$h] HTTP %{http_code} · %{size_download} bytes\n" "https://reymidascr.com$p" || true
             done
-            curl -s -o /dev/null -A "$fb" -H "Range: bytes=0-524287" -H "Accept: */*" -H "Accept-Encoding: gzip, deflate, br" -w "    [todas] HTTP %{http_code}\n" "https://reymidascr.com$p" || true
+            for lang in "es-LA,es;q=0.9" "en-US,en;q=0.9" "en_US" "es"; do
+              for i in 1 2; do
+                curl -s -o /dev/null -A "$fb" -H "Accept-Language: $lang" -w "    [lang $lang #$i] HTTP %{http_code} · %{size_download} bytes\n" "https://reymidascr.com$p" || true
+              done
+            done
+            echo "    [HEAD]"; curl -s -I -A "$fb" "https://reymidascr.com$p" | grep -iE "^(HTTP|content-length|content-type|x-prerender)" | sed 's/^/      /' || true
+            curl -s -o /dev/null -A "$fb" -H "Range: bytes=0-524287" -H "Accept: */*" -H "Accept-Encoding: deflate, gzip" -H "Accept-Language: en-US" -w "    [todas] HTTP %{http_code} · %{size_download} bytes\n" "https://reymidascr.com$p" || true
+            curl -s -o /dev/null -A "$fb" -w "    [con ?fbclid] HTTP %{http_code} · %{size_download} bytes\n" "https://reymidascr.com$p?fbclid=abc123" || true
+            curl -s -o /dev/null -A "$fb" -w "    [con / final] HTTP %{http_code} · %{size_download} bytes\n" "https://reymidascr.com$p/" || true
+            curl -s -o /dev/null -A "$fb" -w "    [www] HTTP %{http_code} · %{size_download} bytes · %{redirect_url}\n" "https://www.reymidascr.com$p" || true
             curl -s -o /dev/null -A "facebookexternalhit/1.1" -w "    [UA corto] HTTP %{http_code}\n" "https://reymidascr.com$p" || true
             curl -s -o /dev/null -A "meta-externalagent/1.1" -w "    [meta-externalagent] HTTP %{http_code}\n" "https://reymidascr.com$p" || true
             # La portada que verían WhatsApp/Facebook: ¿descarga? ¿cuánto pesa?
