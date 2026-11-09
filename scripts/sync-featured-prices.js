@@ -70,14 +70,17 @@ async function main() {
   let fromCatalog = 0, fromSearch = 0;
   const pending = [];
   for (const game of featured) {
-    const hit = (game.psnId && byId.get(game.psnId)) || pick(game, byKey.get(editionKey(game.title)) || []);
+    const byPsnId = game.psnId && byId.get(game.psnId);
+    const hit = (byPsnId && byPsnId.priceUSD > 0 ? byPsnId : null) || (!game.psnId && pick(game, byKey.get(editionKey(game.title)) || []));
     if (hit) { prices[game.id] = toEntry(hit); fromCatalog++; }
     else pending.push(game);
   }
   for (const game of pending) {
     try {
-      const results = await fetchSearchProducts(game.title, null, { maxItems: 48 });
-      const hit = pick(game, results);
+      // "buscar": texto de búsqueda cuando PSN lo publica con otro nombre (en
+      // español, otra edición). Si el destacado trae psnId, gana ese producto.
+      const results = await fetchSearchProducts(game.buscar || game.title, null, { maxItems: 48 });
+      const hit = game.psnId ? results.find(p => p.id === game.psnId && p.priceUSD > 0) : pick(game, results);
       if (hit) { prices[game.id] = toEntry(hit); fromSearch++; }
     } catch (e) {
       console.warn(`[featured-prices] búsqueda "${game.title}" falló: ${e.message}`);
