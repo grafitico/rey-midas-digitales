@@ -1,0 +1,67 @@
+name: Backup Supabase
+
+# Copia de seguridad diaria de la base de datos (Supabase plan gratis no guarda
+# respaldos). scripts/backup-supabase.mjs descarga todas las tablas, las
+# comprime y las cifra con BACKUP_PASSPHRASE; acá se sube el archivo por FTP a
+# ~/backups-supabase en Banahosting (carpeta privada, fuera de la web) y se
+# dejan solo las últimas 30 copias.
+#
+# NO se guarda en GitHub (ni como artifact): el repositorio es público.
+#
+# Secrets necesarios (GitHub → Settings → Secrets and variables → Actions):
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — los mismos de la app Node.js en cPanel
+#   BACKUP_PASSPHRASE                         — frase secreta larga; SIN ELLA NO SE PUEDE
+#                                               ABRIR NINGUNA COPIA. Guardarla aparte.
+#   BANAHOSTING_FTP_SERVER / _USERNAME / _PASSWORD — los del deploy
+#
+# Para recuperar: bajar el archivo de ~/backups-supabase (File Manager de
+# cPanel) y correr, con la frase en BACKUP_PASSPHRASE:
+#   node scripts/backup-supabase.mjs --decrypt supabase-AAAA-MM-DD.json.gz.enc > copia.json
+
+on:
+  schedule:
+    - cron: "17 9 * * *" # 3:17 a.m. Costa Rica
+  workflow_dispatch:
+
+concurrency:
+  group: backup-supabase
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      HAS_SECRETS: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.BACKUP_PASSPHRASE != '' && secrets.BANAHOSTING_FTP_SERVER != '' }}
+    steps:
+      - name: Faltan secrets
+        if: env.HAS_SECRETS != 'true'
+        run: |
+          echo "Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / BACKUP_PASSPHRASE / BANAHOSTING_FTP_*: no se hace la copia."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Crear la copia cifrada
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: node scripts/backup-supabase.mjs
+
+      - name: Subir a Banahosting y dejar las últimas 30
+        env:
+          FTP_SERVER: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+          FTP_USER: ${{ secrets.BANAHOSTING_FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.BANAHOSTING_FTP_PASSWORD }}
+          FTP_DIR: backups-supabase
+          KEEP: "30"
+        run: bash scripts/backup-ftp-upload.sh backups/*.enc
