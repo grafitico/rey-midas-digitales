@@ -5550,4 +5550,6 @@ html { scroll-behavior: smooth; }
 /* Mientras carga la vista, el contenido ocupa al menos la pantalla: si no, el
    pie de página aparece arriba y salta hacia abajo cuando llega la grilla
    (CLS ~1 en /plataforma/ y en el combo según Lighthouse, nov 2026). */
-#app { min-height: 100vh; min-height: 100svh; }
+/* flex 1 0 auto: body es flex en columna y, con min-height explícito, #app se
+   encogía a una pantalla y la grilla se montaba sobre el pie. */
+#app { min-height: 100vh; min-height: 100svh; flex: 1 0 auto; }
