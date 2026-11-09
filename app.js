@@ -5079,15 +5079,16 @@ function heroSlimHTML(platform) {
   const ledMsg = LED_HERO.messages && LED_HERO.messages[platform];
   if (ledMsg) return ledSignHTML(platform, ledMsg);
 
-  // Hero normal: nombre sobre degradado; video en PS4/PS5.
+  // Hero normal: nombre sobre degradado; video en PS4/PS5. En pantallas
+  // angostas va la versión chica (-m.mp4): un celular no necesita 1920 px.
   const isPs4 = platform === 'PS4';
   const isPs5 = platform === 'PS5';
   const hasVideo = isPs4 || isPs5;
   const extraClass = isPs4 ? ' hero--ps4' : isPs5 ? ' hero--ps5' : '';
   const videoHTML = isPs4
-    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline preload="metadata"><source src="/ps4-banner.mp4?v=20260606f" type="video/mp4"></video>'
+    ? '<video class="ps4-arcade-video" autoplay muted loop playsinline preload="metadata"><source src="/ps4-banner-m.mp4?v=20261109" type="video/mp4" media="(max-width: 760px)"><source src="/ps4-banner.mp4?v=20261109" type="video/mp4"></video>'
     : isPs5
-      ? '<video class="ps5-banner-video" autoplay muted loop playsinline preload="metadata"><source src="/ps5-banner.mp4?v=20260606f" type="video/mp4"></video>'
+      ? '<video class="ps5-banner-video" autoplay muted loop playsinline preload="metadata"><source src="/ps5-banner-m.mp4?v=20261109" type="video/mp4" media="(max-width: 760px)"><source src="/ps5-banner.mp4?v=20261109" type="video/mp4"></video>'
       : '';
   return `
     <section class="hero slim${extraClass}">
