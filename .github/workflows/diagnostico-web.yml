@@ -63,9 +63,11 @@ jobs:
       # en las últimas visitas a la app Node.js (server/app.mjs).
       - name: Últimas visitas de robots de vista previa
         run: |
-          curl -s "https://reymidascr.com/api/og-log" | python3 -c '
+          curl -s -o log.json -A "Mozilla/5.0 diagnostico" -w "og-log: HTTP %{http_code} · %{content_type}\n" "https://reymidascr.com/api/og-log" || true
+          head -c 300 log.json; echo
+          python3 -c '
           import json,sys
-          d=json.load(sys.stdin); print("registro desde", d["desde"])
+          d=json.load(open("log.json")); print("registro desde", d["desde"])
           for v in d["visitas"]:
               print(v["t"][11:19], v["st"], str(v["ms"])+"ms", v["m"], v["pais"], v["url"][:70], "|", v["ua"][:90], "| range:", v["range"])
           ' || true
