@@ -24,6 +24,7 @@ const ROUTES = new Set([
   "newsletter", "og", "purchases", "rawg", "scrape", "telegram-webhook",
 ]);
 const MAX_BODY = 1024 * 1024; // 1 MB
+const STARTED = new Date().toISOString();
 
 const handlers = new Map();
 async function loadHandler(name) {
@@ -77,10 +78,40 @@ function addVercelHelpers(res) {
   };
 }
 
+// Registro en memoria de las últimas visitas de vista previa (robots de redes y
+// cualquier ruta de la tienda que llegue acá), para ver qué reciben de verdad
+// WhatsApp, Telegram y Facebook: /api/og-log. Sin IPs ni datos de clientes.
+const PREVIEW_LOG = [];
+const PREVIEW_UA = /facebookexternalhit|facebot|WhatsApp|Twitterbot|Slackbot|Discordbot|TelegramBot|LinkedInBot|Pinterest|redditbot|SkypeUriPreview|Viber|Iframely|Embedly|vkShare|meta-external/i;
+function logPreview(req, res, url) {
+  const t0 = Date.now();
+  res.on("finish", () => {
+    PREVIEW_LOG.push({
+      t: new Date(t0).toISOString(),
+      ms: Date.now() - t0,
+      m: req.method,
+      url: (req.url || "").slice(0, 200),
+      ua: String(req.headers["user-agent"] || "").slice(0, 160),
+      st: res.statusCode,
+      len: res.getHeader("Content-Length") || null,
+      pais: req.headers["cf-ipcountry"] || null,
+      range: req.headers.range || null,
+    });
+    if (PREVIEW_LOG.length > 150) PREVIEW_LOG.splice(0, PREVIEW_LOG.length - 150);
+  });
+}
+
 export const server = http.createServer(async (req, res) => {
   addVercelHelpers(res);
   try {
     const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
+    if (/^\/(api\/)?og-log\/?$/.test(url.pathname)) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(200).json({ desde: STARTED, visitas: PREVIEW_LOG.slice().reverse() });
+    }
+    if (!/^\/api\//.test(url.pathname) || /^\/api\/og\b/.test(url.pathname) || PREVIEW_UA.test(String(req.headers["user-agent"] || ""))) {
+      logPreview(req, res, url);
+    }
     // Passenger puede entregar la ruta con o sin el prefijo /api.
     const parts = url.pathname.replace(/^\/+/, "").split("/");
     const isApi = parts[0] === "api";

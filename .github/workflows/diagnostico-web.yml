@@ -58,3 +58,14 @@ jobs:
               file img.bin | sed 's/^/    /'
             fi
           done
+
+      # Lo que recibieron de verdad los robots (WhatsApp, Telegram, Facebook…)
+      # en las últimas visitas a la app Node.js (server/app.mjs).
+      - name: Últimas visitas de robots de vista previa
+        run: |
+          curl -s "https://reymidascr.com/api/og-log" | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin); print("registro desde", d["desde"])
+          for v in d["visitas"]:
+              print(v["t"][11:19], v["st"], str(v["ms"])+"ms", v["m"], v["pais"], v["url"][:70], "|", v["ua"][:90], "| range:", v["range"])
+          ' || true
