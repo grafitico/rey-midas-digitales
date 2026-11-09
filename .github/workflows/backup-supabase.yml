@@ -33,14 +33,23 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    env:
-      HAS_SECRETS: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.BACKUP_PASSPHRASE != '' && secrets.BANAHOSTING_FTP_SERVER != '' }}
     steps:
-      - name: Faltan secrets
-        if: env.HAS_SECRETS != 'true'
+      # Dice CUÁL secret falta (solo el nombre, nunca el valor).
+      - name: Revisar secrets
+        env:
+          S_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          S_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          S_BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          S_BANAHOSTING_FTP_SERVER: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+          S_BANAHOSTING_FTP_USERNAME: ${{ secrets.BANAHOSTING_FTP_USERNAME }}
+          S_BANAHOSTING_FTP_PASSWORD: ${{ secrets.BANAHOSTING_FTP_PASSWORD }}
         run: |
-          echo "Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / BACKUP_PASSPHRASE / BANAHOSTING_FTP_*: no se hace la copia."
-          exit 1
+          missing=""
+          for n in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY BACKUP_PASSPHRASE BANAHOSTING_FTP_SERVER BANAHOSTING_FTP_USERNAME BANAHOSTING_FTP_PASSWORD; do
+            v="S_$n"; [ -n "${!v}" ] || missing="$missing $n"
+          done
+          if [ -n "$missing" ]; then echo "Faltan estos secrets:$missing"; exit 1; fi
+          echo "Secrets OK"
 
       - name: Checkout
         uses: actions/checkout@v5
