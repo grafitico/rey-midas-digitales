@@ -3870,21 +3870,21 @@ async function renderCombo(precio) {
         </div>
         <aside class="combo-side">
           <div class="combo-box">
-            <h3>Tu combo</h3>
+            <h2>Tu combo</h2>
             <p class="combo-consola" id="comboConsola"></p>
             <div class="combo-slots" id="comboSlots"></div>
             <div class="combo-send" id="comboSend"></div>
           </div>
           <div class="combo-box">
             <input type="search" id="comboSearch" class="combo-search" placeholder="Buscar juego..." aria-label="Buscar juego" autocomplete="off">
-            <h3>Ordenar</h3>
+            <h2>Ordenar</h2>
             <select id="comboSort" class="combo-search" aria-label="Ordenar">
               <option value="rel">Los más vendidos</option>
               <option value="asc">Precio: menor a mayor</option>
               <option value="desc">Precio: mayor a menor</option>
               <option value="az">Nombre A-Z</option>
             </select>
-            <h3>Plataforma</h3>
+            <h2>Plataforma</h2>
             <div class="combo-radios" id="comboChips">
               ${["Todos", "PS5", "PS4", "Xbox"].map((p, i) => `<button type="button" class="combo-radio${i === 0 ? " active" : ""}" data-plat="${p}"><span>${p}</span><i></i></button>`).join("")}
             </div>
@@ -4354,7 +4354,7 @@ function heroHTML() {
           <button class="hero-arrow prev" aria-label="Anterior">${ICONS.chevronLeft}</button>
           <button class="hero-arrow next" aria-label="Siguiente">${ICONS.chevronRight}</button>
           <div class="hero-dots">
-            ${banners.map((_, i) => `<button class="hero-dot ${i === 0 ? "active" : ""}" data-go="${i}" aria-label="Slide ${i + 1}"></button>`).join("")}
+            ${banners.map((_, i) => `<button class="hero-dot ${i === 0 ? "active" : ""}" data-go="${i}" aria-label="Ver banner ${i + 1}"></button>`).join("")}
           </div>
         ` : ""}
       </section>
