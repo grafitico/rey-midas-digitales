@@ -16,9 +16,15 @@ name: Deploy to Banahosting
 #   Secrets:   BANAHOSTING_FTP_SERVER    (ej. ftp.reymidascr.com)
 #              BANAHOSTING_FTP_USERNAME
 #              BANAHOSTING_FTP_PASSWORD
-#   Variables (opcionales):
-#              BANAHOSTING_FTP_DIR       carpeta del sitio en el servidor (por defecto public_html/)
+#   Variables (opcionales; los valores por defecto son los de la cuenta FTP
+#   "deploy", cuya carpeta es la raíz de la cuenta de cPanel):
+#              BANAHOSTING_FTP_DIR       carpeta de la tienda (por defecto reymidascr.com/)
+#              BANAHOSTING_API_DIR       carpeta de la app Node.js de cPanel (por defecto rey-midas-api/)
 #              BANAHOSTING_FTP_PROTOCOL  ftps (por defecto) o ftp si el servidor no acepta TLS
+#
+# La app Node.js (cPanel → Setup Node.js App: URL reymidascr.com/api, Node 20,
+# startup file server/start.cjs) atiende /api/*. Sus claves (Supabase, Google,
+# IA...) se cargan en cPanel como "Environment variables", no aquí.
 # Sin los secrets el workflow no hace nada (no falla).
 
 on:
@@ -74,7 +80,7 @@ jobs:
           npm run build
           node scripts/build-dist.mjs
 
-      - name: Subir por FTP (solo lo que cambió)
+      - name: Subir la tienda por FTP (solo lo que cambió)
         if: env.FTP_SERVER != ''
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -83,5 +89,19 @@ jobs:
           password: ${{ secrets.BANAHOSTING_FTP_PASSWORD }}
           protocol: ${{ vars.BANAHOSTING_FTP_PROTOCOL || 'ftps' }}
           local-dir: ./dist/
-          server-dir: ${{ vars.BANAHOSTING_FTP_DIR || 'public_html/' }}
+          server-dir: ${{ vars.BANAHOSTING_FTP_DIR || 'reymidascr.com/' }}
+          timeout: 120000
+
+      # Las funciones (login, chat, panel admin...) en la app Node.js. Incluye
+      # tmp/restart.txt nuevo, que hace que Passenger reinicie con el código subido.
+      - name: Subir la app Node.js por FTP
+        if: env.FTP_SERVER != ''
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+          username: ${{ secrets.BANAHOSTING_FTP_USERNAME }}
+          password: ${{ secrets.BANAHOSTING_FTP_PASSWORD }}
+          protocol: ${{ vars.BANAHOSTING_FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./dist-api/
+          server-dir: ${{ vars.BANAHOSTING_API_DIR || 'rey-midas-api/' }}
           timeout: 120000

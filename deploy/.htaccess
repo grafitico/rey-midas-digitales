@@ -20,9 +20,11 @@ AddType video/mp4 .mp4
   # /reservaciones pasó a llamarse /vip.
   RewriteRule ^reservaciones/?$ /vip [L,R=301]
 
-  # Las funciones /api/* no existen en este hosting: 404 limpio (no index.html),
-  # así el sitio sigue funcionando con los datos estáticos.
-  RewriteRule ^api/ - [R=404,L]
+  # /api/* lo atiende la app Node.js de cPanel ("Setup Node.js App", URL
+  # reymidascr.com/api, código en ~/rey-midas-api). Su conexión vive en
+  # api/.htaccess, que crea cPanel: aquí solo hay que dejarlo pasar, nunca
+  # mandarlo a index.html.
+  RewriteRule ^api(/|$) - [L]
 
   # Archivos y carpetas reales se sirven tal cual; cualquier otra ruta de la
   # tienda (/plataforma/PS5, /combo/5000, /producto/...) la resuelve index.html.
