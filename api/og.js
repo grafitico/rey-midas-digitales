@@ -54,12 +54,39 @@ function load() {
   return cache;
 }
 
+// WhatsApp no muestra imágenes pesadas en la vista previa, y las portadas
+// originales lo son (PNG de PSN de 1–3 MB, >2000 px; Microsoft igual). Cada
+// tienda sirve la misma imagen achicada con un parámetro: se pide a 400 px.
+const PREVIEW_PX = 400;
+export function previewImage(src) {
+  if (!src) return src;
+  let u;
+  try { u = new URL(src); } catch { return src; }
+  if (u.host === "image.api.playstation.com") {
+    u.searchParams.set("w", String(PREVIEW_PX));
+    u.searchParams.set("thumb", "false");
+    return u.toString();
+  }
+  if (/(^|\.)store-images\.(s-)?microsoft\.com$/.test(u.host)) {
+    u.searchParams.set("w", String(PREVIEW_PX));
+    u.searchParams.set("h", String(PREVIEW_PX));
+    u.searchParams.set("q", "85");
+    return u.toString();
+  }
+  if (u.host === "media.rawg.io" && /^\/media\/(games|screenshots)\//.test(u.pathname)) {
+    u.pathname = u.pathname.replace(/^\/media\//, `/media/resize/${PREVIEW_PX * 2}/-/`);
+    return u.toString();
+  }
+  return src;
+}
+
 export default async function handler(req, res) {
   const raw = String(req.query?.path || "/");
   const pathname = raw.startsWith("/") ? raw.slice(0, 300) : "/";
   try {
     const { html, data } = load();
     const meta = buildMeta(pathname, data);
+    if (meta?.image) meta.image = previewImage(meta.image);
     const out = meta ? applyMeta(html, meta) : html;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=300");
