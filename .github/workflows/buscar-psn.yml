@@ -1,0 +1,30 @@
+name: Buscar en PS Store
+
+# Busca juegos en la PS Store de Costa Rica (mismo buscador que los robots) y
+# muestra su ID, nombre, plataforma y precio. Sirve para completar el psnId de
+# los destacados que el robot no logra emparejar. Solo lee; se corre a mano.
+
+on:
+  workflow_dispatch:
+    inputs:
+      busquedas:
+        description: "Búsquedas separadas por | (ej: Ratchet Clank|Jedi Fallen Order)"
+        required: true
+
+jobs:
+  buscar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Buscar
+        env:
+          BUSQUEDAS: ${{ inputs.busquedas }}
+        run: |
+          IFS='|' read -ra QS <<< "$BUSQUEDAS"
+          node scripts/buscar-psn.mjs "${QS[@]}"
