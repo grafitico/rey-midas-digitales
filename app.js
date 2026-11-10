@@ -1048,15 +1048,16 @@ async function enrichBundleCovers() {
   if (!nintendo.bundles?.length) return;
   const updated = [];
   const byName = new Map(); // primer juego → bundles que lo esperan
+  const misses = nintendo.coverMisses || {}; // el robot ya buscó y Nintendo no lo tiene
   for (const b of nintendo.bundles) {
     const firstGame = b.games?.[0]?.name;
-    if (b.coverUrl || !firstGame) continue;
+    if (b.coverUrl || !firstGame || misses[firstGame.trim().toLowerCase()]) continue;
     if (!byName.has(firstGame)) byName.set(firstGame, []);
     byName.get(firstGame).push(b);
   }
   let lookups = 0;
   const resolveName = async (firstGame) => {
-    const key = `cover:${firstGame}`;
+    const key = `ncover2:${firstGame}`; // "cover:" guardaba resultados de la búsqueda vieja (a veces de otro juego)
     let url = null;
     try { url = localStorage.getItem(key); } catch { /* sin localStorage */ }
     if (url === null) {

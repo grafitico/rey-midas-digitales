@@ -492,12 +492,12 @@ async function batchUpsert(scrapedBundles, scan = {}) {
   }
 
   content.bundles = finalList;
-  const coversNote = (covers.added || covers.replaced) ? `, ${covers.added + covers.replaced} carátulas` : "";
+  const coversNote = (covers.added || covers.replaced || covers.cleared) ? `, ${covers.added + covers.replaced + covers.cleared} carátulas` : "";
   const message = (stats.added || stats.updated || stats.removed)
     ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated, ${stats.removed} removed (${stats.unchanged} unchanged, ${stats.kept} kept)${coversNote} via telegram scraper`
     : stats.dateBackfilled
       ? `chore(bundles): backfill date en ${stats.dateBackfilled} bundles${coversNote} via telegram scraper`
-      : `chore(bundles): carátulas — ${covers.added} nuevas, ${covers.replaced} corregidas via telegram scraper`;
+      : `chore(bundles): carátulas — ${covers.added} nuevas, ${covers.replaced} corregidas, ${covers.cleared} quitadas via telegram scraper`;
   const body = {
     message,
     content: Buffer.from(JSON.stringify(content, null, 2) + "\n", "utf8").toString("base64"),
@@ -523,11 +523,13 @@ async function batchUpsert(scrapedBundles, scan = {}) {
 // carátulas automáticas. Al subir COVER_VERSION, la próxima corrida vuelve a
 // buscar una vez las que salieron de Nintendo (las pegadas a mano no se tocan)
 // y reemplaza las que ahora den otro resultado; si Nintendo no encuentra nada,
-// queda la carátula anterior. Versión 2: prefiere la ficha de Switch y el
+// queda la carátula anterior (salvo que Nintendo responda que no lo tiene). Versión 2: prefiere la ficha de Switch y el
 // título exacto (antes "Mario Kart 8 Deluxe" salía con la de Wii U).
+// Versión 3: descarta resultados de otro juego (FIFA 12 de 3DS para FIFA 18);
+// esas portadas se quitan.
 // Devuelve { added, replaced, changed }.
-const COVER_VERSION = 2;
-const isAutoCover = url => /^https:\/\/(www\.)?nintendo\.(com|co\.uk|de|es|fr|it|nl)\//i.test(url || "");
+const COVER_VERSION = 3;
+const isAutoCover = url => /^https:\/\/([a-z0-9-]+\.)*nintendo\.[a-z.]+\//i.test(url || ""); // www.nintendo.com, assets.nintendo.eu…
 
 export async function fillCovers(list, content) {
   const today = new Date().toISOString().slice(0, 10);
@@ -560,6 +562,7 @@ export async function fillCovers(list, content) {
   }
   const todo = pending.slice(0, MAX_COVER_LOOKUPS);
   let missesChanged = false, failed = 0;
+  const noResult = new Set(); // Nintendo respondió, pero sin ese juego
   if (todo.length) {
     console.log(`[covers] Buscando ${todo.length} carátulas en Nintendo (${pending.length} pendientes${recheck ? `, revisión v${COVER_VERSION}` : ""})...`);
     let i = 0, found = 0;
@@ -572,8 +575,9 @@ export async function fillCovers(list, content) {
           if (misses[t.key]) { delete misses[t.key]; missesChanged = true; }
         } else if (r.failed) {
           failed++; // Nintendo no respondió: se reintenta la próxima corrida
-        } else if (!misses[t.key]) {
-          misses[t.key] = today; missesChanged = true;
+        } else {
+          noResult.add(t.key);
+          if (!misses[t.key]) { misses[t.key] = today; missesChanged = true; }
         }
       }
     };
@@ -581,23 +585,28 @@ export async function fillCovers(list, content) {
     console.log(`[covers] Encontradas ${found}, sin resultado ${todo.length - found - failed}, sin respuesta ${failed}.`);
   }
 
-  let added = 0, replaced = 0;
+  let added = 0, replaced = 0, cleared = 0;
   for (const b of list) {
-    const url = known.get(firstName(b).toLowerCase());
+    const key = firstName(b).toLowerCase();
+    // En la revisión, una portada automática cuyo juego Nintendo ya no
+    // encuentra era de otro juego (p. ej. FIFA 12 de 3DS para FIFA 18): se quita.
+    if (recheck && isAutoCover(b.coverUrl) && noResult.has(key)) { b.coverUrl = ""; cleared++; continue; }
+    const url = known.get(key);
     if (!url) continue;
     if (!b.coverUrl) { b.coverUrl = url; added++; }
     else if (recheck && isAutoCover(b.coverUrl) && b.coverUrl !== url) { b.coverUrl = url; replaced++; }
   }
-  if (replaced) console.log(`[covers] ${replaced} carátulas reemplazadas por la versión de Switch.`);
+  if (replaced || cleared) console.log(`[covers] ${replaced} carátulas reemplazadas y ${cleared} quitadas (eran de otro juego).`);
 
-  // La revisión queda hecha solo si se pudo consultar todo (sin cortes por
-  // tope ni Nintendo caído); si no, se completa en la próxima corrida.
+  // La revisión queda hecha si se pudo consultar todo (sin corte por tope y
+  // con a lo sumo 1 % de consultas sin respuesta, que conservan su portada);
+  // si no, se completa en la próxima corrida.
   let versionChanged = false;
-  if (recheck && failed === 0 && todo.length === pending.length) {
+  if (recheck && failed <= todo.length * 0.01 && todo.length === pending.length) {
     content.coverVersion = COVER_VERSION; versionChanged = true;
   }
   if (missesChanged || (Object.keys(misses).length && !content.coverMisses)) content.coverMisses = misses;
-  return { added, replaced, changed: added > 0 || replaced > 0 || missesChanged || versionChanged };
+  return { added, replaced, cleared, changed: added > 0 || replaced > 0 || cleared > 0 || missesChanged || versionChanged };
 }
 
 // Solo corre al ejecutarse directo (node scripts/scrape-telegram.js), no al importarlo en pruebas.
