@@ -1720,6 +1720,12 @@ body {
   color: var(--text-dim);
   font-size: 0.95rem;
 }
+.search-switch-link {
+  color: var(--cyan);
+  font-weight: 600;
+  text-decoration: none;
+}
+.search-switch-link:hover { text-decoration: underline; }
 
 .toolbar { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
 #search {

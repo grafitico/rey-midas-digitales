@@ -447,7 +447,7 @@ function updateMiniCart(items, bump = false) {
 
 // Navega a una ruta sin recargar la página.
 function navigate(path) {
-  if (location.pathname !== path) history.pushState(null, "", path);
+  if (location.pathname + location.search !== path) history.pushState(null, "", path);
   render();
   window.scrollTo(0, 0);
 }
@@ -464,7 +464,7 @@ document.addEventListener("click", e => {
   if (url.pathname === location.pathname && url.hash) return; // ancla in-page
   if (url.pathname.startsWith("/api/")) return;      // endpoint del server (ej: /api/auth-google), no una ruta de la SPA
   e.preventDefault();
-  navigate(url.pathname);
+  navigate(url.pathname + url.search); // conserva ?q= (búsqueda en bundles de Switch)
 });
 
 function parseRoute() {
@@ -2847,7 +2847,8 @@ async function renderSwitch() {
     if (!(r.name === "platform" && r.platform === "Switch")) return;
   }
   const bundles = nintendo.bundles || [];
-  nintendoFilters.q = "";
+  // /plataforma/Switch?q=zelda llega desde la página de resultados del buscador.
+  nintendoFilters.q = (new URLSearchParams(location.search).get("q") || "").trim();
   nintendoFilters.sort = "recent";
   nintendoFilters.limit = NINTENDO_PAGE_SIZE;
   app.innerHTML = `
@@ -2885,6 +2886,7 @@ async function renderSwitch() {
   if (!bundles.length) return;
 
   const search = document.getElementById("nin-search");
+  search.value = nintendoFilters.q;
   let debounce;
   search.addEventListener("input", (e) => {
     clearTimeout(debounce);
@@ -2950,32 +2952,140 @@ function normalizeSearch(s) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+// ── Buscador ──────────────────────────────────────────────────────────────
+// Busca por palabras, en cualquier orden y sin importar símbolos ni tildes:
+// "fc 25" encuentra "EA SPORTS FC™ 25", "spiderman" encuentra "Marvel's
+// Spider-Man", "gta 5" encuentra "Grand Theft Auto V" y "cra" encuentra
+// "Crash Bandicoot" (cada palabra puede ser el comienzo de una palabra).
+const SEARCH_ALIASES = {
+  gta: "grand theft auto", cod: "call of duty", rdr: "red dead redemption",
+  gow: "god of war", nfs: "need for speed", mk: "mortal kombat", ac: "assassins creed",
+  re: "resident evil", ff: "final fantasy", tlou: "the last of us", gt: "gran turismo",
+  fifa: "fc", fc: "fifa", spiderman: "spider man", dbz: "dragon ball",
+};
+const ROMAN = ["", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
+
+// Texto normalizado para buscar: minúsculas, sin tildes, sin ™®, sin
+// apóstrofos ("Marvel's" → "marvels") y todo lo demás que no sea letra o
+// número pasa a espacio.
+function searchText(s) {
+  return normalizeSearch(s).replace(/[™®©]/g, "").replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// Una palabra buscada coincide con el título si es el comienzo de alguna de
+// sus palabras (con 1–2 letras, la palabra completa; los números, enteros: "2" no encuentra "2077"), si es un
+// número y el título lo trae en romano o al revés ("5" ↔ "v"), o si aparece
+// dentro del título sin espacios ("spiderman" en "marvels spider man 2").
+function tokenMatches(tok, words, squashed) {
+  if (/^\d+$/.test(tok)) {
+    const roman = ROMAN[+tok];
+    return words.includes(tok) || (!!roman && words.includes(roman));
+  }
+  const ri = ROMAN.indexOf(tok);
+  if (ri > 0 && words.includes(String(ri))) return true;
+  if (tok.length < 3) return words.includes(tok); // "re", "fc": palabra completa
+  if (words.some(w => w.startsWith(tok))) return true;
+  return tok.length >= 4 && squashed.includes(tok);
+}
+
+// Arma la búsqueda una vez (no por cada juego). Cada palabra puede cumplirse
+// con ella misma o con su abreviatura expandida ("gta" o "grand theft auto").
+function compileSearch(q) {
+  const toks = searchText(q).split(" ").filter(Boolean);
+  return toks.map(t => {
+    const alts = [[t]];
+    if (SEARCH_ALIASES[t]) alts.push(SEARCH_ALIASES[t].split(" "));
+    return alts;
+  });
+}
+
 // Matchea un juego contra un texto: busca en título y en los géneros
 // que el scraper le asignó (acción, terror, shooter, etc).
 function gameMatchesQuery(g, q) {
   if (!q) return true;
-  const nq = normalizeSearch(q);
-  if (normalizeSearch(g.title).includes(nq)) return true;
-  if (Array.isArray(g.genres) && g.genres.some(genre => normalizeSearch(genre).includes(nq))) return true;
-  return false;
+  const compiled = typeof q === "string" ? compileSearch(q) : q;
+  if (!compiled.length) return true;
+  const title = searchText(g.title);
+  const words = title.split(" ");
+  const squashed = title.replace(/ /g, "");
+  const ok = compiled.every(alts => alts.some(seq => seq.every(t => tokenMatches(t, words, squashed))));
+  if (ok) return true;
+  const nq = normalizeSearch(typeof q === "string" ? q : "");
+  return !!nq && Array.isArray(g.genres) && g.genres.some(genre => normalizeSearch(genre).includes(nq));
 }
 
+// Orden de los resultados: primero los títulos que empiezan con lo buscado,
+// después los que traen cada palabra completa y al final el resto, respetando
+// dentro de cada grupo el orden por relevancia del catálogo.
+function searchRank(g, q) {
+  const t = searchText(g.title), nq = searchText(q);
+  if (!nq) return 2;
+  // También con las abreviaturas expandidas: "cod" pone primero Call of Duty.
+  const expanded = nq.split(" ").map(w => SEARCH_ALIASES[w] || w).join(" ");
+  if (t.startsWith(expanded)) return 0;
+  if (t.startsWith(nq)) return 1;
+  const words = t.split(" ");
+  if (expanded.split(" ").every(w => words.includes(w))) return 1;
+  return nq.split(" ").every(w => words.includes(w)) ? 2 : 3;
+}
+function searchCatalog(q) {
+  const compiled = compileSearch(q);
+  const nq = normalizeSearch(q);
+  const genreHit = g => !!nq && Array.isArray(g.genres) && g.genres.some(x => normalizeSearch(x).includes(nq));
+  return (allGames || [])
+    .filter(g => gameMatchesQuery(g, compiled) || genreHit(g))
+    .map((g, i) => ({ g, i, r: searchRank(g, q) }))
+    .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+    .map(x => x.g);
+}
+
+function busquedaTitleHTML(term, n) {
+  // Los juegos de Switch se venden en bundles (no están en este catálogo):
+  // enlace para buscar lo mismo ahí.
+  const switchLink = `<a class="search-switch-link" href="/plataforma/Switch?q=${encodeURIComponent(term)}">Buscar "${escapeHtml(term)}" en los bundles de Nintendo Switch →</a>`;
+  return `
+    <h2>${n} ${n === 1 ? "resultado" : "resultados"} para "${escapeHtml(term)}"</h2>
+    ${n === 0 ? `<p>Probá con otro nombre o consultanos por WhatsApp por ese título específico.</p>` : `<p>Tocá un juego para ver el detalle.</p>`}
+    <p>${switchLink}</p>
+  `;
+}
+
+// Página de resultados. El cuadro de búsqueda de esta página busca en TODO el
+// catálogo (igual que el de arriba), no solo dentro de los resultados: antes,
+// después de buscar "crash" arriba, escribir "fc" abajo no encontraba nada.
 function renderBusqueda(term, page = 1) {
+  // Si llega el catálogo completo mientras la persona escribe en esta página,
+  // se actualizan los resultados sin volver a pintar (no pierde lo escrito).
+  const box = document.getElementById("search");
+  if (box && document.activeElement === box && document.getElementById("busquedaTitle")) {
+    const t = box.value.trim() || term;
+    localList = searchCatalog(t);
+    document.getElementById("busquedaTitle").innerHTML = busquedaTitleHTML(t, localList.length);
+    const hero = app.querySelector(".hero.slim .slim-title");
+    if (hero) hero.textContent = `Resultados para "${t}"`;
+    applyFilters();
+    return;
+  }
   setPageMeta(`Búsqueda: ${term} | Rey Midas Digitales`);
-  const list = (allGames || []).filter(g => gameMatchesQuery(g, term));
+  const list = searchCatalog(term);
   app.innerHTML = `
     ${heroSlimHTML(`Resultados para "${term}"`)}
     <section class="container catalog-section">
-      <div class="section-title">
-        <h2>${list.length} ${list.length === 1 ? "resultado" : "resultados"} para "${escapeHtml(term)}"</h2>
-        ${list.length === 0 ? `<p>Probá con otro nombre o consultanos por WhatsApp por ese título específico.</p>` : `<p>Tocá un juego para ver el detalle.</p>`}
-      </div>
+      <div class="section-title" id="busquedaTitle">${busquedaTitleHTML(term, list.length)}</div>
       ${toolbarHTML(false)}
       <div id="grid" class="grid"></div>
       <div id="pagination" class="pagination"></div>
     </section>
   `;
-  mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`, false);
+  syncTopSearch(term);
+  mountToolbar(list, page, `/buscar/${encodeURIComponent(term)}`, false, { searchTerm: term });
+}
+
+// Deja el cuadro de búsqueda de arriba con el mismo texto que la página.
+function syncTopSearch(term) {
+  const input = document.querySelector("#topSearch input");
+  if (input && document.activeElement !== input) input.value = term;
 }
 
 // Catálogo filtrado por género (categoría). Mismo comportamiento que la
@@ -5498,7 +5608,7 @@ let localList = [];
 let currentPage = 1;
 let currentRouteBase = "/";
 
-function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
+function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true, opts = {}) {
   localFilters.platform = "all";
   localFilters.sale = false;
   localFilters.q = "";
@@ -5526,7 +5636,31 @@ function mountToolbar(baseList, page = 1, routeBase = "/", aaaDefault = true) {
   }
 
   const search = document.getElementById("search");
-  if (search) {
+  if (search && opts.searchTerm != null) {
+    // Página de resultados: el cuadro busca en todo el catálogo y actualiza
+    // el título, la dirección (sin sumar al historial) y el cuadro de arriba.
+    search.value = opts.searchTerm;
+    let debounce;
+    search.addEventListener("input", (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        const term = e.target.value.trim();
+        if (!term) return;
+        localList = searchCatalog(term);
+        currentPage = 1;
+        currentRouteBase = `/buscar/${encodeURIComponent(term)}`;
+        history.replaceState(history.state, "", currentRouteBase);
+        setPageMeta(`Búsqueda: ${term} | Rey Midas Digitales`);
+        const title = document.getElementById("busquedaTitle");
+        if (title) title.innerHTML = busquedaTitleHTML(term, localList.length);
+        const hero = app.querySelector(".hero.slim .slim-title");
+        if (hero) hero.textContent = `Resultados para "${term}"`;
+        syncTopSearch(term);
+        applyFilters();
+      }, 200);
+    });
+    search.addEventListener("keydown", (e) => { if (e.key === "Enter") search.blur(); });
+  } else if (search) {
     let debounce;
     search.addEventListener("input", (e) => {
       clearTimeout(debounce);
@@ -5583,7 +5717,9 @@ function applyFilters() {
   }
   if (localFilters.aaaOnly) list = list.filter(isAAA);
   if (localFilters.q) {
-    list = list.filter(g => gameMatchesQuery(g, localFilters.q));
+    const compiled = compileSearch(localFilters.q);
+    const genreHit = g => Array.isArray(g.genres) && g.genres.some(x => normalizeSearch(x).includes(normalizeSearch(localFilters.q)));
+    list = list.filter(g => gameMatchesQuery(g, compiled) || genreHit(g));
   }
   // Ordenamiento manual (sort selector) tiene prioridad sobre el orden por defecto
   if (localFilters.sort) {
