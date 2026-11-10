@@ -25,7 +25,7 @@ on:
       max_pages:
         description: "Máximo de páginas a paginar (~20 mensajes c/u). Subilo para barrer más historia."
         required: false
-        default: "400"
+        default: "1000"
 
 jobs:
   scrape:
@@ -45,7 +45,7 @@ jobs:
         env:
           TG_CHANNEL: ${{ inputs.channel || 'swichtaccount' }}
           PRUNE: ${{ inputs.prune || '1' }}
-          MAX_PAGES: ${{ inputs.max_pages || '400' }}
+          MAX_PAGES: ${{ inputs.max_pages || '1000' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_BRANCH: ${{ github.ref_name }}

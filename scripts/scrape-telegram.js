@@ -19,7 +19,7 @@ const FILE = "nintendo-bundles.json";
 const GITHUB_API = "https://api.github.com";
 
 const SINCE_DATE = new Date(process.env.SINCE_DATE || "2026-05-25T00:00:00Z");
-const MAX_PAGES = parseInt(process.env.MAX_PAGES || "100", 10);
+const MAX_PAGES = parseInt(process.env.MAX_PAGES || "1000", 10);
 // Carátulas: máximo de títulos a buscar por corrida y cada cuántos días se
 // reintenta uno que Nintendo no encontró.
 const MAX_COVER_LOOKUPS = parseInt(process.env.MAX_COVER_LOOKUPS || "2000", 10);
@@ -492,12 +492,12 @@ async function batchUpsert(scrapedBundles, scan = {}) {
   }
 
   content.bundles = finalList;
-  const coversNote = covers.added ? `, ${covers.added} carátulas` : "";
+  const coversNote = (covers.added || covers.replaced) ? `, ${covers.added + covers.replaced} carátulas` : "";
   const message = (stats.added || stats.updated || stats.removed)
     ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated, ${stats.removed} removed (${stats.unchanged} unchanged, ${stats.kept} kept)${coversNote} via telegram scraper`
     : stats.dateBackfilled
       ? `chore(bundles): backfill date en ${stats.dateBackfilled} bundles${coversNote} via telegram scraper`
-      : `chore(bundles): ${covers.added} carátulas nuevas via telegram scraper`;
+      : `chore(bundles): carátulas — ${covers.added} nuevas, ${covers.replaced} corregidas via telegram scraper`;
   const body = {
     message,
     content: Buffer.from(JSON.stringify(content, null, 2) + "\n", "utf8").toString("base64"),
@@ -518,31 +518,51 @@ async function batchUpsert(scrapedBundles, scan = {}) {
 // Completa coverUrl de los bundles que no tienen, buscando el primer juego en
 // Nintendo. Los títulos sin resultado se anotan en content.coverMisses
 // ({ título en minúsculas: "AAAA-MM-DD" }) para no reintentarlos en cada corrida.
-// Devuelve { added, changed }.
+//
+// content.coverVersion marca con qué versión de la búsqueda se resolvieron las
+// carátulas automáticas. Al subir COVER_VERSION, la próxima corrida vuelve a
+// buscar una vez las que salieron de Nintendo (las pegadas a mano no se tocan)
+// y reemplaza las que ahora den otro resultado; si Nintendo no encuentra nada,
+// queda la carátula anterior. Versión 2: prefiere la ficha de Switch y el
+// título exacto (antes "Mario Kart 8 Deluxe" salía con la de Wii U).
+// Devuelve { added, replaced, changed }.
+const COVER_VERSION = 2;
+const isAutoCover = url => /^https:\/\/(www\.)?nintendo\.(com|co\.uk|de|es|fr|it|nl)\//i.test(url || "");
+
 export async function fillCovers(list, content) {
   const today = new Date().toISOString().slice(0, 10);
   const retryBefore = new Date(Date.now() - COVER_RETRY_DAYS * 86400000).toISOString().slice(0, 10);
   const misses = (content.coverMisses && typeof content.coverMisses === "object") ? content.coverMisses : {};
   const firstName = b => (b.games?.[0]?.name || "").trim();
+  const recheck = (content.coverVersion || 1) < COVER_VERSION;
 
   // Carátulas ya conocidas por título (de otros bundles con el mismo primer juego).
+  // En la revisión, las automáticas viejas no cuentan como "conocidas".
   const known = new Map();
-  for (const b of list) if (b.coverUrl && firstName(b)) known.set(firstName(b).toLowerCase(), b.coverUrl);
+  for (const b of list) {
+    if (!b.coverUrl || !firstName(b)) continue;
+    if (recheck && isAutoCover(b.coverUrl)) continue;
+    known.set(firstName(b).toLowerCase(), b.coverUrl);
+  }
 
   const pending = [];
+  const queued = new Set();
   for (const b of list) {
     const name = firstName(b);
-    if (b.coverUrl || !name) continue;
+    if (!name) continue;
+    const redo = recheck && isAutoCover(b.coverUrl);
+    if (b.coverUrl && !redo) continue;
     const key = name.toLowerCase();
-    if (known.has(key) || pending.some(p => p.key === key)) continue;
-    if (misses[key] && misses[key] > retryBefore) continue;
+    if (known.has(key) || queued.has(key)) continue;
+    if (!redo && misses[key] && misses[key] > retryBefore) continue;
+    queued.add(key);
     pending.push({ key, name });
   }
   const todo = pending.slice(0, MAX_COVER_LOOKUPS);
-  let missesChanged = false;
+  let missesChanged = false, failed = 0;
   if (todo.length) {
-    console.log(`[covers] Buscando ${todo.length} carátulas en Nintendo (${pending.length} pendientes)...`);
-    let i = 0, found = 0, failed = 0;
+    console.log(`[covers] Buscando ${todo.length} carátulas en Nintendo (${pending.length} pendientes${recheck ? `, revisión v${COVER_VERSION}` : ""})...`);
+    let i = 0, found = 0;
     const worker = async () => {
       while (i < todo.length) {
         const t = todo[i++];
@@ -552,7 +572,7 @@ export async function fillCovers(list, content) {
           if (misses[t.key]) { delete misses[t.key]; missesChanged = true; }
         } else if (r.failed) {
           failed++; // Nintendo no respondió: se reintenta la próxima corrida
-        } else {
+        } else if (!misses[t.key]) {
           misses[t.key] = today; missesChanged = true;
         }
       }
@@ -561,14 +581,23 @@ export async function fillCovers(list, content) {
     console.log(`[covers] Encontradas ${found}, sin resultado ${todo.length - found - failed}, sin respuesta ${failed}.`);
   }
 
-  let added = 0;
+  let added = 0, replaced = 0;
   for (const b of list) {
-    if (b.coverUrl) continue;
     const url = known.get(firstName(b).toLowerCase());
-    if (url) { b.coverUrl = url; added++; }
+    if (!url) continue;
+    if (!b.coverUrl) { b.coverUrl = url; added++; }
+    else if (recheck && isAutoCover(b.coverUrl) && b.coverUrl !== url) { b.coverUrl = url; replaced++; }
+  }
+  if (replaced) console.log(`[covers] ${replaced} carátulas reemplazadas por la versión de Switch.`);
+
+  // La revisión queda hecha solo si se pudo consultar todo (sin cortes por
+  // tope ni Nintendo caído); si no, se completa en la próxima corrida.
+  let versionChanged = false;
+  if (recheck && failed === 0 && todo.length === pending.length) {
+    content.coverVersion = COVER_VERSION; versionChanged = true;
   }
   if (missesChanged || (Object.keys(misses).length && !content.coverMisses)) content.coverMisses = misses;
-  return { added, changed: added > 0 || missesChanged };
+  return { added, replaced, changed: added > 0 || replaced > 0 || missesChanged || versionChanged };
 }
 
 // Solo corre al ejecutarse directo (node scripts/scrape-telegram.js), no al importarlo en pruebas.
