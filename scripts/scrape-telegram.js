@@ -10,6 +10,9 @@
 // o varios bundles, y commitea todo de una sola pasada al JSON
 // nintendo-bundles.json usando el GITHUB_TOKEN built-in del runner.
 
+import { pathToFileURL } from "url";
+import { findNintendoCover } from "../api/_nintendo-cover.js";
+
 const CHANNEL = process.env.TG_CHANNEL || "swichtaccount";
 const TG_BASE = `https://t.me/s/${CHANNEL}`;
 const FILE = "nintendo-bundles.json";
@@ -17,6 +20,10 @@ const GITHUB_API = "https://api.github.com";
 
 const SINCE_DATE = new Date(process.env.SINCE_DATE || "2026-05-25T00:00:00Z");
 const MAX_PAGES = parseInt(process.env.MAX_PAGES || "100", 10);
+// Carátulas: máximo de títulos a buscar por corrida y cada cuántos días se
+// reintenta uno que Nintendo no encontró.
+const MAX_COVER_LOOKUPS = parseInt(process.env.MAX_COVER_LOOKUPS || "2000", 10);
+const COVER_RETRY_DAYS = 14;
 
 async function main() {
   console.log(`[scrape] Canal: @${CHANNEL}`);
@@ -472,16 +479,25 @@ async function batchUpsert(scrapedBundles, scan = {}) {
     }
   }
 
+  // Carátulas: antes la página de Switch le pedía a /api/cover una por cada
+  // bundle sin foto (~1.300 consultas por visitante nuevo). Ahora el robot las
+  // resuelve una sola vez y quedan guardadas en el JSON.
+  const covers = await fillCovers(finalList, content);
+  stats.coversAdded = covers.added;
+
   // Si no hay cambios reales, no commiteamos nada.
-  if (stats.added === 0 && stats.updated === 0 && stats.removed === 0 && stats.dateBackfilled === 0) {
+  if (stats.added === 0 && stats.updated === 0 && stats.removed === 0 && stats.dateBackfilled === 0 && !covers.changed) {
     console.log(`[scrape] Sin cambios respecto al JSON actual. No commit.`);
     return stats;
   }
 
   content.bundles = finalList;
+  const coversNote = covers.added ? `, ${covers.added} carátulas` : "";
   const message = (stats.added || stats.updated || stats.removed)
-    ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated, ${stats.removed} removed (${stats.unchanged} unchanged, ${stats.kept} kept) via telegram scraper`
-    : `chore(bundles): backfill date en ${stats.dateBackfilled} bundles via telegram scraper`;
+    ? `chore(bundles): sync ${stats.added} new, ${stats.updated} updated, ${stats.removed} removed (${stats.unchanged} unchanged, ${stats.kept} kept)${coversNote} via telegram scraper`
+    : stats.dateBackfilled
+      ? `chore(bundles): backfill date en ${stats.dateBackfilled} bundles${coversNote} via telegram scraper`
+      : `chore(bundles): ${covers.added} carátulas nuevas via telegram scraper`;
   const body = {
     message,
     content: Buffer.from(JSON.stringify(content, null, 2) + "\n", "utf8").toString("base64"),
@@ -499,7 +515,66 @@ async function batchUpsert(scrapedBundles, scan = {}) {
   return stats;
 }
 
-main().catch(err => {
-  console.error("[scrape] Fatal:", err.message);
-  process.exit(1);
-});
+// Completa coverUrl de los bundles que no tienen, buscando el primer juego en
+// Nintendo. Los títulos sin resultado se anotan en content.coverMisses
+// ({ título en minúsculas: "AAAA-MM-DD" }) para no reintentarlos en cada corrida.
+// Devuelve { added, changed }.
+export async function fillCovers(list, content) {
+  const today = new Date().toISOString().slice(0, 10);
+  const retryBefore = new Date(Date.now() - COVER_RETRY_DAYS * 86400000).toISOString().slice(0, 10);
+  const misses = (content.coverMisses && typeof content.coverMisses === "object") ? content.coverMisses : {};
+  const firstName = b => (b.games?.[0]?.name || "").trim();
+
+  // Carátulas ya conocidas por título (de otros bundles con el mismo primer juego).
+  const known = new Map();
+  for (const b of list) if (b.coverUrl && firstName(b)) known.set(firstName(b).toLowerCase(), b.coverUrl);
+
+  const pending = [];
+  for (const b of list) {
+    const name = firstName(b);
+    if (b.coverUrl || !name) continue;
+    const key = name.toLowerCase();
+    if (known.has(key) || pending.some(p => p.key === key)) continue;
+    if (misses[key] && misses[key] > retryBefore) continue;
+    pending.push({ key, name });
+  }
+  const todo = pending.slice(0, MAX_COVER_LOOKUPS);
+  let missesChanged = false;
+  if (todo.length) {
+    console.log(`[covers] Buscando ${todo.length} carátulas en Nintendo (${pending.length} pendientes)...`);
+    let i = 0, found = 0, failed = 0;
+    const worker = async () => {
+      while (i < todo.length) {
+        const t = todo[i++];
+        const r = await findNintendoCover(t.name);
+        if (r.coverUrl) {
+          known.set(t.key, r.coverUrl); found++;
+          if (misses[t.key]) { delete misses[t.key]; missesChanged = true; }
+        } else if (r.failed) {
+          failed++; // Nintendo no respondió: se reintenta la próxima corrida
+        } else {
+          misses[t.key] = today; missesChanged = true;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    console.log(`[covers] Encontradas ${found}, sin resultado ${todo.length - found - failed}, sin respuesta ${failed}.`);
+  }
+
+  let added = 0;
+  for (const b of list) {
+    if (b.coverUrl) continue;
+    const url = known.get(firstName(b).toLowerCase());
+    if (url) { b.coverUrl = url; added++; }
+  }
+  if (missesChanged || (Object.keys(misses).length && !content.coverMisses)) content.coverMisses = misses;
+  return { added, changed: added > 0 || missesChanged };
+}
+
+// Solo corre al ejecutarse directo (node scripts/scrape-telegram.js), no al importarlo en pruebas.
+if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
+  main().catch(err => {
+    console.error("[scrape] Fatal:", err.message);
+    process.exit(1);
+  });
+}

@@ -6,6 +6,12 @@
 //   GET /api/cover?vandal=<titulo>       → ficha de respaldo desde vandal.elespanol.com (español)
 
 import { requireAdmin, handleError } from "./_lib.js";
+import { findNintendoCover } from "./_nintendo-cover.js";
+
+// Caché en memoria de las carátulas de Nintendo por título (?q=).
+const coverCache = new Map();
+const COVER_TTL_MS = 7 * 24 * 3600 * 1000;
+const COVER_CACHE_MAX = 5000;
 
 const PSN_BASE = "https://store.playstation.com/es-cr";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -99,39 +105,22 @@ export default async function handler(req, res) {
   }
 
   // ── Portada Nintendo por título ────────────────────────────────────────────
-  const raw = (req.query.q || "").toString().trim();
+  // Respaldo: el robot de bundles ya guarda la carátula en nintendo-bundles.json.
+  // En Banahosting no hay CDN que cachee /api/*, así que cada respuesta se
+  // guarda en memoria del proceso para no volver a consultar a Nintendo.
+  const raw = (req.query.q || "").toString().trim().slice(0, 200);
   if (!raw) return res.status(400).json({ error: "missing q, psnId or vandal" });
 
-  const candidates = buildCandidates(raw);
+  const key = raw.toLowerCase();
+  const hit = coverCache.get(key);
+  if (hit && Date.now() - hit.t < COVER_TTL_MS) return res.status(200).json(hit.body);
 
-  for (const q of candidates) {
-    try {
-      const url = `https://searching.nintendo-europe.com/en/select?q=${encodeURIComponent(q)}&fq=type%3AGAME&wt=json&rows=3`;
-      const r = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; ReyMidasDigitales/1.0)",
-          "Accept": "application/json",
-        },
-      });
-      if (!r.ok) continue;
-      const data = await r.json();
-      const docs = data?.response?.docs || [];
-      const hit = docs[0];
-      if (!hit) continue;
-      const img =
-        hit.image_url_sq_s ||
-        hit.image_url ||
-        hit.image_url_h2x1_s ||
-        hit.image_url_tm_s;
-      if (!img) continue;
-      const coverUrl = img.startsWith("//") ? `https:${img}` : img;
-      return res.status(200).json({ coverUrl, matchedTitle: hit.title, queryUsed: q });
-    } catch {
-      // sigo con el siguiente candidato
-    }
+  const { failed, ...body } = await findNintendoCover(raw);
+  if (!failed) {
+    if (coverCache.size >= COVER_CACHE_MAX) coverCache.delete(coverCache.keys().next().value);
+    coverCache.set(key, { t: Date.now(), body });
   }
-
-  return res.status(200).json({ coverUrl: "" });
+  return res.status(200).json(body);
 }
 
 // ─── PSN helpers ─────────────────────────────────────────────────────────────
@@ -516,28 +505,4 @@ async function findVandalPages(title) {
     const links = [...html.matchAll(/href=["'](\/(?:juegos|fichas)\/[^"'#?]+\/[^"'#?]+)["']/gi)].map(m => m[1]);
     return [...new Set(links)].slice(0, 3).map(u => (u.startsWith("http") ? u : `${VANDAL_BASE}${u}`));
   } catch { return []; }
-}
-
-// ─── Nintendo helpers ─────────────────────────────────────────────────────────
-
-// Genera variantes del nombre para mejorar el chance de match:
-// "Mortal Kombat™ 1" → ["Mortal Kombat™ 1", "Mortal Kombat 1", "Mortal Kombat"]
-function buildCandidates(name) {
-  const out = new Set();
-  out.add(name);
-  // Sin símbolos ™ ®
-  const stripped = name.replace(/[™®©]/g, "").trim();
-  out.add(stripped);
-  // Sin "DLC", "Expansion Pass", "+ dlc"
-  const noDlc = stripped
-    .replace(/\s+\+\s+dlc/gi, "")
-    .replace(/\bDLC\b/gi, "")
-    .replace(/Expansion Pass/gi, "")
-    .replace(/Upgrade Pack/gi, "")
-    .trim();
-  out.add(noDlc);
-  // Sólo lo que está antes del primer ":" o " – "
-  const beforeColon = noDlc.split(/[:–-]/)[0].trim();
-  if (beforeColon.length > 3) out.add(beforeColon);
-  return [...out].filter(Boolean);
 }

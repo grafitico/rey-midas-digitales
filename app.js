@@ -1038,31 +1038,47 @@ function ensureNintendo() {
   return nintendoPromise;
 }
 
-// Auto-busca carátulas de Nintendo para los bundles sin coverUrl.
+// Respaldo para los bundles que llegan sin coverUrl: el robot de bundles ya
+// guarda la carátula en nintendo-bundles.json, así que acá solo quedan los
+// recién publicados. Antes se pedían TODAS a la vez (~1.300 consultas por
+// visitante nuevo a la app Node.js): ahora como mucho 40, de a 4.
 // Cachea cada resultado en localStorage para no re-pedirlas.
+const COVER_LOOKUP_MAX = 40;
 async function enrichBundleCovers() {
   if (!nintendo.bundles?.length) return;
   const updated = [];
-  await Promise.all(nintendo.bundles.map(async (b) => {
-    if (b.coverUrl) return;
+  const byName = new Map(); // primer juego → bundles que lo esperan
+  for (const b of nintendo.bundles) {
     const firstGame = b.games?.[0]?.name;
-    if (!firstGame) return;
+    if (b.coverUrl || !firstGame) continue;
+    if (!byName.has(firstGame)) byName.set(firstGame, []);
+    byName.get(firstGame).push(b);
+  }
+  let lookups = 0;
+  const resolveName = async (firstGame) => {
     const key = `cover:${firstGame}`;
-    let url = localStorage.getItem(key);
+    let url = null;
+    try { url = localStorage.getItem(key); } catch { /* sin localStorage */ }
     if (url === null) {
+      if (lookups >= COVER_LOOKUP_MAX) return;
+      lookups++;
       try {
         const r = await fetch(`/api/cover?q=${encodeURIComponent(firstGame)}`);
         const data = await r.json();
         url = data.coverUrl || "";
-        localStorage.setItem(key, url);
+        try { localStorage.setItem(key, url); } catch { /* sin localStorage */ }
       } catch {
         url = "";
       }
     }
     if (url) {
-      b.coverUrl = url;
-      updated.push(b.id);
+      for (const b of byName.get(firstGame)) { b.coverUrl = url; updated.push(b.id); }
     }
+  };
+  const names = [...byName.keys()];
+  let next = 0;
+  await Promise.all(Array.from({ length: 4 }, async () => {
+    while (next < names.length) await resolveName(names[next++]);
   }));
   if (!updated.length) return;
   // Si el usuario está en una vista que muestra bundles, actualizamos en DOM
