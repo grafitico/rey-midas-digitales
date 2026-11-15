@@ -12,6 +12,21 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Ninguna llamada a un servicio externo (Supabase, Groq, Google, PlayStation…)
+// puede esperar para siempre. Si una no trae su propio tiempo límite, se le
+// pone uno. Sin esto, cuando un servicio dejaba de contestar, cada visita
+// dejaba un proceso esperando; el hosting tiene un tope de procesos y al
+// llenarse toda la API contestaba 503 (y la tienda no mostraba el perfil).
+const FETCH_TIMEOUT_MS = 12000;
+const nativeFetch = globalThis.fetch;
+globalThis.fetch = (input, init = {}) =>
+  nativeFetch(input, init.signal ? init : { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+
+// Tope para cada consulta a la API: si a los 30 s no terminó, se contesta 504
+// y se libera la conexión (la tarea puede seguir de fondo, pero ya no ocupa
+// un lugar del hosting).
+const REQUEST_TIMEOUT_MS = 30000;
 // api/chat.js y api/featured-prices.js leen featured-games.json desde process.cwd().
 process.chdir(ROOT);
 const API_DIR = path.join(ROOT, "api");
@@ -60,11 +75,13 @@ function parseBody(raw, contentType = "") {
 function addVercelHelpers(res) {
   res.status = (code) => { res.statusCode = code; return res; };
   res.json = (body) => {
+    if (res.writableEnded || res.headersSent) { if (!res.writableEnded) res.end(); return res; } // ya respondió (p. ej. el tope de 30 s)
     if (!res.getHeader("Content-Type")) res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.end(JSON.stringify(body));
     return res;
   };
   res.send = (body) => {
+    if (res.writableEnded) return res;
     if (body !== null && typeof body === "object" && !Buffer.isBuffer(body)) return res.json(body);
     res.end(body);
     return res;
@@ -103,6 +120,13 @@ function logPreview(req, res, url) {
 
 export const server = http.createServer(async (req, res) => {
   addVercelHelpers(res);
+  const watchdog = setTimeout(() => {
+    if (res.writableEnded) return;
+    console.error(`[server] ${req.method} ${req.url}: sin respuesta en ${REQUEST_TIMEOUT_MS / 1000} s, se corta (504)`);
+    if (!res.headersSent) { res.statusCode = 504; res.setHeader("Content-Type", "application/json; charset=utf-8"); res.end(JSON.stringify({ error: "El servidor tardó demasiado" })); }
+    else res.end();
+  }, REQUEST_TIMEOUT_MS);
+  res.on("close", () => clearTimeout(watchdog));
   try {
     const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
     if (/^\/(api\/)?og-log\/?$/.test(url.pathname)) {

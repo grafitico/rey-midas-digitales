@@ -144,11 +144,17 @@ async function apiPost(path, body) {
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin", // asegura que la cookie de sesión se envíe
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20000), // si el servidor no contesta, no esperar para siempre
+  }).catch(() => {
+    const err = new Error("No pudimos conectar con el servidor. Probá de nuevo en unos minutos.");
+    err.status = 0;
+    throw err;
   });
   let data = {};
   try { data = await res.json(); } catch { /* respuesta vacía */ }
   if (!res.ok) {
-    const err = new Error(data.error || `Error ${res.status}`);
+    const busy = res.status === 502 || res.status === 503 || res.status === 504;
+    const err = new Error(data.error || (busy ? "El servidor está ocupado. Probá de nuevo en unos minutos." : `Error ${res.status}`));
     err.status = res.status;
     throw err;
   }
@@ -158,6 +164,10 @@ async function apiPost(path, body) {
 async function initAuth() {
   // Limpieza del esquema viejo (token en localStorage) por si quedó de antes.
   localStorage.removeItem("rmd_token_v1");
+  // El acceso al perfil se dibuja YA, sin esperar al servidor: antes, si la
+  // API tardaba o estaba caída, el espacio quedaba vacío y no había forma de
+  // entrar a "Mi cuenta" ni de iniciar sesión.
+  renderAuthSlot();
   // Volvemos de /api/auth-google: el server ya dejó la cookie de sesión
   // puesta, pero como el login pasó fuera del JS del cliente, el hint de
   // localStorage todavía no existe. Lo forzamos para que dispare el "me".
@@ -169,7 +179,7 @@ async function initAuth() {
       currentUser = user;
     } catch (err) {
       // Cookie inválida / expirada: olvidamos la pista
-      if (err.status === 401) clearSessionHint();
+      if (err.status === 401) { clearSessionHint(); localStorage.removeItem(USER_NAME_KEY); }
       currentUser = null;
     }
   }
@@ -180,6 +190,7 @@ async function initAuth() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "has-users" }),
+        signal: AbortSignal.timeout(15000),
       });
       const data = await test.json().catch(() => ({}));
       usersExist = data.usersExist === true;
@@ -249,6 +260,7 @@ async function changePassword(newPassword) {
 
 function logout() {
   clearSessionHint();
+  try { localStorage.removeItem(USER_NAME_KEY); } catch { /* sin localStorage */ }
   currentUser = null;
   // Le pedimos al servidor que borre la cookie HttpOnly (no podemos hacerlo
   // desde JS). No bloqueamos la navegación esperando la respuesta.
@@ -257,14 +269,31 @@ function logout() {
   navigate("/");
 }
 
+// Nombre del cliente guardado en el navegador, solo para dibujar el acceso al
+// perfil al instante (mientras el servidor confirma la sesión).
+const USER_NAME_KEY = "rmd_user_name";
+
 function renderAuthSlot() {
   const slot = document.getElementById("authSlot");
   if (!slot) return;
   if (!currentUser) {
+    let cachedName = "";
+    try { cachedName = hasSessionHint() ? (localStorage.getItem(USER_NAME_KEY) || "") : ""; } catch { /* sin localStorage */ }
+    if (hasSessionHint()) {
+      // Tiene sesión (o la tenía): acceso directo a "Mi cuenta" mientras se confirma.
+      const label = cachedName || "Mi cuenta";
+      slot.innerHTML = `
+        <a href="/mi-cuenta" class="auth-trigger" aria-label="Mi cuenta">
+          <span class="avatar-fallback">${escapeHtml((label[0] || "?").toUpperCase())}</span>
+          <span class="auth-name">${escapeHtml(label)}</span>
+        </a>`;
+      return;
+    }
     slot.innerHTML = `<a href="/login" data-route="login" class="auth-btn">Iniciar sesión</a>`;
     return;
   }
   const name = currentUser.full_name || currentUser.email.split("@")[0];
+  try { localStorage.setItem(USER_NAME_KEY, name); } catch { /* sin localStorage */ }
   const initial = (name[0] || "?").toUpperCase();
   slot.innerHTML = `
     <div class="auth-menu">

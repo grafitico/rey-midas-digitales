@@ -298,6 +298,7 @@ body {
 .auth-btn:hover { filter: brightness(1.07); background: linear-gradient(135deg, var(--gold), var(--gold-bright)) !important; }
 
 .auth-menu { position: relative; }
+a.auth-trigger { text-decoration: none; color: inherit; }
 .auth-trigger {
   background: rgba(245, 196, 81, 0.08);
   border: 1px solid var(--border);
