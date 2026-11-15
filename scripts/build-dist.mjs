@@ -43,6 +43,17 @@ for (const name of fs.readdirSync(ROOT)) {
   copy(path.join(ROOT, name), path.join(DIST, name));
 }
 copy(path.join(ROOT, "deploy", ".htaccess"), path.join(DIST, ".htaccess"));
+// Índice chico para la vista previa de WhatsApp/Facebook (api/og.js): así la
+// app Node.js no lee ps-catalog.json (11 MB), que la hacía pasar el tope de
+// memoria del hosting.
+{
+  const { buildGamesIndex } = await import("../api/og.js");
+  const read = name => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, name), "utf8")); } catch { return null; } };
+  const games = buildGamesIndex(read);
+  const json = JSON.stringify({ generated: new Date().toISOString(), games });
+  fs.writeFileSync(path.join(DIST, "og-index.json"), json);
+  console.log(`[build-dist] og-index.json: ${Object.keys(games).length} juegos, ${(json.length / 1024 / 1024).toFixed(1)} MB`);
+}
 // Marca visible para saber qué hosting está respondiendo: reymidascr.com/hosting.txt
 // solo existe en Banahosting (Vercel devolvería la tienda en esa ruta).
 fs.writeFileSync(path.join(DIST, "hosting.txt"), `Banahosting — publicado ${new Date().toISOString()} (${(process.env.GITHUB_SHA || "local").slice(0, 7)})\n`);

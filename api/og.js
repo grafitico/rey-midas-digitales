@@ -24,28 +24,46 @@ const SITE_DIR = (() => {
 })();
 
 // Cache: se recarga solo cuando cambia algún archivo (cada publicación).
-const FILES = ["index.html", "featured-games.json", "covers.json", "xbox-catalog.json", "ps-catalog.json", "ps-prices.json", "reservaciones.json", "faq.json"];
+const FILES = ["index.html", "og-index.json", "reservaciones.json", "faq.json"];
 let cache = { stamp: "", html: "", data: null };
 
 function readJson(name) {
   try { return JSON.parse(fs.readFileSync(path.join(SITE_DIR, name), "utf8")); } catch { return null; }
 }
 
+// Índice de juegos para la vista previa, con solo los 5 campos que usa
+// buildMeta. Lo arma scripts/build-dist.mjs al publicar (og-index.json, ~2 MB)
+// para que la app no tenga que leer ps-catalog.json (11 MB): leer ese archivo
+// en cada actualización de precios llevaba la app de 40 MB a 150–180 MB, y el
+// hosting tiene un tope de memoria por cuenta que, al llenarse, deja a toda la
+// API sin poder arrancar ("Unable to fork… resource limits").
+export function buildGamesIndex(read) {
+  const covers = read("covers.json")?.covers || {};
+  const prices = read("ps-prices.json")?.prices || {};
+  const slim = (g, priceUSD = g.priceUSD) => ({
+    title: g.title, platform: g.platform, imageUrl: g.imageUrl || "",
+    priceUSD, comingSoon: !!g.comingSoon,
+  });
+  const games = {};
+  for (const g of read("ps-catalog.json")?.games || []) {
+    if (!g?.id) continue;
+    const p = prices[g.id];
+    games[g.id] = slim(g, p ? p[0] : g.priceUSD);
+  }
+  for (const g of read("xbox-catalog.json")?.games || []) if (g?.id && !g._placeholder) games[g.id] = slim(g);
+  for (const g of read("featured-games.json")?.games || []) if (g?.id) games[g.id] = slim({ ...g, imageUrl: g.imageUrl || covers[g.id] || "" });
+  return games;
+}
+
 function load() {
   const stamp = FILES.map(f => { try { return fs.statSync(path.join(SITE_DIR, f)).mtimeMs; } catch { return 0; } }).join("|");
   if (cache.data && cache.stamp === stamp) return cache;
+  cache = { stamp: "", html: "", data: null }; // soltar lo viejo antes de leer lo nuevo
 
   const html = fs.readFileSync(path.join(SITE_DIR, "index.html"), "utf8");
-  const covers = readJson("covers.json")?.covers || {};
-  const prices = readJson("ps-prices.json")?.prices || {};
-  const games = {};
-  for (const g of readJson("ps-catalog.json")?.games || []) {
-    if (!g?.id) continue;
-    const p = prices[g.id];
-    games[g.id] = p ? { ...g, priceUSD: p[0], originalPriceUSD: p[1] } : g;
-  }
-  for (const g of readJson("xbox-catalog.json")?.games || []) if (g?.id && !g._placeholder) games[g.id] = g;
-  for (const g of readJson("featured-games.json")?.games || []) if (g?.id) games[g.id] = { ...g, imageUrl: g.imageUrl || covers[g.id] || "" };
+  // og-index.json lo genera la publicación; si falta (p. ej. en pruebas
+  // locales), se arma desde los catálogos.
+  const games = readJson("og-index.json")?.games || buildGamesIndex(readJson);
   const reservaMap = {};
   for (const r of readJson("reservaciones.json")?.items || []) if (r?.id) reservaMap[r.id] = r;
   const faqs = readJson("faq.json")?.faqs || [];
