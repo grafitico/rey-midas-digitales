@@ -7,6 +7,7 @@
 // las rutas /api/*. El arranque lo hace server/start.cjs (Passenger, el que usa
 // cPanel, necesita un archivo CommonJS como "startup file").
 
+import fs from "fs";
 import http from "http";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -118,8 +119,12 @@ function logPreview(req, res, url) {
   });
 }
 
+let inFlight = 0; // consultas en curso en esta copia de la app
+
 export const server = http.createServer(async (req, res) => {
   addVercelHelpers(res);
+  inFlight++;
+  res.on("close", () => { inFlight--; });
   const watchdog = setTimeout(() => {
     if (res.writableEnded) return;
     console.error(`[server] ${req.method} ${req.url}: sin respuesta en ${REQUEST_TIMEOUT_MS / 1000} s, se corta (504)`);
@@ -167,3 +172,33 @@ export const server = http.createServer(async (req, res) => {
 
 const port = process.env.PORT || 3000;
 server.listen(port, () => console.log(`[server] API escuchando en ${port}`));
+
+// ── Que ninguna copia vieja quede viva ─────────────────────────────────────
+// Banahosting encontró ~100 procesos de copias viejas de esta app (algunas de
+// hacía 4 días): al reiniciar, la copia vieja seguía esperando consultas
+// colgadas y nunca se cerraba, hasta llenar el tope de procesos de la cuenta.
+// 1) Si el hosting pide cerrar (SIGTERM/SIGINT), se cierra en orden y, si algo
+//    la traba, a los 10 s igual.
+// 2) Si tmp/restart.txt cambió después de que esta copia arrancó (hubo un
+//    reinicio y ya hay una copia nueva), se cierra apenas no tenga consultas
+//    en curso (o a los 2 minutos, pase lo que pase).
+const RESTART_FILE = path.join(ROOT, "tmp", "restart.txt");
+const restartStamp = () => { try { return fs.statSync(RESTART_FILE).mtimeMs; } catch { return 0; } };
+const bornWith = restartStamp();
+let closing = false;
+function shutdown(reason) {
+  if (closing) return;
+  closing = true;
+  console.error(`[server] cerrando esta copia (${reason})`);
+  server.close(() => process.exit(0));
+  server.closeIdleConnections?.();
+  setTimeout(() => process.exit(0), 10000).unref();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+let replacedAt = 0;
+setInterval(() => {
+  if (closing || restartStamp() === bornWith) return;
+  replacedAt ||= Date.now();
+  if (inFlight === 0 || Date.now() - replacedAt > 120000) shutdown("hay una versión nueva de la app");
+}, 15000).unref();

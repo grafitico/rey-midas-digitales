@@ -7,6 +7,7 @@
 // estático, más deploy/.htaccess, que hace lo que hacía vercel.json (rutas de
 // la tienda, redirecciones, cabeceras, caché).
 
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
@@ -70,8 +71,23 @@ for (const name of ["api", "server", "featured-games.json", "middleware.js"]) co
 // api/*.js son módulos ES: Node necesita "type": "module". Sin dependencias,
 // así que no hace falta npm install en el servidor.
 fs.writeFileSync(path.join(DIST_API, "package.json"), JSON.stringify({ name: "rey-midas-api", private: true, type: "module" }, null, 2) + "\n");
-// Passenger reinicia la app cuando cambia tmp/restart.txt: un valor nuevo en
-// cada despliegue hace que tome el código recién subido.
-fs.mkdirSync(path.join(DIST_API, "tmp"));
-fs.writeFileSync(path.join(DIST_API, "tmp", "restart.txt"), `${process.env.GITHUB_SHA || ""} ${new Date().toISOString()}\n`);
+// Passenger reinicia la app cuando cambia tmp/restart.txt. Su contenido es una
+// huella de los archivos de la app: cambia (y la app se reinicia) solo cuando
+// cambia el código, no en cada publicación de precios o catálogos. Antes llevaba
+// la hora y la app se reiniciaba ~8 veces por día; cada reinicio dejaba una
+// copia vieja esperando consultas colgadas, y en 4 días se juntaron ~100
+// procesos: el tope de la cuenta (caía la API y también apk.reymidascr.com).
+{
+  const hash = crypto.createHash("sha256");
+  const walk = dir => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) walk(full);
+      else hash.update(path.relative(DIST_API, full)).update(fs.readFileSync(full));
+    }
+  };
+  walk(DIST_API);
+  fs.mkdirSync(path.join(DIST_API, "tmp"));
+  fs.writeFileSync(path.join(DIST_API, "tmp", "restart.txt"), `${hash.digest("hex").slice(0, 16)}\n`);
+}
 console.log(`[build-dist] ${files} archivos en dist-api/ (app Node.js)`);

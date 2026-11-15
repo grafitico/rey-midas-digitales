@@ -1,0 +1,32 @@
+name: Vigilar API
+
+# Revisa cada 2 horas que la app Node.js de Banahosting (reymidascr.com/api)
+# responda. Si no responde, el job falla y GitHub le manda un correo al dueño
+# del repositorio. Usa /api/og-log, que no consulta servicios externos ni
+# gasta cupo (Groq, Supabase).
+#
+# Si falla: cPanel → Setup Node.js App → Restart. Si sale "Unable to fork…
+# resource limits", pedirle a Banahosting que termine los procesos colgados
+# (ver CLAUDE.md).
+
+on:
+  schedule:
+    - cron: "41 */2 * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: ¿Responde la API?
+        run: |
+          for intento in 1 2 3; do
+            code=$(curl -s -o /dev/null -m 30 -w "%{http_code}" -A "Mozilla/5.0 vigilar-api" https://reymidascr.com/api/og-log || true)
+            echo "Intento $intento: HTTP $code"
+            if [ "$code" = "200" ]; then echo "La API responde bien."; exit 0; fi
+            sleep 60
+          done
+          echo "::error::La API de reymidascr.com no responde (HTTP $code). Revisar cPanel → Setup Node.js App, o pedir a Banahosting que libere los procesos."
+          exit 1

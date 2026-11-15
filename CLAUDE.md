@@ -22,6 +22,18 @@
   `server/app.mjs` imita la interfaz de Vercel para que `api/*.js` corra igual.
   Las claves (Supabase, Google, Groq…) son variables de entorno de esa app en
   cPanel. `https://reymidascr.com/hosting.txt` dice qué versión está publicada.
+- **Tope de procesos de Banahosting (caída del 14/11/2026):** la cuenta comparte
+  memoria y procesos con todos sus sitios (apk.reymidascr.com, agrologos, etc.).
+  Se acumularon ~100 procesos de copias viejas de la app Node.js y se cayó toda
+  la API y también apk ("cagefs_enter: Unable to fork… resource limits"). Para
+  que no se repita: `restart.txt` solo cambia cuando cambia el código de la API
+  (huella en `scripts/build-dist.mjs`), toda llamada externa corta a los 12 s y
+  toda consulta a los 30 s, las copias viejas se cierran solas
+  (`server/app.mjs`) y la vista previa usa `og-index.json` en vez del catálogo
+  de 11 MB. No agregar `setInterval` sin `.unref()` ni conexiones que queden
+  abiertas. El robot `vigilar-api.yml` avisa por correo si la API no responde.
+  Si vuelve a pasar: cPanel → Setup Node.js App → Restart; si no deja, ticket a
+  Banahosting para que termine los procesos.
 - DNS: el dominio usa los servidores de **Cloudflare** (no los de Banahosting);
   los registros se cambian en dash.cloudflare.com, no en el editor de zonas de
   cPanel.
