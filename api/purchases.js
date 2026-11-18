@@ -30,6 +30,7 @@ export default async function handler(req, res) {
     if (body.action === "filter") return await filter(req, res, body);
     if (body.action === "sales") return await sales(req, res, body);
     if (body.action === "accounts") return await accounts(req, res);
+    if (body.action === "by-account") return await byAccount(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -216,4 +217,20 @@ async function accounts(req, res) {
     }
   }
   res.status(200).json({ purchases: rows });
+}
+
+// Todas las ventas de UNA cuenta (correo de la cuenta vendida), completas y
+// descifradas: para editar un cupo desde Ventas y para precargar contraseña y
+// juegos al vender un cupo libre de una cuenta que ya existe.
+async function byAccount(req, res, body) {
+  await requireAdmin(req);
+  const email = String(body.account_email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "Correo de la cuenta requerido" });
+  // ilike sin importar mayúsculas; *…* tolera espacios guardados alrededor del
+  // correo y el filtro exacto de abajo descarta lo demás. Los _ y % del correo
+  // se escapan para que no funcionen como comodines.
+  const pattern = email.replace(/[\\%_]/g, m => "\\" + m);
+  const rows = await sb(`purchases?account_email=ilike.${encodeURIComponent("*" + pattern + "*")}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.asc&limit=50`);
+  const exact = rows.filter(r => String(r.account_email || "").trim().toLowerCase() === email);
+  res.status(200).json({ purchases: exact.map(decryptPurchaseRow) });
 }

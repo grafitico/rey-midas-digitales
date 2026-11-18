@@ -6709,9 +6709,13 @@ async function renderAdmin() {
               <input name="amount" type="number" min="0" step="1" inputmode="numeric" placeholder="Ej: 12000">
             </label>
           </div>
-          <label>Email de la cuenta vendida
-            <input name="account_email" type="text" required>
-          </label>
+          <div class="pf-acc-field">
+            <label>Email de la cuenta vendida
+              <input name="account_email" id="pfAccountEmail" type="text" required autocomplete="off" placeholder="Escribí para buscar una cuenta que ya vendiste">
+            </label>
+            <div id="pfAccountSuggest" class="pf-acc-suggest" hidden></div>
+          </div>
+          <div id="pfSlots" class="pf-slots" hidden></div>
           <label>Contraseña de la cuenta
             <input name="account_password" type="text" required>
           </label>
@@ -7078,6 +7082,7 @@ async function renderAdmin() {
   updateOfertaSecundariaLabel();
   setupSalesReport();
   setupInventory();
+  setupPurchaseAccountPicker();
   setupClientSearch();
   setupPurchaseClientPicker();
   setupOcultos();
@@ -8170,6 +8175,20 @@ function renderSalesReport(sales) {
 let salesView = "resumen";
 let invLoaded = false;
 let invRows = [];
+let invAccCache = null;
+function invAccounts() {
+  if (!invAccCache) invAccCache = invBuildAccounts();
+  return invAccCache;
+}
+// Después de crear/editar/borrar una venta: la próxima vez se recarga.
+function invMarkStale() {
+  invLoaded = false;
+  invAccCache = null;
+}
+function invFindAccount(email) {
+  const e = String(email || "").trim().toLowerCase();
+  return e ? invAccounts().find(a => a.email.toLowerCase() === e) || null : null;
+}
 const INV_LIMIT = 200;
 // Cupos por cuenta según el tipo de juego (reglas del negocio):
 //   PS4 / PS5-PS4 → 5: PS4 Primaria 1-2, PS5 Primaria 1-2, Secundaria (una sola, PS4 o PS5)
@@ -8319,8 +8338,22 @@ function setupInventory() {
   });
   document.getElementById("invReload").addEventListener("click", () => loadInventory());
 
+  // Clic en un cupo: ocupado → editar la venta; libre → venderlo.
+  const report = document.getElementById("invReport");
+  const onSlot = e => {
+    if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+    const ed = e.target.closest("[data-inv-edit]");
+    const se = e.target.closest("[data-inv-sell]");
+    if (!ed && !se) return;
+    e.preventDefault();
+    if (ed) invEditSale(ed.dataset.invEdit, ed.dataset.invAcc);
+    else invSellSlot(se.dataset.invSell, se.dataset.invSlot);
+  };
+  report.addEventListener("click", onSlot);
+  report.addEventListener("keydown", onSlot);
+
   // Clic en un juego (vista por juego) → ver sus cuentas.
-  document.getElementById("invReport").addEventListener("click", e => {
+  report.addEventListener("click", e => {
     const g = e.target.closest("[data-inv-game]");
     if (!g) return;
     document.getElementById("invView").value = "cuenta";
@@ -8339,6 +8372,7 @@ async function loadInventory() {
       invLoadPsIndex(),
     ]);
     invRows = purchases || [];
+    invAccCache = null;
     invLoaded = true;
     renderInventory();
   } catch (err) {
@@ -8422,7 +8456,7 @@ function renderInventory() {
   };
   const ranged = !!(f.from || f.to);
 
-  let list = invBuildAccounts().filter(a => {
+  let list = invAccounts().filter(a => {
     if (f.fam && a.family !== f.fam) return false;
     if (f.q && !a.haystack.includes(f.q)) return false;
     if (f.state === "libres" && !a.freeTotal) return false;
@@ -8535,19 +8569,22 @@ function invAccountCard(a, inRange) {
     const used = a.used[k] || [];
     const cap = a.cap[k] || 0;
     used.forEach((s, i) => slots.push(`
-      <div class="inv-slot is-used${i >= cap ? " is-over" : ""}">
+      <div class="inv-slot is-used${i >= cap ? " is-over" : ""}" role="button" tabindex="0" data-inv-edit="${escapeAttr(s.id)}" data-inv-acc="${escapeAttr(a.email)}" title="Editar esta venta">
         <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 || used.length > 1 ? ` ${i + 1}` : ""}${i >= cap ? " (no corresponde)" : ""}</span>
         ${invSaleLine(s, inRange && !inRange(s))}
       </div>`));
     for (let i = used.length; i < cap; i++) {
-      slots.push(`<div class="inv-slot ${a.full ? "is-blocked" : "is-free"}">
+      slots.push(a.full ? `<div class="inv-slot is-blocked">
         <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 ? ` ${i + 1}` : ""}</span>
-        <strong>${a.full ? "—" : "LIBRE"}</strong>
+        <strong>—</strong>
+      </div>` : `<div class="inv-slot is-free" role="button" tabindex="0" data-inv-sell="${escapeAttr(a.email)}" data-inv-slot="${escapeAttr(k)}" title="Vender este cupo">
+        <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 ? ` ${i + 1}` : ""}</span>
+        <strong>LIBRE</strong><span class="inv-slot-cta">＋ Vender</span>
       </div>`);
     }
   }
   for (const s of a.used.full) {
-    slots.push(`<div class="inv-slot is-used"><span class="inv-slot-name">${escapeHtml(String(s.modality || "Cuenta completa"))}</span>${invSaleLine(s, inRange && !inRange(s))}</div>`);
+    slots.push(`<div class="inv-slot is-used" role="button" tabindex="0" data-inv-edit="${escapeAttr(s.id)}" data-inv-acc="${escapeAttr(a.email)}" title="Editar esta venta"><span class="inv-slot-name">${escapeHtml(String(s.modality || "Cuenta completa"))}</span>${invSaleLine(s, inRange && !inRange(s))}</div>`);
   }
   return `
     <article class="inv-card${a.freeTotal ? "" : " is-full"}">
@@ -8568,6 +8605,248 @@ function invAccountCard(a, inRange) {
       </header>
       <div class="inv-slots">${slots.join("")}</div>
     </article>`;
+}
+
+
+// Ventas de una cuenta, completas (con contraseña), desde el servidor.
+async function invFetchAccountSales(email) {
+  const { purchases } = await apiPost("/api/purchases", { action: "by-account", account_email: email });
+  return purchases || [];
+}
+
+async function invEditSale(id, email) {
+  try {
+    const sales = await invFetchAccountSales(email);
+    const p = sales.find(x => x.id === id);
+    if (!p) { showToast("No encontramos esa venta (¿la borraron?)"); loadInventory(); return; }
+    openEditModal(p, () => loadInventory());
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+// Cupo → plataforma y modalidad del formulario de compra.
+//   sec en PlayStation cross-gen: se puede vender en PS4 o en PS5.
+function invSlotOptions(acc) {
+  const opts = [];
+  const add = (slot, i, platform, modality, label) => opts.push({ slot, i, platform, modality, label });
+  const cap = acc.cap || {};
+  if (acc.family === "PlayStation") {
+    for (let i = 0; i < (cap.ps4 || 0); i++) add("ps4", i, "PS4", "principal", `PS4 · Primaria ${i + 1}`);
+    for (let i = 0; i < (cap.ps5 || 0); i++) add("ps5", i, "PS5", "principal", `PS5 · Primaria ${i + 1}`);
+    if (cap.sec) {
+      if (acc.kind === "ps5only") add("sec", 0, "PS5", "secundaria", "Secundaria (PS5)");
+      else { add("sec", 0, "PS4", "secundaria", "Secundaria en PS4"); add("sec", 0, "PS5", "secundaria", "Secundaria en PS5"); }
+    }
+  } else {
+    const pl = acc.family === "Xbox" ? "Xbox" : "Switch";
+    for (let i = 0; i < (cap.pri || 0); i++) add("pri", i, pl, "principal", `Primaria ${i + 1}`);
+    if (cap.sec) add("sec", 0, pl, "secundaria", acc.family === "Xbox" ? "Segundo plano" : "Secundaria");
+  }
+  return opts;
+}
+
+// Ir a Compras con la cuenta y el cupo ya elegidos.
+async function invSellSlot(email, slot) {
+  document.querySelector('.admin-tab[data-tab="compras"]')?.click();
+  const input = document.getElementById("pfAccountEmail");
+  if (!input) return;
+  input.value = email;
+  await pfApplyAccount(email, slot);
+  document.getElementById("purchaseForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("Elegí el cliente y el monto para terminar la venta");
+}
+
+// ===== Formulario "Cargar nueva compra": cuenta y cupo =====
+let pfAccount = null;       // cuenta existente elegida (de invAccounts) o null
+let pfAccountReq = 0;       // para descartar respuestas viejas
+
+function setupPurchaseAccountPicker() {
+  const input = document.getElementById("pfAccountEmail");
+  const box = document.getElementById("pfAccountSuggest");
+  if (!input || !box) return;
+  const form = document.getElementById("purchaseForm");
+  let t = null;
+  input.addEventListener("focus", () => { if (!invLoaded) loadInventory(); });
+  input.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(() => pfSuggest(input.value), 150);
+    // Si dejó de coincidir con la cuenta elegida, se suelta.
+    if (pfAccount && pfAccount.email.toLowerCase() !== input.value.trim().toLowerCase()) {
+      pfAccount = null;
+      pfRenderSlots();
+    }
+  });
+  input.addEventListener("keydown", e => { if (e.key === "Escape") box.hidden = true; });
+  input.addEventListener("blur", () => setTimeout(() => {
+    box.hidden = true;
+    const acc = invFindAccount(input.value);
+    if (acc && acc !== pfAccount) pfApplyAccount(acc.email);
+    else if (!acc) pfRenderSlots();
+  }, 180));
+  box.addEventListener("mousedown", e => e.preventDefault()); // que el blur no gane al clic
+  box.addEventListener("click", e => {
+    const b = e.target.closest("[data-pf-acc]");
+    if (!b) return;
+    input.value = b.dataset.pfAcc;
+    box.hidden = true;
+    pfApplyAccount(b.dataset.pfAcc);
+  });
+  // Cuenta nueva: los cupos dependen del juego y la consola elegidos.
+  form.querySelector('[name="game_name"]').addEventListener("change", () => { if (!pfAccount) pfRenderSlots(); });
+  form.querySelector('[name="platform"]').addEventListener("change", () => pfRenderSlots());
+  form.querySelector('[name="modality"]').addEventListener("change", () => pfRenderSlots());
+  document.getElementById("pfSlots").addEventListener("click", e => {
+    const b = e.target.closest("[data-pf-platform]");
+    if (!b || b.disabled) return;
+    form.querySelector('[name="platform"]').value = b.dataset.pfPlatform;
+    form.querySelector('[name="modality"]').value = b.dataset.pfModality;
+    pfRenderSlots();
+  });
+}
+
+async function pfSuggest(text) {
+  const box = document.getElementById("pfAccountSuggest");
+  const q = normalizeSearch(String(text || "").trim());
+  if (q.length < 2) { box.hidden = true; return; }
+  if (!invLoaded) await loadInventory();
+  const list = invAccounts()
+    .filter(a => normalizeSearch(a.email + " " + a.game).includes(q))
+    .sort((a, b) => (b.freeTotal > 0) - (a.freeTotal > 0) || a.email.localeCompare(b.email))
+    .slice(0, 8);
+  if (!list.length) {
+    box.innerHTML = `<div class="pf-acc-none">Cuenta nueva: no hay ventas con ese correo.</div>`;
+    box.hidden = false;
+    return;
+  }
+  box.innerHTML = list.map(a => `
+    <button type="button" class="pf-acc-opt" data-pf-acc="${escapeAttr(a.email)}">
+      <span class="pf-acc-mail">${escapeHtml(a.email)}</span>
+      <span class="pf-acc-game">${escapeHtml(a.game || "(sin juego)")}</span>
+      <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
+    </button>`).join("");
+  box.hidden = false;
+}
+
+// Cuenta existente elegida: jala contraseña, juego y lista de juegos de la
+// última venta (solo si esos campos están vacíos) y muestra sus cupos.
+async function pfApplyAccount(email, preferSlot) {
+  if (!invLoaded) await loadInventory();
+  const form = document.getElementById("purchaseForm");
+  const acc = invFindAccount(email);
+  pfAccount = acc;
+  if (!acc) { pfRenderSlots(); return; }
+  // Preelegir un cupo libre (el pedido, o el primero que haya).
+  const opts = invSlotOptions(acc).filter(o => pfOptionFree(acc, o));
+  const pick = opts.find(o => o.slot === preferSlot) || (preferSlot ? null : opts[0]);
+  if (pick) {
+    form.querySelector('[name="platform"]').value = pick.platform;
+    form.querySelector('[name="modality"]').value = pick.modality;
+  }
+  pfRenderSlots();
+  const req = ++pfAccountReq;
+  try {
+    const sales = await invFetchAccountSales(acc.email);
+    if (req !== pfAccountReq || pfAccount !== acc) return;
+    const last = sales[sales.length - 1];
+    if (!last) return;
+    const fill = (name, value) => {
+      const el = form.querySelector(`[name="${name}"]`);
+      if (el && !el.value.trim() && value) el.value = value;
+    };
+    fill("account_password", last.account_password);
+    fill("game_name", last.game_name || acc.game);
+    fill("games", last.games);
+    const note = document.getElementById("pfAccNote");
+    if (note) note.textContent = `Contraseña y juegos tomados de la última venta de esta cuenta (${last.purchase_date}). Revisalos antes de guardar.`;
+  } catch (err) {
+    showToast(err.message);
+  }
+}
+
+function pfResetAccount() {
+  pfAccount = null;
+  pfAccountReq++;
+  const box = document.getElementById("pfAccountSuggest");
+  if (box) box.hidden = true;
+  pfRenderSlots();
+}
+
+function pfOptionFree(acc, o) {
+  if (acc.full) return false;
+  return (acc.used?.[o.slot]?.length || 0) <= o.i && o.i < (acc.cap?.[o.slot] || 0);
+}
+
+// Cuenta "virtual" para una cuenta nueva: todos los cupos libres según el
+// juego (catálogo PS) o la consola elegida.
+function pfVirtualAccount(form) {
+  const game = form.querySelector('[name="game_name"]').value.trim();
+  const platform = form.querySelector('[name="platform"]').value;
+  const fam = invFamily(platform);
+  let family = fam === "Otro" ? "PlayStation" : fam;
+  let kind = family === "Xbox" ? "xbox" : family === "Nintendo" ? "nintendo" : null;
+  let unknown = false;
+  if (family === "PlayStation") {
+    kind = (game && invPsKind(game)) || null;
+    unknown = !kind;
+    if (!kind) kind = "cross";
+  }
+  return { email: "", family, kind, unknown, full: false, cap: { ...INV_CUPOS[kind] },
+    used: { ps4: [], ps5: [], pri: [], sec: [], full: [] }, isNew: true, game };
+}
+
+function pfRenderSlots() {
+  const box = document.getElementById("pfSlots");
+  const form = document.getElementById("purchaseForm");
+  if (!box || !form) return;
+  const email = form.querySelector('[name="account_email"]').value.trim();
+  if (!email && !pfAccount) { box.hidden = true; box.innerHTML = ""; return; }
+  const acc = pfAccount || pfVirtualAccount(form);
+  const platform = form.querySelector('[name="platform"]').value;
+  const modality = form.querySelector('[name="modality"]').value;
+  const opts = invSlotOptions(acc);
+  const chips = opts.map(o => {
+    const free = pfOptionFree(acc, o);
+    const sale = acc.used?.[o.slot]?.[o.i];
+    const who = sale ? (sale.app_users?.full_name || sale.app_users?.email || "vendido") : "";
+    const selected = free && o.platform === platform && o.modality === modality &&
+      opts.filter(x => pfOptionFree(acc, x) && x.platform === platform && x.modality === modality)[0] === o;
+    return `<button type="button" class="pf-slot${free ? " is-free" : " is-used"}${selected ? " is-selected" : ""}"
+      data-pf-platform="${escapeAttr(o.platform)}" data-pf-modality="${escapeAttr(o.modality)}"${free ? "" : " disabled"}>
+      <span class="pf-slot-name">${escapeHtml(o.label)}</span>
+      <span class="pf-slot-who">${free ? (selected ? "✓ Elegido" : "Libre") : escapeHtml(who)}</span>
+    </button>`;
+  }).join("");
+  const kindTxt = acc.family === "PlayStation"
+    ? (acc.unknown ? "¿PS4 o PS5? juego sin identificar en el catálogo" : acc.kind === "ps5only" ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos")
+    : acc.family === "Xbox" ? "Xbox · 3 cupos" : `${acc.family}`;
+  const freeCount = opts.filter(o => pfOptionFree(acc, o)).length;
+  box.innerHTML = `
+    <div class="pf-slots-head">
+      <strong>${acc.isNew ? "Cuenta nueva" : `Cupos de la cuenta`}</strong>
+      <span class="inv-chip">${escapeHtml(kindTxt)}</span>
+      ${acc.isNew ? "" : `<span class="inv-chip ${acc.full || !freeCount ? "is-full" : "is-free"}">${acc.full || !freeCount ? "Llena" : `${acc.freeTotal} ${acc.freeTotal === 1 ? "libre" : "libres"}`}</span>`}
+    </div>
+    <div class="pf-slot-grid">${chips}</div>
+    <p class="field-hint" id="pfAccNote">${acc.isNew ? "Tocá el cupo que vendés: se ponen solas la plataforma y la modalidad." : "Tocá un cupo libre: se ponen solas la plataforma y la modalidad."}</p>`;
+  box.hidden = false;
+}
+
+// Texto de aviso si el cupo (plataforma + modalidad) ya está lleno en esa cuenta.
+function pfSlotTaken(email, platform, modality) {
+  const acc = invFindAccount(email);
+  if (!acc) return "";
+  if (acc.full) return "Esa cuenta ya se vendió completa (Individual/Bundle).";
+  const slot = invSlotOf({ platform, modality });
+  if (slot === "full") return acc.sales.length ? "Esa cuenta ya tiene ventas: venderla completa pisaría sus cupos." : "";
+  const cap = acc.cap?.[slot] || 0;
+  if ((acc.used?.[slot]?.length || 0) >= cap) {
+    const lbl = acc.family === "PlayStation" && slot === "ps4" ? "PS4 Primaria"
+      : acc.family === "PlayStation" && slot === "ps5" ? "PS5 Primaria"
+      : invSlotLabel(slot, acc.family);
+    return cap ? `Los cupos de ${lbl} de esta cuenta ya están ocupados.` : `Esta cuenta no tiene cupo de ${lbl} (${acc.kind === "ps5only" ? "el juego es solo PS5" : "no corresponde"}).`;
+  }
+  return "";
 }
 
 function showClientProfile(client, cardId = "clientProfileCard") {
@@ -8680,7 +8959,7 @@ function showClientProfile(client, cardId = "clientProfileCard") {
   });
 }
 
-function openEditModal(p) {
+function openEditModal(p, onSaved = loadAdminPurchases) {
   let modal = document.getElementById("editPurchaseModal");
   if (!modal) {
     modal = document.createElement("dialog");
@@ -8738,11 +9017,26 @@ function openEditModal(p) {
     <div class="edit-modal-actions">
       <button id="editSaveBtn" type="button">Guardar cambios</button>
       <button id="editCancelBtn" type="button" class="admin-modal-cancel">Cancelar</button>
+      <button id="editDeleteBtn" type="button" class="admin-modal-delete">🗑 Eliminar venta</button>
     </div>
     <p id="editModalStatus" class="form-status"></p>
   `;
   modal.showModal();
   modal.querySelector("#editCancelBtn").addEventListener("click", () => modal.close());
+  modal.querySelector("#editDeleteBtn").addEventListener("click", async () => {
+    if (!confirm("¿Eliminar esta venta? El cupo queda libre otra vez.")) return;
+    const status = modal.querySelector("#editModalStatus");
+    try {
+      await apiPost("/api/purchases", { action: "delete", id: p.id });
+      invMarkStale();
+      modal.close();
+      showToast("Venta eliminada");
+      onSaved?.();
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = "form-status error";
+    }
+  });
   modal.addEventListener("click", e => { if (e.target === modal) modal.close(); });
   modal.querySelector("#editSaveBtn").addEventListener("click", async () => {
     const status = modal.querySelector("#editModalStatus");
@@ -8766,7 +9060,8 @@ function openEditModal(p) {
       });
       status.textContent = "✓ Guardado";
       status.className = "form-status ok";
-      setTimeout(() => { modal.close(); loadAdminPurchases(); }, 700);
+      invMarkStale();
+      setTimeout(() => { modal.close(); onSaved?.(); }, 700);
     } catch (err) {
       status.textContent = `Error: ${err.message}`;
       status.className = "form-status error";
@@ -8786,6 +9081,10 @@ async function handleAdminSubmit(e) {
     status.className = "form-status error";
     return;
   }
+
+  // Si la cuenta ya existe y ese cupo está lleno, preguntamos antes de guardar.
+  const taken = pfSlotTaken(fd.get("account_email"), fd.get("platform"), fd.get("modality"));
+  if (taken && !confirm(`${taken}\n\n¿Guardar la venta igual?`)) return;
 
   status.textContent = "Guardando...";
   status.className = "form-status";
@@ -8811,6 +9110,8 @@ async function handleAdminSubmit(e) {
     form.reset();
     form.querySelector('input[name="purchase_date"]').value = new Date().toISOString().slice(0,10);
     clearPurchaseClientSelection();
+    pfResetAccount();
+    invMarkStale();
     loadAdminPurchases();
   } catch (err) {
     status.textContent = `Error: ${err.message}`;

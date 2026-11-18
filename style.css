@@ -920,6 +920,51 @@ a.auth-trigger { text-decoration: none; color: inherit; }
   margin: 0 0 1.2rem;
 }
 
+/* Cupos clicables (Ventas) y selector de cuenta/cupo (Cargar nueva compra) */
+.inv-slot[role="button"] { cursor: pointer; transition: border-color .15s, transform .15s; }
+.inv-slot[role="button"]:hover, .inv-slot[role="button"]:focus-visible { border-color: var(--cyan); outline: none; transform: translateY(-1px); }
+.inv-slot.is-free { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; }
+.inv-slot.is-free .inv-slot-name { flex-basis: 100%; }
+.inv-slot-cta { margin-left: auto; font-size: 0.75rem; font-weight: 700; color: var(--cyan); opacity: 0; transition: opacity .15s; }
+.inv-slot.is-free:hover .inv-slot-cta, .inv-slot.is-free:focus-visible .inv-slot-cta { opacity: 1; }
+@media (hover: none) { .inv-slot-cta { opacity: 1; } }
+.admin-modal-delete {
+  background: transparent; border: 1px solid #ff5c7a; color: #ff5c7a; padding: 0.6rem 1.1rem;
+  border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.9rem; margin-left: auto;
+}
+.pf-acc-field { position: relative; }
+.pf-acc-suggest {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 20; margin-top: -0.4rem;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.45); max-height: 320px; overflow-y: auto;
+}
+.pf-acc-opt {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; width: 100%;
+  background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text);
+  padding: 0.6rem 0.8rem; text-align: left; cursor: pointer; font: inherit;
+}
+.pf-acc-opt:last-child { border-bottom: 0; }
+.pf-acc-opt:hover { background: var(--bg-card); }
+.pf-acc-mail { font-family: ui-monospace, monospace; font-size: 0.82rem; color: var(--green); overflow-wrap: anywhere; }
+.pf-acc-game { font-size: 0.82rem; color: var(--text-dim); flex: 1; min-width: 0; }
+.pf-acc-none { padding: 0.65rem 0.8rem; font-size: 0.82rem; color: var(--text-dim); }
+.pf-slots { border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; margin-bottom: 0.9rem; background: var(--bg-card); }
+.pf-slots-head { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-bottom: 0.6rem; font-size: 0.88rem; }
+.pf-slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.45rem; }
+.pf-slot {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; min-width: 0;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.pf-slot.is-free { border-style: dashed; border-color: var(--green); }
+.pf-slot.is-free:hover { background: rgba(0, 217, 126, 0.08); }
+.pf-slot.is-selected { border-style: solid; border-color: var(--gold); background: rgba(255, 199, 0, 0.12); }
+.pf-slot.is-used { opacity: 0.5; cursor: not-allowed; }
+.pf-slot-name { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-dim); }
+.pf-slot-who { font-size: 0.85rem; font-weight: 700; overflow-wrap: anywhere; }
+.pf-slot.is-free .pf-slot-who { color: var(--green); }
+.pf-slot.is-selected .pf-slot-who { color: var(--gold); }
+
 /* Ventas → Por cuenta y juego */
 .sales-views { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .sv-btn {
