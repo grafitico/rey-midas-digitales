@@ -6804,6 +6804,9 @@ async function renderAdmin() {
                 <option value="ps4">PS4 libre</option>
                 <option value="ps5">PS5 libre</option>
                 <option value="sec">Secundaria libre</option>
+                <option value="ps5only">Solo PS5 (3 cupos)</option>
+                <option value="cross">PS4 y PS5 (5 cupos)</option>
+                <option value="unknown">Juego sin identificar</option>
               </select>
             </label>
             <label class="af-field">
@@ -6829,19 +6832,7 @@ async function renderAdmin() {
               <button id="invReload" type="button">↻ Actualizar</button>
             </div>
           </div>
-          <details class="inv-cupos">
-            <summary>Cupos por cuenta (para calcular los libres)</summary>
-            <div class="inv-cupos-grid">
-              <label>PlayStation · PS4 principal <input type="number" min="0" max="9" data-cupo="ps.ps4"></label>
-              <label>PlayStation · PS5 principal <input type="number" min="0" max="9" data-cupo="ps.ps5"></label>
-              <label>PlayStation · Secundaria <input type="number" min="0" max="9" data-cupo="ps.sec"></label>
-              <label>Xbox · Principal <input type="number" min="0" max="9" data-cupo="xbox.pri"></label>
-              <label>Xbox · Secundaria <input type="number" min="0" max="9" data-cupo="xbox.sec"></label>
-              <label>Nintendo · Principal <input type="number" min="0" max="9" data-cupo="nin.pri"></label>
-              <label>Nintendo · Secundaria <input type="number" min="0" max="9" data-cupo="nin.sec"></label>
-            </div>
-            <p class="field-hint">Los juegos solo PS5 del catálogo no cuentan cupos PS4. Una venta "Individual" o "Bundle" ocupa la cuenta entera. Estos cupos se guardan en este navegador.</p>
-          </details>
+          <p class="inv-rules">Cupos según el catálogo: juego de <b>PS4</b> (o PS5/PS4) = 5 ventas (PS4 Primaria 1 y 2, PS5 Primaria 1 y 2, Secundaria) · <b>solo PS5</b> = 3 (PS5 Primaria 1 y 2, Secundaria) · <b>Xbox</b> = 3 (Primaria 1 y 2, Segundo plano). "Individual" o "Bundle" llenan la cuenta.</p>
           <div id="invReport" class="sales-body"><p class="sr-loading">Cargando cuentas…</p></div>
         </div>
         <div class="sales-report" data-sview-panel="resumen">
@@ -8179,24 +8170,25 @@ function renderSalesReport(sales) {
 let salesView = "resumen";
 let invLoaded = false;
 let invRows = [];
-const INV_CUPOS_KEY = "rm-inv-cupos";
-const INV_CUPOS_DEFAULT = { ps: { ps4: 2, ps5: 2, sec: 1 }, xbox: { pri: 1, sec: 1 }, nin: { pri: 1, sec: 1 } };
 const INV_LIMIT = 200;
-const INV_SLOT_LABEL = { ps4: "PS4", ps5: "PS5", pri: "Principal", sec: "Secundaria" };
-
-function invGetCupos() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(INV_CUPOS_KEY) || "{}") || {}; } catch { saved = {}; }
-  const out = {};
-  for (const f of Object.keys(INV_CUPOS_DEFAULT)) {
-    out[f] = { ...INV_CUPOS_DEFAULT[f] };
-    for (const k of Object.keys(out[f])) {
-      const n = Number(saved?.[f]?.[k]);
-      if (Number.isInteger(n) && n >= 0 && n <= 9) out[f][k] = n;
-    }
-  }
-  return out;
+// Cupos por cuenta según el tipo de juego (reglas del negocio):
+//   PS4 / PS5-PS4 → 5: PS4 Primaria 1-2, PS5 Primaria 1-2, Secundaria (una sola, PS4 o PS5)
+//   solo PS5      → 3: PS5 Primaria 1-2, Secundaria
+//   Xbox          → 3: Primaria 1-2, Segundo plano
+const INV_CUPOS = {
+  cross: { ps4: 2, ps5: 2, sec: 1 },
+  ps5only: { ps5: 2, sec: 1 },
+  xbox: { pri: 2, sec: 1 },
+  nintendo: { pri: 1, sec: 1 },
+};
+function invSlotLabel(k, family) {
+  if (k === "ps4") return "PS4 · Primaria";
+  if (k === "ps5") return "PS5 · Primaria";
+  if (k === "pri") return "Primaria";
+  if (k === "sec") return family === "Xbox" ? "Segundo plano" : "Secundaria";
+  return k;
 }
+const INV_SLOT_SHORT = { ps4: "PS4", ps5: "PS5", pri: "Primaria", sec: "Secundaria / 2º plano" };
 
 function invFamily(platform) {
   const s = String(platform || "").toLowerCase();
@@ -8205,7 +8197,6 @@ function invFamily(platform) {
   if (s.includes("switch") || s.includes("nintendo")) return "Nintendo";
   return "Otro";
 }
-const INV_FAM_KEY = { PlayStation: "ps", Xbox: "xbox", Nintendo: "nin" };
 
 // Qué cupo ocupa una venta: "full" (la cuenta entera), "sec", "ps4", "ps5" o "pri".
 function invSlotOf(p) {
@@ -8226,18 +8217,82 @@ function invAmount(p) {
   return p.amount != null && Number.isFinite(n) ? n : 0;
 }
 
-// Títulos solo PS5 del catálogo (sin versión PS4), para no ofrecer cupos PS4.
-function invPs5OnlyTitles() {
-  const ps5 = new Set(), ps4 = new Set();
-  for (const g of allGames || []) {
-    const t = normalizeSearch(g.title || "").trim();
-    if (!t) continue;
-    const pl = String(g.platform || "");
-    if (pl.trim() === "PS5") ps5.add(t);
-    else if (/PS4/.test(pl)) ps4.add(t);
+// Limpia un título para comparar: sin acentos, ™®, paréntesis ni palabras de
+// edición ("Standar", "Deluxe", "Edición"...). "Grand Theft Auto VI Standar"
+// y "Grand Theft Auto VI" quedan iguales.
+const INV_EDITION_WORDS = new Set(("standard standar estandar edition edicion edition deluxe ultimate digital gold " +
+  "premium complete completa definitive definitiva juego del ano game of the year goty launch lanzamiento " +
+  "version ps4 ps5 playstation playstation4 playstation5 y and de la el the for para cross gen bundle").split(" "));
+function invCleanTitle(t) {
+  return normalizeSearch(t)
+    .replace(/[™®©]/g, "")
+    .replace(/\bgta\b/g, "grand theft auto")
+    .replace(/\bcod\b/g, "call of duty")
+    .replace(/\brdr\s*2\b/g, "red dead redemption 2")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim().split(/\s+/);
+}
+function invTitleKey(t) {
+  return invCleanTitle(t).filter(w => w && !INV_EDITION_WORDS.has(w)).join(" ");
+}
+
+let invPsIndex = null; // Map: clave del título → Set de plataformas ("PS4", "PS5", "PS5/PS4")
+async function invLoadPsIndex() {
+  if (invPsIndex) return invPsIndex;
+  let games = fullCatalogRaw?.ps?.length ? fullCatalogRaw.ps : null;
+  if (!games) {
+    try {
+      const r = await fetch("/ps-catalog.json");
+      games = (await r.json())?.games || [];
+    } catch { games = []; }
   }
-  for (const t of ps4) ps5.delete(t);
-  return ps5;
+  const idx = new Map();
+  const add = (title, pl) => {
+    const k = invTitleKey(title);
+    if (!k || !pl) return;
+    if (!idx.has(k)) idx.set(k, new Set());
+    idx.get(k).add(pl);
+  };
+  for (const g of games) if (!g.isBundle) add(g.title, String(g.platform || "").trim());
+  for (const g of allGames || []) if (/PS/.test(g.platform || "")) add(g.title, String(g.platform).trim());
+  invPsIndex = idx;
+  return idx;
+}
+
+// Tipo de un juego de PlayStation: "cross" (tiene versión PS4), "ps5only" o
+// null si no aparece en el catálogo. Primero busca el título exacto (limpio);
+// si no, el título de catálogo más largo que coincida palabra por palabra con
+// el principio del nombre (p. ej. "God of War Ragnarok Standar" → "god of war ragnarok").
+const invKindMemo = new Map();
+function invPsKind(gameName) {
+  if (!invPsIndex) return null;
+  const key = invTitleKey(gameName);
+  if (!key) return null;
+  if (invKindMemo.has(key)) return invKindMemo.get(key);
+  const kind = invPsKindUncached(key);
+  invKindMemo.set(key, kind);
+  return kind;
+}
+function invPsKindUncached(key) {
+  const words = key.split(" ");
+  let plats = invPsIndex.get(key);
+  if (!plats) {
+    for (let n = words.length - 1; n >= 2 && !plats; n--) {
+      const k = words.slice(0, n).join(" ");
+      if (k.length >= 8) plats = invPsIndex.get(k);
+    }
+  }
+  if (!plats) {
+    // Al revés: el nombre cargado es más corto que el del catálogo
+    // ("Hogwarts Legacy" ↔ "hogwarts legacy deluxe..." ya se limpia; esto cubre subtítulos).
+    if (words.length >= 2 && key.length >= 8) {
+      for (const [k, v] of invPsIndex) if (k.startsWith(key + " ")) { plats = v; break; }
+    }
+  }
+  if (!plats) return null;
+  for (const pl of plats) if (/PS4/.test(pl)) return "cross";
+  return "ps5only";
 }
 
 function setupInventory() {
@@ -8264,20 +8319,6 @@ function setupInventory() {
   });
   document.getElementById("invReload").addEventListener("click", () => loadInventory());
 
-  const cupos = invGetCupos();
-  document.querySelectorAll("[data-cupo]").forEach(inp => {
-    const [f, k] = inp.dataset.cupo.split(".");
-    inp.value = cupos[f][k];
-    inp.addEventListener("change", () => {
-      const now = invGetCupos();
-      const n = Math.max(0, Math.min(9, parseInt(inp.value, 10) || 0));
-      inp.value = n;
-      now[f][k] = n;
-      try { localStorage.setItem(INV_CUPOS_KEY, JSON.stringify(now)); } catch {}
-      renderInventory();
-    });
-  });
-
   // Clic en un juego (vista por juego) → ver sus cuentas.
   document.getElementById("invReport").addEventListener("click", e => {
     const g = e.target.closest("[data-inv-game]");
@@ -8291,9 +8332,12 @@ function setupInventory() {
 async function loadInventory() {
   const box = document.getElementById("invReport");
   if (!box) return;
-  box.innerHTML = `<p class="sr-loading">Cargando cuentas…</p>`;
+  box.innerHTML = `<p class="sr-loading">Cargando cuentas y catálogo…</p>`;
   try {
-    const { purchases } = await apiPost("/api/purchases", { action: "accounts" });
+    const [{ purchases }] = await Promise.all([
+      apiPost("/api/purchases", { action: "accounts" }),
+      invLoadPsIndex(),
+    ]);
     invRows = purchases || [];
     invLoaded = true;
     renderInventory();
@@ -8304,8 +8348,6 @@ async function loadInventory() {
 
 // Arma una ficha por cuenta (correo) con sus ventas, cupos y libres.
 function invBuildAccounts() {
-  const cupos = invGetCupos();
-  const ps5Only = invPs5OnlyTitles();
   const map = new Map();
   for (const p of invRows) {
     const email = String(p.account_email || "").trim();
@@ -8326,10 +8368,17 @@ function invBuildAccounts() {
     acc.game = Object.entries(gameCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
     acc.used = { ps4: [], ps5: [], pri: [], sec: [], full: [] };
     for (const s of acc.sales) acc.used[invSlotOf(s)].push(s);
-    const fk = INV_FAM_KEY[acc.family];
-    const cap = fk ? { ...cupos[fk] } : {};
-    acc.ps5Only = acc.family === "PlayStation" && !acc.used.ps4.length && ps5Only.has(normalizeSearch(acc.game).trim());
-    if (acc.ps5Only) cap.ps4 = 0;
+    // Tipo de cuenta → cupos. En PlayStation lo dice el catálogo; si el juego
+    // no aparece, una venta PS4 ya prueba que tiene versión PS4.
+    acc.kind = null;
+    if (acc.family === "PlayStation") {
+      acc.kind = invPsKind(acc.game) || (acc.used.ps4.length ? "cross" : null);
+      acc.unknown = !acc.kind;
+      if (!acc.kind) acc.kind = "cross"; // sin identificar: se muestran los 5 (marcado)
+    } else if (acc.family === "Xbox") acc.kind = "xbox";
+    else if (acc.family === "Nintendo") acc.kind = "nintendo";
+    const cap = acc.kind ? { ...INV_CUPOS[acc.kind] } : {};
+    acc.ps5Only = acc.kind === "ps5only";
     acc.full = acc.used.full.length > 0;
     acc.cap = cap;
     acc.free = {};
@@ -8381,6 +8430,9 @@ function renderInventory() {
     if (f.state === "ps4" && !a.free.ps4) return false;
     if (f.state === "ps5" && !a.free.ps5) return false;
     if (f.state === "sec" && !a.free.sec) return false;
+    if (f.state === "ps5only" && a.kind !== "ps5only") return false;
+    if (f.state === "cross" && (a.kind !== "cross" || a.unknown)) return false;
+    if (f.state === "unknown" && !a.unknown) return false;
     return true;
   });
   // Lo vendido en el rango elegido (o en total si no hay rango).
@@ -8407,7 +8459,7 @@ function renderInventory() {
       <div class="sr-kpi"><span class="srk-label">Con libres / llenas</span><strong class="srk-value">${totals.withFree} / ${totals.fullAcc}</strong></div>
     </div>
     <p class="inv-freebreak">Libres: ${["ps4", "ps5", "pri", "sec"].filter(k => totals.byType[k]).map(k =>
-      `<span class="inv-chip">${INV_SLOT_LABEL[k]} · ${totals.byType[k]}</span>`).join(" ") || "ninguno"}</p>`;
+      `<span class="inv-chip">${INV_SLOT_SHORT[k]} · ${totals.byType[k]}</span>`).join(" ") || "ninguno"}</p>`;
 
   if (!list.length) {
     box.innerHTML = kpis + `<div class="sr-empty">Ninguna cuenta coincide con esos filtros.</div>`;
@@ -8438,7 +8490,7 @@ function renderInventory() {
               <td class="sr-num">${g.count}</td>
               <td class="sr-num sr-crc">${escapeHtml(formatCRC(g.crc))}</td>
               <td>${g.free ? ["ps4", "ps5", "pri", "sec"].filter(k => g.byType[k]).map(k =>
-                `<span class="inv-chip is-free">${INV_SLOT_LABEL[k]} · ${g.byType[k]}</span>`).join(" ") : `<span class="inv-chip is-full">Llenas</span>`}</td>
+                `<span class="inv-chip is-free">${INV_SLOT_SHORT[k]} · ${g.byType[k]}</span>`).join(" ") : `<span class="inv-chip is-full">Llenas</span>`}</td>
             </tr>`).join("")}
           </tbody>
         </table>
@@ -8484,12 +8536,12 @@ function invAccountCard(a, inRange) {
     const cap = a.cap[k] || 0;
     used.forEach((s, i) => slots.push(`
       <div class="inv-slot is-used${i >= cap ? " is-over" : ""}">
-        <span class="inv-slot-name">${INV_SLOT_LABEL[k]}${cap > 1 || used.length > 1 ? ` · ${i + 1}` : ""}${i >= cap ? " (extra)" : ""}</span>
+        <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 || used.length > 1 ? ` ${i + 1}` : ""}${i >= cap ? " (no corresponde)" : ""}</span>
         ${invSaleLine(s, inRange && !inRange(s))}
       </div>`));
     for (let i = used.length; i < cap; i++) {
       slots.push(`<div class="inv-slot ${a.full ? "is-blocked" : "is-free"}">
-        <span class="inv-slot-name">${INV_SLOT_LABEL[k]}${cap > 1 ? ` · ${i + 1}` : ""}</span>
+        <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 ? ` ${i + 1}` : ""}</span>
         <strong>${a.full ? "—" : "LIBRE"}</strong>
       </div>`);
     }
@@ -8506,7 +8558,10 @@ function invAccountCard(a, inRange) {
         </div>
         <div class="inv-badges">
           <span class="inv-chip">${escapeHtml(a.family)}</span>
-          ${a.ps5Only ? `<span class="inv-chip">Solo PS5</span>` : ""}
+          ${a.family === "PlayStation" ? (a.unknown
+            ? `<span class="inv-chip is-warn" title="El juego no aparece en el catálogo de PlayStation: se muestran los 5 cupos. Revisá el nombre del juego en la compra.">¿PS4 o PS5? · sin identificar</span>`
+            : `<span class="inv-chip">${a.ps5Only ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos"}</span>`) : ""}
+          ${a.kind === "xbox" ? `<span class="inv-chip">3 cupos</span>` : ""}
           <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
           <span class="inv-chip">${a.count} ${a.count === 1 ? "venta" : "ventas"} · ${escapeHtml(formatCRC(a.crc))}</span>
         </div>

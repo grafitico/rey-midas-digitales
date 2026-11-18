@@ -937,11 +937,8 @@ a.auth-trigger { text-decoration: none; color: inherit; }
   background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
   padding: 0.55rem 0.9rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: 0.82rem;
 }
-.inv-cupos { margin-bottom: 1.2rem; font-size: 0.85rem; color: var(--text-dim); }
-.inv-cupos summary { cursor: pointer; }
-.inv-cupos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.5rem 1rem; margin: 0.7rem 0 0.4rem; }
-.inv-cupos-grid label { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
-.inv-cupos-grid input { width: 4rem; }
+.inv-rules { font-size: 0.8rem; color: var(--text-dim); margin: 0 0 1.1rem; line-height: 1.5; }
+.inv-rules b { color: var(--text); }
 .inv-freebreak { margin: -0.4rem 0 1rem; font-size: 0.82rem; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
 .inv-more { font-size: 0.82rem; color: var(--text-dim); }
 .inv-chip {
@@ -950,6 +947,7 @@ a.auth-trigger { text-decoration: none; color: inherit; }
 }
 .inv-chip.is-free { color: var(--green); border-color: var(--green); }
 .inv-chip.is-full { color: var(--text-dim); }
+.inv-chip.is-warn { color: var(--gold); border-color: var(--gold); }
 .inv-list { display: grid; gap: 0.9rem; }
 .inv-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 0.95rem 1rem; min-width: 0; }
 .inv-card.is-full { opacity: 0.85; }
