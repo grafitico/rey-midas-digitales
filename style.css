@@ -920,6 +920,63 @@ a.auth-trigger { text-decoration: none; color: inherit; }
   margin: 0 0 1.2rem;
 }
 
+/* Ventas → Por cuenta y juego */
+.sales-views { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.sv-btn {
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-dim);
+  padding: 0.5rem 1rem; border-radius: 10px; cursor: pointer; font: inherit; font-size: 0.86rem; font-weight: 700;
+}
+.sv-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.sv-btn.is-active { background: var(--gold); border-color: var(--gold); color: #1a0e02; }
+.inv-filters { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: flex-end; margin-bottom: 0.9rem; }
+.inv-filters .af-field { flex: 0 1 150px; min-width: 0; }
+.inv-filters .inv-q { flex: 1 1 260px; }
+.inv-filters .af-field:has(#invSort) { flex-basis: 185px; }
+.inv-filters .af-actions { display: flex; gap: 0.45rem; }
+.inv-filters .af-actions button {
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+  padding: 0.55rem 0.9rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: 0.82rem;
+}
+.inv-cupos { margin-bottom: 1.2rem; font-size: 0.85rem; color: var(--text-dim); }
+.inv-cupos summary { cursor: pointer; }
+.inv-cupos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.5rem 1rem; margin: 0.7rem 0 0.4rem; }
+.inv-cupos-grid label { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.inv-cupos-grid input { width: 4rem; }
+.inv-freebreak { margin: -0.4rem 0 1rem; font-size: 0.82rem; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.inv-more { font-size: 0.82rem; color: var(--text-dim); }
+.inv-chip {
+  display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem;
+  border-radius: 999px; border: 1px solid var(--border); color: var(--text-dim); background: var(--bg-card); white-space: nowrap;
+}
+.inv-chip.is-free { color: var(--green); border-color: var(--green); }
+.inv-chip.is-full { color: var(--text-dim); }
+.inv-list { display: grid; gap: 0.9rem; }
+.inv-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 0.95rem 1rem; min-width: 0; }
+.inv-card.is-full { opacity: 0.85; }
+.inv-card-head { display: flex; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.inv-card-head > div:first-child { min-width: 0; }
+.inv-card-head h4 { margin: 0 0 0.2rem; font-size: 1rem; }
+.inv-email { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--green); word-break: break-all; cursor: copy; }
+.inv-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: flex-start; justify-content: flex-end; }
+.inv-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.55rem; }
+.inv-slot { border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.7rem; background: var(--bg-card); min-width: 0; font-size: 0.85rem; }
+.inv-slot.is-free { border-style: dashed; border-color: var(--green); }
+.inv-slot.is-free strong { color: var(--green); }
+.inv-slot.is-blocked { border-style: dashed; opacity: 0.5; }
+.inv-slot.is-over { border-color: var(--gold); }
+.inv-slot-name { display: block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 0.2rem; }
+.inv-sale { display: flex; flex-wrap: wrap; gap: 0.15rem 0.5rem; align-items: baseline; }
+.inv-sale strong { flex-basis: 100%; overflow-wrap: anywhere; }
+.inv-sale.is-dim { opacity: 0.5; }
+.inv-rm, .inv-date { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--text-dim); }
+.inv-amt { font-weight: 800; color: var(--gold); margin-left: auto; }
+.inv-gamelink { background: none; border: 0; padding: 0; color: var(--cyan); font: inherit; cursor: pointer; text-align: left; }
+.inv-gamelink:hover { text-decoration: underline; }
+@media (max-width: 600px) {
+  .inv-filters .af-field { flex: 1 1 calc(50% - 0.7rem); }
+  .inv-filters .inv-q { flex-basis: 100%; }
+}
+
 .sr-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

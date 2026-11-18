@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     if (body.action === "by-client") return await byClient(req, res, body);
     if (body.action === "filter") return await filter(req, res, body);
     if (body.action === "sales") return await sales(req, res, body);
+    if (body.action === "accounts") return await accounts(req, res);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -194,4 +195,25 @@ async function sales(req, res, body) {
     }
   }
   res.status(200).json({ sales: rows });
+}
+
+// Ventas por cuenta y juego (admin): TODAS las compras con lo justo para
+// agruparlas por correo de la cuenta vendida y por juego, y calcular los cupos
+// libres. Sin contraseñas ni códigos del verificador: el reporte no los usa.
+async function accounts(req, res) {
+  await requireAdmin(req);
+  const cols = "id,purchase_date,platform,modality,amount,is_redemption,account_email,game_name,app_users(full_name,customer_number,email)";
+  const q = `purchases?select=${cols}&order=purchase_date.asc&limit=20000`;
+  let rows;
+  try {
+    rows = await sb(q);
+  } catch (err) {
+    // Tolera que falten columnas de migraciones viejas (amount / is_redemption).
+    if (/amount|is_redemption|does not exist/i.test(err.message || "")) {
+      rows = await sb(q.replace(",amount", "").replace(",is_redemption", ""));
+    } else {
+      throw err;
+    }
+  }
+  res.status(200).json({ purchases: rows });
 }
