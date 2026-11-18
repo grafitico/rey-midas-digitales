@@ -14,6 +14,7 @@ import {
   sb, hashPassword, verifyPassword, makeSessionToken,
   requireAuth, handleError, readJson, checkConfig,
   setSessionCookie, clearSessionCookie, signPayload, verifyToken,
+  validateClientData, missingClientData,
 } from "./_lib.js";
 
 export default async function handler(req, res) {
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
     if (action === "login") return await login(req, res, body);
     if (action === "register") return await register(req, res, body);
     if (action === "me") return await me(req, res);
+    if (action === "complete-profile") return await completeProfile(req, res, body);
     if (action === "change-password") return await changePassword(req, res, body);
     if (action === "bootstrap") return await bootstrap(req, res, body);
     if (action === "logout") return logout(req, res);
@@ -94,6 +96,9 @@ async function login(req, res, body) {
       full_name: user.full_name,
       is_admin: user.is_admin,
       customer_number: user.customer_number,
+      phone: user.phone || null,
+      console: user.console || null,
+      needs_profile: missingClientData(user),
     },
   });
 }
@@ -108,13 +113,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 async function register(req, res, body) {
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
-  const fullName = body.full_name ? String(body.full_name).trim() : null;
   if (!email || !EMAIL_RE.test(email)) {
     return res.status(400).json({ error: "Ingresá un email válido" });
   }
   if (password.length < 6) {
     return res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres" });
   }
+  // Nombre, dos apellidos, celular y consola son obligatorios.
+  const data = validateClientData(body);
   const existing = await sb(`app_users?email=eq.${encodeURIComponent(email)}&select=id`);
   if (existing.length) {
     return res.status(400).json({ error: "Ya existe una cuenta con ese email. Iniciá sesión." });
@@ -123,12 +129,8 @@ async function register(req, res, body) {
     email,
     password_hash: hashPassword(password),
     is_admin: false,
-    full_name: fullName,
+    ...data,
   };
-  const phone = body.phone ? String(body.phone).trim() : null;
-  const consoleVal = body.console ? String(body.console).trim() : null;
-  if (phone) insert.phone = phone;
-  if (consoleVal) insert.console = consoleVal;
   const inserted = await sb(`app_users`, {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -144,13 +146,26 @@ async function register(req, res, body) {
       full_name: user.full_name,
       is_admin: false,
       customer_number: user.customer_number,
+      phone: user.phone,
+      console: user.console,
+      needs_profile: false,
     },
   });
 }
 
+// Completar los datos obligatorios (cuentas creadas con Google o antes de que
+// fueran obligatorios). Solo el propio usuario, con sesión iniciada.
+async function completeProfile(req, res, body) {
+  const user = await requireAuth(req);
+  const data = validateClientData(body);
+  await sb(`app_users?id=eq.${user.id}`, { method: "PATCH", body: JSON.stringify(data) });
+  const updated = { ...user, ...data };
+  res.status(200).json({ user: { ...updated, needs_profile: missingClientData(updated) } });
+}
+
 async function me(req, res) {
   const user = await requireAuth(req);
-  res.status(200).json({ user });
+  res.status(200).json({ user: { ...user, needs_profile: missingClientData(user) } });
 }
 
 function logout(req, res) {

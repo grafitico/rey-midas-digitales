@@ -205,7 +205,7 @@ async function initAuth() {
   }
   renderAuthSlot();
   const r = parseRoute();
-  if (["mi-cuenta", "admin", "login", "crear-cuenta"].includes(r.name)) render();
+  if (["mi-cuenta", "admin", "login", "crear-cuenta", "completar-datos"].includes(r.name)) render();
 }
 
 async function loginWithPassword(email, password) {
@@ -558,6 +558,7 @@ function parseRoute() {
   if (partes[0] === "login") return { name: "login" };
   if (partes[0] === "crear-cuenta") return { name: "crear-cuenta" };
   if (partes[0] === "mi-cuenta") return { name: "mi-cuenta" };
+  if (partes[0] === "completar-datos") return { name: "completar-datos" };
   if (partes[0] === "admin") return { name: "admin" };
   if (partes[0] === "p" && partes[1]) {
     return { name: "home", page: parseInt(partes[1], 10) || 1 };
@@ -1194,6 +1195,10 @@ function render() {
   if (route.name === "combo") return renderCombo(route.precio);
   if (route.name === "login") return renderLogin();
   if (route.name === "crear-cuenta") return renderRegister();
+  if (route.name === "completar-datos") return renderCompletarDatos();
+  // Nombre, dos apellidos, celular y consola son obligatorios: si a la cuenta
+  // le faltan (creada con Google o antes de que lo fueran), se piden primero.
+  if (route.name === "mi-cuenta" && currentUser?.needs_profile) { navigate("/completar-datos"); return; }
   if (route.name === "mi-cuenta") return renderMyAccount();
   if (route.name === "admin") return renderAdmin();
   return renderHome(route.page);
@@ -6289,24 +6294,10 @@ function renderRegister() {
           <label>Email
             <input id="regEmail" type="email" required placeholder="vos@ejemplo.com" autocomplete="email">
           </label>
-          <label>Nombre completo (opcional)
-            <input id="regName" type="text" placeholder="Tu nombre" autocomplete="name">
-          </label>
           <label>Contraseña (mínimo 6 caracteres)
             <input id="regPassword" type="password" required minlength="6" autocomplete="new-password">
           </label>
-          <label>Celular (opcional)
-            <input id="regPhone" type="tel" placeholder="8888-8888" autocomplete="tel">
-          </label>
-          <label>Consola (opcional)
-            <select id="regConsole">
-              <option value="">— Seleccionar —</option>
-              <option value="PS5">PS5</option>
-              <option value="PS4">PS4</option>
-              <option value="XBOX">XBOX</option>
-              <option value="NINTENDO">NINTENDO</option>
-            </select>
-          </label>
+          ${clientDataFieldsHTML()}
           <button type="submit" class="login-submit-btn">Crear cuenta</button>
         </form>
         ${googleAuthButtonHTML()}
@@ -6319,14 +6310,13 @@ function renderRegister() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = document.getElementById("regEmail").value.trim();
-    const full_name = document.getElementById("regName").value.trim();
     const password = document.getElementById("regPassword").value;
-    const phone = document.getElementById("regPhone").value.trim();
-    const consoleVal = document.getElementById("regConsole").value;
+    const data = readClientDataFields(form);
+    if (!data) return;
     const btn = form.querySelector("button[type='submit']");
     btn.disabled = true;
     btn.textContent = "Creando...";
-    const error = await registerClient({ email, password, full_name: full_name || null, phone: phone || null, console: consoleVal || null });
+    const error = await registerClient({ email, password, ...data });
     if (error) {
       btn.disabled = false;
       btn.textContent = "Crear cuenta";
@@ -6336,6 +6326,103 @@ function renderRegister() {
     const idLabel = currentUser?.customer_number ? ` Tu número de cliente es ${fmtClientId(currentUser.customer_number)}.` : "";
     showToast(`Cuenta creada ✓${idLabel}`);
     navigate("/mi-cuenta");
+  });
+}
+
+// ── Datos obligatorios del cliente ──────────────────────────────────────────
+// Nombre, primer y segundo apellido, celular (8 dígitos de Costa Rica) y
+// consola. Se piden al crear la cuenta y, si faltan (cuentas de Google o
+// viejas), en /completar-datos. El servidor valida lo mismo (api/_lib.js).
+const CR_PHONE_RE = /^(?:\+?506[\s-]?)?[2-8]\d{3}[\s-]?\d{4}$/;
+
+// Separa "Nombre Apellido1 Apellido2" para rellenar el formulario.
+function splitFullName(full) {
+  const w = String(full || "").trim().split(/\s+/).filter(Boolean);
+  if (w.length === 2) return { first: w[0], last1: w[1], last2: "" }; // Google suele traer "Nombre Apellido"
+  if (w.length < 3) return { first: w.join(" "), last1: "", last2: "" };
+  return { first: w.slice(0, -2).join(" "), last1: w[w.length - 2], last2: w[w.length - 1] };
+}
+
+function clientDataFieldsHTML(u = {}) {
+  const n = splitFullName(u.full_name);
+  const opt = v => `<option value="${v}"${u.console === v ? " selected" : ""}>${v}</option>`;
+  return `
+    <label>Nombre
+      <input name="first_name" type="text" required maxlength="60" autocomplete="given-name" placeholder="Tu nombre" value="${escapeAttr(n.first)}">
+    </label>
+    <div class="form-row-2">
+      <label>Primer apellido
+        <input name="last_name1" type="text" required maxlength="60" autocomplete="family-name" value="${escapeAttr(n.last1)}">
+      </label>
+      <label>Segundo apellido
+        <input name="last_name2" type="text" required maxlength="60" value="${escapeAttr(n.last2)}">
+      </label>
+    </div>
+    <label>Celular
+      <input name="phone" type="tel" required inputmode="tel" autocomplete="tel" placeholder="8888-8888" value="${escapeAttr(u.phone || "")}">
+    </label>
+    <label>Consola
+      <select name="console" required>
+        <option value="">— Seleccionar —</option>
+        ${["PS5", "PS4", "XBOX", "NINTENDO"].map(opt).join("")}
+      </select>
+    </label>
+  `;
+}
+
+// Lee y valida los campos; si falta algo, avisa y devuelve null.
+function readClientDataFields(form) {
+  const val = n => (form.querySelector(`[name="${n}"]`)?.value || "").replace(/\s+/g, " ").trim();
+  const data = {
+    first_name: val("first_name"), last_name1: val("last_name1"), last_name2: val("last_name2"),
+    phone: val("phone"), console: val("console"),
+  };
+  const fail = (msg, field) => { showToast(msg, "error"); form.querySelector(`[name="${field}"]`)?.focus(); return null; };
+  if (!data.first_name) return fail("Ingresá tu nombre", "first_name");
+  if (!data.last_name1) return fail("Ingresá tu primer apellido", "last_name1");
+  if (!data.last_name2) return fail("Ingresá tu segundo apellido", "last_name2");
+  if (!CR_PHONE_RE.test(data.phone)) return fail("Ingresá un celular válido de 8 dígitos (ej. 8888-8888)", "phone");
+  if (!data.console) return fail("Elegí tu consola", "console");
+  return data;
+}
+
+function renderCompletarDatos() {
+  setPageMeta("Completá tus datos | Rey Midas Digitales");
+  if (!currentUser) { navigate("/login"); return; }
+  if (!currentUser.needs_profile) { navigate("/mi-cuenta"); return; }
+  app.innerHTML = `
+    <section class="container auth-page">
+      <div class="auth-card">
+        <h1>Completá tus datos</h1>
+        <p>Para usar tu cuenta necesitamos tu nombre con los dos apellidos, tu celular y tu consola. Así te identificamos rápido cuando comprás.</p>
+        <form id="profileForm" class="login-form">
+          ${clientDataFieldsHTML(currentUser)}
+          <button type="submit" class="login-submit-btn">Guardar y continuar</button>
+        </form>
+        <p class="auth-note"><a href="#" id="profileLogout">Cerrar sesión</a></p>
+      </div>
+    </section>
+  `;
+  document.getElementById("profileLogout").addEventListener("click", (e) => { e.preventDefault(); logout(); });
+  const form = document.getElementById("profileForm");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = readClientDataFields(form);
+    if (!data) return;
+    const btn = form.querySelector("button[type='submit']");
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+    try {
+      const { user } = await apiPost("/api/auth", { action: "complete-profile", ...data });
+      currentUser = { ...currentUser, ...user };
+      renderAuthSlot();
+      showToast("Datos guardados ✓");
+      navigate("/mi-cuenta");
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Guardar y continuar";
+      showToast(err.message || "No pudimos guardar tus datos. Intentá de nuevo.", "error");
+    }
   });
 }
 

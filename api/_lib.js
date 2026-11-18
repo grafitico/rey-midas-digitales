@@ -206,7 +206,15 @@ export async function requireAuth(req) {
     err.status = 401;
     throw err;
   }
-  const users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin,customer_number`);
+  // phone/console (migración add_client_fields.sql) viajan para saber si el
+  // cliente completó sus datos; si las columnas no existen, se sigue sin ellas.
+  let users;
+  try {
+    users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin,customer_number,phone,console`);
+  } catch (err) {
+    if (!/phone|console|does not exist/i.test(err.message || "")) throw err;
+    users = await sb(`app_users?id=eq.${payload.sub}&select=id,email,full_name,is_admin,customer_number`);
+  }
   const user = users[0];
   if (!user) {
     const err = new Error("Usuario no encontrado");
@@ -274,4 +282,40 @@ export function createRateLimiter({ perMinute = Infinity, perHour = Infinity, gl
     }
     return null;
   };
+}
+
+// ── Datos obligatorios del cliente ──────────────────────────────────────────
+// Nombre, dos apellidos, celular de Costa Rica y consola. Los usan el registro
+// y "completar datos" (cuentas de Google o viejas que no los tienen).
+export const CONSOLES = ["PS5", "PS4", "XBOX", "NINTENDO"];
+
+const cleanName = s => String(s || "").replace(/\s+/g, " ").trim().slice(0, 60);
+
+// Devuelve { full_name, phone, console } o lanza un error 400 con el motivo.
+export function validateClientData(body) {
+  const fail = msg => { const e = new Error(msg); e.status = 400; throw e; };
+  const nombre = cleanName(body.first_name);
+  const ap1 = cleanName(body.last_name1);
+  const ap2 = cleanName(body.last_name2);
+  const letters = /^[\p{L}][\p{L}' .-]*$/u;
+  if (!nombre || !letters.test(nombre)) fail("Ingresá tu nombre");
+  if (!ap1 || !letters.test(ap1)) fail("Ingresá tu primer apellido");
+  if (!ap2 || !letters.test(ap2)) fail("Ingresá tu segundo apellido");
+  let digits = String(body.phone || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("506")) digits = digits.slice(3);
+  if (!/^[2-8]\d{7}$/.test(digits)) fail("Ingresá un número de celular válido de 8 dígitos (ej. 8888-8888)");
+  const consoleVal = String(body.console || "").toUpperCase().trim();
+  if (!CONSOLES.includes(consoleVal)) fail("Elegí tu consola");
+  return {
+    full_name: `${nombre} ${ap1} ${ap2}`,
+    phone: `${digits.slice(0, 4)}-${digits.slice(4)}`,
+    console: consoleVal,
+  };
+}
+
+// ¿Le faltan datos obligatorios a este usuario? (los admins no se frenan)
+export function missingClientData(user) {
+  if (!user || user.is_admin) return false;
+  const words = String(user.full_name || "").trim().split(/\s+/).filter(Boolean);
+  return words.length < 3 || !user.phone || !user.console;
 }
