@@ -3785,6 +3785,29 @@ function cofreCoins(purchases) {
   return { compras, canjes, disponibles };
 }
 
+// Panel admin: el cofre del cliente con el porqué de sus monedas, para
+// responder "¿por qué no me sumó?" sin entrar a su cuenta.
+function adminCofreSummaryHTML(purchases) {
+  const all = purchases || [];
+  const coins = cofreCoins(all);
+  const antes = all.filter(p => String(p.purchase_date || "") < COFRE_START_DATE && !p.is_redemption).length;
+  const ordenadas = [...all]
+    .filter(p => String(p.purchase_date || "") >= COFRE_START_DATE)
+    .sort((a, b) => new Date(a.created_at || a.purchase_date || 0) - new Date(b.created_at || b.purchase_date || 0));
+  const ultimoCanje = [...ordenadas].reverse().find(p => p.is_redemption);
+  const despuesCanje = ultimoCanje ? ordenadas.slice(ordenadas.indexOf(ultimoCanje) + 1).filter(p => !p.is_redemption).length : null;
+  const inicio = new Date(COFRE_START_DATE + "T00:00:00").toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" });
+  return `
+    <div class="admin-cofre">
+      <div class="admin-cofre-head">${CHEST_IMG}<strong>Cofre de Oro: ${Math.min(coins.disponibles, COFRE_META)}/${COFRE_META} monedas</strong>${coins.disponibles >= COFRE_META ? `<span class="inv-chip is-free">¡Puede canjear!</span>` : ""}</div>
+      <ul class="admin-cofre-why">
+        <li>${coins.compras} ${coins.compras === 1 ? "compra" : "compras"} desde el ${escapeHtml(inicio)} (cuando arrancó el Cofre): cada una suma 1 moneda.</li>
+        ${antes ? `<li>${antes} ${antes === 1 ? "compra es anterior" : "compras son anteriores"} al ${escapeHtml(inicio)}: no ${antes === 1 ? "suma" : "suman"} monedas.</li>` : ""}
+        ${ultimoCanje ? `<li>${coins.canjes} ${coins.canjes === 1 ? "canje" : "canjes"}; el último (${escapeHtml(String(ultimoCanje.purchase_date))}) vació el cofre. Desde entonces: ${despuesCanje} ${despuesCanje === 1 ? "compra" : "compras"}.</li>` : ""}
+      </ul>
+    </div>`;
+}
+
 function cofreCanjeWaURL(gameTitle) {
   const msg = gameTitle
     ? `Hola Rey Midas, ¡junté mis ${COFRE_META} monedas del Cofre de Oro! 🪙 Quiero canjear mi juego gratis: ${gameTitle}`
@@ -7713,6 +7736,7 @@ async function loadClientDetail(email) {
     const { purchases, client } = await apiPost("/api/purchases", { action: "by-client", client_email: email });
     showClientProfile(client, "clientDetailCard");
     renderPurchaseCards(purchases, purchasesBox, () => loadClientDetail(email));
+    purchasesBox.insertAdjacentHTML("afterbegin", adminCofreSummaryHTML(purchases));
   } catch (err) {
     purchasesBox.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
   }

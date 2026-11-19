@@ -965,6 +965,11 @@ a.auth-trigger { text-decoration: none; color: inherit; }
 .pf-slot.is-free .pf-slot-who { color: var(--green); }
 .pf-slot.is-selected .pf-slot-who { color: var(--gold); }
 
+.admin-cofre { border: 1px solid var(--gold); border-radius: 12px; padding: 0.8rem 1rem; margin-bottom: 1rem; background: linear-gradient(160deg, rgba(255,199,0,0.08), var(--bg-elev)); }
+.admin-cofre-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; color: var(--gold); }
+.admin-cofre-head .ico-chest { width: 26px; height: 26px; }
+.admin-cofre-why { margin: 0.5rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--text-dim); }
+
 /* Ventas → Por cuenta y juego */
 .sales-views { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .sv-btn {
