@@ -31,6 +31,8 @@ export default async function handler(req, res) {
     if (body.action === "sales") return await sales(req, res, body);
     if (body.action === "accounts") return await accounts(req, res);
     if (body.action === "by-account") return await byAccount(req, res, body);
+    if (body.action === "cofre-adjust") return await cofreAdjust(req, res, body);
+    if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -63,7 +65,8 @@ async function sbWithAmount(path, options, hasAmount) {
 async function mine(req, res) {
   const user = await requireAuth(req);
   const data = await sb(`purchases?user_id=eq.${user.id}&select=*&order=purchase_date.desc`);
-  res.status(200).json({ purchases: data.map(decryptPurchaseRow) });
+  const ajustes = await cofreAjustesOf(user.id);
+  res.status(200).json({ purchases: data.map(decryptPurchaseRow), ajustes });
 }
 
 async function listAll(req, res) {
@@ -148,7 +151,8 @@ async function byClient(req, res, body) {
   if (!users.length) return res.status(404).json({ error: "Cliente no encontrado" });
   const client = users[0];
   const data = await sb(`purchases?user_id=eq.${client.id}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.desc`);
-  res.status(200).json({ purchases: data.map(decryptPurchaseRow), client });
+  const ajustes = await cofreAjustesOf(client.id, true);
+  res.status(200).json({ purchases: data.map(decryptPurchaseRow), client, ajustes });
 }
 
 // Filtro combinado de compras: cliente (email o RM-código) + consola + fecha.
@@ -233,4 +237,60 @@ async function byAccount(req, res, body) {
   const rows = await sb(`purchases?account_email=ilike.${encodeURIComponent("*" + pattern + "*")}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.asc&limit=50`);
   const exact = rows.filter(r => String(r.account_email || "").trim().toLowerCase() === email);
   res.status(200).json({ purchases: exact.map(decryptPurchaseRow) });
+}
+
+// ===== Ajustes manuales del Cofre de Oro (migrations/add_cofre_ajustes.sql) =====
+// Tabla inexistente: PostgREST responde PGRST205 ("not find the table … in the
+// schema cache") o Postgres 42P01. No usamos el nombre de la tabla en el regex
+// porque otros errores (p. ej. la FK cofre_ajustes_user_id_fkey) también lo traen.
+function ajustesMissing(err) {
+  return ["PGRST205", "42P01"].includes(err?.data?.code) || /schema cache|does not exist/i.test(err?.message || "");
+}
+
+// Ajustes de un cliente. Si la tabla todavía no existe devuelve [] (el cofre
+// sigue funcionando solo con las compras); para el admin, null = "falta la migración".
+async function cofreAjustesOf(userId, forAdmin = false) {
+  try {
+    return await sb(`cofre_ajustes?user_id=eq.${userId}&select=id,delta,note,created_at&order=created_at.asc`);
+  } catch (err) {
+    if (ajustesMissing(err)) return forAdmin ? null : [];
+    throw err;
+  }
+}
+
+function missingTableError() {
+  const e = new Error("Falta crear la tabla de ajustes: corré migrations/add_cofre_ajustes.sql en Supabase (SQL Editor → New query → Run).");
+  e.status = 500;
+  return e;
+}
+
+async function cofreAdjust(req, res, body) {
+  await requireAdmin(req);
+  const userId = String(body.client_id || "");
+  const delta = Number(body.delta);
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) return res.status(400).json({ error: "Cliente inválido" });
+  if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 50) {
+    return res.status(400).json({ error: "La cantidad tiene que ser un número entero entre -50 y 50 (sin 0)" });
+  }
+  const note = body.note ? String(body.note).trim().slice(0, 200) : null;
+  try {
+    await sb(`cofre_ajustes`, { method: "POST", body: JSON.stringify({ user_id: userId, delta, note }) });
+  } catch (err) {
+    if (ajustesMissing(err)) throw missingTableError();
+    throw err;
+  }
+  res.status(200).json({ ok: true });
+}
+
+async function cofreAdjustDelete(req, res, body) {
+  await requireAdmin(req);
+  const id = String(body.id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Ajuste inválido" });
+  try {
+    await sb(`cofre_ajustes?id=eq.${id}`, { method: "DELETE" });
+  } catch (err) {
+    if (ajustesMissing(err)) throw missingTableError();
+    throw err;
+  }
+  res.status(200).json({ ok: true });
 }
