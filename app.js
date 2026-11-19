@@ -3762,19 +3762,25 @@ async function ensureCofreGames() {
 // canje REINICIA el cofre a 0 (se arranca de cero). Así, las compras que el
 // cliente hace DESPUÉS de canjear siempre vuelven a sumar, sin que los canjes
 // viejos generen una "deuda" que se coma las nuevas.
-function cofreCoins(purchases) {
-  const list = [...(purchases || [])]
+// Los ajustes manuales del admin (tabla cofre_ajustes: +N / −N monedas) entran
+// en el mismo recorrido según cuándo se hicieron, y valen sin importar la fecha
+// de inicio. El cofre nunca baja de 0.
+function cofreCoins(purchases, ajustes = []) {
+  const when = x => new Date(x.created_at || x.purchase_date || 0).getTime();
+  const list = [
     // Compras anteriores al lanzamiento del programa no suman monedas.
-    .filter(p => String(p.purchase_date || "") >= COFRE_START_DATE)
-    .sort((a, b) => {
-      // created_at refleja el orden real de registro; purchase_date es respaldo.
-      const ta = new Date(a.created_at || a.purchase_date || 0).getTime();
-      const tb = new Date(b.created_at || b.purchase_date || 0).getTime();
-      return ta - tb;
-    });
-  let disponibles = 0, canjes = 0, compras = 0;
+    ...(purchases || []).filter(p => String(p.purchase_date || "") >= COFRE_START_DATE),
+    ...(ajustes || []).map(a => ({ ...a, _ajuste: true })),
+  ]
+    // created_at refleja el orden real de registro; purchase_date es respaldo.
+    .sort((a, b) => when(a) - when(b));
+  let disponibles = 0, canjes = 0, compras = 0, ajuste = 0;
   for (const p of list) {
-    if (p.is_redemption) {
+    if (p._ajuste) {
+      const d = Number(p.delta) || 0;
+      ajuste += d;
+      disponibles = Math.max(0, disponibles + d);
+    } else if (p.is_redemption) {
       canjes++;
       disponibles = 0; // el canje vacía el cofre y se empieza de nuevo
     } else {
@@ -3782,14 +3788,15 @@ function cofreCoins(purchases) {
       disponibles++;
     }
   }
-  return { compras, canjes, disponibles };
+  return { compras, canjes, disponibles, ajuste };
 }
 
 // Panel admin: el cofre del cliente con el porqué de sus monedas, para
 // responder "¿por qué no me sumó?" sin entrar a su cuenta.
-function adminCofreSummaryHTML(purchases) {
+function adminCofreSummaryHTML(purchases, ajustes) {
   const all = purchases || [];
-  const coins = cofreCoins(all);
+  const adj = ajustes || [];
+  const coins = cofreCoins(all, adj);
   const antes = all.filter(p => String(p.purchase_date || "") < COFRE_START_DATE && !p.is_redemption).length;
   const ordenadas = [...all]
     .filter(p => String(p.purchase_date || "") >= COFRE_START_DATE)
@@ -3797,6 +3804,14 @@ function adminCofreSummaryHTML(purchases) {
   const ultimoCanje = [...ordenadas].reverse().find(p => p.is_redemption);
   const despuesCanje = ultimoCanje ? ordenadas.slice(ordenadas.indexOf(ultimoCanje) + 1).filter(p => !p.is_redemption).length : null;
   const inicio = new Date(COFRE_START_DATE + "T00:00:00").toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" });
+  const fecha = iso => new Date(iso).toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" });
+  const adjRows = adj.slice().reverse().map(a => `
+    <li class="admin-cofre-adj">
+      <strong class="${a.delta > 0 ? "is-plus" : "is-minus"}">${a.delta > 0 ? "+" : "−"}${Math.abs(a.delta)}</strong>
+      <span>${escapeHtml(a.note || "Ajuste manual")}</span>
+      <time>${escapeHtml(fecha(a.created_at))}</time>
+      <button type="button" class="admin-cofre-undo" data-cofre-del="${escapeAttr(a.id)}" title="Deshacer este ajuste">×</button>
+    </li>`).join("");
   return `
     <div class="admin-cofre">
       <div class="admin-cofre-head">${CHEST_IMG}<strong>Cofre de Oro: ${Math.min(coins.disponibles, COFRE_META)}/${COFRE_META} monedas</strong>${coins.disponibles >= COFRE_META ? `<span class="inv-chip is-free">¡Puede canjear!</span>` : ""}</div>
@@ -3804,8 +3819,59 @@ function adminCofreSummaryHTML(purchases) {
         <li>${coins.compras} ${coins.compras === 1 ? "compra" : "compras"} desde el ${escapeHtml(inicio)} (cuando arrancó el Cofre): cada una suma 1 moneda.</li>
         ${antes ? `<li>${antes} ${antes === 1 ? "compra es anterior" : "compras son anteriores"} al ${escapeHtml(inicio)}: no ${antes === 1 ? "suma" : "suman"} monedas.</li>` : ""}
         ${ultimoCanje ? `<li>${coins.canjes} ${coins.canjes === 1 ? "canje" : "canjes"}; el último (${escapeHtml(String(ultimoCanje.purchase_date))}) vació el cofre. Desde entonces: ${despuesCanje} ${despuesCanje === 1 ? "compra" : "compras"}.</li>` : ""}
+        ${adj.length ? `<li>Ajustes a mano: ${coins.ajuste > 0 ? "+" : coins.ajuste < 0 ? "−" : ""}${Math.abs(coins.ajuste)} ${Math.abs(coins.ajuste) === 1 ? "moneda" : "monedas"}.</li>` : ""}
       </ul>
+      ${ajustes === null
+        ? `<p class="admin-cofre-warn">Para sumar o quitar monedas a mano falta crear la tabla de ajustes: en Supabase → SQL Editor → New query, pegá el contenido de <code>migrations/add_cofre_ajustes.sql</code> y dale Run.</p>`
+        : `<form class="admin-cofre-form">
+            <label class="af-field"><span>Monedas</span><input name="delta" type="number" min="1" max="50" step="1" value="1" required></label>
+            <label class="af-field admin-cofre-note"><span>Motivo (opcional)</span><input name="note" type="text" maxlength="200" placeholder="Ej: venta del 18/11 por WhatsApp"></label>
+            <div class="admin-cofre-btns">
+              <button type="submit" name="op" value="add">＋ Sumar</button>
+              <button type="submit" name="op" value="sub" class="is-sub">− Quitar</button>
+            </div>
+            <p class="form-status admin-cofre-status"></p>
+          </form>
+          ${adjRows ? `<ul class="admin-cofre-adjs">${adjRows}</ul>` : ""}`}
     </div>`;
+}
+
+function setupAdminCofreAdjust(box, client, reload) {
+  const form = box.querySelector(".admin-cofre-form");
+  if (form) {
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const n = parseInt(form.elements.delta.value, 10);
+      const status = form.querySelector(".admin-cofre-status");
+      if (!Number.isInteger(n) || n < 1 || n > 50) {
+        status.textContent = "Poné una cantidad entre 1 y 50.";
+        status.className = "form-status admin-cofre-status error";
+        return;
+      }
+      const sub = e.submitter?.value === "sub";
+      const delta = sub ? -n : n;
+      status.textContent = "Guardando...";
+      status.className = "form-status admin-cofre-status";
+      try {
+        await apiPost("/api/purchases", { action: "cofre-adjust", client_id: client.id, delta, note: form.elements.note.value || null });
+        showToast(`${delta > 0 ? "+" : "−"}${n} ${n === 1 ? "moneda" : "monedas"} al Cofre ✓`);
+        reload();
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        status.className = "form-status admin-cofre-status error";
+      }
+    });
+  }
+  box.querySelectorAll("[data-cofre-del]").forEach(btn => btn.addEventListener("click", async () => {
+    if (!confirm("¿Deshacer este ajuste de monedas?")) return;
+    try {
+      await apiPost("/api/purchases", { action: "cofre-adjust-delete", id: btn.dataset.cofreDel });
+      showToast("Ajuste deshecho");
+      reload();
+    } catch (err) {
+      showToast(err.message);
+    }
+  }));
 }
 
 function cofreCanjeWaURL(gameTitle) {
@@ -3865,8 +3931,8 @@ async function renderCofre() {
   const progressBox = document.getElementById("cofreProgress");
   if (currentUser) {
     try {
-      const { purchases } = await apiPost("/api/purchases", { action: "mine" });
-      progressBox.innerHTML = cofreChestHTML(cofreCoins(purchases));
+      const { purchases, ajustes } = await apiPost("/api/purchases", { action: "mine" });
+      progressBox.innerHTML = cofreChestHTML(cofreCoins(purchases, ajustes));
     } catch { progressBox.innerHTML = ""; }
   } else {
     progressBox.innerHTML = `
@@ -6545,10 +6611,10 @@ async function renderMyAccount() {
 
   const list = document.getElementById("purchasesList");
   try {
-    const { purchases } = await apiPost("/api/purchases", { action: "mine" });
+    const { purchases, ajustes } = await apiPost("/api/purchases", { action: "mine" });
     // Cofre de Oro: progreso de monedas arriba del historial.
     const cofreBox = document.getElementById("acctCofre");
-    if (cofreBox) cofreBox.innerHTML = cofreChestHTML(cofreCoins(purchases));
+    if (cofreBox) cofreBox.innerHTML = cofreChestHTML(cofreCoins(purchases, ajustes));
     if (!purchases?.length) {
       list.innerHTML = `
         <div class="empty-purchases">
@@ -7733,10 +7799,11 @@ async function loadClientDetail(email) {
   if (!purchasesBox) return;
   purchasesBox.innerHTML = "Cargando compras...";
   try {
-    const { purchases, client } = await apiPost("/api/purchases", { action: "by-client", client_email: email });
+    const { purchases, client, ajustes } = await apiPost("/api/purchases", { action: "by-client", client_email: email });
     showClientProfile(client, "clientDetailCard");
     renderPurchaseCards(purchases, purchasesBox, () => loadClientDetail(email));
-    purchasesBox.insertAdjacentHTML("afterbegin", adminCofreSummaryHTML(purchases));
+    purchasesBox.insertAdjacentHTML("afterbegin", adminCofreSummaryHTML(purchases, ajustes));
+    setupAdminCofreAdjust(purchasesBox, client, () => loadClientDetail(email));
   } catch (err) {
     purchasesBox.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
   }
