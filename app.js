@@ -6630,11 +6630,32 @@ async function renderMyAccount() {
   }
 }
 
+// Modalidades de venta según la plataforma. En Xbox solo existen Primaria
+// (1 y 2) y Segundo plano; los valores guardados siguen siendo "principal" y
+// "secundaria" para que las ventas viejas y los cupos sigan cuadrando.
+const MODALITIES_DEFAULT = [["principal", "Principal"], ["secundaria", "Secundaria"], ["bundle", "Bundle"], ["individual", "Individual"]];
+const MODALITIES_XBOX = [["principal", "Primaria"], ["secundaria", "Segundo plano"]];
+function modalitiesFor(platform) {
+  return /xbox/i.test(String(platform || "")) ? MODALITIES_XBOX : MODALITIES_DEFAULT;
+}
+function modalityLabel(platform, modality) {
+  const m = String(modality || "").toLowerCase();
+  return modalitiesFor(platform).find(([v]) => v === m)?.[1] || modality || "";
+}
+// Rearma el <select> de modalidad para la plataforma; conserva el valor si
+// sigue siendo válido (si no, queda en "—").
+function fillModalitySelect(select, platform, value = select.value) {
+  const opts = modalitiesFor(platform);
+  select.innerHTML = `<option value="">—</option>` + opts.map(([v, l]) =>
+    `<option value="${escapeAttr(v)}">${escapeHtml(l)}</option>`).join("");
+  select.value = opts.some(([v]) => v === value) ? value : "";
+}
+
 function purchaseCardHTML(p) {
   const date = new Date(p.purchase_date + "T00:00:00").toLocaleDateString("es-CR", {
     year: "numeric", month: "long", day: "numeric",
   });
-  const modLabel = p.modality ? `<span class="cart-modality ${escapeAttr(p.modality)}">${escapeHtml(p.modality)}</span>` : "";
+  const modLabel = p.modality ? `<span class="cart-modality ${escapeAttr(p.modality)}">${escapeHtml(modalityLabel(p.platform, p.modality))}</span>` : "";
   return `
     <article class="purchase-card">
       <header class="purchase-head">
@@ -7923,7 +7944,7 @@ function renderPurchaseCards(purchases, box, onDelete) {
     <div class="admin-purchase">
       <header>
         <strong>${p.app_users?.customer_number ? escapeHtml(fmtClientId(p.app_users.customer_number)) + " · " : ""}${escapeHtml(p.app_users?.email || "?")}</strong>
-        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(p.modality) : ""}${p.is_redemption ? ` · ${COIN_IMG} canje` : ""}${p.amount != null ? ` · <strong class="admin-amount">${escapeHtml(formatCRC(p.amount))}</strong>` : ""}</span>
+        <span>${escapeHtml(p.platform)}${p.modality ? " · " + escapeHtml(modalityLabel(p.platform, p.modality)) : ""}${p.is_redemption ? ` · ${COIN_IMG} canje` : ""}${p.amount != null ? ` · <strong class="admin-amount">${escapeHtml(formatCRC(p.amount))}</strong>` : ""}</span>
         <time>${escapeHtml(p.purchase_date)}</time>
         <button data-edit-id="${escapeAttr(p.id)}" class="admin-edit" aria-label="Editar" title="Editar">✎</button>
         <button data-del="${escapeAttr(p.id)}" class="admin-del" aria-label="Eliminar" title="Eliminar">×</button>
@@ -8790,13 +8811,16 @@ function setupPurchaseAccountPicker() {
   });
   // Cuenta nueva: los cupos dependen del juego y la consola elegidos.
   form.querySelector('[name="game_name"]').addEventListener("change", () => { if (!pfAccount) pfRenderSlots(); });
-  form.querySelector('[name="platform"]').addEventListener("change", () => pfRenderSlots());
+  form.querySelector('[name="platform"]').addEventListener("change", () => {
+    fillModalitySelect(form.querySelector('[name="modality"]'), form.querySelector('[name="platform"]').value);
+    pfRenderSlots();
+  });
   form.querySelector('[name="modality"]').addEventListener("change", () => pfRenderSlots());
   document.getElementById("pfSlots").addEventListener("click", e => {
     const b = e.target.closest("[data-pf-platform]");
     if (!b || b.disabled) return;
     form.querySelector('[name="platform"]').value = b.dataset.pfPlatform;
-    form.querySelector('[name="modality"]').value = b.dataset.pfModality;
+    fillModalitySelect(form.querySelector('[name="modality"]'), b.dataset.pfPlatform, b.dataset.pfModality);
     pfRenderSlots();
   });
 }
@@ -8837,7 +8861,7 @@ async function pfApplyAccount(email, preferSlot) {
   const pick = opts.find(o => o.slot === preferSlot) || (preferSlot ? null : opts[0]);
   if (pick) {
     form.querySelector('[name="platform"]').value = pick.platform;
-    form.querySelector('[name="modality"]').value = pick.modality;
+    fillModalitySelect(form.querySelector('[name="modality"]'), pick.platform, pick.modality);
   }
   pfRenderSlots();
   const req = ++pfAccountReq;
@@ -9079,7 +9103,7 @@ function openEditModal(p, onSaved = loadAdminPurchases) {
       <label>Modalidad
         <select name="modality">
           <option value="">—</option>
-          ${[["principal","Principal"],["secundaria","Secundaria"],["bundle","Bundle"],["individual","Individual"]].map(([v,l]) =>
+          ${modalitiesFor(p.platform).map(([v,l]) =>
             `<option value="${escapeAttr(v)}"${p.modality === v ? " selected" : ""}>${escapeHtml(l)}</option>`
           ).join("")}
         </select>
@@ -9118,6 +9142,9 @@ function openEditModal(p, onSaved = loadAdminPurchases) {
     <p id="editModalStatus" class="form-status"></p>
   `;
   modal.showModal();
+  const editPlatform = modal.querySelector('[name="platform"]');
+  editPlatform.addEventListener("change", () =>
+    fillModalitySelect(modal.querySelector('[name="modality"]'), editPlatform.value));
   modal.querySelector("#editCancelBtn").addEventListener("click", () => modal.close());
   modal.querySelector("#editDeleteBtn").addEventListener("click", async () => {
     if (!confirm("¿Eliminar esta venta? El cupo queda libre otra vez.")) return;
@@ -9204,6 +9231,7 @@ async function handleAdminSubmit(e) {
     status.textContent = "✓ Compra cargada";
     status.className = "form-status ok";
     form.reset();
+    fillModalitySelect(form.querySelector('[name="modality"]'), form.querySelector('[name="platform"]').value, "");
     form.querySelector('input[name="purchase_date"]').value = new Date().toISOString().slice(0,10);
     clearPurchaseClientSelection();
     pfResetAccount();
