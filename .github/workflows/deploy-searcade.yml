@@ -1,0 +1,54 @@
+name: Deploy SEARCADE
+
+# Publica la tienda SEARCADE (carpeta searcade/) en searcade.reymidascr.com.
+# Es una web estática aparte de Rey Midas: no pasa por npm run build.
+# Usa los mismos secrets de FTP que deploy-banahosting.yml (la cuenta FTP entra
+# a la raíz de cPanel) y sube a la carpeta del subdominio.
+#
+# Variable opcional (Settings → Secrets and variables → Actions → Variables):
+#   SEARCADE_FTP_DIR  carpeta del subdominio (por defecto searcade.reymidascr.com/)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "searcade/**"
+      - ".github/workflows/deploy-searcade.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-searcade
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      FTP_SERVER: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+    steps:
+      - name: Sin credenciales de FTP, no hay nada que hacer
+        if: env.FTP_SERVER == ''
+        run: echo "Faltan los secrets BANAHOSTING_FTP_*."
+
+      - name: Checkout
+        if: env.FTP_SERVER != ''
+        uses: actions/checkout@v5
+
+      - name: Subir SEARCADE por FTP (solo lo que cambió)
+        if: env.FTP_SERVER != ''
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.BANAHOSTING_FTP_SERVER }}
+          username: ${{ secrets.BANAHOSTING_FTP_USERNAME }}
+          password: ${{ secrets.BANAHOSTING_FTP_PASSWORD }}
+          protocol: ${{ vars.BANAHOSTING_FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./searcade/
+          server-dir: ${{ vars.SEARCADE_FTP_DIR || 'searcade.reymidascr.com/' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/*.md
+          timeout: 120000

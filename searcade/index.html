@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SEARCADE — Ropa anime y gamer DTF</title>
+  <meta name="description" content="SEARCADE: camisetas negras con diseños anime halftone, 3D y frases gamer. Impresión DTF en Costa Rica. Pedí por WhatsApp.">
+  <meta name="theme-color" content="#07060d">
+  <meta property="og:title" content="SEARCADE — Ropa anime y gamer">
+  <meta property="og:description" content="Diseños DTF halftone, 3D y frases gamer en camisetas negras. Costa Rica.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Inter:wght@400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <a class="logo" href="#" aria-label="SEARCADE inicio">SEAR<span>CADE</span></a>
+    <span class="top-tag">by Grafitico</span>
+  </header>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>★ INSERT COIN ★ DISEÑOS DTF HALFTONE ★ CAMISETAS NEGRAS ★ PERSONAJES ORIGINALES ★ 3D SEARCADE ★ FRASES GAMER ★ PEDÍ POR WHATSAPP ★ COSTA RICA ★&nbsp;</span>
+      <span>★ INSERT COIN ★ DISEÑOS DTF HALFTONE ★ CAMISETAS NEGRAS ★ PERSONAJES ORIGINALES ★ 3D SEARCADE ★ FRASES GAMER ★ PEDÍ POR WHATSAPP ★ COSTA RICA ★&nbsp;</span>
+    </div>
+  </div>
+
+  <main>
+    <section class="hero">
+      <p class="hero-kicker">PLAYER 1 · READY</p>
+      <h1>Ropa que se juega.</h1>
+      <p class="hero-sub">Tocá una camiseta del perchero para verla de cerca, elegir tu talla y pedirla.</p>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="Categorías" id="tabs"></nav>
+
+    <section class="store" aria-label="Perchero de camisetas">
+      <div class="rack" id="rack">
+        <div class="rail" aria-hidden="true"></div>
+        <div class="hangers" id="hangers"></div>
+      </div>
+      <p class="rack-hint">← deslizá el perchero →</p>
+    </section>
+
+    <section class="custom">
+      <h2>¿Tenés tu propia idea?</h2>
+      <p>Personalizamos con DTF: tu personaje, tu frase o tu gamertag en camiseta negra.</p>
+      <a class="btn btn-wa" id="customBtn" target="_blank" rel="noopener">Cotizar mi diseño</a>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>SEARCADE es una marca de <strong>Grafitico</strong> · Costa Rica</p>
+    <p>¿Videojuegos digitales? <a href="https://reymidascr.com" target="_blank" rel="noopener">Rey Midas</a></p>
+  </footer>
+
+  <!-- Ficha de producto -->
+  <div class="sheet-backdrop" id="backdrop" hidden></div>
+  <dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+    <button class="sheet-close" id="sheetClose" aria-label="Cerrar">✕</button>
+    <div class="sheet-media">
+      <div class="sheet-photo" id="sheetPhoto"></div>
+      <div class="sheet-thumbs" id="sheetThumbs"></div>
+    </div>
+    <div class="sheet-info">
+      <p class="sheet-cat" id="sheetCat"></p>
+      <h2 id="sheetTitle"></h2>
+      <p class="sheet-price" id="sheetPrice"></p>
+      <p class="sheet-desc" id="sheetDesc"></p>
+      <p class="sheet-label">Talla</p>
+      <div class="sizes" id="sheetSizes" role="radiogroup" aria-label="Talla"></div>
+      <a class="btn btn-wa" id="sheetWa" target="_blank" rel="noopener">Pedir por WhatsApp</a>
+      <p class="sheet-note" id="sheetNote"></p>
+    </div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# SEARCADE (searcade.reymidascr.com) — Apache en Banahosting
+Options -Indexes
+DirectoryIndex index.html
+
+RewriteEngine On
+# Siempre HTTPS (la cámara del probador de la fase 2 lo necesita)
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  <FilesMatch "\.(html|json|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(png|jpe?g|webp|avif|svg)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
+
+# No servir documentación interna
+<FilesMatch "\.md$">
+  Require all denied
+</FilesMatch>

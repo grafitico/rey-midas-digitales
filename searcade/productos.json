@@ -1,0 +1,17 @@
+{
+  "categorias": [
+    { "id": "anime", "nombre": "Anime Pin-Up" },
+    { "id": "3d", "nombre": "3D SEARCADE" },
+    { "id": "frases", "nombre": "Frases Gamer" }
+  ],
+  "productos": [
+    { "id": "SC-001", "nombre": "Neon Ronin", "categoria": "anime", "precio": 12500, "tallas": ["S","M","L","XL","XXL"], "descripcion": "Guerrera original en halftone rosa neón. DTF sobre camiseta negra 100% algodón.", "imagen": "", "fotos": [], "nuevo": true, "arte": { "texto": "NEON RONIN", "tono": "#ff2e88" } },
+    { "id": "SC-002", "nombre": "Pixel Witch", "categoria": "anime", "precio": 12500, "tallas": ["S","M","L","XL"], "descripcion": "Hechicera pixel con trazo cartoon y tramado halftone violeta.", "imagen": "", "fotos": [], "arte": { "texto": "PIXEL WITCH", "tono": "#a259ff" } },
+    { "id": "SC-003", "nombre": "Cyber Kitsune", "categoria": "anime", "precio": 13500, "tallas": ["M","L","XL","XXL"], "descripcion": "Zorra cibernética de nueve colas en cian eléctrico.", "imagen": "", "fotos": [], "arte": { "texto": "CYBER KITSUNE", "tono": "#00e5ff" } },
+    { "id": "SC-004", "nombre": "Chrome Diva", "categoria": "3d", "precio": 15000, "tallas": ["S","M","L","XL"], "descripcion": "Render 3D glossy estilo portada de revista. Brillo cromado sobre negro.", "imagen": "", "fotos": [], "nuevo": true, "arte": { "texto": "CHROME DIVA", "tono": "#e8e8ff" } },
+    { "id": "SC-005", "nombre": "Bubble Boss", "categoria": "3d", "precio": 15000, "tallas": ["S","M","L","XL","XXL"], "descripcion": "Personaje 3D inflado, colores caramelo y acabado brillante.", "imagen": "", "fotos": [], "arte": { "texto": "BUBBLE BOSS", "tono": "#ffb703" } },
+    { "id": "SC-006", "nombre": "Insert Coin", "categoria": "frases", "precio": 11000, "tallas": ["S","M","L","XL","XXL"], "descripcion": "Clásico arcade: INSERT COIN TO CONTINUE en tipografía pixel.", "imagen": "", "fotos": [], "arte": { "texto": "INSERT COIN", "tono": "#39ff14" } },
+    { "id": "SC-007", "nombre": "Una partida más", "categoria": "frases", "precio": 11000, "tallas": ["S","M","L","XL","XXL"], "descripcion": "La mentira favorita de todo gamer, en español y con estilo.", "imagen": "", "fotos": [], "nuevo": true, "arte": { "texto": "UNA PARTIDA MÁS", "tono": "#ff6b35" } },
+    { "id": "SC-008", "nombre": "AFK pero presente", "categoria": "frases", "precio": 11000, "tallas": ["S","M","L","XL"], "descripcion": "Para los que están, pero no están. Halftone amarillo arcade.", "imagen": "", "fotos": [], "arte": { "texto": "AFK PERO PRESENTE", "tono": "#ffe600" } }
+  ]
+}
