@@ -9241,8 +9241,19 @@ async function openCuentaModal(acc) {
   ["plataforma", "tipo"].forEach(n => $(n).addEventListener("change", syncTipo));
   const crear = $("crear_correo");
   const pwdLabel = $("password").closest("label");
-  const syncCrear = () => { if (crear) pwdLabel.style.display = crear.checked ? "none" : ""; };
+  // Solo se pueden crear correos @reymidascr.com: con otro dominio la casilla
+  // se apaga sola (es una cuenta que ya existe en otro lado).
+  const syncCrear = () => {
+    if (!crear) return;
+    const mail = $("correo").value.trim().toLowerCase();
+    const otroDominio = mail.includes("@") && !/@reymidascr\.com$/.test(mail);
+    if (otroDominio) crear.checked = false;
+    crear.disabled = otroDominio;
+    crear.closest("label").title = otroDominio ? "Solo se crean correos @reymidascr.com" : "";
+    pwdLabel.style.display = crear.checked ? "none" : "";
+  };
   crear?.addEventListener("change", syncCrear);
+  $("correo").addEventListener("input", syncCrear);
   syncCrear();
   modal.querySelector("#cuentaMailBtn")?.addEventListener("click", async () => {
     const box = modal.querySelector("#cuentaMailBox");
