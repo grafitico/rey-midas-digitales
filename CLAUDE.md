@@ -54,3 +54,23 @@
   o el de Passenger) con el prefijo `[chat]`.
 - El catálogo viaja dentro del prompt en cada consulta: agrandar
   `featured-games.json` sale caro en cuota. Ver `ASISTENTE-IA-SETUP.md`.
+
+## Asistente (acceso limitado) y correos
+
+- El dueño crea un acceso en Admin → 🤖 Asistente (token de 90 días, scope
+  `asistente`, tabla `asistente_accesos`; revocar lo corta al instante). En la
+  sesión de Claude ese token va como credencial del host reymidascr.com
+  (`Authorization: Bearer`), nunca en el chat.
+- Solo lo aceptan las acciones de `/api/purchases` que llaman a `requireStaff`:
+  `accounts`, `client-lookup` (por RM, solo nombre), `create` (cliente por RM;
+  si no se manda contraseña la toma de la cuenta registrada o de la última
+  venta), `cuenta-save`, `cuenta-nueva`, `correo-leer`, `correo-estado`. Todo
+  lo demás es solo de admin y `requireAuth` rechaza tokens con scope.
+- Antes de cargar una venta o crear una cuenta para el dueño, mostrale el
+  resumen y esperá su "dale".
+- `cuenta-nueva` crea el buzón <usuario>@reymidascr.com con `uapi` de cPanel
+  (una llamada a la vez, 12 s) y registra la cuenta con la contraseña
+  generada. `correo-leer` lee el Maildir (~/mail/reymidascr.com/<usuario>) y
+  devuelve solo correos de PlayStation de 7 días (código y enlace).
+- La cuenta PSN y la compra en playstation.com las hace el dueño: Sony lo
+  bloquea a programas y sus términos lo prohíben.

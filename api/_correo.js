@@ -79,7 +79,8 @@ export async function mailStatus() {
   try {
     const r = await uapi(["Email", "count_pops"]);
     uapiOk = r.status === 1;
-    cuentas = typeof r.data === "number" ? r.data : (r.data?.count ?? null);
+    const n = Number(typeof r.data === "object" && r.data ? (r.data.count ?? r.data.total) : r.data);
+    cuentas = Number.isFinite(n) ? n : null;
     if (!uapiOk) error = (r.errors || []).join(" ");
   } catch (e) { error = e.message; }
   return { uapi: uapiOk, buzones: cuentas, maildir: fs.existsSync(path.join(HOME, "mail", MAIL_DOMAIN)), error };
