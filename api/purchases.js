@@ -4,7 +4,7 @@
 import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
-import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail } from "./_correo.js";
+import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
 // de PSN/Xbox vendida: viajan cifradas en Supabase (ver encryptSecret en
@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     if (body.action === "client-lookup") return await clientLookup(req, res, body);
     if (body.action === "cuenta-nueva") return await cuentaNueva(req, res, body);
     if (body.action === "correo-leer") return await correoLeer(req, res, body);
-    if (body.action === "correo-estado") return await correoEstado(req, res);
+    if (body.action === "correo-estado") return await correoEstado(req, res, body);
     if (body.action === "correo-sugerir") return await correoSugerir(req, res, body);
     if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
@@ -522,9 +522,11 @@ async function correoLeer(req, res, body) {
 }
 
 // Diagnóstico sin cambios: ¿cPanel responde y se ven los buzones?
-async function correoEstado(req, res) {
+async function correoEstado(req, res, body = {}) {
   await requireStaff(req);
-  res.status(200).json(mailStatus());
+  const st = mailStatus();
+  if (body.probar && st.crear_correos) Object.assign(st, await testCpanel());
+  res.status(200).json(st);
 }
 
 // Siguiente correo libre con el estilo de la tienda: <juego+edición><número>

@@ -62,7 +62,7 @@ function cpanelApi(module, fn, params) {
     return Promise.reject(Object.assign(new Error("Crear correos automáticamente no está activado (faltan CPANEL_USER y CPANEL_PASS en la app). Crealo a mano en cPanel → Cuentas de correo y registrá la cuenta sin marcar \"Crear el correo\"."), { status: 503 }));
   }
   if (Date.now() < authBlockedUntil) {
-    return Promise.reject(Object.assign(new Error("cPanel rechazó el usuario o la contraseña hace poco: revisá CPANEL_USER y CPANEL_PASS en la app Node.js y reiniciala. No se reintenta para que cPanel no bloquee la cuenta."), { status: 502 }));
+    return Promise.reject(Object.assign(new Error("cPanel rechazó el usuario o la contraseña hace poco: revisá CPANEL_USER y CPANEL_PASS en la app Node.js y reiniciala. No se reintenta para que cPanel no bloquee la cuenta."), { status: 424 }));
   }
   if (busy) return Promise.reject(Object.assign(new Error("Hay otro correo creándose: probá de nuevo en unos segundos."), { status: 429 }));
   busy = true;
@@ -86,14 +86,14 @@ function cpanelApi(module, fn, params) {
           authBlockedUntil = Date.now() + 30 * 60 * 1000;
           return reject(Object.assign(new Error(process.env.CPANEL_TOKEN
             ? "cPanel rechazó el token: revisá CPANEL_USER y CPANEL_TOKEN en la app Node.js."
-            : "cPanel rechazó el usuario o la contraseña: revisá CPANEL_USER y CPANEL_PASS en la app Node.js (si cambiaste la contraseña de cPanel, actualizala ahí) y reiniciala."), { status: 502 }));
+            : "cPanel rechazó el usuario o la contraseña: revisá CPANEL_USER y CPANEL_PASS en la app Node.js (si cambiaste la contraseña de cPanel, actualizala ahí) y reiniciala."), { status: 424 }));
         }
         try { const j = JSON.parse(body); resolve({ status: j.status, errors: j.errors, data: j.data }); }
-        catch { reject(Object.assign(new Error("cPanel respondió algo inesperado."), { status: 502 })); }
+        catch { reject(Object.assign(new Error("cPanel respondió algo inesperado."), { status: 424 })); }
       }));
     });
-    req.on("timeout", () => req.destroy(Object.assign(new Error("cPanel no respondió a tiempo. Probá de nuevo."), { status: 504 })));
-    req.on("error", done(err => reject(err.status ? err : Object.assign(new Error("No se pudo conectar con cPanel."), { status: 502 }))));
+    req.on("timeout", () => req.destroy(Object.assign(new Error("cPanel no respondió a tiempo. Probá de nuevo."), { status: 424 })));
+    req.on("error", done(err => reject(err.status ? err : Object.assign(new Error(`No se pudo conectar con cPanel en ${CPANEL_HOST}:${CPANEL_PORT}.`), { status: 424, detail: String(err.code || err.message || "").slice(0, 80) }))));
     req.end();
   });
 }
@@ -101,7 +101,7 @@ function cpanelApi(module, fn, params) {
 function cpanelError(result, fallback) {
   const msg = (result.errors || []).join(" ").trim();
   if (/exist/i.test(msg)) return Object.assign(new Error("Ese correo ya existe en el hosting."), { status: 409 });
-  return Object.assign(new Error(msg ? `cPanel: ${msg}` : fallback), { status: 502 });
+  return Object.assign(new Error(msg ? `cPanel: ${msg}` : fallback), { status: 424 });
 }
 
 // ¿Existe ya el buzón? (lee el disco: no gasta un proceso)
@@ -113,6 +113,19 @@ export async function createMailbox(local, password) {
   const r = await cpanelApi("Email", "add_pop", { email: local, password, domain: MAIL_DOMAIN, quota: "1024" });
   if (r.status !== 1) throw cpanelError(r, "cPanel no pudo crear el correo.");
   return `${local}@${MAIL_DOMAIN}`;
+}
+
+// Prueba de conexión con cPanel sin cambiar nada (cuenta los buzones). Es un
+// intento de inicio de sesión: si la contraseña está mal, queda bloqueado
+// 30 min como cualquier otro intento.
+export async function testCpanel() {
+  try {
+    const r = await cpanelApi("Email", "count_pops", {});
+    if (r.status === 1) return { cpanel_ok: true, buzones_cpanel: Number(r.data) || r.data };
+    return { cpanel_ok: false, error: `cPanel respondió: ${(r.errors || []).join(" ") || "error sin detalle"}` };
+  } catch (e) {
+    return { cpanel_ok: false, error: e.message, detalle: e.detail || "" };
+  }
 }
 
 // Diagnóstico sin cambiar nada y sin llamar a cPanel: ¿está activado crear
