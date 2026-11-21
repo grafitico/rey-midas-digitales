@@ -601,6 +601,9 @@ a.auth-trigger { text-decoration: none; color: inherit; }
 .asis-state.is-off { color: var(--text-dim); }
 @media (max-width: 560px) { .asis-row { grid-template-columns: 1fr auto; } .asis-row .admin-modal-delete { grid-column: 1 / -1; } }
 
+#cuentaModal .cuenta-correo-row { display: flex; gap: 0.4rem; }
+#cuentaModal .cuenta-correo-row input { flex: 1; min-width: 0; }
+#cuentaModal .cuenta-correo-hint { display: block; margin-top: 0.3rem; }
 #cuentaModal .cuenta-mail { display: grid; gap: 0.5rem; justify-items: start; }
 #cuentaModal .cuenta-mail-box { width: 100%; font-size: 0.88rem; display: grid; gap: 0.6rem; }
 #cuentaModal .cuenta-mail-msg { border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.75rem; display: grid; gap: 0.35rem; }

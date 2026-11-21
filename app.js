@@ -9149,6 +9149,23 @@ function pfSlotTaken(email, platform, modality) {
 }
 
 
+// Nombre base del correo con el estilo de la tienda: juego + edición, corto
+// y sin espacios ("Grand Theft Auto VI Ultimate" → "gta6ultimate",
+// "EA SPORTS FC 26" → "fc26"). El número lo pone el servidor (correo-sugerir).
+function correoBase(juego) {
+  let t = normalizeSearch(juego).replace(/[™®©]/g, "").replace(/\([^)]*\)/g, " ");
+  const abrev = [
+    [/grand theft auto/g, "gta"], [/ea sports fc/g, "fc"], [/ea sports/g, ""], [/call of duty/g, "cod"],
+    [/god of war/g, "gow"], [/red dead redemption/g, "rdr"], [/marvel'?s spider-?man/g, "spiderman"],
+    [/assassin'?s creed/g, "ac"], [/the last of us/g, "tlou"], [/resident evil/g, "re"], [/mortal kombat/g, "mk"],
+  ];
+  for (const [re, v] of abrev) t = t.replace(re, v);
+  t = t.replace(/\bviii\b/g, "8").replace(/\bvii\b/g, "7").replace(/\bvi\b/g, "6").replace(/\biv\b/g, "4")
+    .replace(/\bv\b/g, "5").replace(/\biii\b/g, "3").replace(/\bii\b/g, "2");
+  const fuera = new Set("edition edicion standard standar estandar digital ps4 ps5 playstation y and the of de del la el version game juego for para".split(" "));
+  return t.split(/[^a-z0-9]+/).filter(w => w && !fuera.has(w)).join("").slice(0, 24);
+}
+
 // ===== Registrar / editar una cuenta (tabla cuentas) =====
 // acc: cuenta del cuadro (con o sin registro) o null para una nueva.
 async function openCuentaModal(acc) {
@@ -9203,7 +9220,11 @@ async function openCuentaModal(acc) {
       <small class="field-hint cuenta-tipo-hint"></small>
     </label>
     <label>Correo de la cuenta
-      <input name="correo" type="text" required value="${escapeAttr(v.correo)}" autocomplete="off" placeholder="fc26-08@reymidascr.com">
+      <span class="cuenta-correo-row">
+        <input name="correo" type="text" required value="${escapeAttr(v.correo)}" autocomplete="off" placeholder="gta6ultimate3@reymidascr.com">
+        ${!c && !acc ? `<button type="button" class="pc-btn" id="cuentaSugerir" title="Siguiente correo libre según el juego">Sugerir</button>` : ""}
+      </span>
+      <small class="field-hint cuenta-correo-hint"></small>
     </label>
     ${!c && !acc ? `<label class="checkbox-label cuenta-crear-correo">
       <input name="crear_correo" type="checkbox" checked>
@@ -9253,7 +9274,29 @@ async function openCuentaModal(acc) {
     pwdLabel.style.display = crear.checked ? "none" : "";
   };
   crear?.addEventListener("change", syncCrear);
-  $("correo").addEventListener("input", syncCrear);
+  $("correo").addEventListener("input", () => { correoTocado = true; syncCrear(); });
+  // Sugerir el siguiente correo libre a partir del juego (solo cuentas nuevas).
+  let correoTocado = false;
+  const hintCorreo = modal.querySelector(".cuenta-correo-hint");
+  const sugerir = async (forzar) => {
+    if (!crear?.checked) return;
+    if (correoTocado && !forzar) return;
+    const base = forzar && $("correo").value.trim() && !$("correo").value.includes("@")
+      ? $("correo").value.trim().replace(/-?\d+$/, "").toLowerCase().replace(/[^a-z0-9]/g, "")
+      : correoBase($("juego").value);
+    if (base.length < 3) { if (forzar) hintCorreo.textContent = "Escribí primero el juego."; return; }
+    hintCorreo.textContent = "Buscando el siguiente número libre…";
+    try {
+      const r = await apiPost("/api/purchases", { action: "correo-sugerir", base });
+      $("correo").value = r.sugerido;
+      correoTocado = false;
+      hintCorreo.textContent = r.ocupados.length ? `Ya existen: ${r.ocupados.slice(-4).join(", ")}${r.ocupados.length > 4 ? "…" : ""}` : "Es el primero con ese nombre.";
+    } catch (err) {
+      hintCorreo.textContent = err.message;
+    }
+  };
+  $("juego").addEventListener("change", () => sugerir(false));
+  modal.querySelector("#cuentaSugerir")?.addEventListener("click", () => sugerir(true));
   syncCrear();
   modal.querySelector("#cuentaMailBtn")?.addEventListener("click", async () => {
     const box = modal.querySelector("#cuentaMailBox");

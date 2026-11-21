@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     if (body.action === "cuenta-nueva") return await cuentaNueva(req, res, body);
     if (body.action === "correo-leer") return await correoLeer(req, res, body);
     if (body.action === "correo-estado") return await correoEstado(req, res);
+    if (body.action === "correo-sugerir") return await correoSugerir(req, res, body);
     if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
@@ -510,4 +511,27 @@ async function correoLeer(req, res, body) {
 async function correoEstado(req, res) {
   await requireStaff(req);
   res.status(200).json(await mailStatus());
+}
+
+// Siguiente correo libre con el estilo de la tienda: <juego+edición><número>
+// (gta6ultimate1, gta6ultimate2…). "Libre" = no existe el buzón en el hosting
+// NI hay una cuenta o venta con ese correo en la tienda.
+async function correoSugerir(req, res, body) {
+  await requireStaff(req);
+  const base = String(body.base || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+  if (base.length < 3) return res.status(400).json({ error: "Poné al menos 3 letras del juego (ej. gta6ultimate)." });
+  const usados = new Set();
+  try {
+    for (const c of await sb(`cuentas?correo=ilike.${encodeURIComponent(base + "*@" + MAIL_DOMAIN)}&select=correo&limit=500`)) usados.add(String(c.correo).trim().toLowerCase());
+  } catch (err) { if (!ajustesMissing(err)) throw err; }
+  for (const p of await sb(`purchases?account_email=ilike.${encodeURIComponent("*" + base + "*@" + MAIL_DOMAIN + "*")}&select=account_email&limit=1000`)) usados.add(String(p.account_email).trim().toLowerCase());
+  const ocupados = [];
+  // Si el nombre ya termina en número (fc26, rdr2) se separa con guion: fc26-1.
+  const sep = /\d$/.test(base) ? "-" : "";
+  for (let n = 1; n <= 200; n++) {
+    const local = `${base}${sep}${n}`;
+    if (mailboxExists(local) || usados.has(`${local}@${MAIL_DOMAIN}`)) { ocupados.push(local); continue; }
+    return res.status(200).json({ sugerido: `${local}@${MAIL_DOMAIN}`, local, ocupados });
+  }
+  res.status(409).json({ error: "No encontré un número libre hasta el 200: probá con otro nombre base." });
 }
