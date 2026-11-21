@@ -7145,7 +7145,7 @@ async function renderAdmin() {
 
         <div class="admin-list">
           <h2>Juegos en el canje</h2>
-          <p class="field-hint">Los cambios aparecen en <a href="/cofre" target="_blank" rel="noopener">/cofre</a> en ~1 minuto (cuando Vercel redespliega).</p>
+          <p class="field-hint">Los cambios aparecen en <a href="/cofre" target="_blank" rel="noopener">/cofre</a> en 2–3 minutos (cuando se publica en Banahosting).</p>
           <div id="adminCofreGamesList">Cargando...</div>
         </div>
       </div>
@@ -7204,7 +7204,7 @@ async function renderAdmin() {
 
         <div class="admin-list">
           <h2>Ofertas publicadas</h2>
-          <p class="field-hint">Los cambios aparecen en <a href="/vip" target="_blank" rel="noopener">Ofertas VIP</a> en ~1 minuto (cuando Vercel redespliega).</p>
+          <p class="field-hint">Los cambios aparecen en <a href="/vip" target="_blank" rel="noopener">Ofertas VIP</a> en 2–3 minutos (cuando se publica en Banahosting).</p>
           <div id="adminOfertasList">Cargando...</div>
         </div>
       </div>
@@ -7294,7 +7294,7 @@ async function renderAdmin() {
 
         <div class="admin-list">
           <h2>Bundles publicados</h2>
-          <p class="field-hint">Los cambios aparecen en la web pública en ~1 minuto (cuando Vercel redespliega).</p>
+          <p class="field-hint">Los cambios aparecen en la web pública en 2–3 minutos (cuando se publica en Banahosting).</p>
           <div id="adminBundlesList">Cargando...</div>
         </div>
       </div>

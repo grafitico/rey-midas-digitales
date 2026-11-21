@@ -12,12 +12,25 @@
 // imagen a assets/bundles/<platform>-<id>.<ext> y se usa esa ruta como
 // coverUrl. Si no, se respeta el coverUrl que mande el cliente (URL pegada).
 //
-// Variables de entorno (ya configuradas en Vercel para el webhook):
-//   GITHUB_TOKEN   — PAT con scope repo (contents: write)
-//   GITHUB_REPO    — ej "grafitico/rey-midas-digitales"
+// Variables de entorno (app Node.js de cPanel):
+//   GITHUB_TOKEN   — token de GitHub con permiso de escribir el repo (Contents: write).
+//                    Solo hace falta para GUARDAR: sin él, los listados se leen de
+//                    los archivos ya publicados en el hosting.
+//   GITHUB_REPO    — opcional, default "grafitico/rey-midas-digitales"
 //   GITHUB_BRANCH  — opcional, default "main"
+// Cada cambio es un commit a main, que el workflow publica en Banahosting
+// en 2–3 minutos.
 
+import fs from "fs";
+import path from "path";
 import { requireAdmin, handleError, readJson } from "./_lib.js";
+
+const DEFAULT_REPO = "grafitico/rey-midas-digitales";
+// Carpeta de la tienda publicada (~/reymidascr.com); en local, la raíz del repo.
+const SITE_DIR = (() => {
+  const candidates = [process.env.SITE_DIR, path.join(process.cwd(), "..", "reymidascr.com"), process.cwd()].filter(Boolean);
+  return candidates.find(d => fs.existsSync(path.join(d, "index.html"))) || process.cwd();
+})();
 
 const FILES = { ps: "ps-bundles.json", xbox: "xbox-bundles.json" };
 const API = "https://api.github.com";
@@ -45,8 +58,8 @@ export default async function handler(req, res) {
 function ghHeaders() {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
-    const e = new Error("Falta GITHUB_TOKEN en el servidor.");
-    e.status = 500;
+    const e = new Error("Para guardar cambios falta GITHUB_TOKEN en la app Node.js de cPanel (Setup Node.js App → Environment variables). Los listados se pueden ver igual.");
+    e.status = 503;
     throw e;
   }
   return {
@@ -63,9 +76,7 @@ function ghRepo() {
   const owner = process.env.VERCEL_GIT_REPO_OWNER;
   const slug = process.env.VERCEL_GIT_REPO_SLUG;
   if (owner && slug) return `${owner}/${slug}`;
-  const e = new Error("Falta GITHUB_REPO en el servidor (y no se pudo derivar de Vercel).");
-  e.status = 500;
-  throw e;
+  return DEFAULT_REPO;
 }
 function ghBranch() {
   // Rama destino: explícita, o la rama del deploy actual (en producción = main).
@@ -73,9 +84,16 @@ function ghBranch() {
 }
 
 // Devuelve { sha, content(base64 string) } o null si el archivo no existe (404).
-async function ghGetFile(path) {
-  const url = `${API}/repos/${ghRepo()}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ghBranch())}`;
-  const r = await fetch(url, { headers: ghHeaders() });
+// Sin GITHUB_TOKEN se lee la copia publicada en el hosting (sha null): sirve
+// para mostrar los listados; para guardar hace falta el token igual.
+async function ghGetFile(file) {
+  if (!process.env.GITHUB_TOKEN) {
+    try {
+      return { sha: null, content: fs.readFileSync(path.join(SITE_DIR, file)).toString("base64") };
+    } catch { return null; }
+  }
+  const url = `${API}/repos/${ghRepo()}/contents/${encodeURIComponent(file)}?ref=${encodeURIComponent(ghBranch())}`;
+  const r = await fetch(url, { headers: ghHeaders(), signal: AbortSignal.timeout(12000) });
   if (r.status === 404) return null;
   if (!r.ok) throw new Error(`GitHub GET ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const meta = await r.json();
@@ -91,6 +109,7 @@ async function ghPutFile(path, contentBase64, message, sha) {
     method: "PUT",
     headers: { ...ghHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(12000),
   });
   return r;
 }
