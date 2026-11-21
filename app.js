@@ -6624,7 +6624,9 @@ async function renderMyAccount() {
       `;
       return;
     }
-    list.innerHTML = purchases.map(purchaseCardHTML).join("");
+    // Una sola compra: se abre sola. Con varias, quedan cerradas y ordenadas.
+    list.innerHTML = `<h2 class="pc-list-title">Mis compras <span>${purchases.length}</span></h2>` +
+      purchases.map(p => purchaseCardHTML(p, purchases.length === 1)).join("");
   } catch (err) {
     list.innerHTML = `<div class="status error">Error: ${escapeHtml(err.message)}</div>`;
   }
@@ -6651,32 +6653,121 @@ function fillModalitySelect(select, platform, value = select.value) {
   select.value = opts.some(([v]) => v === value) ? value : "";
 }
 
-function purchaseCardHTML(p) {
+// ===== "Mis compras": una tarjeta por juego, datos de acceso desplegables =====
+// Guía corta según cómo se vendió la cuenta. Es texto para el cliente:
+// cambialo acá si querés otras indicaciones.
+const PURCHASE_GUIDES = {
+  "ps-principal": [
+    "En tu consola agregá un usuario nuevo con el correo y la contraseña de la cuenta.",
+    "Con ese usuario, activá la consola como principal: en PS5, Ajustes → Usuarios y cuentas → Otros → Compartir consola y juego offline → Habilitar; en PS4, Ajustes → Gestión de cuenta → Activar como tu PS4 principal.",
+    "Listo: ya podés jugar desde tu usuario de siempre.",
+  ],
+  "ps-secundaria": [
+    "Jugá siempre entrando con el usuario de la cuenta, no con el tuyo.",
+    "Necesitás internet mientras jugás.",
+    "No actives la consola como principal ni cambies la contraseña: eso le quita el juego a otro cliente.",
+  ],
+  "xbox-principal": [
+    "Agregá la cuenta en tu Xbox con el correo y la contraseña.",
+    "Hacela tu Xbox de inicio: Configuración → General → Personalización → Mi Xbox de inicio.",
+    "Después podés jugar desde tu perfil de siempre.",
+  ],
+  "xbox-secundaria": [
+    "Dejá la cuenta iniciada en la consola (puede quedar en segundo plano) y jugá con internet.",
+    "No la hagas tu Xbox de inicio ni cambies la contraseña.",
+  ],
+  "completa": [
+    "La cuenta es toda tuya: entrá con el correo y la contraseña en tu consola.",
+  ],
+};
+function purchaseGuideKey(p) {
+  const mod = String(p.modality || "").toLowerCase();
+  const xbox = /xbox/i.test(p.platform || "");
+  if (mod === "bundle" || mod === "individual" || /switch|nintendo/i.test(p.platform || "")) return "completa";
+  if (mod.startsWith("secund")) return xbox ? "xbox-secundaria" : "ps-secundaria";
+  if (mod === "principal") return xbox ? "xbox-principal" : "ps-principal";
+  return "";
+}
+// Ícono de copiar (SVG en línea, sin pedir nada a la red).
+const COPY_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10V1zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H10V7h9v14z"/></svg>`;
+
+function purchaseCardHTML(p, open = false) {
   const date = new Date(p.purchase_date + "T00:00:00").toLocaleDateString("es-CR", {
-    year: "numeric", month: "long", day: "numeric",
+    year: "numeric", month: "short", day: "numeric",
   });
+  const title = (p.game_name || "").trim() || (p.games || "").split("\n")[0].trim() || "Cuenta de juego";
   const modLabel = p.modality ? `<span class="cart-modality ${escapeAttr(p.modality)}">${escapeHtml(modalityLabel(p.platform, p.modality))}</span>` : "";
+  const cover = p.cover
+    ? `<img class="pc-cover" src="${escapeAttr(p.cover)}" alt="" width="80" height="80" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'pc-cover pc-cover--none',textContent:${escapeAttr(JSON.stringify(p.platform || ""))}}))">`
+    : `<span class="pc-cover pc-cover--none">${escapeHtml(p.platform || "")}</span>`;
+  const guide = PURCHASE_GUIDES[purchaseGuideKey(p)] || [];
+  const codes = String(p.verifier_codes || "").split("\n").map(x => x.trim()).filter(Boolean);
+  const otherGames = String(p.games || "").split("\n").map(x => x.trim()).filter(Boolean)
+    .filter(g => { const a = normalizeSearch(g).trim(), t = normalizeSearch(title); return a && !t.startsWith(a) && !a.startsWith(t); });
+  const waMsg = `Hola Rey Midas, necesito ayuda con mi compra de ${title} (${p.platform}${p.modality ? " · " + modalityLabel(p.platform, p.modality) : ""}). Cuenta: ${p.account_email}`;
+  const field = (label, value, { secret = false, copy = true } = {}) => `
+    <div class="pc-field">
+      <span class="pc-label">${label}</span>
+      <div class="pc-value-row">
+        <code class="pc-value${secret ? " is-secret" : ""}" data-secret="${secret ? "1" : ""}" data-value="${escapeAttr(value)}">${secret ? "••••••••" : escapeHtml(value)}</code>
+        ${secret ? `<button type="button" class="pc-btn" data-reveal aria-label="Mostrar ${label.toLowerCase()}">Mostrar</button>` : ""}
+        ${copy ? `<button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(value)}" aria-label="Copiar ${label.toLowerCase()}">${COPY_ICON}<span>Copiar</span></button>` : ""}
+      </div>
+    </div>`;
   return `
-    <article class="purchase-card">
-      <header class="purchase-head">
-        <div>
-          <span class="cart-platform">${escapeHtml(p.platform)}</span>
-          ${modLabel}
-          ${p.is_redemption ? `<span class="cofre-badge">${COIN_IMG} Canje del Cofre</span>` : ""}
+    <details class="purchase-card pc"${open ? " open" : ""}>
+      <summary class="pc-head">
+        ${cover}
+        <div class="pc-main">
+          <h3 class="pc-title">${escapeHtml(title)}</h3>
+          <div class="pc-tags">
+            <span class="cart-platform">${escapeHtml(p.platform)}</span>
+            ${modLabel}
+            ${p.is_redemption ? `<span class="cofre-badge">${COIN_IMG} Canje del Cofre</span>` : ""}
+          </div>
+          <time class="pc-date">Comprado el ${escapeHtml(date)}</time>
         </div>
-        <time>${escapeHtml(date)}</time>
-      </header>
-      <dl class="purchase-fields">
-        <div><dt>Email de la cuenta</dt><dd class="copy-able" data-copy="${escapeAttr(p.account_email)}">${escapeHtml(p.account_email)}</dd></div>
-        <div><dt>Contraseña</dt><dd class="copy-able" data-copy="${escapeAttr(p.account_password)}">${escapeHtml(p.account_password)}</dd></div>
-        ${p.verifier_codes ? `<div><dt>Códigos del verificador</dt><dd class="copy-able pre" data-copy="${escapeAttr(p.verifier_codes)}">${escapeHtml(p.verifier_codes)}</dd></div>` : ""}
-        ${p.games ? `<div class="full"><dt>Juegos en la cuenta</dt><dd class="pre">${escapeHtml(p.games)}</dd></div>` : ""}
-        ${p.notes ? `<div class="full"><dt>Notas</dt><dd>${escapeHtml(p.notes)}</dd></div>` : ""}
-      </dl>
-      <p class="purchase-hint">Tip: tocá un campo para copiarlo.</p>
-    </article>
+        <span class="pc-toggle"><span class="pc-toggle-open">Ver datos de acceso</span><span class="pc-toggle-close">Ocultar</span><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg></span>
+      </summary>
+      <div class="pc-body">
+        <div class="pc-fields">
+          ${field("Correo de la cuenta", p.account_email)}
+          ${field("Contraseña", p.account_password || "", { secret: true })}
+          ${codes.length ? field(`Códigos de verificación (${codes.length})`, codes.join("\n"), { secret: true }) : ""}
+        </div>
+        ${otherGames.length ? `<div class="pc-games"><span class="pc-label">También incluye</span><ul>${otherGames.map(g => `<li>${escapeHtml(g)}</li>`).join("")}</ul></div>` : ""}
+        ${p.notes ? `<p class="pc-notes">${escapeHtml(p.notes)}</p>` : ""}
+        ${guide.length ? `<div class="pc-guide"><span class="pc-label">Cómo jugar · ${escapeHtml(modalityLabel(p.platform, p.modality) || "Cuenta completa")}</span><ol>${guide.map(g => `<li>${escapeHtml(g)}</li>`).join("")}</ol></div>` : ""}
+        <a class="pc-help" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener">¿Problemas con esta cuenta? Escribinos por WhatsApp</a>
+      </div>
+    </details>
   `;
 }
+
+// Mostrar/ocultar contraseña y códigos; copiar con botón.
+document.addEventListener("click", (e) => {
+  const reveal = e.target.closest("[data-reveal]");
+  if (reveal) {
+    const v = reveal.parentElement.querySelector(".pc-value");
+    const showing = v.dataset.shown === "1";
+    v.textContent = showing ? "••••••••" : v.dataset.value;
+    v.dataset.shown = showing ? "" : "1";
+    v.classList.toggle("is-secret", showing);
+    reveal.textContent = showing ? "Mostrar" : "Ocultar";
+    return;
+  }
+  const copy = e.target.closest("[data-copy-value]");
+  if (copy) {
+    const text = copy.dataset.copyValue;
+    const ok = () => {
+      showToast("Copiado ✓");
+      copy.classList.add("is-done");
+      setTimeout(() => copy.classList.remove("is-done"), 1200);
+    };
+    try { navigator.clipboard.writeText(text).then(ok, () => showToast("No se pudo copiar: mantené presionado el texto")); }
+    catch { showToast("No se pudo copiar: mantené presionado el texto"); }
+  }
+});
 
 document.addEventListener("click", (e) => {
   const el = e.target.closest(".copy-able");

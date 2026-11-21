@@ -72,11 +72,67 @@ function load() {
   return cache;
 }
 
+// ===== Portada de un juego por su nombre (para "Mis compras") =====
+// Las compras guardan el nombre del juego como lo escribió el admin
+// ("God of War Ragnarök- PS4 y PS5", "FC 26 Standar"…). Se limpia igual que en
+// el panel (sin acentos, ™, paréntesis ni palabras de edición) y se busca en el
+// mismo índice de la vista previa, que ya está en memoria: no se lee ningún
+// catálogo extra. El mapa título→portada se arma una vez por publicación.
+const COVER_EDITION_WORDS = new Set(("standard standar estandar edition edicion deluxe ultimate digital gold " +
+  "premium complete completa definitive definitiva juego del ano game of the year goty launch lanzamiento " +
+  "version ps4 ps5 playstation playstation4 playstation5 y and de la el the for para cross gen bundle game").split(" "));
+export function coverTitleKey(t) {
+  return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[™®©]/g, "")
+    .replace(/\bgta\b/g, "grand theft auto")
+    .replace(/\bcod\b/g, "call of duty")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim().split(/\s+/).filter(w => w && !COVER_EDITION_WORDS.has(w)).join(" ");
+}
+let coverMap = { stamp: "", ps: null, xbox: null };
+function coverMaps() {
+  const { stamp, data } = load();
+  if (coverMap.stamp === stamp && coverMap.ps) return coverMap;
+  const ps = new Map(), xbox = new Map();
+  for (const g of Object.values(data.games || {})) {
+    if (!g?.imageUrl || !g.title) continue;
+    const k = coverTitleKey(g.title);
+    if (!k) continue;
+    const m = /xbox/i.test(g.platform || "") ? xbox : ps;
+    if (!m.has(k)) m.set(k, g.imageUrl);
+  }
+  coverMap = { stamp, ps, xbox };
+  return coverMap;
+}
+// Portada achicada (px de ancho) para el título, o "" si no se encuentra.
+export function findCover(title, platform = "", px = 160) {
+  const key = coverTitleKey(title);
+  if (!key) return "";
+  const { ps, xbox } = coverMaps();
+  const maps = /xbox/i.test(platform) ? [xbox, ps] : [ps, xbox];
+  const words = key.split(" ");
+  for (const m of maps) {
+    if (m.has(key)) return sizedImage(m.get(key), px);
+    // El nombre cargado suele traer de más ("… PS4 y PS5 Mexico"): probar el
+    // título más largo que coincida palabra por palabra desde el principio.
+    for (let n = words.length - 1; n >= 2; n--) {
+      const k = words.slice(0, n).join(" ");
+      if (k.length >= 8 && m.has(k)) return sizedImage(m.get(k), px);
+    }
+  }
+  return "";
+}
+
 // WhatsApp no muestra imágenes pesadas en la vista previa, y las portadas
 // originales lo son (PNG de PSN de 1–3 MB, >2000 px; Microsoft igual). Cada
 // tienda sirve la misma imagen achicada con un parámetro: se pide a 400 px.
 const PREVIEW_PX = 400;
 export function previewImage(src) {
+  return sizedImage(src, PREVIEW_PX);
+}
+// La misma imagen servida a `px` de ancho por la tienda que la aloja.
+export function sizedImage(src, PREVIEW_PX) {
   if (!src) return src;
   let u;
   try { u = new URL(src); } catch { return src; }

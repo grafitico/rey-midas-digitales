@@ -3,6 +3,7 @@
 
 import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
 import { selectClients } from "./clients.js";
+import { findCover } from "./og.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
 // de PSN/Xbox vendida: viajan cifradas en Supabase (ver encryptSecret en
@@ -68,7 +69,12 @@ async function mine(req, res) {
   const user = await requireAuth(req);
   const data = await sb(`purchases?user_id=eq.${user.id}&select=*&order=purchase_date.desc`);
   const ajustes = await cofreAjustesOf(user.id);
-  res.status(200).json({ purchases: data.map(decryptPurchaseRow), ajustes });
+  // Portada chiquita de cada juego (si se encuentra en el catálogo). Si algo
+  // falla, las compras se muestran igual, sin portada.
+  const withCover = p => {
+    try { return { ...p, cover: findCover(p.game_name, p.platform) || "" }; } catch { return p; }
+  };
+  res.status(200).json({ purchases: data.map(decryptPurchaseRow).map(withCover), ajustes });
 }
 
 async function listAll(req, res) {
