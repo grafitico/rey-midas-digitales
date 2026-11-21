@@ -989,6 +989,12 @@ a.auth-trigger { text-decoration: none; color: inherit; }
 .admin-cofre-adj time { color: var(--text-dim); font-size: 0.78rem; }
 .admin-cofre-undo { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; padding: 0 0.45rem; }
 
+.inv-new { background: var(--gold) !important; border-color: var(--gold) !important; color: #1a0e02 !important; font-weight: 700; }
+.inv-acc-edit { display: inline-block; margin-top: 0.35rem; background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 0.15rem 0.55rem; font: inherit; font-size: 0.75rem; cursor: pointer; }
+.inv-acc-edit:hover { border-color: var(--cyan); color: var(--cyan); }
+.inv-warn { margin: 0 0 1rem; }
+#cuentaModal .cuenta-tipo-hint { display: block; margin-top: 0.3rem; }
+
 /* Ventas → Por cuenta y juego */
 .sales-views { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .sv-btn {

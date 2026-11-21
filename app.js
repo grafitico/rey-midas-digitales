@@ -6910,6 +6910,10 @@ async function renderAdmin() {
               </select>
             </label>
             <label class="af-field">
+              <span>Región</span>
+              <select id="invRegion"><option value="">Todas</option></select>
+            </label>
+            <label class="af-field">
               <span>Disponibilidad</span>
               <select id="invState">
                 <option value="">Todas</option>
@@ -6944,6 +6948,7 @@ async function renderAdmin() {
             <div class="af-actions">
               <button id="invClear" type="button">✕ Limpiar</button>
               <button id="invReload" type="button">↻ Actualizar</button>
+              <button id="invNewAccount" type="button" class="inv-new">＋ Cuenta</button>
             </div>
           </div>
           <p class="inv-rules">Cupos según el catálogo: juego de <b>PS4</b> (o PS5/PS4) = 5 ventas (PS4 Primaria 1 y 2, PS5 Primaria 1 y 2, Secundaria) · <b>solo PS5</b> = 3 (PS5 Primaria 1 y 2, Secundaria) · <b>Xbox</b> = 3 (Primaria 1 y 2, Segundo plano) · <b>Nintendo</b> = 1 (la cuenta completa, bundle). "Individual" o "Bundle" llenan la cuenta.</p>
@@ -8287,6 +8292,7 @@ function renderSalesReport(sales) {
 let salesView = "resumen";
 let invLoaded = false;
 let invRows = [];
+let invCuentas = [];   // cuentas registradas (tabla cuentas); null = falta la migración
 let invAccCache = null;
 function invAccounts() {
   if (!invAccCache) invAccCache = invBuildAccounts();
@@ -8317,6 +8323,7 @@ function invSlotLabel(k, family) {
   if (k === "ps4") return "PS4 · Primaria";
   if (k === "ps5") return "PS5 · Primaria";
   if (k === "pri") return "Primaria";
+  if (k === "full") return "Cuenta completa";
   if (k === "sec") return family === "Xbox" ? "Segundo plano" : "Secundaria";
   return k;
 }
@@ -8441,16 +8448,17 @@ function setupInventory() {
   const rerender = () => renderInventory();
   let t = null;
   document.getElementById("invQ").addEventListener("input", () => { clearTimeout(t); t = setTimeout(rerender, 200); });
-  ["invView", "invFam", "invState", "invFrom", "invTo", "invSort"].forEach(id =>
+  ["invView", "invFam", "invRegion", "invState", "invFrom", "invTo", "invSort"].forEach(id =>
     document.getElementById(id).addEventListener("change", rerender));
   document.getElementById("invClear").addEventListener("click", () => {
     document.getElementById("invQ").value = "";
-    ["invFam", "invState", "invFrom", "invTo"].forEach(id => { document.getElementById(id).value = ""; });
+    ["invFam", "invRegion", "invState", "invFrom", "invTo"].forEach(id => { document.getElementById(id).value = ""; });
     document.getElementById("invView").value = "cuenta";
     document.getElementById("invSort").value = "crc";
     renderInventory();
   });
   document.getElementById("invReload").addEventListener("click", () => loadInventory());
+  document.getElementById("invNewAccount").addEventListener("click", () => openCuentaModal(null));
 
   // Clic en un cupo: ocupado → editar la venta; libre → venderlo.
   const report = document.getElementById("invReport");
@@ -8464,6 +8472,10 @@ function setupInventory() {
     else invSellSlot(se.dataset.invSell, se.dataset.invSlot);
   };
   report.addEventListener("click", onSlot);
+  report.addEventListener("click", e => {
+    const b = e.target.closest("[data-inv-cuenta]");
+    if (b) openCuentaModal(invFindAccount(b.dataset.invCuenta));
+  });
   report.addEventListener("keydown", onSlot);
 
   // Clic en un juego (vista por juego) → ver sus cuentas.
@@ -8481,11 +8493,12 @@ async function loadInventory() {
   if (!box) return;
   box.innerHTML = `<p class="sr-loading">Cargando cuentas y catálogo…</p>`;
   try {
-    const [{ purchases }] = await Promise.all([
+    const [{ purchases, cuentas: cuentasResp }] = await Promise.all([
       apiPost("/api/purchases", { action: "accounts" }),
       invLoadPsIndex(),
     ]);
     invRows = purchases || [];
+    invCuentas = cuentasResp === undefined ? [] : cuentasResp;
     invAccCache = null;
     invLoaded = true;
     renderInventory();
@@ -8497,6 +8510,13 @@ async function loadInventory() {
 // Arma una ficha por cuenta (correo) con sus ventas, cupos y libres.
 function invBuildAccounts() {
   const map = new Map();
+  // Primero las cuentas registradas (aunque no tengan ventas)…
+  for (const c of invCuentas || []) {
+    const email = String(c.correo || "").trim();
+    if (!email) continue;
+    map.set(email.toLowerCase(), { email, sales: [], cuenta: c });
+  }
+  // …después las ventas, unidas por el correo de la cuenta.
   for (const p of invRows) {
     const email = String(p.account_email || "").trim();
     const key = email.toLowerCase() || `(sin correo) ${p.id}`;
@@ -8512,14 +8532,21 @@ function invBuildAccounts() {
       const g = String(s.game_name || "").trim();
       if (g) gameCount[g] = (gameCount[g] || 0) + 1;
     }
-    acc.family = Object.entries(famCount).sort((a, b) => b[1] - a[1])[0][0];
-    acc.game = Object.entries(gameCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    const c = acc.cuenta;
+    acc.family = c?.plataforma || Object.entries(famCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "PlayStation";
+    acc.game = (c?.juego || "").trim() || Object.entries(gameCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    acc.region = c?.region || "";
     acc.used = { ps4: [], ps5: [], pri: [], sec: [], full: [] };
     for (const s of acc.sales) acc.used[invSlotOf(s)].push(s);
     // Tipo de cuenta → cupos. En PlayStation lo dice el catálogo; si el juego
     // no aparece, una venta PS4 ya prueba que tiene versión PS4.
     acc.kind = null;
-    if (acc.family === "PlayStation") {
+    acc.manualKind = false;
+    if (acc.family === "PlayStation" && (c?.tipo === "cross" || c?.tipo === "ps5only")) {
+      acc.kind = c.tipo;        // elegido a mano al registrar la cuenta
+      acc.manualKind = true;
+      acc.unknown = false;
+    } else if (acc.family === "PlayStation") {
       acc.kind = invPsKind(acc.game) || (acc.used.ps4.length ? "cross" : null);
       acc.unknown = !acc.kind;
       if (!acc.kind) acc.kind = "cross"; // sin identificar: se muestran los 5 (marcado)
@@ -8537,9 +8564,10 @@ function invBuildAccounts() {
     }
     acc.freeTotal = free;
     acc.crcAll = acc.sales.reduce((t, s) => t + invAmount(s), 0);
-    acc.last = acc.sales.reduce((m, s) => (String(s.purchase_date) > m ? String(s.purchase_date) : m), "");
+    acc.last = acc.sales.reduce((m, s) => (String(s.purchase_date) > m ? String(s.purchase_date) : m), "")
+      || String(c?.created_at || "").slice(0, 10);
     acc.haystack = normalizeSearch([
-      acc.email, acc.game,
+      acc.email, acc.game, acc.region, c?.notas || "",
       ...acc.sales.map(s => [s.game_name, s.app_users?.full_name, s.app_users?.email,
         s.app_users?.customer_number ? fmtClientId(s.app_users.customer_number) : ""].join(" ")),
     ].join(" "));
@@ -8554,15 +8582,26 @@ function invFilterState() {
     view: document.getElementById("invView").value,
     fam: document.getElementById("invFam").value,
     state: document.getElementById("invState").value,
+    region: document.getElementById("invRegion").value,
     from: document.getElementById("invFrom").value,
     to: document.getElementById("invTo").value,
     sort: document.getElementById("invSort").value,
   };
 }
 
+function invFillRegions() {
+  const sel = document.getElementById("invRegion");
+  if (!sel) return;
+  const cur = sel.value;
+  const regions = [...new Set(invAccounts().map(a => a.region).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  sel.innerHTML = `<option value="">Todas</option>` + regions.map(r => `<option value="${escapeAttr(r)}">${escapeHtml(r)}</option>`).join("");
+  sel.value = regions.includes(cur) ? cur : "";
+}
+
 function renderInventory() {
   const box = document.getElementById("invReport");
   if (!box || !invLoaded) return;
+  invFillRegions();
   const f = invFilterState();
   const inRange = s => {
     const d = String(s.purchase_date || "");
@@ -8572,6 +8611,7 @@ function renderInventory() {
 
   let list = invAccounts().filter(a => {
     if (f.fam && a.family !== f.fam) return false;
+    if (f.region && (a.region || "").toLowerCase() !== f.region.toLowerCase()) return false;
     if (f.q && !a.haystack.includes(f.q)) return false;
     if (f.state === "libres" && !a.freeTotal) return false;
     if (f.state === "llenas" && a.freeTotal) return false;
@@ -8609,8 +8649,11 @@ function renderInventory() {
     <p class="inv-freebreak">Libres: ${["ps4", "ps5", "pri", "sec"].filter(k => totals.byType[k]).map(k =>
       `<span class="inv-chip">${INV_SLOT_SHORT[k]} · ${totals.byType[k]}</span>`).join(" ") || "ninguno"}</p>`;
 
+  const warn = invCuentas === null
+    ? `<p class="admin-cofre-warn inv-warn">Para registrar cuentas sin ventas (＋ Cuenta) falta crear la tabla: en Supabase → SQL Editor → New query, pegá <code>migrations/add_cuentas.sql</code> y dale Run.</p>`
+    : "";
   if (!list.length) {
-    box.innerHTML = kpis + `<div class="sr-empty">Ninguna cuenta coincide con esos filtros.</div>`;
+    box.innerHTML = warn + kpis + `<div class="sr-empty">Ninguna cuenta coincide con esos filtros.</div>`;
     return;
   }
 
@@ -8626,7 +8669,7 @@ function renderInventory() {
       if (a.last > g.last) g.last = a.last;
     }
     const rows = invSort([...games.values()], f.sort, g => g.name);
-    box.innerHTML = kpis + `
+    box.innerHTML = warn + kpis + `
       <div class="sr-tablewrap">
         <table class="sr-table inv-table">
           <thead><tr><th>Juego</th><th class="sr-num">Cuentas</th><th class="sr-num">Llenas</th><th class="sr-num">Ventas</th><th class="sr-num">Vendido</th><th>Libres</th></tr></thead>
@@ -8648,7 +8691,7 @@ function renderInventory() {
 
   const sorted = invSort(list, f.sort, a => a.game || a.email);
   const shown = sorted.slice(0, INV_LIMIT);
-  box.innerHTML = kpis +
+  box.innerHTML = warn + kpis +
     (sorted.length > shown.length ? `<p class="inv-more">Mostrando ${shown.length} de ${sorted.length} cuentas. Usá los filtros para acotar.</p>` : "") +
     `<div class="inv-list">${shown.map(a => invAccountCard(a, ranged ? inRange : null)).join("")}</div>`;
 }
@@ -8678,7 +8721,7 @@ function invSaleLine(s, dim) {
 
 function invAccountCard(a, inRange) {
   const slots = [];
-  const order = a.family === "PlayStation" ? ["ps4", "ps5", "pri", "sec"] : a.family === "Nintendo" ? [] : ["pri", "sec"];
+  const order = a.family === "PlayStation" ? ["ps4", "ps5", "pri", "sec"] : a.family === "Nintendo" ? ["full"] : ["pri", "sec"];
   for (const k of order) {
     const used = a.used[k] || [];
     const cap = a.cap[k] || 0;
@@ -8697,7 +8740,7 @@ function invAccountCard(a, inRange) {
       </div>`);
     }
   }
-  for (const s of a.used.full) {
+  for (const s of (a.family === "Nintendo" ? [] : a.used.full)) {
     slots.push(`<div class="inv-slot is-used" role="button" tabindex="0" data-inv-edit="${escapeAttr(s.id)}" data-inv-acc="${escapeAttr(a.email)}" title="Editar esta venta"><span class="inv-slot-name">Cuenta completa${s.modality ? ` · ${escapeHtml(String(s.modality))}` : ""}</span>${invSaleLine(s, inRange && !inRange(s))}</div>`);
   }
   return `
@@ -8706,12 +8749,14 @@ function invAccountCard(a, inRange) {
         <div>
           <h4>${escapeHtml(a.game || "(sin juego)")}</h4>
           <span class="inv-email copy-able" data-copy="${escapeAttr(a.email)}">${escapeHtml(a.email)}</span>
+          <button type="button" class="inv-acc-edit" data-inv-cuenta="${escapeAttr(a.email)}">${a.cuenta ? "✎ Editar cuenta" : "✎ Registrar cuenta"}</button>
         </div>
         <div class="inv-badges">
           <span class="inv-chip">${escapeHtml(a.family)}</span>
           ${a.family === "PlayStation" ? (a.unknown
             ? `<span class="inv-chip is-warn" title="El juego no aparece en el catálogo de PlayStation: se muestran los 5 cupos. Revisá el nombre del juego en la compra.">¿PS4 o PS5? · sin identificar</span>`
-            : `<span class="inv-chip">${a.ps5Only ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos"}</span>`) : ""}
+            : `<span class="inv-chip"${a.manualKind ? ` title="Elegido a mano en la cuenta"` : ""}>${a.ps5Only ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos"}${a.manualKind ? " ✋" : ""}</span>`) : ""}
+          ${a.region ? `<span class="inv-chip">${escapeHtml(a.region)}</span>` : ""}
           ${a.kind === "xbox" ? `<span class="inv-chip">3 cupos</span>` : ""}
           ${a.kind === "nintendo" ? `<span class="inv-chip">Venta única (bundle)</span>` : ""}
           <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
@@ -8724,9 +8769,12 @@ function invAccountCard(a, inRange) {
 
 
 // Ventas de una cuenta, completas (con contraseña), desde el servidor.
+async function invFetchAccount(email) {
+  const r = await apiPost("/api/purchases", { action: "by-account", account_email: email });
+  return { purchases: r.purchases || [], cuenta: r.cuenta || null };
+}
 async function invFetchAccountSales(email) {
-  const { purchases } = await apiPost("/api/purchases", { action: "by-account", account_email: email });
-  return purchases || [];
+  return (await invFetchAccount(email)).purchases;
 }
 
 async function invEditSale(id, email) {
@@ -8866,19 +8914,21 @@ async function pfApplyAccount(email, preferSlot) {
   pfRenderSlots();
   const req = ++pfAccountReq;
   try {
-    const sales = await invFetchAccountSales(acc.email);
+    const { purchases: sales, cuenta } = await invFetchAccount(acc.email);
     if (req !== pfAccountReq || pfAccount !== acc) return;
     const last = sales[sales.length - 1];
-    if (!last) return;
     const fill = (name, value) => {
       const el = form.querySelector(`[name="${name}"]`);
       if (el && !el.value.trim() && value) el.value = value;
     };
-    fill("account_password", last.account_password);
-    fill("game_name", last.game_name || acc.game);
-    fill("games", last.games);
+    // La cuenta registrada manda (contraseña y juego al día); si no, la última venta.
+    fill("account_password", cuenta?.password || last?.account_password);
+    fill("game_name", cuenta?.juego || last?.game_name || acc.game);
+    fill("games", last?.games);
     const note = document.getElementById("pfAccNote");
-    if (note) note.textContent = `Contraseña y juegos tomados de la última venta de esta cuenta (${last.purchase_date}). Revisalos antes de guardar.`;
+    if (note && (cuenta || last)) note.textContent = cuenta
+      ? "Contraseña y juego tomados de la cuenta registrada. Revisalos antes de guardar."
+      : `Contraseña y juegos tomados de la última venta de esta cuenta (${last.purchase_date}). Revisalos antes de guardar.`;
   } catch (err) {
     showToast(err.message);
   }
@@ -8967,6 +9017,142 @@ function pfSlotTaken(email, platform, modality) {
     return cap ? `Los cupos de ${lbl} de esta cuenta ya están ocupados.` : `Esta cuenta no tiene cupo de ${lbl} (${acc.kind === "ps5only" ? "el juego es solo PS5" : "no corresponde"}).`;
   }
   return "";
+}
+
+
+// ===== Registrar / editar una cuenta (tabla cuentas) =====
+// acc: cuenta del cuadro (con o sin registro) o null para una nueva.
+async function openCuentaModal(acc) {
+  let modal = document.getElementById("cuentaModal");
+  if (!modal) {
+    modal = document.createElement("dialog");
+    modal.id = "cuentaModal";
+    modal.className = "edit-modal admin-form";
+    document.body.appendChild(modal);
+  }
+  let c = acc?.cuenta || null;
+  let password = "";
+  if (acc) {
+    try {
+      const r = await invFetchAccount(acc.email);
+      if (r.cuenta) { c = r.cuenta; password = r.cuenta.password || ""; }
+      else password = r.purchases[r.purchases.length - 1]?.account_password || "";
+    } catch (err) { showToast(err.message); }
+  }
+  const v = {
+    plataforma: c?.plataforma || acc?.family || "PlayStation",
+    juego: c?.juego || acc?.game || "",
+    correo: c?.correo || acc?.email || "",
+    region: c?.region || "",
+    tipo: c?.tipo || "auto",
+    notas: c?.notas || "",
+  };
+  const regions = [...new Set(["USA", "Turkey", ...invAccounts().map(a => a.region).filter(Boolean)])];
+  const sales = acc?.sales?.length || 0;
+  modal.innerHTML = `
+    <h3>${c ? "Editar cuenta" : acc ? "Registrar cuenta" : "Nueva cuenta"}</h3>
+    <div class="row">
+      <label>Plataforma
+        <select name="plataforma">
+          ${["PlayStation", "Xbox", "Nintendo"].map(p => `<option value="${p}"${v.plataforma === p ? " selected" : ""}>${p}</option>`).join("")}
+        </select>
+      </label>
+      <label>Región
+        <input name="region" type="text" list="cuentaRegions" value="${escapeAttr(v.region)}" placeholder="USA, Turkey…" autocomplete="off">
+        <datalist id="cuentaRegions">${regions.map(r => `<option value="${escapeAttr(r)}">`).join("")}</datalist>
+      </label>
+    </div>
+    <label>Juego
+      <input name="juego" type="text" required value="${escapeAttr(v.juego)}" placeholder="Ej: Grand Theft Auto VI">
+    </label>
+    <label class="cuenta-tipo-field">Cupos (PlayStation)
+      <select name="tipo">
+        <option value="auto">Automático (según el catálogo)</option>
+        <option value="cross">PS4 y PS5 · 5 cupos</option>
+        <option value="ps5only">Solo PS5 · 3 cupos</option>
+      </select>
+      <small class="field-hint cuenta-tipo-hint"></small>
+    </label>
+    <label>Correo de la cuenta
+      <input name="correo" type="text" required value="${escapeAttr(v.correo)}" autocomplete="off">
+    </label>
+    ${sales && c ? `<p class="field-hint">Si cambiás el correo, sus ${sales} ${sales === 1 ? "venta pasa" : "ventas pasan"} al correo nuevo.</p>` : ""}
+    <label>Contraseña de la cuenta
+      <input name="password" type="text" value="${escapeAttr(password)}" autocomplete="off">
+    </label>
+    <label>Notas
+      <textarea name="notas" rows="2" placeholder="Opcional">${escapeHtml(v.notas)}</textarea>
+    </label>
+    <div class="edit-modal-actions">
+      <button id="cuentaSaveBtn" type="button">Guardar cuenta</button>
+      <button id="cuentaCancelBtn" type="button" class="admin-modal-cancel">Cancelar</button>
+      ${c ? `<button id="cuentaDeleteBtn" type="button" class="admin-modal-delete">🗑 Eliminar cuenta</button>` : ""}
+    </div>
+    <p id="cuentaStatus" class="form-status"></p>`;
+  const $ = n => modal.querySelector(`[name="${n}"]`);
+  $("tipo").value = v.tipo;
+  const tipoField = modal.querySelector(".cuenta-tipo-field");
+  const hint = modal.querySelector(".cuenta-tipo-hint");
+  const syncTipo = () => {
+    tipoField.style.display = $("plataforma").value === "PlayStation" ? "" : "none";
+    const k = invPsKind($("juego").value);
+    hint.textContent = $("tipo").value !== "auto" ? "Elegido a mano: manda sobre el catálogo."
+      : k === "ps5only" ? "El catálogo dice: solo PS5 (3 cupos)."
+      : k === "cross" ? "El catálogo dice: PS4 y PS5 (5 cupos)."
+      : "El juego no aparece en el catálogo: elegí a mano si es PS4 o solo PS5.";
+  };
+  ["plataforma", "tipo"].forEach(n => $(n).addEventListener("change", syncTipo));
+  $("juego").addEventListener("input", syncTipo);
+  syncTipo();
+  modal.showModal();
+  modal.querySelector("#cuentaCancelBtn").addEventListener("click", () => modal.close());
+  modal.addEventListener("click", e => { if (e.target === modal) modal.close(); });
+  const status = modal.querySelector("#cuentaStatus");
+  modal.querySelector("#cuentaSaveBtn").addEventListener("click", async () => {
+    if (!$("juego").value.trim() || !$("correo").value.trim()) {
+      status.textContent = "Poné el juego y el correo de la cuenta.";
+      status.className = "form-status error";
+      return;
+    }
+    status.textContent = "Guardando...";
+    status.className = "form-status";
+    try {
+      await apiPost("/api/purchases", {
+        action: "cuenta-save",
+        id: c?.id || null,
+        plataforma: $("plataforma").value,
+        juego: $("juego").value,
+        correo: $("correo").value,
+        password: $("password").value,
+        region: $("region").value,
+        tipo: $("plataforma").value === "PlayStation" ? $("tipo").value : "auto",
+        notas: $("notas").value,
+      });
+      showToast(c ? "Cuenta actualizada ✓" : "Cuenta registrada ✓");
+      modal.close();
+      invMarkStale();
+      loadInventory();
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = "form-status error";
+    }
+  });
+  modal.querySelector("#cuentaDeleteBtn")?.addEventListener("click", async () => {
+    const msg = sales
+      ? `¿Eliminar el registro de esta cuenta? Sus ${sales} ${sales === 1 ? "venta se queda" : "ventas se quedan"} igual.`
+      : "¿Eliminar esta cuenta?";
+    if (!confirm(msg)) return;
+    try {
+      await apiPost("/api/purchases", { action: "cuenta-delete", id: c.id });
+      showToast("Cuenta eliminada");
+      modal.close();
+      invMarkStale();
+      loadInventory();
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      status.className = "form-status error";
+    }
+  });
 }
 
 function showClientProfile(client, cardId = "clientProfileCard") {

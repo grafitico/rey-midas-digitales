@@ -32,6 +32,8 @@ export default async function handler(req, res) {
     if (body.action === "accounts") return await accounts(req, res);
     if (body.action === "by-account") return await byAccount(req, res, body);
     if (body.action === "cofre-adjust") return await cofreAdjust(req, res, body);
+    if (body.action === "cuenta-save") return await cuentaSave(req, res, body);
+    if (body.action === "cuenta-delete") return await cuentaDelete(req, res, body);
     if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
@@ -220,7 +222,14 @@ async function accounts(req, res) {
       throw err;
     }
   }
-  res.status(200).json({ purchases: rows });
+  // Cuentas registradas (sin contraseña). null = falta la migración add_cuentas.sql.
+  let cuentas = null;
+  try {
+    cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
+  } catch (err) {
+    if (!ajustesMissing(err)) throw err;
+  }
+  res.status(200).json({ purchases: rows, cuentas });
 }
 
 // Todas las ventas de UNA cuenta (correo de la cuenta vendida), completas y
@@ -236,7 +245,11 @@ async function byAccount(req, res, body) {
   const pattern = email.replace(/[\\%_]/g, m => "\\" + m);
   const rows = await sb(`purchases?account_email=ilike.${encodeURIComponent("*" + pattern + "*")}&select=*,app_users(email,full_name,customer_number)&order=purchase_date.asc&limit=50`);
   const exact = rows.filter(r => String(r.account_email || "").trim().toLowerCase() === email);
-  res.status(200).json({ purchases: exact.map(decryptPurchaseRow) });
+  const cuenta = await cuentaByEmail(email);
+  res.status(200).json({
+    purchases: exact.map(decryptPurchaseRow),
+    cuenta: cuenta ? { ...cuenta, password: decryptSecret(cuenta.password) } : null,
+  });
 }
 
 // ===== Ajustes manuales del Cofre de Oro (migrations/add_cofre_ajustes.sql) =====
@@ -290,6 +303,102 @@ async function cofreAdjustDelete(req, res, body) {
     await sb(`cofre_ajustes?id=eq.${id}`, { method: "DELETE" });
   } catch (err) {
     if (ajustesMissing(err)) throw missingTableError();
+    throw err;
+  }
+  res.status(200).json({ ok: true });
+}
+
+// ===== Cuentas registradas (migrations/add_cuentas.sql) =====
+const CUENTA_PLATAFORMAS = ["PlayStation", "Xbox", "Nintendo"];
+const CUENTA_TIPOS = ["auto", "cross", "ps5only"];
+
+function likeExact(email) {
+  return encodeURIComponent("*" + email.replace(/[\\%_]/g, m => "\\" + m) + "*");
+}
+
+// La cuenta registrada con ese correo (sin mayúsculas/espacios), o null.
+async function cuentaByEmail(email) {
+  let rows;
+  try {
+    rows = await sb(`cuentas?correo=ilike.${likeExact(email)}&select=*&limit=20`);
+  } catch (err) {
+    if (ajustesMissing(err)) return null;
+    throw err;
+  }
+  return rows.find(r => String(r.correo || "").trim().toLowerCase() === email) || null;
+}
+
+function cuentasMissingError() {
+  const e = new Error("Falta crear la tabla de cuentas: corré migrations/add_cuentas.sql en Supabase (SQL Editor → New query → Run).");
+  e.status = 500;
+  return e;
+}
+
+function cleanText(v, max) {
+  const t = String(v ?? "").trim();
+  return t ? t.slice(0, max) : null;
+}
+
+async function cuentaSave(req, res, body) {
+  await requireAdmin(req);
+  const id = body.id ? String(body.id) : "";
+  if (id && !/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Cuenta inválida" });
+  const plataforma = String(body.plataforma || "");
+  const juego = cleanText(body.juego, 200);
+  const correo = cleanText(body.correo, 200);
+  const tipo = String(body.tipo || "auto");
+  if (!CUENTA_PLATAFORMAS.includes(plataforma)) return res.status(400).json({ error: "Plataforma inválida" });
+  if (!juego) return res.status(400).json({ error: "Falta el juego" });
+  if (!correo) return res.status(400).json({ error: "Falta el correo de la cuenta" });
+  if (!CUENTA_TIPOS.includes(tipo)) return res.status(400).json({ error: "Tipo inválido" });
+  const row = {
+    plataforma, juego, correo, tipo,
+    region: cleanText(body.region, 40),
+    notas: cleanText(body.notas, 500),
+    updated_at: new Date().toISOString(),
+  };
+  const pwd = cleanText(body.password, 200);
+  // Al editar, contraseña vacía = no tocarla.
+  if (pwd) row.password = encryptSecret(pwd);
+  else if (!id) row.password = null;
+
+  try {
+    // El correo no puede repetirse (además del índice único, para dar un mensaje claro).
+    const otra = await cuentaByEmail(correo.toLowerCase());
+    if (otra && otra.id !== id) return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
+    if (id) {
+      const prev = await sb(`cuentas?id=eq.${id}&select=correo`);
+      if (!prev.length) return res.status(404).json({ error: "Esa cuenta ya no existe" });
+      await sb(`cuentas?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(row) });
+      // Si cambió el correo, las ventas de esa cuenta se mueven al correo nuevo.
+      const before = String(prev[0].correo || "").trim().toLowerCase();
+      if (before && before !== correo.toLowerCase()) {
+        const ventas = await sb(`purchases?account_email=ilike.${likeExact(before)}&select=id,account_email&limit=200`);
+        const ids = ventas.filter(v => String(v.account_email || "").trim().toLowerCase() === before).map(v => v.id);
+        if (ids.length) {
+          await sb(`purchases?id=in.(${ids.join(",")})`, { method: "PATCH", body: JSON.stringify({ account_email: correo }) });
+        }
+      }
+    } else {
+      await sb(`cuentas`, { method: "POST", body: JSON.stringify(row) });
+    }
+  } catch (err) {
+    if (ajustesMissing(err)) throw cuentasMissingError();
+    if (err?.data?.code === "23505") return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
+    throw err;
+  }
+  res.status(200).json({ ok: true });
+}
+
+// Borra la cuenta registrada. Sus ventas NO se tocan (siguen en purchases).
+async function cuentaDelete(req, res, body) {
+  await requireAdmin(req);
+  const id = String(body.id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Cuenta inválida" });
+  try {
+    await sb(`cuentas?id=eq.${id}`, { method: "DELETE" });
+  } catch (err) {
+    if (ajustesMissing(err)) throw cuentasMissingError();
     throw err;
   }
   res.status(200).json({ ok: true });
