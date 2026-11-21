@@ -4,7 +4,7 @@
 import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
-import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail } from "./_correo.js";
+import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
 // de PSN/Xbox vendida: viajan cifradas en Supabase (ver encryptSecret en
@@ -480,17 +480,31 @@ async function cuentaNueva(req, res, body) {
   if (await cuentaByEmail(correo)) return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
   if (crearCorreo && mailboxExists(local)) return res.status(409).json({ error: "Ese correo ya existe en el hosting. Elegí otro nombre." });
 
+  if (crearCorreo && !canCreateMail()) {
+    return res.status(503).json({ error: "Crear correos automáticamente no está activado todavía. Crealo a mano en cPanel → Cuentas de correo y registrá la cuenta sin marcar \"Crear el correo\"." });
+  }
+  // Primero se guarda la cuenta con su contraseña y DESPUÉS se crea el
+  // correo: si algo corta el pedido a la mitad, nunca queda un buzón cuya
+  // contraseña no esté guardada. Si cPanel falla, se borra la cuenta recién
+  // creada para no dejar un registro sin correo.
   const password = makePassword();
-  if (crearCorreo) await createMailbox(local, password);
+  let creada;
   try {
-    await sb(`cuentas`, { method: "POST", body: JSON.stringify({
+    creada = await sb(`cuentas`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({
       plataforma, juego, correo, tipo, password: encryptSecret(password),
       region: cleanText(body.region, 40), notas: cleanText(body.notas, 500), updated_at: new Date().toISOString(),
     }) });
   } catch (err) {
-    const e = ajustesMissing(err) ? cuentasMissingError() : err;
-    if (crearCorreo) e.message = `El correo ${correo} se creó, pero la cuenta no se pudo registrar: ${e.message}`;
-    throw e;
+    throw ajustesMissing(err) ? cuentasMissingError() : err;
+  }
+  if (crearCorreo) {
+    try {
+      await createMailbox(local, password);
+    } catch (err) {
+      const id = creada?.[0]?.id;
+      if (id) { try { await sb(`cuentas?id=eq.${id}`, { method: "DELETE" }); } catch {} }
+      throw err;
+    }
   }
   console.log(`[cuentas] cuenta nueva ${correo} (${staff.assistant ? "asistente " + staff.tid : "admin"})${crearCorreo ? " + correo en cPanel" : ""}`);
   res.status(200).json({ ok: true, correo, correo_creado: crearCorreo });
@@ -510,7 +524,7 @@ async function correoLeer(req, res, body) {
 // Diagnóstico sin cambios: ¿cPanel responde y se ven los buzones?
 async function correoEstado(req, res) {
   await requireStaff(req);
-  res.status(200).json(await mailStatus());
+  res.status(200).json(mailStatus());
 }
 
 // Siguiente correo libre con el estilo de la tienda: <juego+edición><número>

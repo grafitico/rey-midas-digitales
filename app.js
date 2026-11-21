@@ -9268,6 +9268,7 @@ async function openCuentaModal(acc) {
     if (!crear) return;
     const mail = $("correo").value.trim().toLowerCase();
     const otroDominio = mail.includes("@") && !/@reymidascr\.com$/.test(mail);
+    if (crear.dataset.off === "1") { crear.checked = false; crear.disabled = true; pwdLabel.style.display = ""; return; }
     if (otroDominio) crear.checked = false;
     crear.disabled = otroDominio;
     crear.closest("label").title = otroDominio ? "Solo se crean correos @reymidascr.com" : "";
@@ -9275,6 +9276,18 @@ async function openCuentaModal(acc) {
   };
   crear?.addEventListener("change", syncCrear);
   $("correo").addEventListener("input", () => { correoTocado = true; syncCrear(); });
+  // Si crear correos no está activado en el servidor (falta el token de
+  // cPanel), la casilla se apaga y se explica cómo seguir.
+  if (crear) {
+    apiPost("/api/purchases", { action: "correo-estado" }).then(st => {
+      if (st.crear_correos) return;
+      crear.dataset.off = "1";
+      crear.checked = false;
+      crear.disabled = true;
+      crear.closest("label").insertAdjacentHTML("afterend", `<p class="field-hint">Crear correos automáticamente todavía no está activado: crealo en cPanel → Cuentas de correo y registrá la cuenta acá con su contraseña.</p>`);
+      syncCrear();
+    }).catch(() => {});
+  }
   // Sugerir el siguiente correo libre a partir del juego (solo cuentas nuevas).
   let correoTocado = false;
   const hintCorreo = modal.querySelector(".cuenta-correo-hint");

@@ -68,9 +68,13 @@
   lo demás es solo de admin y `requireAuth` rechaza tokens con scope.
 - Antes de cargar una venta o crear una cuenta para el dueño, mostrale el
   resumen y esperá su "dale".
-- `cuenta-nueva` crea el buzón <usuario>@reymidascr.com con `uapi` de cPanel
-  (una llamada a la vez, 12 s) y registra la cuenta con la contraseña
-  generada. `correo-leer` lee el Maildir (~/mail/reymidascr.com/<usuario>) y
+- `cuenta-nueva` registra la cuenta con una contraseña generada y DESPUÉS
+  crea el buzón <usuario>@reymidascr.com por la API web de cPanel (UAPI por
+  HTTPS al 2083, variables CPANEL_USER y CPANEL_TOKEN de la app Node.js); si
+  cPanel falla, borra la cuenta. NUNCA lanzar `uapi` ni otros comandos como
+  proceso hijo desde la API: el 21/11/2026 crear un buzón así hizo que
+  Banahosting cortara la app (tope de recursos) y quedó un buzón sin su
+  contraseña guardada. `correo-leer` lee el Maildir (~/mail/reymidascr.com/<usuario>) y
   devuelve solo correos de PlayStation de 7 días (código y enlace).
 - La cuenta PSN y la compra en playstation.com las hace el dueño: Sony lo
   bloquea a programas y sus términos lo prohíben.

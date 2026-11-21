@@ -1,9 +1,12 @@
 // Correos @reymidascr.com en Banahosting (cPanel), desde la API de la tienda.
 //
-// - Crear un buzón: la app Node.js corre dentro de la misma cuenta de cPanel,
-//   así que usa la herramienta oficial `uapi` (Email::add_pop) sin pedir
-//   ninguna clave extra. Una llamada a la vez y cortada a los 12 s: la cuenta
-//   tiene tope de procesos (ver CLAUDE.md, caída del 14/11/2026).
+// - Crear un buzón: por la API web de cPanel (UAPI por HTTPS, puerto 2083)
+//   con un token de API de cPanel guardado en las variables de entorno de la
+//   app (CPANEL_USER, CPANEL_TOKEN; CPANEL_HOST opcional, por defecto
+//   127.0.0.1). NO se lanza `uapi` como proceso hijo: el 21/11/2026 crear un
+//   buzón así hizo que Banahosting cortara la app por el tope de recursos de
+//   la cuenta (mismo límite de la caída del 14/11, ver CLAUDE.md). Sin token,
+//   crear correos queda desactivado y el resto sigue funcionando.
 // - Leer el correo de Sony: cPanel guarda cada buzón en formato Maildir en
 //   ~/mail/<dominio>/<usuario>/{new,cur}. Se leen solo los archivos más
 //   recientes, sin IMAP ni dependencias, y solo los mensajes de PlayStation.
@@ -11,12 +14,17 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import https from "https";
 import crypto from "crypto";
-import { execFile } from "child_process";
 
 export const MAIL_DOMAIN = "reymidascr.com";
-const UAPI_BIN = process.env.UAPI_BIN || "uapi";
 const HOME = process.env.MAIL_HOME || os.homedir() || path.join(process.cwd(), "..");
+const CPANEL_HOST = process.env.CPANEL_HOST || "127.0.0.1";
+const CPANEL_PORT = Number(process.env.CPANEL_PORT || 2083);
+
+export function canCreateMail() {
+  return !!(process.env.CPANEL_USER && process.env.CPANEL_TOKEN);
+}
 
 // Usuario del correo (lo que va antes de @): minúsculas, números, punto, guion.
 export function cleanLocal(v) {
@@ -36,23 +44,38 @@ export function makePassword() {
   return chars.join("");
 }
 
+// Una llamada a cPanel a la vez, cortada a los 12 s (regla de CLAUDE.md).
 let busy = false;
-function uapi(args) {
+function cpanelApi(module, fn, params) {
+  if (!canCreateMail()) {
+    return Promise.reject(Object.assign(new Error("Crear correos automáticamente no está activado (falta el token de cPanel). Crealo a mano en cPanel → Cuentas de correo y registrá la cuenta sin marcar \"Crear el correo\"."), { status: 503 }));
+  }
   if (busy) return Promise.reject(Object.assign(new Error("Hay otro correo creándose: probá de nuevo en unos segundos."), { status: 429 }));
   busy = true;
+  const qs = new URLSearchParams(params).toString();
+  const local = /^(127\.0\.0\.1|localhost)$/.test(CPANEL_HOST);
   return new Promise((resolve, reject) => {
-    execFile(UAPI_BIN, ["--output=json", ...args], { timeout: 12000, maxBuffer: 1 << 20, killSignal: "SIGKILL" }, (err, stdout) => {
-      busy = false;
-      if (err && !stdout) {
-        const e = new Error(err.code === "ENOENT"
-          ? "Este servidor no tiene la herramienta de cPanel (uapi): el correo hay que crearlo a mano."
-          : err.killed ? "cPanel no respondió a tiempo. Probá de nuevo." : "No se pudo hablar con cPanel.");
-        e.status = 502;
-        return reject(e);
-      }
-      try { resolve(JSON.parse(stdout).result || {}); }
-      catch { reject(Object.assign(new Error("cPanel respondió algo inesperado."), { status: 502 })); }
+    const done = (fn2) => (x) => { busy = false; fn2(x); };
+    const req = https.request({
+      host: CPANEL_HOST, port: CPANEL_PORT, method: "GET", path: `/execute/${module}/${fn}?${qs}`,
+      headers: { Authorization: `cpanel ${process.env.CPANEL_USER}:${process.env.CPANEL_TOKEN}` },
+      // En 127.0.0.1 el certificado es del nombre del servidor, no de la IP:
+      // la conexión no sale de la máquina, así que no se valida el nombre.
+      rejectUnauthorized: !local,
+      timeout: 12000,
+    }, res => {
+      let body = "";
+      res.setEncoding("utf8");
+      res.on("data", c => { if (body.length < 1 << 20) body += c; });
+      res.on("end", done(() => {
+        if (res.statusCode === 401 || res.statusCode === 403) return reject(Object.assign(new Error("cPanel rechazó el token: revisá CPANEL_USER y CPANEL_TOKEN en la app Node.js."), { status: 502 }));
+        try { const j = JSON.parse(body); resolve({ status: j.status, errors: j.errors, data: j.data }); }
+        catch { reject(Object.assign(new Error("cPanel respondió algo inesperado."), { status: 502 })); }
+      }));
     });
+    req.on("timeout", () => req.destroy(Object.assign(new Error("cPanel no respondió a tiempo. Probá de nuevo."), { status: 504 })));
+    req.on("error", done(err => reject(err.status ? err : Object.assign(new Error("No se pudo conectar con cPanel."), { status: 502 }))));
+    req.end();
   });
 }
 
@@ -68,22 +91,18 @@ export function mailboxExists(local) {
 }
 
 export async function createMailbox(local, password) {
-  const r = await uapi(["Email", "add_pop", `email=${local}`, `password=${password}`, `domain=${MAIL_DOMAIN}`, "quota=1024"]);
+  const r = await cpanelApi("Email", "add_pop", { email: local, password, domain: MAIL_DOMAIN, quota: "1024" });
   if (r.status !== 1) throw cpanelError(r, "cPanel no pudo crear el correo.");
   return `${local}@${MAIL_DOMAIN}`;
 }
 
-// Diagnóstico sin cambiar nada: ¿funciona uapi y dónde están los buzones?
-export async function mailStatus() {
-  let uapiOk = false, cuentas = null, error = "";
-  try {
-    const r = await uapi(["Email", "count_pops"]);
-    uapiOk = r.status === 1;
-    const n = Number(typeof r.data === "object" && r.data ? (r.data.count ?? r.data.total) : r.data);
-    cuentas = Number.isFinite(n) ? n : null;
-    if (!uapiOk) error = (r.errors || []).join(" ");
-  } catch (e) { error = e.message; }
-  return { uapi: uapiOk, buzones: cuentas, maildir: fs.existsSync(path.join(HOME, "mail", MAIL_DOMAIN)), error };
+// Diagnóstico sin cambiar nada y sin llamar a cPanel: ¿está activado crear
+// correos y se ven los buzones en el disco?
+export function mailStatus() {
+  const dir = path.join(HOME, "mail", MAIL_DOMAIN);
+  let buzones = null;
+  try { buzones = fs.readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith(".")).length; } catch {}
+  return { crear_correos: canCreateMail(), buzones, maildir: fs.existsSync(dir) };
 }
 
 // ---------- Leer los últimos correos de PlayStation de un buzón ----------
