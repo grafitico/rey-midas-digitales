@@ -7082,6 +7082,8 @@ async function renderAdmin() {
                 <li>Buscar un cliente por su código RM (solo ve el nombre)</li>
                 <li>Cargar ventas</li>
                 <li>Registrar y editar cuentas</li>
+                <li>Crear correos @reymidascr.com para cuentas nuevas</li>
+                <li>Leer los correos de PlayStation de esas cuentas (códigos de verificación)</li>
               </ul>
             </div>
             <div class="asis-box no">
@@ -9201,8 +9203,16 @@ async function openCuentaModal(acc) {
       <small class="field-hint cuenta-tipo-hint"></small>
     </label>
     <label>Correo de la cuenta
-      <input name="correo" type="text" required value="${escapeAttr(v.correo)}" autocomplete="off">
+      <input name="correo" type="text" required value="${escapeAttr(v.correo)}" autocomplete="off" placeholder="fc26-08@reymidascr.com">
     </label>
+    ${!c && !acc ? `<label class="checkbox-label cuenta-crear-correo">
+      <input name="crear_correo" type="checkbox" checked>
+      Crear el correo en Banahosting y generar la contraseña (la misma para PlayStation)
+    </label>` : ""}
+    ${c && /@reymidascr\.com$/i.test(v.correo) ? `<div class="cuenta-mail">
+      <button type="button" class="pc-btn" id="cuentaMailBtn">📩 Correos de PlayStation</button>
+      <div id="cuentaMailBox" class="cuenta-mail-box" hidden></div>
+    </div>` : ""}
     ${sales && c ? `<p class="field-hint">Si cambiás el correo, sus ${sales} ${sales === 1 ? "venta pasa" : "ventas pasan"} al correo nuevo.</p>` : ""}
     <label>Contraseña de la cuenta
       <input name="password" type="text" value="${escapeAttr(password)}" autocomplete="off">
@@ -9229,6 +9239,28 @@ async function openCuentaModal(acc) {
       : "El juego no aparece en el catálogo: elegí a mano si es PS4 o solo PS5.";
   };
   ["plataforma", "tipo"].forEach(n => $(n).addEventListener("change", syncTipo));
+  const crear = $("crear_correo");
+  const pwdLabel = $("password").closest("label");
+  const syncCrear = () => { if (crear) pwdLabel.style.display = crear.checked ? "none" : ""; };
+  crear?.addEventListener("change", syncCrear);
+  syncCrear();
+  modal.querySelector("#cuentaMailBtn")?.addEventListener("click", async () => {
+    const box = modal.querySelector("#cuentaMailBox");
+    box.hidden = false;
+    box.innerHTML = "Buscando correos de PlayStation…";
+    try {
+      const r = await apiPost("/api/purchases", { action: "correo-leer", correo: v.correo });
+      box.innerHTML = r.mensajes.length ? r.mensajes.map(m => `
+        <div class="cuenta-mail-msg">
+          <strong>${escapeHtml(m.asunto || "(sin asunto)")}</strong>
+          <span>${escapeHtml(new Date(m.fecha).toLocaleString("es-CR"))}</span>
+          ${m.codigos.map(cd => `<div class="pc-value-row"><code class="pc-value">${escapeHtml(cd)}</code><button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(cd)}">${COPY_ICON}<span>Copiar</span></button></div>`).join("")}
+          ${m.enlaces.map(l => `<a href="${escapeAttr(l)}" target="_blank" rel="noopener">Abrir enlace de verificación</a>`).join("")}
+        </div>`).join("") : "No llegó ningún correo de PlayStation en los últimos 7 días.";
+    } catch (err) {
+      box.textContent = err.message;
+    }
+  });
   $("juego").addEventListener("input", syncTipo);
   syncTipo();
   modal.showModal();
@@ -9243,6 +9275,31 @@ async function openCuentaModal(acc) {
     }
     status.textContent = "Guardando...";
     status.className = "form-status";
+    if (crear?.checked) {
+      status.textContent = "Creando el correo en Banahosting…";
+      try {
+        const r = await apiPost("/api/purchases", {
+          action: "cuenta-nueva",
+          correo: $("correo").value.trim(),
+          plataforma: $("plataforma").value,
+          juego: $("juego").value,
+          region: $("region").value,
+          tipo: $("plataforma").value === "PlayStation" ? $("tipo").value : "auto",
+          notas: $("notas").value,
+        });
+        showToast(`Correo ${r.correo} creado ✓`);
+        modal.close();
+        invMarkStale();
+        await loadInventory();
+        // Se abre la cuenta para ver la contraseña generada y crear la cuenta PSN.
+        const nueva = invFindAccount(r.correo);
+        if (nueva) openCuentaModal(nueva);
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        status.className = "form-status error";
+      }
+      return;
+    }
     try {
       await apiPost("/api/purchases", {
         action: "cuenta-save",

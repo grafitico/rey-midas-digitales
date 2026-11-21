@@ -4,6 +4,7 @@
 import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
+import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
 // de PSN/Xbox vendida: viajan cifradas en Supabase (ver encryptSecret en
@@ -36,6 +37,9 @@ export default async function handler(req, res) {
     if (body.action === "cuenta-save") return await cuentaSave(req, res, body);
     if (body.action === "cuenta-delete") return await cuentaDelete(req, res, body);
     if (body.action === "client-lookup") return await clientLookup(req, res, body);
+    if (body.action === "cuenta-nueva") return await cuentaNueva(req, res, body);
+    if (body.action === "correo-leer") return await correoLeer(req, res, body);
+    if (body.action === "correo-estado") return await correoEstado(req, res);
     if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
@@ -451,4 +455,59 @@ async function clientLookup(req, res, body) {
   if (!users.length) return res.status(404).json({ error: `No hay cliente con el código RM-${String(n).padStart(4, "0")}.` });
   const u = users[0];
   res.status(200).json({ client: { customer_number: u.customer_number, full_name: u.full_name || "", console: u.console || "" } });
+}
+
+// ===== Cuenta nueva con correo en Banahosting (admin o asistente) =====
+// Crea el buzón <usuario>@reymidascr.com en cPanel, genera una contraseña
+// (la misma para el correo y para PlayStation) y registra la cuenta en el
+// cuadro. La contraseña NO vuelve en la respuesta: se ve en el panel
+// (✎ Editar cuenta) o la completa el servidor al cargar ventas.
+async function cuentaNueva(req, res, body) {
+  const staff = await requireStaff(req);
+  const local = cleanLocal(body.correo);
+  if (!local) return res.status(400).json({ error: `Correo inválido: usá solo letras, números, punto o guion (ej. fc26-08), sin @${MAIL_DOMAIN}.` });
+  const correo = `${local}@${MAIL_DOMAIN}`;
+  const plataforma = String(body.plataforma || "PlayStation");
+  const juego = cleanText(body.juego, 200);
+  const tipo = String(body.tipo || "auto");
+  if (!CUENTA_PLATAFORMAS.includes(plataforma)) return res.status(400).json({ error: "Plataforma inválida" });
+  if (!juego) return res.status(400).json({ error: "Falta el juego" });
+  if (!CUENTA_TIPOS.includes(tipo)) return res.status(400).json({ error: "Tipo inválido" });
+  const crearCorreo = body.crear_correo !== false;
+
+  // Nada a medias: primero todo lo que puede fallar sin efectos.
+  if (await cuentaByEmail(correo)) return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
+  if (crearCorreo && mailboxExists(local)) return res.status(409).json({ error: "Ese correo ya existe en el hosting. Elegí otro nombre." });
+
+  const password = makePassword();
+  if (crearCorreo) await createMailbox(local, password);
+  try {
+    await sb(`cuentas`, { method: "POST", body: JSON.stringify({
+      plataforma, juego, correo, tipo, password: encryptSecret(password),
+      region: cleanText(body.region, 40), notas: cleanText(body.notas, 500), updated_at: new Date().toISOString(),
+    }) });
+  } catch (err) {
+    const e = ajustesMissing(err) ? cuentasMissingError() : err;
+    if (crearCorreo) e.message = `El correo ${correo} se creó, pero la cuenta no se pudo registrar: ${e.message}`;
+    throw e;
+  }
+  console.log(`[cuentas] cuenta nueva ${correo} (${staff.assistant ? "asistente " + staff.tid : "admin"})${crearCorreo ? " + correo en cPanel" : ""}`);
+  res.status(200).json({ ok: true, correo, correo_creado: crearCorreo });
+}
+
+// Últimos correos de PlayStation de un buzón @reymidascr.com: código o enlace
+// de verificación. Solo mensajes de Sony de los últimos 7 días.
+async function correoLeer(req, res, body) {
+  await requireStaff(req);
+  const local = cleanLocal(body.correo);
+  if (!local) return res.status(400).json({ error: `Solo se pueden leer correos @${MAIL_DOMAIN}.` });
+  const r = readSonyMail(local);
+  if (!r.exists) return res.status(404).json({ error: `No encontré el buzón ${local}@${MAIL_DOMAIN} en el hosting.` });
+  res.status(200).json({ correo: `${local}@${MAIL_DOMAIN}`, mensajes: r.messages });
+}
+
+// Diagnóstico sin cambios: ¿cPanel responde y se ven los buzones?
+async function correoEstado(req, res) {
+  await requireStaff(req);
+  res.status(200).json(await mailStatus());
 }
