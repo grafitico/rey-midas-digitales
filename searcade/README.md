@@ -1,6 +1,6 @@
 # SEARCADE — searcade.reymidascr.com
 
-Tienda estática (HTML/CSS/JS, sin compilación) de la marca SEARCADE de Grafitico.
+Tienda estática (HTML/CSS/JS, sin compilación) de la marca SEARCADE de Grafitico: diseños en DTF full color y semitono, y camisetas personalizadas.
 Se publica sola en Banahosting con `.github/workflows/deploy-searcade.yml`
 cuando cambia algo en esta carpeta (en `main`).
 
