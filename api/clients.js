@@ -1,7 +1,7 @@
 // Gestión de clientes (solo admins).
 // POST /api/clients con { action: "create" | "find", ... }
 
-import { sb, hashPassword, requireAdmin, handleError, readJson, checkConfig } from "./_lib.js";
+import { sb, hashPassword, requireAdmin, handleError, readJson, checkConfig, makeAssistantToken, assistantExpiry } from "./_lib.js";
 
 // Columnas seguras del cliente que exponemos al panel (nunca password_hash).
 // phone y console las agrega migrations/add_client_fields.sql.
@@ -32,6 +32,9 @@ export default async function handler(req, res) {
     if (body.action === "list") return await list(req, res);
     if (body.action === "update") return await update(req, res, body);
     if (body.action === "reset-password") return await resetPassword(req, res, body);
+    if (body.action === "asistente-crear") return await asistenteCrear(req, res, body);
+    if (body.action === "asistente-lista") return await asistenteLista(req, res);
+    if (body.action === "asistente-revocar") return await asistenteRevocar(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -110,5 +113,55 @@ async function resetPassword(req, res, body) {
     method: "PATCH",
     body: JSON.stringify({ password_hash: hashPassword(password) }),
   });
+  res.status(200).json({ ok: true });
+}
+
+// ===== Accesos del asistente (migrations/add_asistente.sql) =====
+function asistenteTablaFalta(err) {
+  return ["PGRST205", "42P01"].includes(err?.data?.code) || /schema cache|does not exist/i.test(err?.message || "");
+}
+function asistenteMigracion() {
+  const e = new Error("Falta crear la tabla de accesos: corré migrations/add_asistente.sql en Supabase (SQL Editor → New query → Run).");
+  e.status = 500;
+  return e;
+}
+
+// Crea un acceso y devuelve el token UNA sola vez (no se guarda en ningún lado).
+async function asistenteCrear(req, res, body) {
+  const nota = String(body.nota || "").trim().slice(0, 120) || "Asistente Claude";
+  let rows;
+  try {
+    rows = await sb(`asistente_accesos`, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ nota, expires_at: assistantExpiry() }),
+    });
+  } catch (err) {
+    if (asistenteTablaFalta(err)) throw asistenteMigracion();
+    throw err;
+  }
+  const acc = rows[0];
+  res.status(200).json({ token: makeAssistantToken(acc.id), acceso: acc });
+}
+
+async function asistenteLista(req, res) {
+  try {
+    const accesos = await sb(`asistente_accesos?select=id,nota,created_at,expires_at,revoked_at&order=created_at.desc&limit=50`);
+    res.status(200).json({ accesos });
+  } catch (err) {
+    if (asistenteTablaFalta(err)) return res.status(200).json({ accesos: null });
+    throw err;
+  }
+}
+
+async function asistenteRevocar(req, res, body) {
+  const id = String(body.id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Acceso inválido" });
+  try {
+    await sb(`asistente_accesos?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ revoked_at: new Date().toISOString() }) });
+  } catch (err) {
+    if (asistenteTablaFalta(err)) throw asistenteMigracion();
+    throw err;
+  }
   res.status(200).json({ ok: true });
 }

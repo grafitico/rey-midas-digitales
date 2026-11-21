@@ -6801,6 +6801,7 @@ async function renderAdmin() {
         <button type="button" class="admin-tab" data-tab="ofertas" role="tab" aria-selected="false">⭐ Ofertas VIP</button>
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
         <button type="button" class="admin-tab" data-tab="ocultos" role="tab" aria-selected="false">🚫 Ocultos</button>
+        <button type="button" class="admin-tab" data-tab="asistente" role="tab" aria-selected="false">🤖 Asistente</button>
       </nav>
 
       <div class="admin-panel is-active" data-panel="clientes" role="tabpanel">
@@ -7066,6 +7067,40 @@ async function renderAdmin() {
             </div>
           </div>
           <div id="salesReport" class="sales-body">Elegí un rango para ver las ventas.</div>
+        </div>
+      </div>
+
+      <div class="admin-panel" data-panel="asistente" role="tabpanel" hidden>
+        <div class="asis">
+          <h2>Acceso del asistente</h2>
+          <p class="asis-lead">Un acceso con permisos limitados para que Claude cargue ventas por vos cuando se lo pidas.</p>
+          <div class="asis-cols">
+            <div class="asis-box ok">
+              <h3>Puede</h3>
+              <ul>
+                <li>Ver las cuentas y sus cupos (sin contraseñas)</li>
+                <li>Buscar un cliente por su código RM (solo ve el nombre)</li>
+                <li>Cargar ventas</li>
+                <li>Registrar y editar cuentas</li>
+              </ul>
+            </div>
+            <div class="asis-box no">
+              <h3>No puede</h3>
+              <ul>
+                <li>Borrar ni editar ventas</li>
+                <li>Ver la lista de clientes, sus correos o teléfonos</li>
+                <li>Leer contraseñas o códigos</li>
+                <li>Entrar al panel ni a la cuenta de nadie</li>
+              </ul>
+            </div>
+          </div>
+          <form id="asisForm" class="asis-form">
+            <label class="af-field"><span>Nota (para reconocerlo)</span><input id="asisNota" type="text" maxlength="120" value="Asistente Claude"></label>
+            <button type="submit" class="asis-create">Crear acceso (90 días)</button>
+          </form>
+          <div id="asisToken" class="asis-token" hidden></div>
+          <h3 class="asis-h3">Accesos</h3>
+          <div id="asisList" class="asis-list">Cargando…</div>
         </div>
       </div>
 
@@ -8157,6 +8192,7 @@ function setupAdminTabs() {
       // La lista de ocultos se arma al abrir la pestaña: depende de que el
       // catálogo ya haya terminado de cargar.
       if (target === "ocultos") renderOcultos();
+      if (target === "asistente") loadAsistente();
     });
   });
 }
@@ -9244,6 +9280,68 @@ async function openCuentaModal(acc) {
       status.className = "form-status error";
     }
   });
+}
+
+// ===== Pestaña Asistente: crear y revocar accesos limitados =====
+let asisSetupDone = false;
+async function loadAsistente() {
+  const list = document.getElementById("asisList");
+  if (!list) return;
+  if (!asisSetupDone) {
+    asisSetupDone = true;
+    document.getElementById("asisForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const btn = e.target.querySelector("button");
+      btn.disabled = true;
+      try {
+        const { token } = await apiPost("/api/clients", { action: "asistente-crear", nota: document.getElementById("asisNota").value });
+        const box = document.getElementById("asisToken");
+        box.hidden = false;
+        box.innerHTML = `
+          <p><strong>Acceso creado.</strong> Copialo ahora: no se vuelve a mostrar.</p>
+          <div class="pc-value-row">
+            <code class="pc-value" id="asisTokenValue">${escapeHtml(token)}</code>
+            <button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(token)}">${COPY_ICON}<span>Copiar</span></button>
+          </div>
+          <p class="asis-hint">Pegalo en el formulario seguro que te muestra Claude (no en el chat). Si lo perdés, revocá este y creá otro.</p>`;
+        loadAsistente();
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    list.addEventListener("click", async e => {
+      const b = e.target.closest("[data-asis-revoke]");
+      if (!b) return;
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "¿Seguro? Tocá de nuevo"; return; }
+      try {
+        await apiPost("/api/clients", { action: "asistente-revocar", id: b.dataset.asisRevoke });
+        showToast("Acceso revocado");
+        loadAsistente();
+      } catch (err) { showToast(err.message); }
+    });
+  }
+  try {
+    const { accesos } = await apiPost("/api/clients", { action: "asistente-lista" });
+    if (accesos === null) {
+      list.innerHTML = `<p class="admin-cofre-warn">Falta crear la tabla de accesos: en Supabase → SQL Editor → New query, pegá <code>migrations/add_asistente.sql</code> y dale Run.</p>`;
+      return;
+    }
+    if (!accesos.length) { list.innerHTML = `<p class="empty-state-small">Todavía no creaste ningún acceso.</p>`; return; }
+    const f = d => d ? new Date(d).toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" }) : "—";
+    list.innerHTML = accesos.map(a => {
+      const vencido = a.expires_at && new Date(a.expires_at) < new Date();
+      const estado = a.revoked_at ? ["Revocado", "is-off"] : vencido ? ["Vencido", "is-off"] : ["Activo", "is-on"];
+      return `<div class="asis-row">
+        <div><strong>${escapeHtml(a.nota || "Asistente")}</strong><span>Creado ${escapeHtml(f(a.created_at))} · vence ${escapeHtml(f(a.expires_at))}${a.revoked_at ? " · revocado " + escapeHtml(f(a.revoked_at)) : ""}</span></div>
+        <span class="asis-state ${estado[1]}">${estado[0]}</span>
+        ${!a.revoked_at && !vencido ? `<button type="button" class="admin-modal-delete" data-asis-revoke="${escapeAttr(a.id)}">Revocar</button>` : ""}
+      </div>`;
+    }).join("");
+  } catch (err) {
+    list.innerHTML = `<div class="status error">${escapeHtml(err.message)}</div>`;
+  }
 }
 
 function showClientProfile(client, cardId = "clientProfileCard") {

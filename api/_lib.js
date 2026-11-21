@@ -201,7 +201,9 @@ export function clearSessionCookie(res) {
 export async function requireAuth(req) {
   const token = getSessionToken(req);
   const payload = verifyToken(token);
-  if (!payload) {
+  // Los accesos del asistente (scope) NO son sesiones de usuario: solo sirven
+  // donde se pide requireStaff. Así no abren el panel ni cuentas de clientes.
+  if (!payload || payload.scope) {
     const err = new Error("Sesión inválida o expirada");
     err.status = 401;
     throw err;
@@ -232,6 +234,43 @@ export async function requireAdmin(req) {
     throw err;
   }
   return user;
+}
+
+// ===== Acceso del asistente (permisos limitados) =====
+// Un admin lo crea en el panel (pestaña Asistente): es un token firmado con
+// scope "asistente" y el id de una fila de asistente_accesos
+// (migrations/add_asistente.sql). Revocar = marcar revoked_at en esa fila, y el
+// token deja de servir al instante. Solo lo aceptan las acciones que llaman a
+// requireStaff (ver api/purchases.js).
+export const ASSISTANT_SCOPE = "asistente";
+const ASSISTANT_DAYS = 90;
+
+export function makeAssistantToken(accessId) {
+  const now = Math.floor(Date.now() / 1000);
+  return signPayload({ scope: ASSISTANT_SCOPE, tid: accessId, iat: now, exp: now + ASSISTANT_DAYS * 24 * 3600 });
+}
+export function assistantExpiry() {
+  return new Date(Date.now() + ASSISTANT_DAYS * 24 * 3600 * 1000).toISOString();
+}
+
+export async function requireAssistant(req) {
+  const payload = verifyToken(getSessionToken(req));
+  const deny = (msg = "Acceso del asistente inválido, vencido o revocado") => { const e = new Error(msg); e.status = 401; return e; };
+  if (!payload || payload.scope !== ASSISTANT_SCOPE || !/^[0-9a-f-]{36}$/i.test(String(payload.tid || ""))) throw deny();
+  let rows;
+  try {
+    rows = await sb(`asistente_accesos?id=eq.${payload.tid}&revoked_at=is.null&select=id`);
+  } catch { throw deny(); }
+  if (!rows.length) throw deny();
+  return { assistant: true, tid: payload.tid };
+}
+
+// Admin o asistente. Devuelve { admin: true, user } o { assistant: true, tid }.
+export async function requireStaff(req) {
+  const payload = verifyToken(getSessionToken(req));
+  if (payload?.scope) return await requireAssistant(req);
+  const user = await requireAdmin(req);
+  return { admin: true, user };
 }
 
 export function handleError(res, err) {

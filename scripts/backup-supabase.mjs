@@ -21,7 +21,7 @@ import zlib from "zlib";
 const MAGIC = Buffer.from("RMDBK1");
 const PAGE = 1000;
 // Si la API no lista las tablas, se respaldan al menos estas (las que usa api/).
-const KNOWN_TABLES = ["app_users", "purchases", "newsletter_subscribers", "page_views", "cofre_ajustes", "cuentas"];
+const KNOWN_TABLES = ["app_users", "purchases", "newsletter_subscribers", "page_views", "cofre_ajustes", "cuentas", "asistente_accesos"];
 
 const passphrase = process.env.BACKUP_PASSPHRASE;
 if (!passphrase || passphrase.length < 16) {

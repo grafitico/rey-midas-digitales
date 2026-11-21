@@ -1,7 +1,7 @@
 // CRUD de compras. Cliente ve las propias, admin ve/crea/borra todas.
 // POST /api/purchases con { action: "mine" | "list-all" | "create" | "delete", ... }
 
-import { sb, requireAuth, requireAdmin, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
+import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
 
@@ -35,6 +35,7 @@ export default async function handler(req, res) {
     if (body.action === "cofre-adjust") return await cofreAdjust(req, res, body);
     if (body.action === "cuenta-save") return await cuentaSave(req, res, body);
     if (body.action === "cuenta-delete") return await cuentaDelete(req, res, body);
+    if (body.action === "client-lookup") return await clientLookup(req, res, body);
     if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
@@ -83,14 +84,38 @@ async function listAll(req, res) {
   res.status(200).json({ purchases: data.map(decryptPurchaseRow) });
 }
 
+// Admin o asistente. El asistente identifica al cliente por su RM y no manda
+// contraseña cuando la cuenta ya existe: el servidor la toma de la cuenta
+// registrada o de la última venta de ese correo (así nunca la ve).
 async function create(req, res, body) {
-  await requireAdmin(req);
+  const staff = await requireStaff(req);
   const clientEmail = String(body.client_email || "").trim().toLowerCase();
-  if (!clientEmail) return res.status(400).json({ error: "Email del cliente requerido" });
-  const users = await sb(`app_users?email=eq.${encodeURIComponent(clientEmail)}&select=id`);
-  if (!users.length) {
-    return res.status(404).json({ error: `No hay cliente con email "${clientEmail}". Creá la cuenta primero.` });
+  const rmNum = parseInt(String(body.customer_number || "").replace(/\D/g, ""), 10);
+  let users;
+  if (clientEmail && staff.admin) {
+    users = await sb(`app_users?email=eq.${encodeURIComponent(clientEmail)}&select=id`);
+    if (!users.length) return res.status(404).json({ error: `No hay cliente con email "${clientEmail}". Creá la cuenta primero.` });
+  } else if (rmNum > 0) {
+    users = await sb(`app_users?customer_number=eq.${rmNum}&select=id`);
+    if (!users.length) return res.status(404).json({ error: `No hay cliente con el código RM-${String(rmNum).padStart(4, "0")}.` });
+  } else {
+    return res.status(400).json({ error: staff.admin ? "Email del cliente requerido" : "Código RM del cliente requerido" });
   }
+  if (!body.account_email || !String(body.account_email).trim()) return res.status(400).json({ error: "Falta el correo de la cuenta" });
+  if (!body.platform) return res.status(400).json({ error: "Falta la plataforma" });
+  if (!body.account_password) {
+    const acc = String(body.account_email).trim().toLowerCase();
+    const cuenta = await cuentaByEmail(acc);
+    let pwd = cuenta?.password ? decryptSecret(cuenta.password) : "";
+    if (!pwd) {
+      const prev = await sb(`purchases?account_email=ilike.${likeExact(acc)}&select=account_email,account_password,created_at&order=created_at.desc&limit=20`);
+      const hit = prev.find(r => String(r.account_email || "").trim().toLowerCase() === acc && r.account_password);
+      pwd = hit ? decryptSecret(hit.account_password) : "";
+    }
+    if (!pwd) return res.status(400).json({ error: "Falta la contraseña: esa cuenta no está registrada ni tiene ventas anteriores." });
+    body.account_password = pwd;
+  }
+  if (!body.purchase_date) body.purchase_date = new Date().toISOString().slice(0, 10);
   const row = {
     user_id: users[0].id,
     purchase_date: body.purchase_date,
@@ -109,6 +134,7 @@ async function create(req, res, body) {
   const amount = parseAmount(body.amount);
   if (amount != null) row.amount = amount;
   await sbWithAmount(`purchases`, { method: "POST", body: JSON.stringify(row) }, amount != null);
+  if (staff.assistant) console.log(`[asistente] venta cargada (acceso ${staff.tid}): ${row.platform} ${row.modality || ""} → cliente ${users[0].id}`);
   res.status(200).json({ ok: true });
 }
 
@@ -214,7 +240,7 @@ async function sales(req, res, body) {
 // agruparlas por correo de la cuenta vendida y por juego, y calcular los cupos
 // libres. Sin contraseñas ni códigos del verificador: el reporte no los usa.
 async function accounts(req, res) {
-  await requireAdmin(req);
+  const staff = await requireStaff(req);
   const cols = "id,purchase_date,platform,modality,amount,is_redemption,account_email,game_name,app_users(full_name,customer_number,email)";
   const q = `purchases?select=${cols}&order=purchase_date.asc&limit=20000`;
   let rows;
@@ -234,6 +260,10 @@ async function accounts(req, res) {
     cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
   } catch (err) {
     if (!ajustesMissing(err)) throw err;
+  }
+  // El asistente ve nombre y RM del cliente de cada cupo, no su correo.
+  if (staff.assistant) {
+    rows = rows.map(r => ({ ...r, app_users: r.app_users ? { full_name: r.app_users.full_name, customer_number: r.app_users.customer_number } : null }));
   }
   res.status(200).json({ purchases: rows, cuentas });
 }
@@ -346,7 +376,7 @@ function cleanText(v, max) {
 }
 
 async function cuentaSave(req, res, body) {
-  await requireAdmin(req);
+  const staff = await requireStaff(req);
   const id = body.id ? String(body.id) : "";
   if (id && !/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Cuenta inválida" });
   const plataforma = String(body.plataforma || "");
@@ -393,6 +423,7 @@ async function cuentaSave(req, res, body) {
     if (err?.data?.code === "23505") return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
     throw err;
   }
+  if (staff.assistant) console.log(`[asistente] cuenta ${id ? "editada" : "registrada"} (acceso ${staff.tid}): ${correo}`);
   res.status(200).json({ ok: true });
 }
 
@@ -408,4 +439,16 @@ async function cuentaDelete(req, res, body) {
     throw err;
   }
   res.status(200).json({ ok: true });
+}
+
+// Buscar un cliente por su RM (admin o asistente): solo nombre, RM y consola,
+// para confirmar a quién se le carga la venta. Sin correo ni teléfono.
+async function clientLookup(req, res, body) {
+  await requireStaff(req);
+  const n = parseInt(String(body.customer_number || "").replace(/\D/g, ""), 10);
+  if (!(n > 0)) return res.status(400).json({ error: "Código RM inválido" });
+  const users = await selectClients(`app_users?customer_number=eq.${n}`);
+  if (!users.length) return res.status(404).json({ error: `No hay cliente con el código RM-${String(n).padStart(4, "0")}.` });
+  const u = users[0];
+  res.status(200).json({ client: { customer_number: u.customer_number, full_name: u.full_name || "", console: u.console || "" } });
 }
