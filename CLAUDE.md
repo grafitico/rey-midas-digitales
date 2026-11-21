@@ -70,8 +70,11 @@
   resumen y esperá su "dale".
 - `cuenta-nueva` registra la cuenta con una contraseña generada y DESPUÉS
   crea el buzón <usuario>@reymidascr.com por la API web de cPanel (UAPI por
-  HTTPS al 2083, variables CPANEL_USER y CPANEL_TOKEN de la app Node.js); si
-  cPanel falla, borra la cuenta. NUNCA lanzar `uapi` ni otros comandos como
+  HTTPS al 2083, autenticación básica con las variables CPANEL_USER,
+  CPANEL_PASS y CPANEL_HOST=single-4760.banahosting.com de la app Node.js:
+  Banahosting no habilita tokens de API en hosting compartido); si cPanel
+  falla, borra la cuenta. Si cPanel rechaza la contraseña no se reintenta por
+  30 min (cPHulk bloquearía la cuenta). NUNCA lanzar `uapi` ni otros comandos como
   proceso hijo desde la API: el 21/11/2026 crear un buzón así hizo que
   Banahosting cortara la app (tope de recursos) y quedó un buzón sin su
   contraseña guardada. `correo-leer` lee el Maildir (~/mail/reymidascr.com/<usuario>) y

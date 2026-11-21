@@ -1,9 +1,11 @@
 // Correos @reymidascr.com en Banahosting (cPanel), desde la API de la tienda.
 //
-// - Crear un buzón: por la API web de cPanel (UAPI por HTTPS, puerto 2083)
-//   con un token de API de cPanel guardado en las variables de entorno de la
-//   app (CPANEL_USER, CPANEL_TOKEN; CPANEL_HOST opcional, por defecto
-//   127.0.0.1). NO se lanza `uapi` como proceso hijo: el 21/11/2026 crear un
+// - Crear un buzón: por la API web de cPanel (UAPI por HTTPS, puerto 2083).
+//   Credenciales en las variables de entorno de la app Node.js de cPanel:
+//   CPANEL_USER y CPANEL_PASS (contraseña de cPanel, autenticación básica: es
+//   lo que indicó Banahosting, que no habilita tokens de API en hosting
+//   compartido) o CPANEL_TOKEN si algún día hay tokens. CPANEL_HOST = nombre
+//   del servidor (single-4760.banahosting.com); sin él se usa 127.0.0.1. NO se lanza `uapi` como proceso hijo: el 21/11/2026 crear un
 //   buzón así hizo que Banahosting cortara la app por el tope de recursos de
 //   la cuenta (mismo límite de la caída del 14/11, ver CLAUDE.md). Sin token,
 //   crear correos queda desactivado y el resto sigue funcionando.
@@ -23,8 +25,17 @@ const CPANEL_HOST = process.env.CPANEL_HOST || "127.0.0.1";
 const CPANEL_PORT = Number(process.env.CPANEL_PORT || 2083);
 
 export function canCreateMail() {
-  return !!(process.env.CPANEL_USER && process.env.CPANEL_TOKEN);
+  return !!(process.env.CPANEL_USER && (process.env.CPANEL_TOKEN || process.env.CPANEL_PASS));
 }
+function cpanelAuth() {
+  const u = process.env.CPANEL_USER;
+  if (process.env.CPANEL_TOKEN) return `cpanel ${u}:${process.env.CPANEL_TOKEN}`;
+  return "Basic " + Buffer.from(`${u}:${process.env.CPANEL_PASS}`).toString("base64");
+}
+// Si cPanel rechazó la contraseña, no se vuelve a intentar hasta reiniciar la
+// app (o 30 min): varios intentos fallidos hacen que cPanel (cPHulk) bloquee
+// el acceso de toda la cuenta.
+let authBlockedUntil = 0;
 
 // Usuario del correo (lo que va antes de @): minúsculas, números, punto, guion.
 export function cleanLocal(v) {
@@ -48,7 +59,10 @@ export function makePassword() {
 let busy = false;
 function cpanelApi(module, fn, params) {
   if (!canCreateMail()) {
-    return Promise.reject(Object.assign(new Error("Crear correos automáticamente no está activado (falta el token de cPanel). Crealo a mano en cPanel → Cuentas de correo y registrá la cuenta sin marcar \"Crear el correo\"."), { status: 503 }));
+    return Promise.reject(Object.assign(new Error("Crear correos automáticamente no está activado (faltan CPANEL_USER y CPANEL_PASS en la app). Crealo a mano en cPanel → Cuentas de correo y registrá la cuenta sin marcar \"Crear el correo\"."), { status: 503 }));
+  }
+  if (Date.now() < authBlockedUntil) {
+    return Promise.reject(Object.assign(new Error("cPanel rechazó el usuario o la contraseña hace poco: revisá CPANEL_USER y CPANEL_PASS en la app Node.js y reiniciala. No se reintenta para que cPanel no bloquee la cuenta."), { status: 502 }));
   }
   if (busy) return Promise.reject(Object.assign(new Error("Hay otro correo creándose: probá de nuevo en unos segundos."), { status: 429 }));
   busy = true;
@@ -58,7 +72,7 @@ function cpanelApi(module, fn, params) {
     const done = (fn2) => (x) => { busy = false; fn2(x); };
     const req = https.request({
       host: CPANEL_HOST, port: CPANEL_PORT, method: "GET", path: `/execute/${module}/${fn}?${qs}`,
-      headers: { Authorization: `cpanel ${process.env.CPANEL_USER}:${process.env.CPANEL_TOKEN}` },
+      headers: { Authorization: cpanelAuth() },
       // En 127.0.0.1 el certificado es del nombre del servidor, no de la IP:
       // la conexión no sale de la máquina, así que no se valida el nombre.
       rejectUnauthorized: !local,
@@ -68,7 +82,12 @@ function cpanelApi(module, fn, params) {
       res.setEncoding("utf8");
       res.on("data", c => { if (body.length < 1 << 20) body += c; });
       res.on("end", done(() => {
-        if (res.statusCode === 401 || res.statusCode === 403) return reject(Object.assign(new Error("cPanel rechazó el token: revisá CPANEL_USER y CPANEL_TOKEN en la app Node.js."), { status: 502 }));
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          authBlockedUntil = Date.now() + 30 * 60 * 1000;
+          return reject(Object.assign(new Error(process.env.CPANEL_TOKEN
+            ? "cPanel rechazó el token: revisá CPANEL_USER y CPANEL_TOKEN en la app Node.js."
+            : "cPanel rechazó el usuario o la contraseña: revisá CPANEL_USER y CPANEL_PASS en la app Node.js (si cambiaste la contraseña de cPanel, actualizala ahí) y reiniciala."), { status: 502 }));
+        }
         try { const j = JSON.parse(body); resolve({ status: j.status, errors: j.errors, data: j.data }); }
         catch { reject(Object.assign(new Error("cPanel respondió algo inesperado."), { status: 502 })); }
       }));
