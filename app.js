@@ -38,7 +38,9 @@ const CONFIG = {
     table: [
       [5,  1500,  1000],
       [10, 3500,  2000],
-      [20, 5000,  3500],
+      [15, 4500,  2750],   // $12–25: que la licencia se recupere con 2 ventas (antes hacían falta 3)
+      [20, 6000,  3500],
+      [25, 7250,  4750],   // = la línea anterior entre $20 y $30: de $25 para arriba no cambia nada
       [30, 9500,  6000],
       [40, 15000, 7500],
       [50, 18000, 11000],
