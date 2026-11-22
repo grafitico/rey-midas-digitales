@@ -4377,9 +4377,29 @@ function stockSec(inv, g, consola) {
 }
 // Juego del catálogo para un título del inventario (estricto, como el combo:
 // el catálogo puede tener palabras de más, nunca de menos).
+// Índice del catálogo por clave de título y por cada prefijo de palabras
+// ("the witcher 3 wild hunt" → "the", "the witcher", …): una búsqueda por juego
+// del inventario en vez de recorrer los ~20 000 juegos cada vez.
+let stockIdx = null, stockIdxSrc = null;
+function stockIndex() {
+  if (stockIdx && stockIdxSrc === allGames) return stockIdx;
+  stockIdx = new Map(); stockIdxSrc = allGames;
+  for (const g of allGames || []) {
+    const gk = invTitleKey(g.title);
+    if (!gk) continue;
+    const w = gk.split(" ");
+    for (let i = 1; i <= w.length; i++) {
+      const p = w.slice(0, i).join(" ");
+      let list = stockIdx.get(p);
+      if (!list) stockIdx.set(p, list = []);
+      list.push(g);
+    }
+  }
+  return stockIdx;
+}
 function stockCatalogGame(key, inv) {
   let best = null;
-  for (const g of allGames || []) {
+  for (const g of stockIndex().get(key) || []) {
     const gk = invTitleKey(g.title);
     if (!gk || (gk !== key && !gk.startsWith(key + " "))) continue;
     const pl = String(g.platform || "");
@@ -8724,8 +8744,17 @@ function invCleanTitle(t) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim().split(/\s+/);
 }
+// Memorizado: se llama miles de veces con los mismos títulos del catálogo.
+const invTitleKeyMemo = new Map();
 function invTitleKey(t) {
-  return invCleanTitle(t).filter(w => w && !INV_EDITION_WORDS.has(w)).join(" ");
+  const s = String(t ?? "");
+  let k = invTitleKeyMemo.get(s);
+  if (k === undefined) {
+    k = invCleanTitle(s).filter(w => w && !INV_EDITION_WORDS.has(w)).join(" ");
+    if (invTitleKeyMemo.size > 60000) invTitleKeyMemo.clear();
+    invTitleKeyMemo.set(s, k);
+  }
+  return k;
 }
 
 let invPsIndex = null; // Map: clave del título → Set de plataformas ("PS4", "PS5", "PS5/PS4")
