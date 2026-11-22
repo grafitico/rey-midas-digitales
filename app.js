@@ -4029,11 +4029,17 @@ let comboInventory = null; // Map: clave del título → { ps4, ps5, xbox }
 let comboInventoryPromise = null;
 function ensureComboInventory() {
   if (!comboInventoryPromise) {
-    comboInventoryPromise = fetch("/api/purchases", {
+    // Un reintento si falla (p. ej. la API reiniciándose tras publicar): si no,
+    // la página quedaba vacía hasta recargar.
+    const pedir = () => fetch("/api/purchases", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "inventario-combo" }),
       signal: AbortSignal.timeout(15000),
-    }).then(r => r.ok ? r.json() : { juegos: [] }).catch(() => ({ juegos: [] })).then(d => {
+    }).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+    comboInventoryPromise = pedir()
+      .catch(() => new Promise(ok => setTimeout(ok, 2500)).then(pedir))
+      .catch(() => { setTimeout(() => { comboInventoryPromise = null; }, 30000); return { juegos: [] }; })
+      .then(d => {
       const m = new Map();
       for (const j of d.juegos || []) {
         const k = invTitleKey(j.juego);
@@ -10280,6 +10286,9 @@ const POPUP_SEEN_KEY = "rmd_popup_seen";
 const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
 
 render();
+// Entrega inmediata y combos: el inventario se pide ya, en paralelo con el
+// catálogo, en vez de esperar a que termine load().
+if (/^\/(entrega-inmediata|combo)/.test(location.pathname)) ensureComboInventory();
 load();
 initAuth();
 // Iniciamos el feed de actividad después de un breve delay para que cargue el catálogo.
