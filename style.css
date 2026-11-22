@@ -5826,3 +5826,7 @@ html { scroll-behavior: smooth; }
 }
 .combo-game-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .combo-game-price { padding: .3rem .6rem .6rem; font-size: .78rem; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+
+/* Panel: juegos que conviene comprar en oferta */
+.inv-ofertas { border: 1px solid var(--border); border-radius: 14px; padding: .8rem 1rem; margin-bottom: 1rem; background: var(--bg-raised); }
+.inv-ofertas summary { cursor: pointer; font-weight: 700; color: var(--gold); }

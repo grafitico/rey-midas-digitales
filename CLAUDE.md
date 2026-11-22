@@ -41,6 +41,13 @@
   generan `ps-prices.json` y `featured-prices.json` cada 3 h. Las funciones
   `/api/scrape` y `/api/featured-prices` agotaron la CPU del plan gratis de
   Vercel y Vercel pausó el sitio; no volver a llamarlas desde la web.
+- **Precios:** la tabla vive en TRES lugares que tienen que coincidir:
+  `CONFIG.pricing` en `app.js`, `middleware.js` (vista previa) y `api/chat.js`
+  (asistente). Modelo de licencia: PS5/PS4 y solo PS4 = 5 ventas (2 primarias
+  PS4, 2 primarias PS5, 1 secundaria); solo PS5 = 3. Regla (22/11/2026): toda
+  licencia se recupera con 2 ventas. `CONFIG.pricing.costoPorDolar` es el
+  costo real por dólar con la tarjeta; lo usa el panel (costo, ganancia y
+  recuperación por cuenta, y "Conviene comprar ahora").
 - La base de datos es Supabase; su organización la creó la integración de
   Vercel, así que no borrar la cuenta/proyecto de Vercel sin antes sacar el
   proyecto de Supabase de ahí.

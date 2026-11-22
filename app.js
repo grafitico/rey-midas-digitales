@@ -8573,6 +8573,7 @@ function invTitleKey(t) {
 
 let invPsIndex = null; // Map: clave del título → Set de plataformas ("PS4", "PS5", "PS5/PS4")
 let invPriceIndex = null; // Map: clave del título → precio NORMAL más bajo en USD (para estimar el costo)
+let invSaleIndex = null; // Map: clave del título → oferta de hoy { title, platform, usd, orig } (la más barata)
 async function invLoadPsIndex() {
   if (invPsIndex) return invPsIndex;
   let games = fullCatalogRaw?.ps?.length ? fullCatalogRaw.ps : null;
@@ -8593,6 +8594,18 @@ async function invLoadPsIndex() {
     if (usd > 0 && (!prices.has(k) || usd < prices.get(k))) prices.set(k, usd);
   };
   const regular = g => Number(g.originalPriceUSD) > 0 ? Number(g.originalPriceUSD) : Number(g.priceUSD) || 0;
+  const sales = new Map();
+  const addSale = g => {
+    const usd = Number(g.priceUSD), orig = Number(g.originalPriceUSD);
+    if (!(usd > 0 && orig > usd) || g.isBundle) return;
+    const k = invTitleKey(g.title);
+    if (!k) return;
+    const prev = sales.get(k);
+    if (!prev || usd < prev.usd) sales.set(k, { title: g.title, platform: String(g.platform || "").trim(), usd, orig, id: g.id });
+  };
+  for (const g of games) addSale(g);
+  for (const g of allGames || []) if (/PS/.test(g.platform || "")) addSale(g);
+  invSaleIndex = sales;
   for (const g of games) if (!g.isBundle) add(g.title, String(g.platform || "").trim(), regular(g));
   for (const g of allGames || []) if (/PS/.test(g.platform || "")) add(g.title, String(g.platform).trim(), regular(g));
   invPsIndex = idx;
@@ -8842,6 +8855,57 @@ function invEconomicsChip(a) {
   return `<span class="inv-chip is-warn"${tip}>${est}Costo ${escapeHtml(formatCRC(a.costCRC))} · faltan ${escapeHtml(formatCRC(a.pending))} para recuperarla</span>`;
 }
 
+// Los juegos que más se venden (últimos 90 días) y hoy están en oferta en
+// PlayStation: conviene comprar licencias ahora y venderlas a precio normal.
+function invOfertasHTML() {
+  if (!invSaleIndex?.size) return "";
+  const desde = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+  const vendidos = new Map(); // clave → { name, n }
+  for (const p of invRows || []) {
+    if (invFamily(p.platform) !== "PlayStation" || String(p.purchase_date || "") < desde) continue;
+    const k = invTitleKey(p.game_name);
+    if (!k) continue;
+    const v = vendidos.get(k) || { name: String(p.game_name).trim(), n: 0 };
+    v.n++;
+    vendidos.set(k, v);
+  }
+  const rows = [];
+  for (const [k, v] of vendidos) {
+    // Estricto, como en el combo: "Black Ops" no es "Black Ops II".
+    let o = invSaleIndex.get(k);
+    if (!o) for (const [sk, sv] of invSaleIndex) if (sk.startsWith(k + " ")) { o = sv; break; }
+    if (!o) continue;
+    const ps5Only = !/PS4/.test(o.platform);
+    const costo = Math.round(o.usd * CONFIG.pricing.costoPorDolar);
+    const costoNormal = Math.round(o.orig * CONFIG.pricing.costoPorDolar);
+    // Lo que rinde la licencia completa vendida a precio NORMAL (después de la oferta).
+    const p = principalCRC(o.orig, o.platform), sec = secundariaCRC(o.orig, o.platform);
+    const rinde = (ps5Only ? 2 : 4) * p + sec;
+    rows.push({ ...v, o, costo, ahorro: costoNormal - costo, rinde, ps5Only });
+  }
+  if (!rows.length) return "";
+  rows.sort((a, b) => b.n - a.n || b.ahorro - a.ahorro);
+  return `
+    <details class="inv-ofertas" open>
+      <summary>🛒 Conviene comprar ahora: ${rows.length} ${rows.length === 1 ? "juego que vendés está" : "juegos que vendés están"} en oferta en PlayStation</summary>
+      <p class="inv-freebreak">Comprá las licencias durante la oferta y vendelas cuando termine, a precio normal. "Rinde" = la licencia vendida completa (${"4 primarias + secundaria"}, o 2 + secundaria si es solo PS5) con los precios normales de la tienda.</p>
+      <div class="sr-tablewrap">
+        <table class="sr-table inv-table">
+          <thead><tr><th>Juego</th><th class="sr-num">Vendidas (90 días)</th><th class="sr-num">Licencia hoy</th><th class="sr-num">Ahorrás</th><th class="sr-num">Rinde</th></tr></thead>
+          <tbody>${rows.slice(0, 15).map(r => `
+            <tr>
+              <td>${escapeHtml(r.o.title)} <span class="inv-chip">${escapeHtml(r.o.platform)}</span> <span class="inv-chip is-free">−${Math.round((1 - r.o.usd / r.o.orig) * 100)}%</span></td>
+              <td class="sr-num">${r.n}</td>
+              <td class="sr-num">$${r.o.usd} · ${escapeHtml(formatCRC(r.costo))}</td>
+              <td class="sr-num">${escapeHtml(formatCRC(r.ahorro))}</td>
+              <td class="sr-num sr-crc">${escapeHtml(formatCRC(r.rinde))}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </details>`;
+}
+
 function invFilterState() {
   return {
     q: normalizeSearch(document.getElementById("invQ").value.trim()),
@@ -8929,8 +8993,9 @@ function renderInventory() {
   const warn = invCuentas === null
     ? `<p class="admin-cofre-warn inv-warn">Para registrar cuentas sin ventas (＋ Cuenta) falta crear la tabla: en Supabase → SQL Editor → New query, pegá <code>migrations/add_cuentas.sql</code> y dale Run.</p>`
     : "";
+  const ofertas = invOfertasHTML();
   if (!list.length) {
-    box.innerHTML = warn + kpis + `<div class="sr-empty">Ninguna cuenta coincide con esos filtros.</div>`;
+    box.innerHTML = warn + ofertas + kpis + `<div class="sr-empty">Ninguna cuenta coincide con esos filtros.</div>`;
     return;
   }
 
@@ -8946,7 +9011,7 @@ function renderInventory() {
       if (a.last > g.last) g.last = a.last;
     }
     const rows = invSort([...games.values()], f.sort, g => g.name);
-    box.innerHTML = warn + kpis + `
+    box.innerHTML = warn + ofertas + kpis + `
       <div class="sr-tablewrap">
         <table class="sr-table inv-table">
           <thead><tr><th>Juego</th><th class="sr-num">Cuentas</th><th class="sr-num">Llenas</th><th class="sr-num">Ventas</th><th class="sr-num">Vendido</th><th>Libres</th></tr></thead>
@@ -8968,7 +9033,7 @@ function renderInventory() {
 
   const sorted = invSort(list, f.sort, a => a.game || a.email);
   const shown = sorted.slice(0, INV_LIMIT);
-  box.innerHTML = warn + kpis +
+  box.innerHTML = warn + ofertas + kpis +
     (sorted.length > shown.length ? `<p class="inv-more">Mostrando ${shown.length} de ${sorted.length} cuentas. Usá los filtros para acotar.</p>` : "") +
     `<div class="inv-list">${shown.map(a => invAccountCard(a, ranged ? inRange : null)).join("")}</div>`;
 }
