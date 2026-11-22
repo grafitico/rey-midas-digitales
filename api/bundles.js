@@ -200,6 +200,13 @@ async function save(req, res, body) {
   };
   if (input.title) bundle.title = String(input.title).trim();
   if (discountPct != null) bundle.discountPct = discountPct;
+  // Precio de secundaria (opcional): con él la tarjeta muestra principal y
+  // secundaria; priceCRC sigue siendo el de principal.
+  const sec = Number(input.priceCRC_secundaria);
+  if (input.priceCRC_secundaria !== "" && input.priceCRC_secundaria != null && Number.isFinite(sec) && sec > 0) {
+    bundle.priceCRC_principal = Math.round(priceCRC);
+    bundle.priceCRC_secundaria = Math.round(sec);
+  }
 
   const bundles = await writeBundlesFile(
     file,

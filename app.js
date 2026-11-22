@@ -7421,8 +7421,11 @@ async function renderAdmin() {
                 <option value="xbox">Xbox</option>
               </select>
             </label>
-            <label>Precio (₡)
+            <label>Precio principal (₡)
               <input name="priceCRC" id="bundlePrice" type="number" min="1" step="1" required placeholder="25000">
+            </label>
+            <label>Precio secundaria (₡) — opcional
+              <input name="priceCRC_secundaria" id="bundlePriceSec" type="number" min="1" step="1" placeholder="13000">
             </label>
           </div>
           <div class="row">
@@ -7572,7 +7575,8 @@ function editBundle(platform, id) {
   if (!b) return;
   document.getElementById("bundleId").value = b.id;
   document.getElementById("bundlePlatform").value = platform;
-  document.getElementById("bundlePrice").value = b.priceCRC || "";
+  document.getElementById("bundlePrice").value = b.priceCRC_principal || b.priceCRC || "";
+  document.getElementById("bundlePriceSec").value = b.priceCRC_secundaria || "";
   document.getElementById("bundleTitle").value = b.title || "";
   document.getElementById("bundleSize").value = b.totalSize || "";
   document.getElementById("bundleDiscount").value = b.discountPct || "";
@@ -7641,6 +7645,7 @@ async function handleBundleSubmit(e) {
     const bundle = {
       id: document.getElementById("bundleId").value.trim(),
       priceCRC: document.getElementById("bundlePrice").value,
+      priceCRC_secundaria: document.getElementById("bundlePriceSec").value.trim(),
       title: document.getElementById("bundleTitle").value.trim(),
       totalSize: document.getElementById("bundleSize").value.trim(),
       discountPct: document.getElementById("bundleDiscount").value.trim(),
