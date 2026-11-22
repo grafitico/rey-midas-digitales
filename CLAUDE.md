@@ -74,7 +74,10 @@
 - Solo lo aceptan las acciones de `/api/purchases` que llaman a `requireStaff`:
   `accounts`, `client-lookup` (por RM, solo nombre), `create` (cliente por RM;
   si no se manda contraseña la toma de la cuenta registrada o de la última
-  venta), `cuenta-save`, `cuenta-nueva`, `correo-leer`, `correo-estado`. Todo
+  venta), `cuenta-save`, `cuenta-nueva`, `correo-leer`, `correo-estado`, `importar-excel`
+  (carga única de cuentas anteriores: notas "Origen: Excel", ventas del
+  cliente "Ventas anteriores (Excel)" fechadas 2025-12-31; el panel las separa
+  con el filtro Origen y no las cuenta en inversión/ganancia). Todo
   lo demás es solo de admin y `requireAuth` rechaza tokens con scope.
 - Antes de cargar una venta o crear una cuenta para el dueño, mostrale el
   resumen y esperá su "dale".

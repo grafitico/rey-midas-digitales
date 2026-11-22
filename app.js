@@ -7170,6 +7170,14 @@ async function renderAdmin() {
               <select id="invRegion"><option value="">Todas</option></select>
             </label>
             <label class="af-field">
+              <span>Origen</span>
+              <select id="invOrigen">
+                <option value="">Todas</option>
+                <option value="nueva">Nuevas (sistema)</option>
+                <option value="excel">Anteriores (Excel)</option>
+              </select>
+            </label>
+            <label class="af-field">
               <span>Disponibilidad</span>
               <select id="invState">
                 <option value="">Todas</option>
@@ -7535,6 +7543,7 @@ function renderAdminBundles() {
           <div class="abr-info">
             <strong>${b.title ? escapeHtml(b.title) : `Bundle ${escapeHtml(b.id)}`}</strong>
             <span class="abr-meta">${platform === "ps" ? "PlayStation" : "Xbox"} · ${b.games?.length || 0} juegos · ${formatCRC(b.priceCRC)}${b.discountPct ? ` · −${b.discountPct}%` : ""}</span>
+            ${bundleCuentasHTML(b.id)}
           </div>
           <div class="abr-actions">
             <button type="button" class="admin-edit" data-edit-bundle="${escapeAttr(platform)}:${escapeAttr(b.id)}" title="Editar">✎</button>
@@ -7551,6 +7560,21 @@ function renderAdminBundles() {
   box.querySelectorAll("[data-del-bundle]").forEach(btn => {
     btn.addEventListener("click", () => deleteBundle(...btn.dataset.delBundle.split(":")));
   });
+  box.querySelectorAll("[data-bundle-sell]").forEach(btn => {
+    btn.addEventListener("click", () => invSellSlot(btn.dataset.bundleSell));
+  });
+  // Las cuentas enlazadas salen del inventario: si no estaba cargado, se carga y se repinta.
+  if (!invLoaded) loadInventory().then(() => renderAdminBundles()).catch(() => {});
+}
+
+// Cuenta(s) del inventario enlazadas a un bundle ("Web: BPS005" en sus notas):
+// correo, cupos libres y un botón para vender desde ahí.
+function bundleCuentasHTML(id) {
+  if (!invLoaded) return `<span class="abr-meta abr-acc">Cuenta: cargando…</span>`;
+  const accs = invAccounts().filter(a => a.bundleId && a.bundleId.toUpperCase() === String(id).toUpperCase());
+  if (!accs.length) return `<span class="abr-meta abr-acc">Sin cuenta enlazada (poné "Web: ${escapeHtml(id)}" en las notas de la cuenta)</span>`;
+  return accs.map(a => `<span class="abr-meta abr-acc">Cuenta: <b>${escapeHtml(a.email)}</b> · ${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "llena"}
+    ${a.freeTotal ? `<button type="button" class="pc-btn" data-bundle-sell="${escapeAttr(a.email)}">＋ Vender</button>` : ""}</span>`).join("");
 }
 
 function gamesToText(games) {
@@ -8795,11 +8819,11 @@ function setupInventory() {
   const rerender = () => renderInventory();
   let t = null;
   document.getElementById("invQ").addEventListener("input", () => { clearTimeout(t); t = setTimeout(rerender, 200); });
-  ["invView", "invFam", "invRegion", "invState", "invFrom", "invTo", "invSort"].forEach(id =>
+  ["invView", "invFam", "invRegion", "invOrigen", "invState", "invFrom", "invTo", "invSort"].forEach(id =>
     document.getElementById(id).addEventListener("change", rerender));
   document.getElementById("invClear").addEventListener("click", () => {
     document.getElementById("invQ").value = "";
-    ["invFam", "invRegion", "invState", "invFrom", "invTo"].forEach(id => { document.getElementById(id).value = ""; });
+    ["invFam", "invRegion", "invOrigen", "invState", "invFrom", "invTo"].forEach(id => { document.getElementById(id).value = ""; });
     document.getElementById("invView").value = "cuenta";
     document.getElementById("invSort").value = "crc";
     renderInventory();
@@ -8883,6 +8907,10 @@ function invBuildAccounts() {
     acc.family = c?.plataforma || Object.entries(famCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "PlayStation";
     acc.game = (c?.juego || "").trim() || Object.entries(gameCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
     acc.region = c?.region || "";
+    // Origen: las cuentas del Excel (de antes del sistema) no se mezclan con
+    // las nuevas en inversión/ganancia. Bundle web: "Web: BPS005" en notas.
+    acc.origen = /Origen:\s*Excel/i.test(c?.notas || "") ? "excel" : "nueva";
+    acc.bundleId = (String(c?.notas || "").match(/\bWeb:\s*(BPS\d{3,})/i) || [])[1] || "";
     acc.used = { ps4: [], ps5: [], pri: [], sec: [], full: [] };
     for (const s of acc.sales) acc.used[invSlotOf(s)].push(s);
     // Tipo de cuenta → cupos. En PlayStation lo dice el catálogo; si el juego
@@ -8964,6 +8992,7 @@ function invAccountEconomics(acc) {
 }
 
 function invEconomicsChip(a) {
+  if (a.origen === "excel" && !(Number(a.cuenta?.costo_usd) > 0)) return ""; // cuenta anterior: sin cálculo de inversión
   if (!a.costCRC) return a.family === "PlayStation" || a.family === "Xbox"
     ? `<span class="inv-chip is-warn" title="Cargá el costo en ✎ Editar cuenta">Sin costo</span>` : "";
   const est = a.costEstimated ? "≈ " : "";
@@ -9034,6 +9063,7 @@ function invFilterState() {
     fam: document.getElementById("invFam").value,
     state: document.getElementById("invState").value,
     region: document.getElementById("invRegion").value,
+    origen: document.getElementById("invOrigen")?.value || "",
     from: document.getElementById("invFrom").value,
     to: document.getElementById("invTo").value,
     sort: document.getElementById("invSort").value,
@@ -9072,6 +9102,8 @@ function renderInventory() {
     if (f.state === "ps5only" && a.kind !== "ps5only") return false;
     if (f.state === "cross" && (a.kind !== "cross" || a.unknown)) return false;
     if (f.state === "unknown" && !a.unknown) return false;
+    if (f.origen === "nueva" && a.origen !== "nueva") return false;
+    if (f.origen === "excel" && a.origen !== "excel") return false;
     if (f.state === "pendiente" && !a.pending) return false;
     if (f.state === "recuperada" && !a.recoveredOn) return false;
     if (f.state === "sincosto" && a.costCRC && !a.costEstimated) return false;
@@ -9087,7 +9119,7 @@ function renderInventory() {
 
   const totals = list.reduce((t, a) => {
     t.crc += a.crc; t.count += a.count; t.free += a.freeTotal;
-    if (a.costCRC) { t.cost += a.costCRC; t.cobrado += a.crcAll; if (a.pending) { t.pendAcc++; t.pend += a.pending; } }
+    if (a.costCRC && a.origen !== "excel") { t.cost += a.costCRC; t.cobrado += a.crcAll; if (a.pending) { t.pendAcc++; t.pend += a.pending; } }
     if (a.freeTotal) t.withFree++; else t.fullAcc++;
     for (const k of ["ps4", "ps5", "pri", "sec"]) t.byType[k] += a.free[k] || 0;
     return t;
@@ -9107,7 +9139,7 @@ function renderInventory() {
       <div class="sr-kpi sr-kpi-total"><span class="srk-label">Ganancia a la fecha</span><strong class="srk-value">${escapeHtml(formatCRC(totals.cobrado - totals.cost))}</strong></div>
       <div class="sr-kpi"><span class="srk-label">Sin recuperar</span><strong class="srk-value">${totals.pendAcc} · ${escapeHtml(formatCRC(totals.pend))}</strong></div>
     </div>
-    <p class="inv-freebreak">Costo = precio en dólares × ₡${CONFIG.pricing.costoPorDolar}. Las marcadas con ≈ usan el precio normal de hoy porque no tienen el costo cargado.</p>` : ""}
+    <p class="inv-freebreak">Solo cuentas nuevas (las anteriores del Excel no entran: esa inversión es de antes del sistema). Costo = precio en dólares × ₡${CONFIG.pricing.costoPorDolar}. Las marcadas con ≈ usan el precio normal de hoy porque no tienen el costo cargado.</p>` : ""}
     <p class="inv-freebreak">Libres: ${["ps4", "ps5", "pri", "sec"].filter(k => totals.byType[k]).map(k =>
       `<span class="inv-chip">${INV_SLOT_SHORT[k]} · ${totals.byType[k]}</span>`).join(" ") || "ninguno"}</p>`;
 
@@ -9222,6 +9254,8 @@ function invAccountCard(a, inRange) {
             ? `<span class="inv-chip is-warn" title="El juego no aparece en el catálogo de PlayStation: se muestran los 5 cupos. Revisá el nombre del juego en la compra.">¿PS4 o PS5? · sin identificar</span>`
             : `<span class="inv-chip"${a.manualKind ? ` title="Elegido a mano en la cuenta"` : ""}>${a.ps5Only ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos"}${a.manualKind ? " ✋" : ""}</span>`) : ""}
           ${a.region ? `<span class="inv-chip">${escapeHtml(a.region)}</span>` : ""}
+          ${a.origen === "excel" ? `<span class="inv-chip" title="Cuenta de antes del sistema (importada del Excel)">Anterior (Excel)</span>` : ""}
+          ${a.bundleId ? `<span class="inv-chip is-free" title="Se vende en la web como bundle">Bundle web ${escapeHtml(a.bundleId)}</span>` : ""}
           ${a.kind === "xbox" ? `<span class="inv-chip">2 cupos</span>` : ""}
           ${a.kind === "nintendo" ? `<span class="inv-chip">Venta única (bundle)</span>` : ""}
           <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
@@ -9397,6 +9431,8 @@ async function pfApplyAccount(email, preferSlot) {
     fill("account_password", cuenta?.password || last?.account_password);
     fill("game_name", cuenta?.juego || last?.game_name || acc.game);
     fill("games", last?.games);
+    // Códigos de verificación: de la venta más reciente que los tenga.
+    fill("verifier_codes", [...(sales || [])].reverse().find(p => p.verifier_codes)?.verifier_codes);
     const note = document.getElementById("pfAccNote");
     if (note && (cuenta || last)) note.textContent = cuenta
       ? "Contraseña y juego tomados de la cuenta registrada. Revisalos antes de guardar."

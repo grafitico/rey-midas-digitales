@@ -5856,3 +5856,6 @@ html { scroll-behavior: smooth; }
   .topnav > a, .topnav .dropdown-trigger { font-size: 0.82rem; padding: 0.45rem 0.5rem; }
   .top-search { min-width: 150px; }
 }
+
+/* Admin → Bundles: cuenta enlazada */
+.abr-acc { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-top: .25rem; }

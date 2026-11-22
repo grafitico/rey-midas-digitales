@@ -1,7 +1,8 @@
 // CRUD de compras. Cliente ve las propias, admin ve/crea/borra todas.
 // POST /api/purchases con { action: "mine" | "list-all" | "create" | "delete", ... }
 
-import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret } from "./_lib.js";
+import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret, hashPassword } from "./_lib.js";
+import crypto from "crypto";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
 import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel } from "./_correo.js";
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
     checkConfig();
     const body = await readJson(req);
     if (body.action === "inventario-combo") return await inventarioCombo(req, res);
+    if (body.action === "importar-excel") return await importarExcel(req, res, body);
     if (body.action === "mine") return await mine(req, res);
     if (body.action === "list-all") return await listAll(req, res);
     if (body.action === "create") return await create(req, res, body);
@@ -294,6 +296,119 @@ async function byAccount(req, res, body) {
   res.status(200).json({
     purchases: exact.map(decryptPurchaseRow),
     cuenta: cuenta ? { ...cuenta, password: decryptSecret(cuenta.password) } : null,
+  });
+}
+
+// ===== Importar cuentas ANTERIORES (Excel del dueño, una sola vez) =====
+// Carga cuentas de antes del sistema sin mezclarlas con las nuevas: cada una
+// queda con "Origen: Excel" en notas (el panel las separa y no las cuenta en
+// inversión/ganancia). Los cupos ya vendidos se registran como ventas del
+// cliente "Ventas anteriores (Excel)" (se crea si no existe), fechadas
+// 2025-12-31, con el texto del cliente del Excel en la nota. Contraseñas y
+// códigos de verificación se guardan cifrados. Las cuentas cuyo correo ya
+// está en cuentas o en ventas se saltean (no se duplica ni se pisa nada).
+// dry_run: true → solo informa qué haría, sin guardar.
+const EXCEL_CLIENTE_EMAIL = "ventas-anteriores@reymidascr.com";
+const EXCEL_FECHA = "2025-12-31";
+const EXCEL_SLOTS = {
+  ps4: { platform: "PS4", modality: "principal" },
+  ps5: { platform: "PS5", modality: "principal" },
+};
+
+async function importarExcel(req, res, body) {
+  const staff = await requireStaff(req);
+  const dry = body.dry_run !== false;
+  // Sin la clave de cifrado (ACCOUNT_SECRET) las contraseñas quedarían en texto plano: no se importa.
+  if (encryptSecret("prueba") === "prueba") return res.status(500).json({ error: "Falta ACCOUNT_SECRET en la app Node.js: no se importan contraseñas sin cifrar." });
+  const lista = Array.isArray(body.cuentas) ? body.cuentas : [];
+  if (!lista.length) return res.status(400).json({ error: "No vinieron cuentas" });
+  if (lista.length > 500) return res.status(400).json({ error: "Máximo 500 cuentas por envío" });
+
+  // Lo que ya existe (cuentas registradas y correos con ventas).
+  let existentes;
+  try {
+    existentes = await sb(`cuentas?select=correo&limit=20000`);
+  } catch (err) {
+    if (ajustesMissing(err)) throw cuentasMissingError();
+    throw err;
+  }
+  const ventasPrevias = await sb(`purchases?select=account_email&limit=20000`);
+  const ya = new Set([...existentes.map(c => c.correo), ...ventasPrevias.map(v => v.account_email)]
+    .map(e => String(e || "").trim().toLowerCase()).filter(Boolean));
+
+  const problemas = [], saltadas = [], cuentas = [], ventas = [];
+  const vistos = new Set();
+  for (const [i, c] of lista.entries()) {
+    const correo = String(c.correo || "").trim().toLowerCase();
+    const juego = cleanText(c.juego, 200);
+    const tipo = CUENTA_TIPOS.includes(c.tipo) ? c.tipo : "auto";
+    if (!correo.includes("@") || !juego) { problemas.push(`#${i + 1}: falta correo o juego`); continue; }
+    if (ya.has(correo)) { saltadas.push(correo); continue; }
+    if (vistos.has(correo)) { problemas.push(`#${i + 1}: correo repetido en el Excel (${correo})`); continue; }
+    vistos.add(correo);
+    const juegos = (Array.isArray(c.juegos) ? c.juegos : []).map(j => cleanText(j, 150)).filter(Boolean);
+    const notas = ["Origen: Excel (cuenta anterior)", c.bundle_id ? `Web: ${cleanText(c.bundle_id, 12)}` : "",
+      juegos.length > 1 ? `Juegos: ${juegos.join(" | ")}` : ""].filter(Boolean).join(" · ").slice(0, 500);
+    const pwd = cleanText(c.password, 200);
+    cuentas.push({
+      plataforma: "PlayStation", juego, correo, tipo,
+      region: cleanText(c.region, 40), notas,
+      password: pwd ? encryptSecret(pwd) : null,
+      updated_at: new Date().toISOString(),
+    });
+    let codigosPuestos = false;
+    for (const v of Array.isArray(c.vendidos) ? c.vendidos : []) {
+      const base = v.slot === "sec"
+        ? { platform: /ps5/i.test(v.platform || "") ? "PS5" : "PS4", modality: "secundaria" }
+        : EXCEL_SLOTS[v.slot];
+      if (!base) { problemas.push(`${correo}: cupo desconocido "${v.slot}"`); continue; }
+      ventas.push({
+        purchase_date: EXCEL_FECHA, ...base,
+        account_email: correo,
+        account_password: encryptSecret(pwd || "-"),
+        verifier_codes: !codigosPuestos && c.codigos ? encryptSecret(String(c.codigos).slice(0, 2000)) : null,
+        games: juegos.length ? juegos.join("\n") : null,
+        game_name: juego,
+        notes: `Excel: ${cleanText(v.cliente, 200) || "(sin nombre)"}`,
+      });
+      if (c.codigos) codigosPuestos = true;
+    }
+    if (c.codigos && !codigosPuestos) problemas.push(`${correo}: sin ventas, los códigos 2FA no se guardaron (no hay dónde)`);
+  }
+
+  // Cliente comodín para las ventas anteriores.
+  let cliente = (await sb(`app_users?email=eq.${encodeURIComponent(EXCEL_CLIENTE_EMAIL)}&select=id,customer_number`))[0] || null;
+  if (!dry && !cliente && ventas.length) {
+    cliente = (await sb(`app_users`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({
+      email: EXCEL_CLIENTE_EMAIL, full_name: "Ventas anteriores (Excel)", is_admin: false,
+      password_hash: hashPassword(crypto.randomBytes(24).toString("hex")),
+    }) }))[0];
+  }
+
+  if (!dry) {
+    for (let k = 0; k < cuentas.length; k += 100) {
+      try {
+        await sb(`cuentas`, { method: "POST", body: JSON.stringify(cuentas.slice(k, k + 100)) });
+      } catch (err) {
+        if (ajustesMissing(err)) throw cuentasMissingError();
+        throw err;
+      }
+    }
+    const filas = ventas.map(v => ({ ...v, user_id: cliente.id }));
+    for (let k = 0; k < filas.length; k += 100) {
+      await sb(`purchases`, { method: "POST", body: JSON.stringify(filas.slice(k, k + 100)) });
+    }
+    invComboCache = { t: 0, data: null }; // que la tienda vea el inventario nuevo
+    console.log(`[importar-excel] ${cuentas.length} cuentas y ${ventas.length} ventas anteriores (${staff.assistant ? "asistente " + staff.tid : "admin"})`);
+  }
+  res.status(200).json({
+    dry_run: dry,
+    cuentas_nuevas: cuentas.length,
+    ventas_anteriores: ventas.length,
+    ya_existian: saltadas.length,
+    ya_existian_correos: saltadas,
+    problemas,
+    cliente: cliente ? { customer_number: cliente.customer_number } : "se crea al importar",
   });
 }
 
