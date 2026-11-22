@@ -8615,12 +8615,17 @@ const INV_CUPOS = {
   cross: { ps4: 2, ps5: 2, sec: 1 },
   ps5only: { ps5: 2, sec: 1 },
   xbox: { pri: 1, sec: 1 }, // Xbox: se vende 2 veces, Principal y Segundo plano (22/11/2026)
+  // PlayStation Plus (Essential/Extra/Deluxe/Premium): 2 principales, en la
+  // consola que sea (dos PS5, dos PS4 o una de cada). Sin secundaria.
+  psplus: { pri: 2 },
   nintendo: { full: 1 },
 };
+// Cuentas de membresía PlayStation Plus: se reconocen por el nombre.
+const INV_PSPLUS_RE = /playstation\s*plus|\bps\s*plus\b|\bpsplus\b/i;
 function invSlotLabel(k, family) {
   if (k === "ps4") return "PS4 · Primaria";
   if (k === "ps5") return "PS5 · Primaria";
-  if (k === "pri") return "Primaria";
+  if (k === "pri") return "Principal";
   if (k === "full") return "Cuenta completa";
   if (k === "sec") return family === "Xbox" ? "Segundo plano" : "Secundaria";
   return k;
@@ -8879,7 +8884,14 @@ function invBuildAccounts() {
     // no aparece, una venta PS4 ya prueba que tiene versión PS4.
     acc.kind = null;
     acc.manualKind = false;
-    if (acc.family === "PlayStation" && (c?.tipo === "cross" || c?.tipo === "ps5only")) {
+    if (acc.family === "PlayStation" && INV_PSPLUS_RE.test(acc.game)) {
+      // PlayStation Plus: 2 principales en cualquier consola → las ventas
+      // PS4/PS5 cuentan en el mismo cupo "pri".
+      acc.kind = "psplus";
+      acc.unknown = false;
+      acc.used.pri.push(...acc.used.ps4, ...acc.used.ps5);
+      acc.used.ps4 = []; acc.used.ps5 = [];
+    } else if (acc.family === "PlayStation" && (c?.tipo === "cross" || c?.tipo === "ps5only")) {
       acc.kind = c.tipo;        // elegido a mano al registrar la cuenta
       acc.manualKind = true;
       acc.unknown = false;
@@ -9201,7 +9213,7 @@ function invAccountCard(a, inRange) {
         </div>
         <div class="inv-badges">
           <span class="inv-chip">${escapeHtml(a.family)}</span>
-          ${a.family === "PlayStation" ? (a.unknown
+          ${a.kind === "psplus" ? `<span class="inv-chip">PlayStation Plus · 2 principales</span>` : a.family === "PlayStation" ? (a.unknown
             ? `<span class="inv-chip is-warn" title="El juego no aparece en el catálogo de PlayStation: se muestran los 5 cupos. Revisá el nombre del juego en la compra.">¿PS4 o PS5? · sin identificar</span>`
             : `<span class="inv-chip"${a.manualKind ? ` title="Elegido a mano en la cuenta"` : ""}>${a.ps5Only ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos"}${a.manualKind ? " ✋" : ""}</span>`) : ""}
           ${a.region ? `<span class="inv-chip">${escapeHtml(a.region)}</span>` : ""}
@@ -9243,7 +9255,13 @@ function invSlotOptions(acc) {
   const opts = [];
   const add = (slot, i, platform, modality, label) => opts.push({ slot, i, platform, modality, label });
   const cap = acc.cap || {};
-  if (acc.family === "PlayStation") {
+  if (acc.family === "PlayStation" && acc.kind === "psplus") {
+    // Cada principal se vende en PS4 o en PS5 (el formulario muestra dos botones).
+    for (let i = 0; i < (cap.pri || 0); i++) {
+      add("pri", i, "PS5", "principal", `Principal ${i + 1}`);
+      add("pri", i, "PS4", "principal", `Principal ${i + 1}`);
+    }
+  } else if (acc.family === "PlayStation") {
     for (let i = 0; i < (cap.ps4 || 0); i++) add("ps4", i, "PS4", "principal", `PS4 · Primaria ${i + 1}`);
     for (let i = 0; i < (cap.ps5 || 0); i++) add("ps5", i, "PS5", "principal", `PS5 · Primaria ${i + 1}`);
     if (cap.sec) {
@@ -9405,7 +9423,8 @@ function pfVirtualAccount(form) {
   let family = fam === "Otro" ? "PlayStation" : fam;
   let kind = family === "Xbox" ? "xbox" : family === "Nintendo" ? "nintendo" : null;
   let unknown = false;
-  if (family === "PlayStation") {
+  if (family === "PlayStation" && INV_PSPLUS_RE.test(game)) kind = "psplus";
+  else if (family === "PlayStation") {
     kind = (game && invPsKind(game)) || null;
     unknown = !kind;
     if (!kind) kind = "cross";
@@ -9424,29 +9443,38 @@ function pfRenderSlots() {
   const platform = form.querySelector('[name="platform"]').value;
   const modality = form.querySelector('[name="modality"]').value;
   const opts = invSlotOptions(acc);
-  // La secundaria de una cuenta PS4/PS5 es UNA sola, que se vende en la
-  // consola que elija el cliente: se dibuja como un cupo con dos botones
-  // ("en PS4" / "en PS5"), no como dos cupos libres.
-  const secOpts = opts.filter(o => o.slot === "sec");
-  const secCard = () => {
-    const free = secOpts.some(o => pfOptionFree(acc, o));
-    const sale = acc.used?.sec?.[0];
+  // Un mismo cupo que se puede vender en PS4 o en PS5 (la secundaria de una
+  // cuenta PS4/PS5, o cada principal de PlayStation Plus) se dibuja como UN
+  // cupo con dos botones ("en PS4" / "en PS5"), no como dos cupos libres.
+  const groups = new Map();
+  for (const o of opts) {
+    const k = `${o.slot}|${o.i}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(o);
+  }
+  const groupCard = (g) => {
+    const o0 = g[0];
+    const free = g.some(o => pfOptionFree(acc, o));
+    const sale = acc.used?.[o0.slot]?.[o0.i];
     const who = sale ? (sale.app_users?.full_name || sale.app_users?.email || "vendido") : "";
-    const donde = sale && /ps5/i.test(sale.platform || "") ? "PS5" : sale ? "PS4" : "";
-    const picked = free ? secOpts.find(o => o.platform === platform && o.modality === modality) : null;
+    const donde = sale ? (/ps5/i.test(sale.platform || "") ? "PS5" : "PS4") : "";
+    const name = o0.slot === "sec" ? "Secundaria · 1 por cuenta (PS4 o PS5)" : `${o0.label} (PS4 o PS5)`;
+    const picked = free ? g.find(o => o.platform === platform && o.modality === modality &&
+      [...groups.values()].filter(x => x.some(y => pfOptionFree(acc, y) && y.platform === platform && y.modality === modality))[0] === g) : null;
     if (!free) {
-      return `<div class="pf-slot pf-slot-sec is-used"><span class="pf-slot-name">Secundaria · 1 por cuenta</span>
+      return `<div class="pf-slot pf-slot-sec is-used"><span class="pf-slot-name">${escapeHtml(name)}</span>
         <span class="pf-slot-who">${escapeHtml(who)}${donde ? ` · en ${donde}` : ""}</span></div>`;
     }
     return `<div class="pf-slot pf-slot-sec is-free${picked ? " is-selected" : ""}">
-      <span class="pf-slot-name">Secundaria · 1 por cuenta (PS4 o PS5)</span>
+      <span class="pf-slot-name">${escapeHtml(name)}</span>
       <span class="pf-slot-who">${picked ? `✓ Elegida en ${escapeHtml(picked.platform)}` : "Libre · ¿en qué consola?"}</span>
-      <span class="pf-sec-btns">${secOpts.map(o => `<button type="button" class="pf-sec-btn${picked === o ? " is-on" : ""}"
+      <span class="pf-sec-btns">${g.slice().sort((a, b) => a.platform.localeCompare(b.platform)).map(o => `<button type="button" class="pf-sec-btn${picked === o ? " is-on" : ""}"
         data-pf-platform="${escapeAttr(o.platform)}" data-pf-modality="${escapeAttr(o.modality)}">en ${escapeHtml(o.platform)}</button>`).join("")}</span>
     </div>`;
   };
-  const chips = opts.map(o => {
-    if (o.slot === "sec" && secOpts.length > 1) return o === secOpts[0] ? secCard() : "";
+  const chips = [...groups.values()].map(g => {
+    if (g.length > 1) return groupCard(g);
+    const o = g[0];
     const free = pfOptionFree(acc, o);
     const sale = acc.used?.[o.slot]?.[o.i];
     const who = sale ? (sale.app_users?.full_name || sale.app_users?.email || "vendido") : "";
@@ -9459,10 +9487,10 @@ function pfRenderSlots() {
     </button>`;
   }).join("");
   const kindTxt = acc.family === "PlayStation"
-    ? (acc.unknown ? "¿PS4 o PS5? juego sin identificar en el catálogo" : acc.kind === "ps5only" ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos")
+    ? (acc.kind === "psplus" ? "PlayStation Plus · 2 principales (PS4 o PS5)" : acc.unknown ? "¿PS4 o PS5? juego sin identificar en el catálogo" : acc.kind === "ps5only" ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos")
     : acc.family === "Xbox" ? "Xbox · 2 cupos" : acc.family === "Nintendo" ? "Nintendo · venta única (cuenta completa)" : `${acc.family}`;
-  // La secundaria en PS4 y en PS5 es el mismo cupo: cuenta una sola vez.
-  const freeCount = opts.filter(o => pfOptionFree(acc, o) && !(o.slot === "sec" && o === secOpts[1])).length;
+  // Un cupo que se vende en PS4 o en PS5 cuenta una sola vez.
+  const freeCount = [...groups.values()].filter(g => g.some(o => pfOptionFree(acc, o))).length;
   box.innerHTML = `
     <div class="pf-slots-head">
       <strong>${acc.isNew ? "Cuenta nueva" : `Cupos de la cuenta`}</strong>
@@ -9479,7 +9507,8 @@ function pfSlotTaken(email, platform, modality) {
   const acc = invFindAccount(email);
   if (!acc) return "";
   if (acc.full) return "Esa cuenta ya se vendió completa (Individual/Bundle).";
-  const slot = invSlotOf({ platform, modality });
+  let slot = invSlotOf({ platform, modality });
+  if (acc.kind === "psplus" && (slot === "ps4" || slot === "ps5")) slot = "pri";
   if (slot === "full") return acc.sales.length ? "Esa cuenta ya tiene ventas: venderla completa pisaría sus cupos." : "";
   const cap = acc.cap?.[slot] || 0;
   if ((acc.used?.[slot]?.length || 0) >= cap) {
