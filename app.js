@@ -7212,7 +7212,7 @@ async function renderAdmin() {
               <button id="invNewAccount" type="button" class="inv-new">＋ Cuenta</button>
             </div>
           </div>
-          <p class="inv-rules">Cupos según el catálogo: juego de <b>PS4</b> (o PS5/PS4) = 5 ventas (PS4 Primaria 1 y 2, PS5 Primaria 1 y 2, Secundaria) · <b>solo PS5</b> = 3 (PS5 Primaria 1 y 2, Secundaria) · <b>Xbox</b> = 3 (Primaria 1 y 2, Segundo plano) · <b>Nintendo</b> = 1 (la cuenta completa, bundle). "Individual" o "Bundle" llenan la cuenta.</p>
+          <p class="inv-rules">Cupos según el catálogo: juego de <b>PS4</b> (o PS5/PS4) = 5 ventas (PS4 Primaria 1 y 2, PS5 Primaria 1 y 2, Secundaria) · <b>solo PS5</b> = 3 (PS5 Primaria 1 y 2, Secundaria) · <b>Xbox</b> = 2 (Principal y Segundo plano) · <b>Nintendo</b> = 1 (la cuenta completa, bundle). "Individual" o "Bundle" llenan la cuenta.</p>
           <div id="invReport" class="sales-body"><p class="sr-loading">Cargando cuentas…</p></div>
         </div>
         <div class="sales-report" data-sview-panel="resumen">
@@ -8614,7 +8614,7 @@ const INV_LIMIT = 200;
 const INV_CUPOS = {
   cross: { ps4: 2, ps5: 2, sec: 1 },
   ps5only: { ps5: 2, sec: 1 },
-  xbox: { pri: 2, sec: 1 },
+  xbox: { pri: 1, sec: 1 }, // Xbox: se vende 2 veces, Principal y Segundo plano (22/11/2026)
   nintendo: { full: 1 },
 };
 function invSlotLabel(k, family) {
@@ -9205,7 +9205,7 @@ function invAccountCard(a, inRange) {
             ? `<span class="inv-chip is-warn" title="El juego no aparece en el catálogo de PlayStation: se muestran los 5 cupos. Revisá el nombre del juego en la compra.">¿PS4 o PS5? · sin identificar</span>`
             : `<span class="inv-chip"${a.manualKind ? ` title="Elegido a mano en la cuenta"` : ""}>${a.ps5Only ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos"}${a.manualKind ? " ✋" : ""}</span>`) : ""}
           ${a.region ? `<span class="inv-chip">${escapeHtml(a.region)}</span>` : ""}
-          ${a.kind === "xbox" ? `<span class="inv-chip">3 cupos</span>` : ""}
+          ${a.kind === "xbox" ? `<span class="inv-chip">2 cupos</span>` : ""}
           ${a.kind === "nintendo" ? `<span class="inv-chip">Venta única (bundle)</span>` : ""}
           <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
           <span class="inv-chip">${a.count} ${a.count === 1 ? "venta" : "ventas"} · ${escapeHtml(formatCRC(a.crc))}</span>
@@ -9254,7 +9254,7 @@ function invSlotOptions(acc) {
     add("full", 0, "Switch", "bundle", "Cuenta completa (bundle)");
   } else {
     const pl = "Xbox";
-    for (let i = 0; i < (cap.pri || 0); i++) add("pri", i, pl, "principal", `Primaria ${i + 1}`);
+    for (let i = 0; i < (cap.pri || 0); i++) add("pri", i, pl, "principal", cap.pri === 1 ? "Principal" : `Primaria ${i + 1}`);
     if (cap.sec) add("sec", 0, pl, "secundaria", acc.family === "Xbox" ? "Segundo plano" : "Secundaria");
   }
   return opts;
@@ -9460,7 +9460,7 @@ function pfRenderSlots() {
   }).join("");
   const kindTxt = acc.family === "PlayStation"
     ? (acc.unknown ? "¿PS4 o PS5? juego sin identificar en el catálogo" : acc.kind === "ps5only" ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos")
-    : acc.family === "Xbox" ? "Xbox · 3 cupos" : acc.family === "Nintendo" ? "Nintendo · venta única (cuenta completa)" : `${acc.family}`;
+    : acc.family === "Xbox" ? "Xbox · 2 cupos" : acc.family === "Nintendo" ? "Nintendo · venta única (cuenta completa)" : `${acc.family}`;
   // La secundaria en PS4 y en PS5 es el mismo cupo: cuenta una sola vez.
   const freeCount = opts.filter(o => pfOptionFree(acc, o) && !(o.slot === "sec" && o === secOpts[1])).length;
   box.innerHTML = `

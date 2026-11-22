@@ -305,6 +305,8 @@ async function byAccount(req, res, body) {
 // nada de correos, contraseñas ni clientes. Se guarda 10 minutos en memoria
 // (un combo abierto por muchos no consulta Supabase cada vez).
 const INV_COMBO_TTL_MS = 10 * 60 * 1000;
+// Suscripciones: se venden aparte (página de Game Pass / PlayStation Plus).
+const SUSCRIPCION_RE = /game\s*pass|ps\s*plus|playstation\s*plus|ea\s*play|ubisoft\s*\+|nintendo\s*switch\s*online|suscripci[oó]n|membres[ií]a|\b\d+\s*(meses|months?)\b/i;
 let invComboCache = { t: 0, data: null };
 
 async function inventarioCombo(req, res) {
@@ -342,8 +344,9 @@ async function inventarioCombo(req, res) {
   const juegos = new Map();
   for (const a of acc.values()) {
     if (a.full || !a.juego || a.fam === "Nintendo") continue;
+    if (SUSCRIPCION_RE.test(a.juego)) continue; // Game Pass, PS Plus…: no son juegos para entrega inmediata
     let libres;
-    if (a.fam === "Xbox") libres = { xbox: Math.max(0, 2 - a.pri) };
+    if (a.fam === "Xbox") libres = { xbox: Math.max(0, 1 - a.pri) }; // Xbox: Principal + Segundo plano
     else if (a.tipo === "ps5only") libres = { ps5: Math.max(0, 2 - a.ps5) };
     else libres = { ps4: Math.max(0, 2 - a.ps4), ps5: Math.max(0, 2 - a.ps5) };
     libres.sec = Math.max(0, 1 - a.sec); // secundaria: 1 por cuenta (PlayStation y Xbox)
