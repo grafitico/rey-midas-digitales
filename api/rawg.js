@@ -1,3 +1,5 @@
+import { clientIp, createRateLimiter } from "./_lib.js";
+
 // Endpoint unificado de metadatos y portadas de juegos.
 //
 // RAWG (requiere RAWG_API_KEY en Vercel — 20k req/mes por key):
@@ -90,11 +92,17 @@ function safeIgdbQuery(q) {
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
+const rawgLimit = createRateLimiter({ perMinute: 60, perHour: 600, globalPerHour: 6000 });
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
+  // Límite por visitante: cada consulta sale a un servicio externo (hasta 12 s)
+  // y en el hosting compartido muchas a la vez agotan los procesos.
+  const lim = rawgLimit(clientIp(req));
+  if (lim) { res.setHeader("Retry-After", String(lim.retryAfter)); return res.status(429).json({ error: "Demasiadas consultas, probá en un momento." }); }
 
   const mode = (req.query.mode || "list").toString();
 
