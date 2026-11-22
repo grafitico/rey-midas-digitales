@@ -48,7 +48,10 @@
   Segundo plano: más usos traen avisos de "alguien usa la cuenta" y gastan
   las 5 activaciones al año); PlayStation Plus (Essential/Extra/Deluxe) = 2
   principales en cualquier consola, sin secundaria (se reconoce por el nombre). Regla (22/11/2026): toda
-  licencia se recupera con 2 ventas. `CONFIG.pricing.costoPorDolar` es el
+  licencia se recupera con 2 ventas. La secundaria se vende DESPUÉS de las principales
+  (22/11/2026): en PlayStation, la de una consola espera a que se vendan las
+  2 principales de esa consola; en Xbox, Segundo plano después de la Principal
+  (`invSecWaiting` en `app.js` e `inventarioCombo` en `api/purchases.js`). `CONFIG.pricing.costoPorDolar` es el
   costo real por dólar con la tarjeta; lo usa el panel (costo, ganancia y
   recuperación por cuenta, y "Conviene comprar ahora").
 - La base de datos es Supabase; su organización la creó la integración de

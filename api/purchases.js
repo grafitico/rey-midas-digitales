@@ -467,15 +467,27 @@ async function inventarioCombo(req, res) {
     if (SUSCRIPCION_RE.test(a.juego)) continue; // Game Pass, PS Plus…: no son juegos para entrega inmediata
     // Cuentas con varios juegos: se venden como bundle (/bundles/PS), no juego por juego.
     if (a.bundle || VARIOS_JUEGOS_RE.test(a.juego)) continue;
+    // La secundaria se vende DESPUÉS de las principales (regla del dueño,
+    // 22/11/2026): en PlayStation, la de una consola solo se ofrece cuando las
+    // 2 principales de esa consola ya están vendidas; en Xbox, el Segundo plano
+    // después de la Principal.
     let libres;
-    if (a.fam === "Xbox") libres = { xbox: Math.max(0, 1 - a.pri) }; // Xbox: Principal + Segundo plano
-    else if (a.tipo === "ps5only") libres = { ps5: Math.max(0, 2 - a.ps5) };
-    else libres = { ps4: Math.max(0, 2 - a.ps4), ps5: Math.max(0, 2 - a.ps5) };
-    libres.sec = Math.max(0, 1 - a.sec); // secundaria: 1 por cuenta (PlayStation y Xbox)
+    const secLibre = Math.max(0, 1 - a.sec); // secundaria: 1 por cuenta
+    if (a.fam === "Xbox") {
+      libres = { xbox: Math.max(0, 1 - a.pri) }; // Xbox: Principal + Segundo plano
+      libres.sec = libres.xbox ? 0 : secLibre;
+    } else {
+      const l4 = a.tipo === "ps5only" ? 0 : Math.max(0, 2 - a.ps4);
+      const l5 = Math.max(0, 2 - a.ps5);
+      libres = a.tipo === "ps5only" ? { ps5: l5 } : { ps4: l4, ps5: l5 };
+      libres.sec_ps4 = a.tipo !== "ps5only" && !l4 ? secLibre : 0;
+      libres.sec_ps5 = !l5 ? secLibre : 0;
+      libres.sec = libres.sec_ps4 || libres.sec_ps5 ? secLibre : 0;
+    }
     if (!Object.values(libres).some(n => n > 0)) continue;
     const nombre = String(a.juego).trim().slice(0, 120);
     const k = nombre.toLowerCase();
-    const j = juegos.get(k) || { juego: nombre, plataforma: a.fam, ps4: 0, ps5: 0, xbox: 0, sec: 0 };
+    const j = juegos.get(k) || { juego: nombre, plataforma: a.fam, ps4: 0, ps5: 0, xbox: 0, sec: 0, sec_ps4: 0, sec_ps5: 0 };
     for (const [c, n] of Object.entries(libres)) j[c] += n;
     juegos.set(k, j);
   }

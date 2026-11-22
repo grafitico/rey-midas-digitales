@@ -4031,8 +4031,9 @@ function ensureComboInventory() {
       for (const j of d.juegos || []) {
         const k = invTitleKey(j.juego);
         if (!k) continue;
-        const prev = m.get(k) || { juego: j.juego, plataforma: j.plataforma || "PlayStation", ps4: 0, ps5: 0, xbox: 0, sec: 0 };
-        m.set(k, { ...prev, ps4: prev.ps4 + (j.ps4 || 0), ps5: prev.ps5 + (j.ps5 || 0), xbox: prev.xbox + (j.xbox || 0), sec: prev.sec + (j.sec || 0) });
+        const prev = m.get(k) || { juego: j.juego, plataforma: j.plataforma || "PlayStation", ps4: 0, ps5: 0, xbox: 0, sec: 0, sec_ps4: 0, sec_ps5: 0 };
+        m.set(k, { ...prev, ps4: prev.ps4 + (j.ps4 || 0), ps5: prev.ps5 + (j.ps5 || 0), xbox: prev.xbox + (j.xbox || 0), sec: prev.sec + (j.sec || 0),
+          sec_ps4: prev.sec_ps4 + (j.sec_ps4 || 0), sec_ps5: prev.sec_ps5 + (j.sec_ps5 || 0) });
       }
       comboInventory = m;
       return m;
@@ -4359,8 +4360,20 @@ function stockSlotsHTML(inv, g) {
     if (inv.ps5 && (!g || pl.includes("PS5"))) chips.push("PS5 · Principal");
     if (inv.ps4 && (!g || pl.includes("PS4"))) chips.push("PS4 · Principal");
   }
-  if (inv.sec) chips.push(xbox ? "Secundaria" : (g && !pl.includes("PS4") ? "Secundaria (PS5)" : "Secundaria (PS4 o PS5)"));
+  if (xbox) { if (inv.sec) chips.push("Secundaria"); }
+  else {
+    // La secundaria se ofrece solo en la consola cuyas principales ya se vendieron.
+    const s4 = stockSec(inv, g, "PS4"), s5 = stockSec(inv, g, "PS5");
+    if (s4 && s5) chips.push("Secundaria (PS4 o PS5)");
+    else if (s5) chips.push("Secundaria (PS5)");
+    else if (s4) chips.push("Secundaria (PS4)");
+  }
   return chips.map(c => `<span class="stock-chip">${escapeHtml(c)}</span>`).join("");
+}
+function stockSec(inv, g, consola) {
+  const pl = String(g?.platform || "");
+  if (g && !pl.includes(consola)) return 0;
+  return consola === "PS4" ? inv.sec_ps4 || 0 : inv.sec_ps5 || 0;
 }
 // Juego del catálogo para un título del inventario (estricto, como el combo:
 // el catálogo puede tener palabras de más, nunca de menos).
@@ -4405,12 +4418,13 @@ async function renderEntregaInmediata() {
       // dueño lo ve en el panel y puede corregir el nombre de la cuenta.
       if (!g) continue;
       const pl = String(g?.platform || "");
-      const libres = (inv.plataforma === "Xbox" ? inv.xbox : (pl && !pl.includes("PS4") ? 0 : inv.ps4) + inv.ps5) + inv.sec;
+      const sec = inv.plataforma === "Xbox" ? inv.sec : (stockSec(inv, g, "PS4") || stockSec(inv, g, "PS5"));
+      const libres = (inv.plataforma === "Xbox" ? inv.xbox : (pl && !pl.includes("PS4") ? 0 : inv.ps4) + inv.ps5) + sec;
       if (!libres) continue;
       if (stockFilter !== "Todas") {
         if (stockFilter === "Xbox" && inv.plataforma !== "Xbox") continue;
-        if (stockFilter === "PS5" && !(inv.plataforma !== "Xbox" && (inv.ps5 || inv.sec) && (!g || pl.includes("PS5")))) continue;
-        if (stockFilter === "PS4" && !(inv.plataforma !== "Xbox" && (inv.ps4 || inv.sec) && (!g || pl.includes("PS4")))) continue;
+        if (stockFilter === "PS5" && !(inv.plataforma !== "Xbox" && (inv.ps5 || inv.sec_ps5) && (!g || pl.includes("PS5")))) continue;
+        if (stockFilter === "PS4" && !(inv.plataforma !== "Xbox" && (inv.ps4 || inv.sec_ps4) && (!g || pl.includes("PS4")))) continue;
       }
       items.push({ key, inv, g, libres });
     }
@@ -9232,7 +9246,16 @@ function invAccountCard(a, inRange) {
         <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 || used.length > 1 ? ` ${i + 1}` : ""}${i >= cap ? " (no corresponde)" : ""}</span>
         ${invSaleLine(s, inRange && !inRange(s))}
       </div>`));
+    // Secundaria: espera a las principales (en todas las consolas donde se puede vender).
+    const secEspera = k === "sec" && !a.full && invSlotOptions(a).filter(o => o.slot === "sec").every(o => invSecWaiting(a, o.platform));
     for (let i = used.length; i < cap; i++) {
+      if (secEspera) {
+        slots.push(`<div class="inv-slot is-blocked" title="La secundaria se vende después de las principales">
+          <span class="inv-slot-name">${invSlotLabel(k, a.family)}</span>
+          <strong>DESPUÉS</strong><span class="inv-slot-cta">de las principales</span>
+        </div>`);
+        continue;
+      }
       slots.push(a.full ? `<div class="inv-slot is-blocked">
         <span class="inv-slot-name">${invSlotLabel(k, a.family)}${cap > 1 ? ` ${i + 1}` : ""}</span>
         <strong>—</strong>
@@ -9467,8 +9490,19 @@ function pfResetAccount() {
   pfRenderSlots();
 }
 
+// Regla del dueño (22/11/2026): la secundaria se vende DESPUÉS de las
+// principales. PlayStation: la secundaria en una consola espera a que se
+// vendan las 2 principales de esa consola. Xbox: Segundo plano después de la
+// Principal.
+function invSecWaiting(acc, platform) {
+  const libre = k => Math.max(0, (acc.cap?.[k] || 0) - (acc.used?.[k]?.length || 0));
+  if (acc.family === "PlayStation") return acc.kind === "psplus" ? false : libre(/ps5/i.test(platform) ? "ps5" : "ps4") > 0;
+  if (acc.family === "Xbox") return libre("pri") > 0;
+  return false;
+}
 function pfOptionFree(acc, o) {
   if (acc.full) return false;
+  if (o.slot === "sec" && invSecWaiting(acc, o.platform)) return false;
   return (acc.used?.[o.slot]?.length || 0) <= o.i && o.i < (acc.cap?.[o.slot] || 0);
 }
 
@@ -9521,12 +9555,12 @@ function pfRenderSlots() {
       [...groups.values()].filter(x => x.some(y => pfOptionFree(acc, y) && y.platform === platform && y.modality === modality))[0] === g) : null;
     if (!free) {
       return `<div class="pf-slot pf-slot-sec is-used"><span class="pf-slot-name">${escapeHtml(name)}</span>
-        <span class="pf-slot-who">${escapeHtml(who)}${donde ? ` · en ${donde}` : ""}</span></div>`;
+        <span class="pf-slot-who">${sale ? `${escapeHtml(who)}${donde ? ` · en ${donde}` : ""}` : "Se habilita al vender las principales"}</span></div>`;
     }
     return `<div class="pf-slot pf-slot-sec is-free${picked ? " is-selected" : ""}">
       <span class="pf-slot-name">${escapeHtml(name)}</span>
       <span class="pf-slot-who">${picked ? `✓ Elegida en ${escapeHtml(picked.platform)}` : "Libre · ¿en qué consola?"}</span>
-      <span class="pf-sec-btns">${g.slice().sort((a, b) => a.platform.localeCompare(b.platform)).map(o => `<button type="button" class="pf-sec-btn${picked === o ? " is-on" : ""}"
+      <span class="pf-sec-btns">${g.filter(o => pfOptionFree(acc, o)).sort((a, b) => a.platform.localeCompare(b.platform)).map(o => `<button type="button" class="pf-sec-btn${picked === o ? " is-on" : ""}"
         data-pf-platform="${escapeAttr(o.platform)}" data-pf-modality="${escapeAttr(o.modality)}">en ${escapeHtml(o.platform)}</button>`).join("")}</span>
     </div>`;
   };
@@ -9541,7 +9575,7 @@ function pfRenderSlots() {
     return `<button type="button" class="pf-slot${free ? " is-free" : " is-used"}${selected ? " is-selected" : ""}"
       data-pf-platform="${escapeAttr(o.platform)}" data-pf-modality="${escapeAttr(o.modality)}"${free ? "" : " disabled"}>
       <span class="pf-slot-name">${escapeHtml(o.label)}</span>
-      <span class="pf-slot-who">${free ? (selected ? "✓ Elegido" : "Libre") : escapeHtml(who)}</span>
+      <span class="pf-slot-who">${free ? (selected ? "✓ Elegido" : "Libre") : sale ? escapeHtml(who) : o.slot === "sec" ? "Se habilita al vender las principales" : ""}</span>
     </button>`;
   }).join("");
   const kindTxt = acc.family === "PlayStation"
