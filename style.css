@@ -5844,3 +5844,15 @@ html { scroll-behavior: smooth; }
 .pf-sec-btn { flex: 1; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid var(--green); background: transparent; color: var(--green); font-weight: 700; cursor: pointer; }
 .pf-sec-btn:hover { background: rgba(0, 217, 126, 0.08); }
 .pf-sec-btn.is-on { border-color: var(--gold); color: var(--gold); background: rgba(255, 199, 0, 0.12); }
+
+/* Con "⚡ Entrega inmediata" en el menú, en pantallas medianas todo tiene que
+   entrar en una línea (si no, el buscador baja y el encabezado crece). */
+@media (min-width: 769px) {
+  .topnav { gap: 0.15rem; }
+  .topnav > a, .topnav .dropdown-trigger { padding: 0.5rem 0.6rem; }
+  .top-search { min-width: 170px; }
+}
+@media (min-width: 769px) and (max-width: 1200px) {
+  .topnav > a, .topnav .dropdown-trigger { font-size: 0.82rem; padding: 0.45rem 0.5rem; }
+  .top-search { min-width: 150px; }
+}

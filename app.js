@@ -583,6 +583,7 @@ function navigateActive() {
       (route.name === "home" && r === "home") ||
       (route.name === "platform" && r === route.platform) ||
       (route.name === "cart" && r === "cart") ||
+      (route.name === "entrega-inmediata" && r === "entrega-inmediata") ||
       (route.name === "combo" && r === (route.precio ? `combo-${route.precio}` : "combo-all"));
     a.classList.toggle("active", active);
   });
@@ -4345,17 +4346,20 @@ async function renderCombo(precio) {
 // juego desaparece solo.
 let stockFilter = "Todas";
 let stockRefresh = null;
+// Qué se puede comprar ya, SIN cantidades: al cliente le alcanza con saber si
+// hay principal (y en qué consola) o secundaria. Las cantidades confundían
+// (dos cuentas del mismo juego se leían como "2 secundarias") y mostraban el
+// inventario a cualquiera; el dueño las ve en el panel.
 function stockSlotsHTML(inv, g) {
   const pl = String(g?.platform || inv.plataforma || "");
   const xbox = /xbox/i.test(pl) || inv.plataforma === "Xbox";
   const chips = [];
-  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
-  if (xbox) { if (inv.xbox) chips.push(`Xbox · ${n(inv.xbox, "primaria", "primarias")}`); }
+  if (xbox) { if (inv.xbox) chips.push("Xbox · Principal"); }
   else {
-    if (inv.ps5 && (!g || pl.includes("PS5"))) chips.push(`PS5 · ${n(inv.ps5, "primaria", "primarias")}`);
-    if (inv.ps4 && (!g || pl.includes("PS4"))) chips.push(`PS4 · ${n(inv.ps4, "primaria", "primarias")}`);
+    if (inv.ps5 && (!g || pl.includes("PS5"))) chips.push("PS5 · Principal");
+    if (inv.ps4 && (!g || pl.includes("PS4"))) chips.push("PS4 · Principal");
   }
-  if (inv.sec) chips.push(n(inv.sec, "secundaria", "secundarias"));
+  if (inv.sec) chips.push(xbox ? "Secundaria" : (g && !pl.includes("PS4") ? "Secundaria (PS5)" : "Secundaria (PS4 o PS5)"));
   return chips.map(c => `<span class="stock-chip">${escapeHtml(c)}</span>`).join("");
 }
 // Juego del catálogo para un título del inventario (estricto, como el combo:
