@@ -170,9 +170,7 @@
     },
     {
       "id": "BPS007",
-      "priceCRC": 47000,
-      "priceCRC_principal": 47000,
-      "priceCRC_secundaria": 24500,
+      "priceCRC": 15000,
       "coverUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202608/0521/15618b4627bb9e14016484379865574b6caf9041544946c8.png",
       "totalSize": "",
       "games": [
@@ -201,9 +199,11 @@
           "size": ""
         }
       ],
-      "date": "2026-11-22T04:08:08.198Z",
+      "date": "2026-11-22T04:50:33.799Z",
       "title": "Far Cry 5 + CTR Nitro-Fueled + WRC 10 FIA World Rally Championship y 3 más",
-      "discountPct": 40
+      "discountPct": 40,
+      "priceCRC_principal": 15000,
+      "priceCRC_secundaria": 10000
     },
     {
       "id": "BPS008",
