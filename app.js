@@ -35,6 +35,12 @@ const CONFIG = {
     principalMarkup: 0.75,    // fallback para Switch/otras plataformas
     secundariaMarkup: 0.35,   // fallback para Switch/otras plataformas
     minCRC: 1000,             // piso de servicio: nunca cobrar menos de esto por un juego con precio
+    // Lo que realmente cuesta cada dólar al comprar una licencia en la
+    // PlayStation Store con tarjeta (tipo de cambio del banco + impuestos +
+    // comisión). Lo usa el panel para calcular costo, ganancia y recuperación
+    // de cada cuenta. Revisalo con el estado de cuenta de la tarjeta: si el
+    // banco cobra 13 % de IVA por compras digitales, ronda ₡590–600.
+    costoPorDolar: 551,
     table: [
       [5,  1500,  1000],
       [10, 3500,  2000],
@@ -7019,6 +7025,9 @@ async function renderAdmin() {
                 <option value="ps5only">Solo PS5 (3 cupos)</option>
                 <option value="cross">PS4 y PS5 (5 cupos)</option>
                 <option value="unknown">Juego sin identificar</option>
+                <option value="pendiente">Sin recuperar la inversión</option>
+                <option value="recuperada">Inversión recuperada</option>
+                <option value="sincosto">Sin costo cargado</option>
               </select>
             </label>
             <label class="af-field">
@@ -7035,6 +7044,8 @@ async function renderAdmin() {
                 <option value="crc">Más vendido (₡)</option>
                 <option value="count">Más ventas</option>
                 <option value="free">Más libres</option>
+                <option value="profit">Más ganancia</option>
+                <option value="pending">Más por recuperar</option>
                 <option value="recent">Venta más reciente</option>
                 <option value="az">A → Z</option>
               </select>
@@ -8509,6 +8520,7 @@ function invTitleKey(t) {
 }
 
 let invPsIndex = null; // Map: clave del título → Set de plataformas ("PS4", "PS5", "PS5/PS4")
+let invPriceIndex = null; // Map: clave del título → precio NORMAL más bajo en USD (para estimar el costo)
 async function invLoadPsIndex() {
   if (invPsIndex) return invPsIndex;
   let games = fullCatalogRaw?.ps?.length ? fullCatalogRaw.ps : null;
@@ -8519,15 +8531,20 @@ async function invLoadPsIndex() {
     } catch { games = []; }
   }
   const idx = new Map();
-  const add = (title, pl) => {
+  const prices = new Map();
+  const add = (title, pl, usd) => {
     const k = invTitleKey(title);
     if (!k || !pl) return;
     if (!idx.has(k)) idx.set(k, new Set());
     idx.get(k).add(pl);
+    // Precio normal (sin oferta): el costo estimado peca de cauteloso.
+    if (usd > 0 && (!prices.has(k) || usd < prices.get(k))) prices.set(k, usd);
   };
-  for (const g of games) if (!g.isBundle) add(g.title, String(g.platform || "").trim());
-  for (const g of allGames || []) if (/PS/.test(g.platform || "")) add(g.title, String(g.platform).trim());
+  const regular = g => Number(g.originalPriceUSD) > 0 ? Number(g.originalPriceUSD) : Number(g.priceUSD) || 0;
+  for (const g of games) if (!g.isBundle) add(g.title, String(g.platform || "").trim(), regular(g));
+  for (const g of allGames || []) if (/PS/.test(g.platform || "")) add(g.title, String(g.platform).trim(), regular(g));
   invPsIndex = idx;
+  invPriceIndex = prices;
   return idx;
 }
 
@@ -8545,6 +8562,26 @@ function invPsKind(gameName) {
   invKindMemo.set(key, kind);
   return kind;
 }
+// Busca un título en un índice del catálogo: igual, por las primeras
+// palabras (≥ 8 letras) o como comienzo de un título más largo.
+function invIndexLookup(index, key) {
+  if (!index || !key) return undefined;
+  const words = key.split(" ");
+  let v = index.get(key);
+  for (let n = words.length - 1; n >= 2 && v === undefined; n--) {
+    const k = words.slice(0, n).join(" ");
+    if (k.length >= 8) v = index.get(k);
+  }
+  if (v === undefined && words.length >= 2 && key.length >= 8) {
+    for (const [k, val] of index) if (k.startsWith(key + " ")) { v = val; break; }
+  }
+  return v;
+}
+// Precio normal en USD del juego de una cuenta, según el catálogo (o 0).
+function invCatalogUSD(gameName) {
+  return invIndexLookup(invPriceIndex, invTitleKey(gameName)) || 0;
+}
+
 function invPsKindUncached(key) {
   const words = key.split(" ");
   let plats = invPsIndex.get(key);
@@ -8695,6 +8732,7 @@ function invBuildAccounts() {
     }
     acc.freeTotal = free;
     acc.crcAll = acc.sales.reduce((t, s) => t + invAmount(s), 0);
+    invAccountEconomics(acc);
     acc.last = acc.sales.reduce((m, s) => (String(s.purchase_date) > m ? String(s.purchase_date) : m), "")
       || String(c?.created_at || "").slice(0, 10);
     acc.haystack = normalizeSearch([
@@ -8705,6 +8743,51 @@ function invBuildAccounts() {
     accounts.push(acc);
   }
   return accounts;
+}
+
+// Rentabilidad de una cuenta: costo (cargado o estimado con el catálogo),
+// lo cobrado, la ganancia y cuándo se recuperó la inversión.
+function invAccountEconomics(acc) {
+  const c = acc.cuenta;
+  const loaded = Number(c?.costo_usd);
+  let usd = loaded > 0 ? loaded : 0;
+  acc.costEstimated = false;
+  if (!usd && acc.family === "PlayStation" && acc.game) {
+    usd = invCatalogUSD(acc.game);
+    acc.costEstimated = usd > 0;
+  }
+  acc.costUSD = usd;
+  acc.costCRC = Math.round(usd * CONFIG.pricing.costoPorDolar);
+  acc.profit = acc.costCRC ? acc.crcAll - acc.costCRC : null;
+  const sorted = acc.sales.slice().sort((a, b) => String(a.purchase_date).localeCompare(String(b.purchase_date)));
+  acc.boughtOn = String(c?.fecha_compra || "").slice(0, 10) || String(c?.created_at || "").slice(0, 10)
+    || String(sorted[0]?.purchase_date || "").slice(0, 10);
+  acc.recoveredOn = "";
+  acc.recoverDays = null;
+  if (acc.costCRC) {
+    let sum = 0;
+    for (const s of sorted) {
+      sum += invAmount(s);
+      if (sum >= acc.costCRC) { acc.recoveredOn = String(s.purchase_date).slice(0, 10); break; }
+    }
+    if (acc.recoveredOn && acc.boughtOn) {
+      acc.recoverDays = Math.max(0, Math.round((new Date(acc.recoveredOn) - new Date(acc.boughtOn)) / 86400000));
+    }
+  }
+  acc.pending = acc.costCRC && !acc.recoveredOn ? acc.costCRC - acc.crcAll : 0;
+}
+
+function invEconomicsChip(a) {
+  if (!a.costCRC) return a.family === "PlayStation" || a.family === "Xbox"
+    ? `<span class="inv-chip is-warn" title="Cargá el costo en ✎ Editar cuenta">Sin costo</span>` : "";
+  const est = a.costEstimated ? "≈ " : "";
+  const tip = a.costEstimated
+    ? ` title="Costo estimado con el precio normal de hoy ($${a.costUSD}). Cargá el real en ✎ Editar cuenta."`
+    : ` title="Costo: $${a.costUSD} × ₡${CONFIG.pricing.costoPorDolar}"`;
+  if (a.recoveredOn) {
+    return `<span class="inv-chip is-free"${tip}>${est}Costo ${escapeHtml(formatCRC(a.costCRC))} · ganancia ${escapeHtml(formatCRC(a.profit))}${a.recoverDays != null ? ` · recuperada en ${a.recoverDays} ${a.recoverDays === 1 ? "día" : "días"}` : ""}</span>`;
+  }
+  return `<span class="inv-chip is-warn"${tip}>${est}Costo ${escapeHtml(formatCRC(a.costCRC))} · faltan ${escapeHtml(formatCRC(a.pending))} para recuperarla</span>`;
 }
 
 function invFilterState() {
@@ -8752,6 +8835,9 @@ function renderInventory() {
     if (f.state === "ps5only" && a.kind !== "ps5only") return false;
     if (f.state === "cross" && (a.kind !== "cross" || a.unknown)) return false;
     if (f.state === "unknown" && !a.unknown) return false;
+    if (f.state === "pendiente" && !a.pending) return false;
+    if (f.state === "recuperada" && !a.recoveredOn) return false;
+    if (f.state === "sincosto" && a.costCRC && !a.costEstimated) return false;
     return true;
   });
   // Lo vendido en el rango elegido (o en total si no hay rango).
@@ -8764,10 +8850,11 @@ function renderInventory() {
 
   const totals = list.reduce((t, a) => {
     t.crc += a.crc; t.count += a.count; t.free += a.freeTotal;
+    if (a.costCRC) { t.cost += a.costCRC; t.cobrado += a.crcAll; if (a.pending) { t.pendAcc++; t.pend += a.pending; } }
     if (a.freeTotal) t.withFree++; else t.fullAcc++;
     for (const k of ["ps4", "ps5", "pri", "sec"]) t.byType[k] += a.free[k] || 0;
     return t;
-  }, { crc: 0, count: 0, free: 0, withFree: 0, fullAcc: 0, byType: { ps4: 0, ps5: 0, pri: 0, sec: 0 } });
+  }, { crc: 0, count: 0, free: 0, withFree: 0, fullAcc: 0, cost: 0, cobrado: 0, pendAcc: 0, pend: 0, byType: { ps4: 0, ps5: 0, pri: 0, sec: 0 } });
 
   const kpis = `
     <div class="sr-kpis inv-kpis">
@@ -8777,6 +8864,13 @@ function renderInventory() {
       <div class="sr-kpi"><span class="srk-label">Cupos libres</span><strong class="srk-value">${totals.free}</strong></div>
       <div class="sr-kpi"><span class="srk-label">Con libres / llenas</span><strong class="srk-value">${totals.withFree} / ${totals.fullAcc}</strong></div>
     </div>
+    ${totals.cost ? `<div class="sr-kpis inv-kpis">
+      <div class="sr-kpi"><span class="srk-label">Invertido en licencias</span><strong class="srk-value">${escapeHtml(formatCRC(totals.cost))}</strong></div>
+      <div class="sr-kpi"><span class="srk-label">Cobrado de esas cuentas</span><strong class="srk-value">${escapeHtml(formatCRC(totals.cobrado))}</strong></div>
+      <div class="sr-kpi sr-kpi-total"><span class="srk-label">Ganancia a la fecha</span><strong class="srk-value">${escapeHtml(formatCRC(totals.cobrado - totals.cost))}</strong></div>
+      <div class="sr-kpi"><span class="srk-label">Sin recuperar</span><strong class="srk-value">${totals.pendAcc} · ${escapeHtml(formatCRC(totals.pend))}</strong></div>
+    </div>
+    <p class="inv-freebreak">Costo = precio en dólares × ₡${CONFIG.pricing.costoPorDolar}. Las marcadas con ≈ usan el precio normal de hoy porque no tienen el costo cargado.</p>` : ""}
     <p class="inv-freebreak">Libres: ${["ps4", "ps5", "pri", "sec"].filter(k => totals.byType[k]).map(k =>
       `<span class="inv-chip">${INV_SLOT_SHORT[k]} · ${totals.byType[k]}</span>`).join(" ") || "ninguno"}</p>`;
 
@@ -8833,6 +8927,8 @@ function invSort(arr, sort, nameOf) {
     crc: (a, b) => b.crc - a.crc || b.count - a.count || byName(a, b),
     count: (a, b) => b.count - a.count || b.crc - a.crc || byName(a, b),
     free: (a, b) => (b.freeTotal ?? b.free) - (a.freeTotal ?? a.free) || byName(a, b),
+    profit: (a, b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity) || byName(a, b),
+    pending: (a, b) => (b.pending || 0) - (a.pending || 0) || byName(a, b),
     recent: (a, b) => String(b.last).localeCompare(String(a.last)) || byName(a, b),
     az: byName,
   }[sort] || byName;
@@ -8892,6 +8988,7 @@ function invAccountCard(a, inRange) {
           ${a.kind === "nintendo" ? `<span class="inv-chip">Venta única (bundle)</span>` : ""}
           <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
           <span class="inv-chip">${a.count} ${a.count === 1 ? "venta" : "ventas"} · ${escapeHtml(formatCRC(a.crc))}</span>
+          ${invEconomicsChip(a)}
         </div>
       </header>
       <div class="inv-slots">${slots.join("")}</div>
@@ -9194,6 +9291,8 @@ async function openCuentaModal(acc) {
     region: c?.region || "",
     tipo: c?.tipo || "auto",
     notas: c?.notas || "",
+    costo_usd: c?.costo_usd != null ? String(c.costo_usd) : "",
+    fecha_compra: String(c?.fecha_compra || "").slice(0, 10),
   };
   const regions = [...new Set(["USA", "Turkey", ...invAccounts().map(a => a.region).filter(Boolean)])];
   const sales = acc?.sales?.length || 0;
@@ -9240,6 +9339,15 @@ async function openCuentaModal(acc) {
     <label>Contraseña de la cuenta
       <input name="password" type="text" value="${escapeAttr(password)}" autocomplete="off">
     </label>
+    <div class="row">
+      <label>Costo de la licencia (USD)
+        <input name="costo_usd" type="text" inputmode="decimal" value="${escapeAttr(v.costo_usd)}" placeholder="Ej: 19.99" autocomplete="off">
+        <small class="field-hint cuenta-costo-hint"></small>
+      </label>
+      <label>Fecha de compra
+        <input name="fecha_compra" type="date" value="${escapeAttr(v.fecha_compra)}">
+      </label>
+    </div>
     <label>Notas
       <textarea name="notas" rows="2" placeholder="Opcional">${escapeHtml(v.notas)}</textarea>
     </label>
@@ -9332,6 +9440,18 @@ async function openCuentaModal(acc) {
   });
   $("juego").addEventListener("input", syncTipo);
   syncTipo();
+  // Costo: muestra en colones y, si está vacío, sugiere el precio normal del catálogo.
+  const costoHint = modal.querySelector(".cuenta-costo-hint");
+  const syncCosto = () => {
+    const n = Number(String($("costo_usd").value).replace(",", "."));
+    const cat = invCatalogUSD($("juego").value);
+    costoHint.textContent = n > 0
+      ? `≈ ${formatCRC(Math.round(n * CONFIG.pricing.costoPorDolar))} (× ₡${CONFIG.pricing.costoPorDolar} por dólar)`
+      : cat ? `Precio normal en el catálogo: $${cat}. Si la compraste en oferta, poné lo que pagaste.` : "Lo que pagaste en la PlayStation Store, en dólares.";
+  };
+  $("costo_usd").addEventListener("input", syncCosto);
+  $("juego").addEventListener("change", syncCosto);
+  syncCosto();
   modal.showModal();
   modal.querySelector("#cuentaCancelBtn").addEventListener("click", () => modal.close());
   modal.addEventListener("click", e => { if (e.target === modal) modal.close(); });
@@ -9355,6 +9475,8 @@ async function openCuentaModal(acc) {
           region: $("region").value,
           tipo: $("plataforma").value === "PlayStation" ? $("tipo").value : "auto",
           notas: $("notas").value,
+          costo_usd: $("costo_usd").value,
+          fecha_compra: $("fecha_compra").value,
         });
         showToast(`Correo ${r.correo} creado ✓`);
         modal.close();
@@ -9380,6 +9502,8 @@ async function openCuentaModal(acc) {
         region: $("region").value,
         tipo: $("plataforma").value === "PlayStation" ? $("tipo").value : "auto",
         notas: $("notas").value,
+        costo_usd: $("costo_usd").value,
+        fecha_compra: $("fecha_compra").value,
       });
       showToast(c ? "Cuenta actualizada ✓" : "Cuenta registrada ✓");
       modal.close();

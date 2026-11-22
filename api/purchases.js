@@ -262,9 +262,12 @@ async function accounts(req, res) {
   // Cuentas registradas (sin contraseña). null = falta la migración add_cuentas.sql.
   let cuentas = null;
   try {
-    cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
+    cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at,costo_usd,fecha_compra&order=created_at.asc&limit=20000`);
   } catch (err) {
-    if (!ajustesMissing(err)) throw err;
+    if (costoMissing(err)) {
+      // Falta add_cuenta_costo.sql: se listan igual, sin costo.
+      cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
+    } else if (!ajustesMissing(err)) throw err;
   }
   // El asistente ve nombre y RM del cliente de cada cupo, no su correo.
   if (staff.assistant) {
@@ -353,6 +356,30 @@ async function cofreAdjustDelete(req, res, body) {
 const CUENTA_PLATAFORMAS = ["PlayStation", "Xbox", "Nintendo"];
 const CUENTA_TIPOS = ["auto", "cross", "ps5only"];
 
+// Costo de la licencia (migrations/add_cuenta_costo.sql). Devuelve los campos
+// a guardar, o {} si no vinieron. Lanza 400 si el valor no tiene sentido.
+function costoFields(body) {
+  const out = {};
+  if (body.costo_usd !== undefined) {
+    // Vacío = no tocarlo (así editar una cuenta no depende de la migración).
+    const raw = String(body.costo_usd ?? "").replace(",", ".").trim();
+    if (raw !== "") {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0 || n > 1000) { const e = new Error("Costo inválido: poné el precio en dólares (ej. 19.99)"); e.status = 400; throw e; }
+      out.costo_usd = Math.round(n * 100) / 100;
+    }
+  }
+  if (body.fecha_compra !== undefined) {
+    const d = String(body.fecha_compra || "").trim();
+    if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) { const e = new Error("Fecha de compra inválida"); e.status = 400; throw e; }
+    if (d) out.fecha_compra = d;
+  }
+  return out;
+}
+// ¿El error es porque todavía no se corrió add_cuenta_costo.sql?
+const costoMissing = err => /costo_usd|fecha_compra/i.test(err?.message || "") || /costo_usd|fecha_compra/i.test(JSON.stringify(err?.data || {}));
+const costoMissingError = () => Object.assign(new Error("Para guardar el costo falta correr migrations/add_cuenta_costo.sql en Supabase (SQL Editor → New query → Run). La cuenta no se guardó."), { status: 500 });
+
 function likeExact(email) {
   return encodeURIComponent("*" + email.replace(/[\\%_]/g, m => "\\" + m) + "*");
 }
@@ -398,6 +425,7 @@ async function cuentaSave(req, res, body) {
     notas: cleanText(body.notas, 500),
     updated_at: new Date().toISOString(),
   };
+  Object.assign(row, costoFields(body));
   const pwd = cleanText(body.password, 200);
   // Al editar, contraseña vacía = no tocarla.
   if (pwd) row.password = encryptSecret(pwd);
@@ -424,6 +452,7 @@ async function cuentaSave(req, res, body) {
       await sb(`cuentas`, { method: "POST", body: JSON.stringify(row) });
     }
   } catch (err) {
+    if (costoMissing(err)) throw costoMissingError();
     if (ajustesMissing(err)) throw cuentasMissingError();
     if (err?.data?.code === "23505") return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
     throw err;
@@ -475,6 +504,7 @@ async function cuentaNueva(req, res, body) {
   if (!juego) return res.status(400).json({ error: "Falta el juego" });
   if (!CUENTA_TIPOS.includes(tipo)) return res.status(400).json({ error: "Tipo inválido" });
   const crearCorreo = body.crear_correo !== false;
+  const costo = costoFields(body);
 
   // Nada a medias: primero todo lo que puede fallar sin efectos.
   if (await cuentaByEmail(correo)) return res.status(409).json({ error: "Ya hay una cuenta registrada con ese correo." });
@@ -493,8 +523,10 @@ async function cuentaNueva(req, res, body) {
     creada = await sb(`cuentas`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({
       plataforma, juego, correo, tipo, password: encryptSecret(password),
       region: cleanText(body.region, 40), notas: cleanText(body.notas, 500), updated_at: new Date().toISOString(),
+      ...costo,
     }) });
   } catch (err) {
+    if (costoMissing(err)) throw costoMissingError();
     throw ajustesMissing(err) ? cuentasMissingError() : err;
   }
   if (crearCorreo) {
