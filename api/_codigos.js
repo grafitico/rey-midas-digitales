@@ -1,0 +1,137 @@
+// Bóveda de códigos de verificación (2FA) por cuenta — migrations/add_cuenta_codigos.sql
+//
+// Todos los códigos de una cuenta viven una sola vez en cuentas.codigos, como
+// un JSON cifrado (ACCOUNT_SECRET). Cada venta recibe pocos códigos (2 por
+// defecto) y el cliente ve solo esos en "Mis compras". Estados de cada código:
+//   libre      → se puede entregar
+//   entregado  → se le dio a una venta (venta, rm, fecha)
+//   expuesto   → un cliente lo vio antes de la bóveda (cuando se le copiaban
+//                todos): no se vuelve a entregar
+//   anulado    → Sony lo invalidó al generar un set nuevo
+import { sb, encryptSecret, decryptSecret } from "./_lib.js";
+
+export const CODIGOS_POR_VENTA = 2;
+export const CLIENTE_EXCEL_EMAIL = "ventas-anteriores@reymidascr.com";
+
+// La columna todavía no existe (migración sin correr).
+export function codigosMissing(err) {
+  const t = `${err?.message || ""} ${err?.data?.message || ""} ${err?.data?.code || ""}`;
+  return /codigos/i.test(t) && /does not exist|could not find|PGRST204|42703/i.test(t);
+}
+export function codigosMissingError() {
+  const e = new Error("Falta la bóveda de códigos: corré migrations/add_cuenta_codigos.sql en Supabase (SQL Editor → New query → Run).");
+  e.status = 409;
+  return e;
+}
+
+// Texto libre → códigos (uno por línea, o separados por espacios/comas).
+// Sony da códigos alfanuméricos de 6 a 8; se toleran de 4 a 20.
+export function parseCodigos(texto) {
+  const out = [];
+  for (const t of String(texto || "").split(/[\s,;|]+/)) {
+    const c = t.trim().replace(/^[-•*·]+/, "");
+    if (/^[A-Za-z0-9-]{4,20}$/.test(c) && /\d/.test(c) && !out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
+// cuentas.codigos → lista, o null si la cuenta todavía no tiene bóveda.
+export function leerBoveda(cuenta) {
+  if (!cuenta?.codigos) return null;
+  try {
+    const d = JSON.parse(decryptSecret(cuenta.codigos));
+    return Array.isArray(d?.codigos) ? d.codigos : null;
+  } catch {
+    return null;
+  }
+}
+
+export function resumenBoveda(lista) {
+  const r = { libres: 0, entregados: 0, expuestos: 0, anulados: 0, total: 0 };
+  for (const x of lista || []) {
+    r.total++;
+    if (x.e === "libre") r.libres++;
+    else if (x.e === "entregado") r.entregados++;
+    else if (x.e === "expuesto") r.expuestos++;
+    else if (x.e === "anulado") r.anulados++;
+  }
+  return r;
+}
+
+export async function guardarBoveda(cuentaId, lista) {
+  await sb(`cuentas?id=eq.${cuentaId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ codigos: encryptSecret(JSON.stringify({ v: 1, codigos: lista })), updated_at: new Date().toISOString() }),
+  });
+}
+
+function hoy() { return new Date().toISOString().slice(0, 10); }
+
+// Entrega n códigos libres a una venta (en orden). Devuelve los entregados.
+export function asignar(lista, n, { venta, rm }) {
+  const dados = [];
+  for (const x of lista) {
+    if (dados.length >= n) break;
+    if (x.e !== "libre") continue;
+    Object.assign(x, { e: "entregado", venta, rm: rm || null, f: hoy() });
+    dados.push(x.c);
+  }
+  return dados;
+}
+
+// Set nuevo de Sony: los códigos viejos quedan anulados (Sony los invalida) y
+// los nuevos entran como libres. Con modo "agregar" solo suma los nuevos.
+export function cargarSet(lista, codigos, modo = "reemplazar") {
+  const ya = new Set(lista.map(x => x.c));
+  const nuevos = codigos.filter(c => !ya.has(c));
+  if (modo === "reemplazar" && nuevos.length) {
+    for (const x of lista) if (x.e === "libre" || x.e === "expuesto") Object.assign(x, { e: "anulado", f: hoy() });
+  }
+  for (const c of nuevos) lista.push({ c, e: "libre" });
+  return nuevos.length;
+}
+
+// Ventas de una cuenta (todas), con el cliente: para sembrar la bóveda.
+export async function ventasDeCuenta(email) {
+  const pat = encodeURIComponent("*" + email.replace(/[\\%_]/g, m => "\\" + m) + "*");
+  const rows = await sb(`purchases?account_email=ilike.${pat}&select=id,account_email,purchase_date,created_at,verifier_codes,app_users(email,customer_number)&order=created_at.asc&limit=200`);
+  return rows.filter(r => String(r.account_email || "").trim().toLowerCase() === email);
+}
+
+// Primera vez: arma la bóveda con los códigos que hoy están en las ventas.
+//  - Ventas de "Ventas anteriores (Excel)" (no es un cliente real) → libres.
+//  - Ventas de clientes reales → los 2 primeros quedan entregados a esa venta
+//    (el cliente sigue viéndolos) y el resto "expuesto": el cliente los vio
+//    cuando se copiaban todos, así que no se le dan a otro. La venta se
+//    recorta a esos 2 (recortes).
+export function sembrarDesdeVentas(ventas, n = CODIGOS_POR_VENTA) {
+  const lista = [], visto = new Set(), recortes = [];
+  for (const v of ventas) {
+    const cods = parseCodigos(decryptSecret(v.verifier_codes) || "");
+    if (!cods.length) continue;
+    const real = v.app_users && String(v.app_users.email || "").toLowerCase() !== CLIENTE_EXCEL_EMAIL;
+    const nuevos = cods.filter(c => !visto.has(c));
+    if (!real) {
+      for (const c of nuevos) { visto.add(c); lista.push({ c, e: "libre" }); }
+      recortes.push({ venta: v.id, codigos: [] }); // pasan a la bóveda: la venta comodín queda sin códigos
+      continue;
+    }
+    const quedan = [];
+    for (const c of cods) {
+      if (quedan.length < n && !lista.some(x => x.c === c && x.e === "entregado")) {
+        quedan.push(c);
+        const ya = lista.find(x => x.c === c);
+        const dato = { e: "entregado", venta: v.id, rm: v.app_users.customer_number || null, f: String(v.purchase_date || "").slice(0, 10) || null };
+        if (ya) Object.assign(ya, dato); else { lista.push({ c, ...dato }); visto.add(c); }
+      } else if (!visto.has(c)) {
+        visto.add(c);
+        lista.push({ c, e: "expuesto", venta: v.id, rm: v.app_users.customer_number || null });
+      } else {
+        const ya = lista.find(x => x.c === c);
+        if (ya && ya.e === "libre") Object.assign(ya, { e: "expuesto", venta: v.id, rm: v.app_users.customer_number || null });
+      }
+    }
+    if (quedan.length < cods.length) recortes.push({ venta: v.id, codigos: quedan });
+  }
+  return { lista, recortes };
+}

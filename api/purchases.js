@@ -5,6 +5,7 @@ import { sb, sbAll, requireAuth, requireAdmin, requireStaff, handleError, readJs
 import crypto from "crypto";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
+import { CODIGOS_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas } from "./_codigos.js";
 import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
@@ -51,6 +52,10 @@ export default async function handler(req, res) {
     if (body.action === "correo-estado") return await correoEstado(req, res, body);
     if (body.action === "correo-sugerir") return await correoSugerir(req, res, body);
     if (body.action === "cofre-adjust-delete") return await cofreAdjustDelete(req, res, body);
+    if (body.action === "codigos-cuenta") return await codigosCuenta(req, res, body);
+    if (body.action === "codigos-guardar") return await codigosGuardar(req, res, body);
+    if (body.action === "codigos-entregar") return await codigosEntregar(req, res, body);
+    if (body.action === "codigos-migrar") return await codigosMigrar(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -107,10 +112,10 @@ async function create(req, res, body) {
   const rmNum = parseInt(String(body.customer_number || "").replace(/\D/g, ""), 10);
   let users;
   if (clientEmail && staff.admin) {
-    users = await sb(`app_users?email=eq.${encodeURIComponent(clientEmail)}&select=id`);
+    users = await sb(`app_users?email=eq.${encodeURIComponent(clientEmail)}&select=id,customer_number`);
     if (!users.length) return res.status(404).json({ error: `No hay cliente con email "${clientEmail}". Creá la cuenta primero.` });
   } else if (rmNum > 0) {
-    users = await sb(`app_users?customer_number=eq.${rmNum}&select=id`);
+    users = await sb(`app_users?customer_number=eq.${rmNum}&select=id,customer_number`);
     if (!users.length) return res.status(404).json({ error: `No hay cliente con el código RM-${String(rmNum).padStart(4, "0")}.` });
   } else {
     return res.status(400).json({ error: staff.admin ? "Email del cliente requerido" : "Código RM del cliente requerido" });
@@ -130,6 +135,16 @@ async function create(req, res, body) {
     body.account_password = pwd;
   }
   if (!body.purchase_date) body.purchase_date = new Date().toISOString().slice(0, 10);
+  // Bóveda de códigos: los códigos que vengan en el formulario son los de la
+  // CUENTA (un set nuevo de Sony o los de una cuenta nueva); la venta recibe
+  // solo CODIGOS_POR_VENTA. Sin la migración, se guarda como antes.
+  const acc = String(body.account_email).trim().toLowerCase();
+  let boveda = null;
+  try {
+    boveda = await prepararBoveda(acc, body);
+  } catch (err) {
+    if (!codigosMissing(err)) throw err;
+  }
   const row = {
     user_id: users[0].id,
     purchase_date: body.purchase_date,
@@ -137,7 +152,7 @@ async function create(req, res, body) {
     modality: body.modality || null,
     account_email: body.account_email,
     account_password: encryptSecret(body.account_password),
-    verifier_codes: body.verifier_codes ? encryptSecret(body.verifier_codes) : null,
+    verifier_codes: !boveda && body.verifier_codes ? encryptSecret(body.verifier_codes) : null,
     games: body.games || null,
     game_name: body.game_name || null,
     notes: body.notes || null,
@@ -147,9 +162,54 @@ async function create(req, res, body) {
   if (body.is_redemption) row.is_redemption = true;
   const amount = parseAmount(body.amount);
   if (amount != null) row.amount = amount;
-  await sbWithAmount(`purchases`, { method: "POST", body: JSON.stringify(row) }, amount != null);
+  const creada = await sbWithAmount(`purchases`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(row) }, amount != null);
+  const ventaId = Array.isArray(creada) ? creada[0]?.id : null;
+  let codigos = null;
+  if (boveda && ventaId) {
+    const pedidos = Math.max(0, Math.min(5, parseInt(body.codigos_entregar ?? CODIGOS_POR_VENTA, 10) || 0));
+    const dados = asignar(boveda.lista, pedidos, { venta: ventaId, rm: users[0].customer_number });
+    if (dados.length) await sb(`purchases?id=eq.${ventaId}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: encryptSecret(dados.join("\n")) }) });
+    await guardarBoveda(boveda.cuenta.id, boveda.lista);
+    await aplicarRecortes(boveda.recortes); // recién con la bóveda guardada
+    codigos = { entregados: dados.length, ...resumenBoveda(boveda.lista) };
+  }
   if (staff.assistant) console.log(`[asistente] venta cargada (acceso ${staff.tid}): ${row.platform} ${row.modality || ""} → cliente ${users[0].id}`);
-  res.status(200).json({ ok: true });
+  res.status(200).json({ ok: true, id: ventaId, codigos });
+}
+
+// Cuenta registrada de ese correo (se crea si solo existía en ventas) con su
+// bóveda lista: sembrada desde las ventas la primera vez y con el set nuevo
+// del formulario, si vino. Lanza codigosMissing si falta la migración.
+async function prepararBoveda(acc, body) {
+  await bovedaDisponible(); // sin la columna, nada se toca (lanza codigosMissing)
+  let cuenta = await cuentaByEmail(acc);
+  const nuevos = parseCodigos(body.verifier_codes);
+  if (!cuenta) {
+    const fam = /xbox/i.test(body.platform || "") ? "Xbox" : /switch|nintendo/i.test(body.platform || "") ? "Nintendo" : "PlayStation";
+    const creada = await sb(`cuentas`, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({
+      plataforma: fam, juego: cleanText(body.game_name, 200) || "(sin juego)", correo: String(body.account_email).trim(), tipo: "auto",
+    }) });
+    cuenta = Array.isArray(creada) ? creada[0] : null;
+    if (!cuenta) return null;
+  }
+  let lista = leerBoveda(cuenta), recortes = [];
+  if (!lista) ({ lista, recortes } = sembrarDesdeVentas(await ventasDeCuenta(acc)));
+  if (nuevos.length) cargarSet(lista, nuevos, "reemplazar");
+  return { cuenta, lista, recortes };
+}
+
+let bovedaOk = false;
+async function bovedaDisponible() {
+  if (bovedaOk) return;
+  await sb(`cuentas?select=codigos&limit=1`);
+  bovedaOk = true;
+}
+
+// Ventas de clientes reales que tenían todos los códigos: quedan con los suyos.
+async function aplicarRecortes(recortes) {
+  for (const r of recortes) {
+    await sb(`purchases?id=eq.${r.venta}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: r.codigos.length ? encryptSecret(r.codigos.join("\n")) : null }) });
+  }
 }
 
 async function del(req, res, body) {
@@ -278,6 +338,16 @@ async function accounts(req, res) {
       cuentas = await sbAll(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
     } else if (!ajustesMissing(err)) throw err;
   }
+  // Bóveda de códigos: solo el resumen por cuenta (nunca los códigos).
+  if (Array.isArray(cuentas) && cuentas.length) {
+    try {
+      const cods = await sbAll(`cuentas?select=id,codigos&codigos=not.is.null&limit=20000`);
+      const porId = new Map(cods.map(c => [c.id, resumenBoveda(leerBoveda(c) || [])]));
+      cuentas = cuentas.map(c => porId.has(c.id) ? { ...c, codigos_resumen: porId.get(c.id) } : c);
+    } catch (err) {
+      if (!codigosMissing(err)) throw err;
+    }
+  }
   // El asistente ve nombre y RM del cliente de cada cupo, no su correo.
   if (staff.assistant) {
     rows = rows.map(r => ({ ...r, app_users: r.app_users ? { full_name: r.app_users.full_name, customer_number: r.app_users.customer_number } : null }));
@@ -344,6 +414,9 @@ async function importarExcel(req, res, body) {
 
   const problemas = [], saltadas = [], cuentas = [], ventas = [];
   const vistos = new Set();
+  // Con la bóveda, los códigos van a la cuenta (libres) y no a una venta.
+  let conBov = true;
+  try { await bovedaDisponible(); } catch (err) { if (!codigosMissing(err)) throw err; conBov = false; }
   for (const [i, c] of lista.entries()) {
     const correo = String(c.correo || "").trim().toLowerCase();
     const juego = cleanText(c.juego, 200);
@@ -361,8 +434,12 @@ async function importarExcel(req, res, body) {
       region: cleanText(c.region, 40), notas,
       password: pwd ? encryptSecret(pwd) : null,
       updated_at: new Date().toISOString(),
+      // En una carga en lote todas las filas deben traer las mismas columnas.
+      ...(conBov ? { codigos: parseCodigos(c.codigos).length
+        ? encryptSecret(JSON.stringify({ v: 1, codigos: parseCodigos(c.codigos).map(x => ({ c: x, e: "libre" })) }))
+        : null } : {}),
     });
-    let codigosPuestos = false;
+    let codigosPuestos = conBov; // con bóveda, ninguna venta lleva códigos
     for (const v of Array.isArray(c.vendidos) ? c.vendidos : []) {
       const base = v.slot === "sec"
         ? { platform: /ps5/i.test(v.platform || "") ? "PS5" : "PS4", modality: "secundaria" }
@@ -379,7 +456,7 @@ async function importarExcel(req, res, body) {
       });
       if (c.codigos) codigosPuestos = true;
     }
-    if (c.codigos && !codigosPuestos) problemas.push(`${correo}: sin ventas, los códigos 2FA no se guardaron (no hay dónde)`);
+    if (c.codigos && !codigosPuestos && !conBov) problemas.push(`${correo}: sin ventas, los códigos 2FA no se guardaron (no hay dónde)`);
   }
 
   // Cliente comodín para las ventas anteriores.
@@ -665,6 +742,110 @@ async function cuentaSave(req, res, body) {
   }
   if (staff.assistant) console.log(`[asistente] cuenta ${id ? "editada" : "registrada"} (acceso ${staff.tid}): ${correo}`);
   res.status(200).json({ ok: true });
+}
+
+// ===== Bóveda de códigos de verificación (api/_codigos.js) =====
+// Cuenta + bóveda lista para leer o modificar (sembrada la primera vez).
+async function bovedaDe(email) {
+  await bovedaDisponible();
+  const cuenta = await cuentaByEmail(email);
+  if (!cuenta) return null;
+  let lista = leerBoveda(cuenta), recortes = [];
+  if (!lista) ({ lista, recortes } = sembrarDesdeVentas(await ventasDeCuenta(email)));
+  return { cuenta, lista, recortes };
+}
+async function conBoveda(fn) {
+  try { return await fn(); } catch (err) { if (codigosMissing(err)) throw codigosMissingError(); throw err; }
+}
+
+// Solo admin: todos los códigos de una cuenta con su estado.
+async function codigosCuenta(req, res, body) {
+  await requireAdmin(req);
+  const email = String(body.account_email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "Correo de la cuenta requerido" });
+  return conBoveda(async () => {
+    const b = await bovedaDe(email);
+    if (!b) return res.status(200).json({ registrada: false, codigos: [], resumen: resumenBoveda([]) });
+    res.status(200).json({ registrada: true, codigos: b.lista, resumen: resumenBoveda(b.lista) });
+  });
+}
+
+// Solo admin: carga un set de códigos. modo "reemplazar" (set nuevo de Sony:
+// los viejos quedan anulados) o "agregar".
+async function codigosGuardar(req, res, body) {
+  await requireAdmin(req);
+  const email = String(body.account_email || "").trim().toLowerCase();
+  const nuevos = parseCodigos(body.codigos);
+  if (!email) return res.status(400).json({ error: "Correo de la cuenta requerido" });
+  if (!nuevos.length) return res.status(400).json({ error: "No vinieron códigos válidos (uno por línea)." });
+  return conBoveda(async () => {
+    const b = await bovedaDe(email);
+    if (!b) return res.status(404).json({ error: "Esa cuenta no está registrada: registrala primero en Cuentas." });
+    const n = cargarSet(b.lista, nuevos, body.modo === "agregar" ? "agregar" : "reemplazar");
+    await guardarBoveda(b.cuenta.id, b.lista);
+    await aplicarRecortes(b.recortes);
+    res.status(200).json({ ok: true, agregados: n, resumen: resumenBoveda(b.lista) });
+  });
+}
+
+// Admin o asistente: entrega N códigos libres más a una venta (el cliente los
+// ve en su compra). No devuelve los códigos: el asistente nunca los ve.
+async function codigosEntregar(req, res, body) {
+  const staff = await requireStaff(req);
+  const id = String(body.purchase_id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: "Venta inválida" });
+  const n = Math.max(1, Math.min(3, parseInt(body.n ?? 1, 10) || 1));
+  return conBoveda(async () => {
+    const v = (await sb(`purchases?id=eq.${id}&select=id,account_email,verifier_codes,app_users(customer_number)`))[0];
+    if (!v) return res.status(404).json({ error: "Esa venta ya no existe" });
+    const b = await bovedaDe(String(v.account_email || "").trim().toLowerCase());
+    if (!b) return res.status(404).json({ error: "La cuenta de esa venta no está registrada." });
+    const dados = asignar(b.lista, n, { venta: id, rm: v.app_users?.customer_number });
+    if (!dados.length) return res.status(409).json({ error: "Esa cuenta no tiene códigos libres: generá un set nuevo en Sony y cargalo en la cuenta.", resumen: resumenBoveda(b.lista) });
+    await guardarBoveda(b.cuenta.id, b.lista);
+    await aplicarRecortes(b.recortes.filter(r => r.venta !== id));
+    // Si la venta estaba entre los recortes, parte de lo que le quedó.
+    const base = b.recortes.find(r => r.venta === id)?.codigos ?? parseCodigos(decryptSecret(v.verifier_codes) || "");
+    await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: encryptSecret([...base, ...dados].join("\n")) }) });
+    // Al admin se le devuelven para mostrarlos; al asistente no.
+    res.status(200).json({ ok: true, entregados: dados.length, ...(staff.admin ? { codigos: dados } : {}), resumen: resumenBoveda(b.lista) });
+  });
+}
+
+// Una sola vez: arma la bóveda de todas las cuentas registradas con los
+// códigos que hoy están en sus ventas. dry_run (por defecto) solo cuenta.
+// No devuelve códigos.
+async function codigosMigrar(req, res, body) {
+  await requireStaff(req);
+  const dry = body.dry_run !== false;
+  return conBoveda(async () => {
+    await bovedaDisponible();
+    const cuentas = await sbAll(`cuentas?select=id,correo,codigos&limit=20000`);
+    const ventas = await sbAll(`purchases?select=id,account_email,purchase_date,created_at,verifier_codes,app_users(email,customer_number)&verifier_codes=not.is.null&order=created_at.asc&limit=20000`);
+    const porCuenta = new Map();
+    for (const v of ventas) {
+      const k = String(v.account_email || "").trim().toLowerCase();
+      if (!porCuenta.has(k)) porCuenta.set(k, []);
+      porCuenta.get(k).push(v);
+    }
+    const t = { cuentas: 0, ya_tenian: 0, sin_codigos: 0, libres: 0, entregados: 0, expuestos: 0, ventas_recortadas: 0, cuentas_sin_libres: 0 };
+    for (const c of cuentas) {
+      if (c.codigos) { t.ya_tenian++; continue; }
+      const vs = porCuenta.get(String(c.correo || "").trim().toLowerCase()) || [];
+      const { lista, recortes } = sembrarDesdeVentas(vs);
+      if (!lista.length) { t.sin_codigos++; continue; }
+      const r = resumenBoveda(lista);
+      t.cuentas++; t.libres += r.libres; t.entregados += r.entregados; t.expuestos += r.expuestos;
+      t.ventas_recortadas += recortes.length;
+      if (!r.libres) t.cuentas_sin_libres++;
+      if (!dry) {
+        await guardarBoveda(c.id, lista);
+        await aplicarRecortes(recortes);
+      }
+    }
+    const sinRegistrar = [...porCuenta.keys()].filter(k => !cuentas.some(c => String(c.correo || "").trim().toLowerCase() === k)).length;
+    res.status(200).json({ dry_run: dry, ...t, cuentas_con_codigos_sin_registrar: sinRegistrar });
+  });
 }
 
 // Borra la cuenta registrada. Sus ventas NO se tocan (siguen en purchases).
