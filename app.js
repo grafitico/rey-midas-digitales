@@ -4401,6 +4401,9 @@ async function renderEntregaInmediata() {
     const items = [];
     for (const [key, inv] of comboInventory || []) {
       const g = stockCatalogGame(key, inv);
+      // Sin juego del catálogo no hay precio ni portada: no se publica. El
+      // dueño lo ve en el panel y puede corregir el nombre de la cuenta.
+      if (!g) continue;
       const pl = String(g?.platform || "");
       const libres = (inv.plataforma === "Xbox" ? inv.xbox : (pl && !pl.includes("PS4") ? 0 : inv.ps4) + inv.ps5) + inv.sec;
       if (!libres) continue;
@@ -8694,7 +8697,8 @@ function invAmount(p) {
 // y "Grand Theft Auto VI" quedan iguales.
 const INV_EDITION_WORDS = new Set(("standard standar estandar edition edicion edition deluxe ultimate digital gold " +
   "premium complete completa definitive definitiva juego del ano game of the year goty launch lanzamiento " +
-  "version ps4 ps5 playstation playstation4 playstation5 y and de la el the for para cross gen bundle").split(" "));
+  "version ps4 ps5 playstation playstation4 playstation5 y and de la el the for para cross gen bundle " +
+  "exclusivo exclusive xbox series xs").split(" "));
 function invCleanTitle(t) {
   return normalizeSearch(t)
     .replace(/[™®©]/g, "")
@@ -8702,6 +8706,7 @@ function invCleanTitle(t) {
     .replace(/\bcod\b/g, "call of duty")
     .replace(/\brdr\s*2\b/g, "red dead redemption 2")
     .replace(/\([^)]*\)/g, " ")
+    .replace(/\([^)]*$/, " ") // paréntesis sin cerrar: "… PS4 y PS5 (Juego"
     .replace(/[^a-z0-9]+/g, " ")
     .trim().split(/\s+/);
 }
