@@ -7141,8 +7141,17 @@ async function renderAdmin() {
           <label>Juegos incluidos en la cuenta
             <textarea name="games" rows="4" placeholder="Uno por línea"></textarea>
           </label>
-          <label>Códigos del verificador (2FA)
-            <textarea name="verifier_codes" rows="3" placeholder="Uno por línea"></textarea>
+          <label>Códigos de verificación de la CUENTA (2FA)
+            <textarea name="verifier_codes" rows="3" placeholder="Solo si es una cuenta nueva o generaste un set nuevo en Sony. Uno por línea."></textarea>
+            <span class="field-hint">Van a la bóveda de la cuenta (solo vos los ves). Al cliente se le entregan los de abajo.</span>
+          </label>
+          <label>Códigos para el cliente
+            <select name="codigos_entregar">
+              <option value="2" selected>2 códigos</option>
+              <option value="1">1 código</option>
+              <option value="3">3 códigos</option>
+              <option value="0">Ninguno</option>
+            </select>
           </label>
           <label>Notas (opcional)
             <textarea name="notes" rows="2"></textarea>
@@ -8907,6 +8916,8 @@ function setupInventory() {
   report.addEventListener("click", e => {
     const b = e.target.closest("[data-inv-cuenta]");
     if (b) openCuentaModal(invFindAccount(b.dataset.invCuenta));
+    const k = e.target.closest("[data-inv-codigos]");
+    if (k) openCodigosModal(k.dataset.invCodigos);
   });
   report.addEventListener("keydown", onSlot);
 
@@ -9317,6 +9328,7 @@ function invAccountCard(a, inRange) {
           <h4>${a.bundleId ? `<span class="inv-bundle-code">${escapeHtml(a.bundleId)}</span> ` : ""}${escapeHtml(a.game || "(sin juego)")}</h4>
           <span class="inv-email copy-able" data-copy="${escapeAttr(a.email)}">${escapeHtml(a.email)}</span>
           <button type="button" class="inv-acc-edit" data-inv-cuenta="${escapeAttr(a.email)}">${a.cuenta ? "✎ Editar cuenta" : "✎ Registrar cuenta"}</button>
+          ${a.cuenta ? invCodigosChip(a) : ""}
         </div>
         <div class="inv-badges">
           <span class="inv-chip">${escapeHtml(a.family)}</span>
@@ -9513,8 +9525,8 @@ async function pfApplyAccount(email, preferSlot) {
     fill("account_password", cuenta?.password || last?.account_password);
     fill("game_name", invBundleName(acc) || cuenta?.juego || last?.game_name || acc.game);
     fill("games", (acc.bundleId && invBundleGames(acc)) || last?.games);
-    // Códigos de verificación: de la venta más reciente que los tenga.
-    fill("verifier_codes", [...(sales || [])].reverse().find(p => p.verifier_codes)?.verifier_codes);
+    // Códigos: NO se copian (antes el cliente veía todos). La venta recibe 2
+    // de la bóveda de la cuenta al guardar.
     const note = document.getElementById("pfAccNote");
     if (note && (cuenta || last)) note.textContent = cuenta
       ? "Contraseña y juego tomados de la cuenta registrada. Revisalos antes de guardar."
@@ -9674,6 +9686,83 @@ function correoBase(juego) {
 
 // ===== Registrar / editar una cuenta (tabla cuentas) =====
 // acc: cuenta del cuadro (con o sin registro) o null para una nueva.
+// ===== Bóveda de códigos de verificación (api/_codigos.js) =====
+// Chip en la ficha: cuántos códigos libres le quedan a la cuenta.
+function invCodigosChip(a) {
+  const r = a.cuenta?.codigos_resumen;
+  const txt = !r ? "🔑 Códigos" : r.libres ? `🔑 ${r.libres} ${r.libres === 1 ? "código libre" : "códigos libres"}` : "🔑 Sin códigos libres";
+  const warn = r && r.libres <= 2;
+  return `<button type="button" class="inv-acc-edit inv-codes${warn ? " is-warn" : ""}" data-inv-codigos="${escapeAttr(a.email)}"
+    title="${warn ? "Quedan pocos: generá un set nuevo en Sony y cargalo acá" : "Ver y cargar los códigos de la cuenta"}">${escapeHtml(txt)}</button>`;
+}
+
+const COD_ESTADOS = { libre: "Libre", entregado: "Entregado", expuesto: "Expuesto", anulado: "Anulado" };
+async function openCodigosModal(email) {
+  let modal = document.getElementById("codigosModal");
+  if (!modal) {
+    modal = document.createElement("dialog");
+    modal.id = "codigosModal";
+    modal.className = "edit-modal admin-form";
+    document.body.appendChild(modal);
+    modal.addEventListener("click", e => { if (e.target === modal) modal.close(); });
+  }
+  const pintar = (d, msg = "") => {
+    const r = d.resumen || {};
+    const filas = (d.codigos || []).map(x => `
+      <tr class="cod-${escapeAttr(x.e)}">
+        <td><code>${escapeHtml(x.c)}</code></td>
+        <td>${escapeHtml(COD_ESTADOS[x.e] || x.e)}</td>
+        <td>${x.rm ? escapeHtml(fmtClientId(x.rm)) : ""}${x.f ? ` · ${escapeHtml(x.f)}` : ""}</td>
+        <td>${x.e === "libre" ? `<button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(x.c)}">${COPY_ICON}<span>Copiar</span></button>` : ""}</td>
+      </tr>`).join("");
+    modal.innerHTML = `
+      <h3>🔑 Códigos de ${escapeHtml(email)}</h3>
+      <p class="field-hint">Solo vos ves esta lista. Cada venta recibe 2 libres y el cliente ve únicamente los suyos.
+        <b>Expuesto</b>: un cliente lo vio cuando se copiaban todos (no se vuelve a dar). <b>Anulado</b>: Sony lo invalidó al generar un set nuevo.</p>
+      <p><span class="inv-chip is-free">${r.libres || 0} libres</span> <span class="inv-chip">${r.entregados || 0} entregados</span>
+        ${r.expuestos ? `<span class="inv-chip">${r.expuestos} expuestos</span>` : ""} ${r.anulados ? `<span class="inv-chip">${r.anulados} anulados</span>` : ""}</p>
+      ${(r.libres || 0) <= 2 ? `<p class="form-status error">Quedan pocos códigos libres: generá un set nuevo en Sony (Seguridad → Verificación en dos pasos → Códigos de respaldo) y pegalo abajo.</p>` : ""}
+      ${filas ? `<div class="cod-table-wrap"><table class="cod-table"><thead><tr><th>Código</th><th>Estado</th><th>Cliente</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>` : `<p>Esta cuenta todavía no tiene códigos cargados.</p>`}
+      <label>Set nuevo de códigos (uno por línea)
+        <textarea id="codNuevos" rows="4" placeholder="Pegá los 10 códigos nuevos de Sony"></textarea>
+      </label>
+      <label class="checkbox-label"><input id="codAgregar" type="checkbox"> Agregar sin anular los anteriores (si no generaste un set nuevo)</label>
+      <div class="edit-modal-actions">
+        <button id="codGuardar" type="button">Guardar códigos</button>
+        <button id="codCerrar" type="button" class="admin-modal-cancel">Cerrar</button>
+      </div>
+      <p id="codStatus" class="form-status">${escapeHtml(msg)}</p>`;
+    modal.querySelector("#codCerrar").addEventListener("click", () => modal.close());
+    modal.querySelectorAll("[data-copy-value]").forEach(b => b.addEventListener("click", () => {
+      navigator.clipboard?.writeText(b.dataset.copyValue).then(() => showToast("Código copiado")).catch(() => {});
+    }));
+    modal.querySelector("#codGuardar").addEventListener("click", async () => {
+      const st = modal.querySelector("#codStatus");
+      const texto = modal.querySelector("#codNuevos").value;
+      const agregar = modal.querySelector("#codAgregar").checked;
+      if (!texto.trim()) { st.textContent = "Pegá los códigos primero."; st.className = "form-status error"; return; }
+      if (!agregar && !confirm("Los códigos libres anteriores quedan ANULADOS (Sony los invalida al generar un set nuevo). ¿Seguir?")) return;
+      st.textContent = "Guardando..."; st.className = "form-status";
+      try {
+        const r2 = await apiPost("/api/purchases", { action: "codigos-guardar", account_email: email, codigos: texto, modo: agregar ? "agregar" : "reemplazar" });
+        invMarkStale();
+        await cargar(`✓ ${r2.agregados} ${r2.agregados === 1 ? "código nuevo" : "códigos nuevos"} guardados.`);
+      } catch (err) { st.textContent = err.message; st.className = "form-status error"; }
+    });
+  };
+  const cargar = async (msg) => {
+    try {
+      pintar(await apiPost("/api/purchases", { action: "codigos-cuenta", account_email: email }), msg);
+    } catch (err) {
+      modal.innerHTML = `<h3>🔑 Códigos</h3><p class="form-status error">${escapeHtml(err.message)}</p><div class="edit-modal-actions"><button type="button" class="admin-modal-cancel" id="codCerrar">Cerrar</button></div>`;
+      modal.querySelector("#codCerrar").addEventListener("click", () => modal.close());
+    }
+  };
+  modal.innerHTML = `<p>Cargando códigos...</p>`;
+  if (!modal.open) modal.showModal();
+  await cargar();
+}
+
 async function openCuentaModal(acc) {
   let modal = document.getElementById("cuentaModal");
   if (!modal) {
@@ -10156,9 +10245,13 @@ function openEditModal(p, onSaved = loadAdminPurchases) {
     <label>Juegos incluidos en la cuenta
       <textarea name="games" rows="4" placeholder="Uno por línea">${escapeHtml(p.games || "")}</textarea>
     </label>
-    <label>Códigos del verificador (2FA)
+    <label>Códigos entregados a este cliente (los ve en su compra)
       <textarea name="verifier_codes" rows="3" placeholder="Uno por línea">${escapeHtml(p.verifier_codes || "")}</textarea>
     </label>
+    <div class="edit-codes-row">
+      <button id="editMoreCode" type="button" class="pc-btn">＋ Entregar 1 código más</button>
+      <span id="editMoreCodeMsg" class="field-hint">Sale de la bóveda de la cuenta y queda anotado a este cliente.</span>
+    </div>
     <label>Notas
       <textarea name="notes" rows="2">${escapeHtml(p.notes || "")}</textarea>
     </label>
@@ -10178,6 +10271,21 @@ function openEditModal(p, onSaved = loadAdminPurchases) {
   editPlatform.addEventListener("change", () =>
     fillModalitySelect(modal.querySelector('[name="modality"]'), editPlatform.value));
   modal.querySelector("#editCancelBtn").addEventListener("click", () => modal.close());
+  modal.querySelector("#editMoreCode").addEventListener("click", async (ev) => {
+    const btn = ev.currentTarget, msg = modal.querySelector("#editMoreCodeMsg");
+    btn.disabled = true;
+    try {
+      const r = await apiPost("/api/purchases", { action: "codigos-entregar", purchase_id: p.id, n: 1 });
+      const ta = modal.querySelector('[name="verifier_codes"]');
+      ta.value = [ta.value.trim(), ...(r.codigos || [])].filter(Boolean).join("\n");
+      msg.textContent = `✓ Entregado. Quedan ${r.resumen?.libres ?? "?"} libres en la cuenta.`;
+      invMarkStale();
+    } catch (err) {
+      msg.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
   modal.querySelector("#editDeleteBtn").addEventListener("click", async () => {
     if (!confirm("¿Eliminar esta venta? El cupo queda libre otra vez.")) return;
     const status = modal.querySelector("#editModalStatus");
@@ -10245,7 +10353,7 @@ async function handleAdminSubmit(e) {
   status.className = "form-status";
 
   try {
-    await apiPost("/api/purchases", {
+    const creada = await apiPost("/api/purchases", {
       action: "create",
       client_email: clientEmail,
       purchase_date: fd.get("purchase_date"),
@@ -10255,12 +10363,16 @@ async function handleAdminSubmit(e) {
       account_email: fd.get("account_email"),
       account_password: fd.get("account_password"),
       verifier_codes: fd.get("verifier_codes") || null,
+      codigos_entregar: fd.get("codigos_entregar") ?? 2,
       games: fd.get("games") || null,
       game_name: fd.get("game_name") || null,
       notes: fd.get("notes") || null,
       is_redemption: fd.get("is_redemption") === "on",
     });
-    status.textContent = "✓ Compra cargada";
+    const cod = creada?.codigos;
+    status.textContent = cod
+      ? `✓ Compra cargada · ${cod.entregados} ${cod.entregados === 1 ? "código entregado" : "códigos entregados"} · quedan ${cod.libres} libres en la cuenta${cod.libres <= 2 ? " ⚠ generá códigos nuevos en Sony" : ""}`
+      : "✓ Compra cargada";
     status.className = "form-status ok";
     form.reset();
     fillModalitySelect(form.querySelector('[name="modality"]'), form.querySelector('[name="platform"]').value, "");

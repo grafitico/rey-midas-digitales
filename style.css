@@ -5862,3 +5862,19 @@ html { scroll-behavior: smooth; }
 
 /* Código del bundle web en la ficha de la cuenta (Admin → Cuentas) */
 .inv-bundle-code { display: inline-block; font-size: .72em; font-weight: 800; letter-spacing: .03em; padding: 1px 6px; border-radius: 6px; background: rgba(255, 196, 0, .16); color: #ffc400; vertical-align: middle; }
+
+/* Bóveda de códigos de verificación (Admin → Cuentas) */
+.inv-codes.is-warn { border-color: #e0a100; color: #ffcf4d; }
+.cod-table-wrap { max-height: 280px; overflow: auto; margin: 8px 0 12px; }
+.cod-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.cod-table th, .cod-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.cod-table code { font-size: .95rem; letter-spacing: .04em; }
+.cod-table tr.cod-libre td:nth-child(2) { color: #6fdc8c; font-weight: 700; }
+.cod-table tr.cod-anulado, .cod-table tr.cod-expuesto { opacity: .55; }
+.edit-codes-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: -4px 0 10px; }
+/* Botón principal de los modales del panel (Guardar …) */
+.edit-modal-actions > button:not(.admin-modal-cancel):not(.admin-modal-delete) {
+  background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+  color: #1a0e02; font: inherit; font-weight: 800; font-size: 0.92rem;
+  border: none; padding: 0.6rem 1.3rem; border-radius: 999px; cursor: pointer;
+}

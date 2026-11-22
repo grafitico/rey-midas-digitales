@@ -95,5 +95,12 @@
   Banahosting cortara la app (tope de recursos) y quedó un buzón sin su
   contraseña guardada. `correo-leer` lee el Maildir (~/mail/reymidascr.com/<usuario>) y
   devuelve solo correos de PlayStation de 7 días (código y enlace).
+- **Códigos de verificación (bóveda, 22/11/2026):** todos los códigos 2FA de una
+  cuenta viven cifrados en `cuentas.codigos` (`api/_codigos.js`,
+  migrations/add_cuenta_codigos.sql); solo el admin los ve (Admin → Cuentas →
+  🔑). Cada venta recibe 2 libres (`codigos_entregar`) y el cliente ve solo esos
+  en Mis compras; "＋ Entregar 1 código más" en el editor de la venta. Estados:
+  libre, entregado, expuesto (un cliente los vio cuando se copiaban todos) y
+  anulado (set nuevo de Sony). Nunca volver a copiar todos los códigos a una venta.
 - La cuenta PSN y la compra en playstation.com las hace el dueño: Sony lo
   bloquea a programas y sus términos lo prohíben.
