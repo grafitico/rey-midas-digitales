@@ -9244,7 +9244,7 @@ function invAccountCard(a, inRange) {
     <article class="inv-card${a.freeTotal ? "" : " is-full"}">
       <header class="inv-card-head">
         <div>
-          <h4>${escapeHtml(a.game || "(sin juego)")}</h4>
+          <h4>${a.bundleId ? `<span class="inv-bundle-code">${escapeHtml(a.bundleId)}</span> ` : ""}${escapeHtml(a.game || "(sin juego)")}</h4>
           <span class="inv-email copy-able" data-copy="${escapeAttr(a.email)}">${escapeHtml(a.email)}</span>
           <button type="button" class="inv-acc-edit" data-inv-cuenta="${escapeAttr(a.email)}">${a.cuenta ? "✎ Editar cuenta" : "✎ Registrar cuenta"}</button>
         </div>
@@ -9318,6 +9318,18 @@ function invSlotOptions(acc) {
 }
 
 // Ir a Compras con la cuenta y el cupo ya elegidos.
+// Cuenta enlazada a un bundle de la web: se vende con el código
+// ("Bundle Play Station ⚔️ BPS005") y la lista de juegos de sus notas.
+function invBundleName(acc) {
+  if (!acc?.bundleId) return "";
+  const b = (adminBundlesCache.ps || []).find(x => String(x.id).toUpperCase() === acc.bundleId.toUpperCase());
+  return b?.title || `Bundle Play Station ⚔️ ${acc.bundleId}`;
+}
+function invBundleGames(acc) {
+  const m = String(acc?.cuenta?.notas || "").match(/Juegos:\s*(.+)$/i);
+  return m ? m[1].split("|").map(x => x.trim()).filter(Boolean).join("\n") : "";
+}
+
 async function invSellSlot(email, slot) {
   document.querySelector('.admin-tab[data-tab="compras"]')?.click();
   const input = document.getElementById("pfAccountEmail");
@@ -9385,7 +9397,7 @@ async function pfSuggest(text) {
   if (q.length < 2) { box.hidden = true; return; }
   if (!invLoaded) await loadInventory();
   const list = invAccounts()
-    .filter(a => normalizeSearch(a.email + " " + a.game).includes(q))
+    .filter(a => normalizeSearch(a.email + " " + a.game + " " + a.bundleId).includes(q))
     .sort((a, b) => (b.freeTotal > 0) - (a.freeTotal > 0) || a.email.localeCompare(b.email))
     .slice(0, 8);
   if (!list.length) {
@@ -9396,7 +9408,7 @@ async function pfSuggest(text) {
   box.innerHTML = list.map(a => `
     <button type="button" class="pf-acc-opt" data-pf-acc="${escapeAttr(a.email)}">
       <span class="pf-acc-mail">${escapeHtml(a.email)}</span>
-      <span class="pf-acc-game">${escapeHtml(a.game || "(sin juego)")}</span>
+      <span class="pf-acc-game">${a.bundleId ? `${escapeHtml(a.bundleId)} · ` : ""}${escapeHtml(a.game || "(sin juego)")}</span>
       <span class="inv-chip ${a.freeTotal ? "is-free" : "is-full"}">${a.freeTotal ? `${a.freeTotal} ${a.freeTotal === 1 ? "libre" : "libres"}` : "Llena"}</span>
     </button>`).join("");
   box.hidden = false;
@@ -9429,8 +9441,8 @@ async function pfApplyAccount(email, preferSlot) {
     };
     // La cuenta registrada manda (contraseña y juego al día); si no, la última venta.
     fill("account_password", cuenta?.password || last?.account_password);
-    fill("game_name", cuenta?.juego || last?.game_name || acc.game);
-    fill("games", last?.games);
+    fill("game_name", invBundleName(acc) || cuenta?.juego || last?.game_name || acc.game);
+    fill("games", (acc.bundleId && invBundleGames(acc)) || last?.games);
     // Códigos de verificación: de la venta más reciente que los tenga.
     fill("verifier_codes", [...(sales || [])].reverse().find(p => p.verifier_codes)?.verifier_codes);
     const note = document.getElementById("pfAccNote");
