@@ -116,7 +116,7 @@ async function ghPutError(r) {
       ` Revisá en github.com/settings/personal-access-tokens que ESA llave tenga Repository access → ${ghRepo()} y Repository permissions → Contents: Read and write. Si creaste otra llave, cargala en cPanel (GITHUB_TOKEN) y reiniciá la app.`;
   }
   const e = new Error(msg);
-  e.status = 502;
+  e.status = 409; // 502 lo tapa Cloudflare y el panel solo vería "servidor ocupado"
   return e;
 }
 
