@@ -3538,6 +3538,13 @@ async function renderBundle(id, type = "nintendo") {
     `;
     return;
   }
+  // Título y vista previa propios (Google y al compartir por WhatsApp).
+  {
+    const nombres = (b.games || []).map(x => String(x.name || x).replace(/\s*\|.*$/, "").trim()).filter(Boolean);
+    setPageMeta(`${b.title || "Bundle"} | Rey Midas Digitales`,
+      nombres.length ? `${nombres.length} juegos: ${nombres.slice(0, 4).join(", ")}${nombres.length > 4 ? " y más" : ""}. Cuenta digital lista para jugar.` : "Bundle de juegos digitales en Rey Midas Digitales.",
+      b.coverUrl || b.imageUrl || undefined);
+  }
   const cover = b.coverUrl
     ? `<img src="${escapeAttr(b.coverUrl)}" alt="${escapeAttr(b.id)}">`
     : `${placeholderHTML()}`;

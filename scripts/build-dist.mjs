@@ -44,6 +44,27 @@ for (const name of fs.readdirSync(ROOT)) {
   copy(path.join(ROOT, name), path.join(DIST, name));
 }
 copy(path.join(ROOT, "deploy", ".htaccess"), path.join(DIST, ".htaccess"));
+// ps-catalog.json para el navegador sin lo que la tienda no usa (~3 MB menos de
+// 11 MB): "url" se arma con el id, ageRating/releaseDate vienen siempre
+// vacíos, y los false/0 por defecto se omiten (undefined se lee igual). El
+// archivo del repo queda completo para los robots y para og-index.json.
+{
+  const src = path.join(ROOT, "ps-catalog.json");
+  if (fs.existsSync(src)) {
+    const cat = JSON.parse(fs.readFileSync(src, "utf8"));
+    const slim = (cat.games || []).map(g => {
+      const o = { ...g };
+      if (o.url === `https://store.playstation.com/es-cr/product/${o.id}`) delete o.url;
+      for (const k of ["ageRating", "releaseDate"]) if (!o[k]) delete o[k];
+      for (const k of ["comingSoon", "onSale", "isBundle"]) if (o[k] === false) delete o[k];
+      if (o.discount === 0) delete o.discount;
+      return o;
+    });
+    const json = JSON.stringify({ ...cat, games: slim });
+    fs.writeFileSync(path.join(DIST, "ps-catalog.json"), json);
+    console.log(`[build-dist] ps-catalog.json liviano: ${(json.length / 1024 / 1024).toFixed(1)} MB (repo: ${(fs.statSync(src).size / 1024 / 1024).toFixed(1)} MB)`);
+  }
+}
 // Índice chico para la vista previa de WhatsApp/Facebook (api/og.js): así la
 // app Node.js no lee ps-catalog.json (11 MB), que la hacía pasar el tope de
 // memoria del hosting.
