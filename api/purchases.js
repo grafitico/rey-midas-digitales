@@ -19,6 +19,12 @@ function decryptPurchaseRow(p) {
   };
 }
 
+// Una venta o un cambio de cuenta cambia los cupos libres: se descarta el
+// inventario público guardado para que Entrega inmediata lo vea al instante.
+async function trasCambio(p) {
+  try { return await p; } finally { invComboCache = { t: 0, data: null }; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
@@ -28,19 +34,19 @@ export default async function handler(req, res) {
     if (body.action === "importar-excel") return await importarExcel(req, res, body);
     if (body.action === "mine") return await mine(req, res);
     if (body.action === "list-all") return await listAll(req, res);
-    if (body.action === "create") return await create(req, res, body);
-    if (body.action === "delete") return await del(req, res, body);
-    if (body.action === "update") return await update(req, res, body);
+    if (body.action === "create") return await trasCambio(create(req, res, body));
+    if (body.action === "delete") return await trasCambio(del(req, res, body));
+    if (body.action === "update") return await trasCambio(update(req, res, body));
     if (body.action === "by-client") return await byClient(req, res, body);
     if (body.action === "filter") return await filter(req, res, body);
     if (body.action === "sales") return await sales(req, res, body);
     if (body.action === "accounts") return await accounts(req, res);
     if (body.action === "by-account") return await byAccount(req, res, body);
     if (body.action === "cofre-adjust") return await cofreAdjust(req, res, body);
-    if (body.action === "cuenta-save") return await cuentaSave(req, res, body);
-    if (body.action === "cuenta-delete") return await cuentaDelete(req, res, body);
+    if (body.action === "cuenta-save") return await trasCambio(cuentaSave(req, res, body));
+    if (body.action === "cuenta-delete") return await trasCambio(cuentaDelete(req, res, body));
     if (body.action === "client-lookup") return await clientLookup(req, res, body);
-    if (body.action === "cuenta-nueva") return await cuentaNueva(req, res, body);
+    if (body.action === "cuenta-nueva") return await trasCambio(cuentaNueva(req, res, body));
     if (body.action === "correo-leer") return await correoLeer(req, res, body);
     if (body.action === "correo-estado") return await correoEstado(req, res, body);
     if (body.action === "correo-sugerir") return await correoSugerir(req, res, body);
