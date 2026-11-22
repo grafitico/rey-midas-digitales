@@ -297,10 +297,11 @@ async function byAccount(req, res, body) {
   });
 }
 
-// ===== Inventario para el 3X1 Combo (público) =====
-// Juegos con primarias LIBRES en cuentas ya compradas, para que el combo los
-// muestre primero ("Entrega inmediata"): venderlas no requiere comprar otra
-// licencia. Solo nombre del juego y cuántas primarias libres hay por consola:
+// ===== Inventario público: 3X1 Combo y sección "Entrega inmediata" =====
+// Juegos con cupos LIBRES en cuentas ya compradas (primarias por consola y
+// secundarias): el combo los muestra primero y /entrega-inmediata los ofrece,
+// porque venderlos no requiere comprar otra licencia. Solo nombre del juego
+// y cuántos cupos libres hay:
 // nada de correos, contraseñas ni clientes. Se guarda 10 minutos en memoria
 // (un combo abierto por muchos no consulta Supabase cada vez).
 const INV_COMBO_TTL_MS = 10 * 60 * 1000;
@@ -322,19 +323,19 @@ async function inventarioCombo(req, res) {
   const key = e => String(e || "").trim().toLowerCase();
   for (const c of cuentas) {
     if (!key(c.correo)) continue;
-    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, tipo: c.tipo, ps4: 0, ps5: 0, pri: 0, full: false });
+    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, tipo: c.tipo, ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
   }
   for (const v of ventas) {
     const k = key(v.account_email);
     if (!k) continue;
     const plat = String(v.platform || "");
     const fam = /xbox/i.test(plat) ? "Xbox" : /nintendo|switch/i.test(plat) ? "Nintendo" : "PlayStation";
-    if (!acc.has(k)) acc.set(k, { fam, juego: v.game_name, tipo: "auto", ps4: 0, ps5: 0, pri: 0, full: false });
+    if (!acc.has(k)) acc.set(k, { fam, juego: v.game_name, tipo: "auto", ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
     const a = acc.get(k);
     if (!a.juego && v.game_name) a.juego = v.game_name;
     const mod = String(v.modality || "").toLowerCase();
     if (mod === "individual" || mod === "bundle") a.full = true;
-    else if (mod.startsWith("secund")) continue; // la secundaria no ocupa primarias
+    else if (mod.startsWith("secund")) a.sec++; // la secundaria no ocupa primarias
     else if (fam === "PlayStation") { if (/ps5/i.test(plat)) a.ps5++; else if (/ps4/i.test(plat)) a.ps4++; }
     else a.pri++;
   }
@@ -345,10 +346,11 @@ async function inventarioCombo(req, res) {
     if (a.fam === "Xbox") libres = { xbox: Math.max(0, 2 - a.pri) };
     else if (a.tipo === "ps5only") libres = { ps5: Math.max(0, 2 - a.ps5) };
     else libres = { ps4: Math.max(0, 2 - a.ps4), ps5: Math.max(0, 2 - a.ps5) };
+    libres.sec = Math.max(0, 1 - a.sec); // secundaria: 1 por cuenta (PlayStation y Xbox)
     if (!Object.values(libres).some(n => n > 0)) continue;
     const nombre = String(a.juego).trim().slice(0, 120);
     const k = nombre.toLowerCase();
-    const j = juegos.get(k) || { juego: nombre, ps4: 0, ps5: 0, xbox: 0 };
+    const j = juegos.get(k) || { juego: nombre, plataforma: a.fam, ps4: 0, ps5: 0, xbox: 0, sec: 0 };
     for (const [c, n] of Object.entries(libres)) j[c] += n;
     juegos.set(k, j);
   }

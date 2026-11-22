@@ -5830,3 +5830,10 @@ html { scroll-behavior: smooth; }
 /* Panel: juegos que conviene comprar en oferta */
 .inv-ofertas { border: 1px solid var(--border); border-radius: 14px; padding: .8rem 1rem; margin-bottom: 1rem; background: var(--bg-raised); }
 .inv-ofertas summary { cursor: pointer; font-weight: 700; color: var(--gold); }
+
+/* ⚡ Entrega inmediata */
+.stock-page .filters { margin-bottom: 1.2rem; }
+.stock-page .card-image { position: relative; }
+.stock-slots { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .45rem; }
+.stock-chip { font-size: .72rem; font-weight: 700; color: var(--gold-bright); border: 1px solid var(--gold); border-radius: 999px; padding: 2px 8px; }
+.stock-ask { display: inline-block; margin-top: .5rem; font-size: .85rem; font-weight: 700; color: var(--green); }

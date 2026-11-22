@@ -536,6 +536,7 @@ function parseRoute() {
   if (partes[0] === "bundles" && partes[1]) {
     return { name: "bundles-list", platform: decodeURIComponent(partes[1]) };
   }
+  if (partes[0] === "entrega-inmediata") return { name: "entrega-inmediata" };
   if (partes[0] === "ofertas") {
     const page = (partes[1] === "p" && partes[2]) ? parseInt(partes[2], 10) || 1 : 1;
     return { name: "ofertas", page };
@@ -1201,6 +1202,7 @@ function render() {
   if (route.name === "cart") return renderCart();
   if (route.name === "cofre") return renderCofre();
   if (route.name === "combo") return renderCombo(route.precio);
+  if (route.name === "entrega-inmediata") return renderEntregaInmediata();
   if (route.name === "login") return renderLogin();
   if (route.name === "crear-cuenta") return renderRegister();
   if (route.name === "completar-datos") return renderCompletarDatos();
@@ -4028,8 +4030,8 @@ function ensureComboInventory() {
       for (const j of d.juegos || []) {
         const k = invTitleKey(j.juego);
         if (!k) continue;
-        const prev = m.get(k) || { ps4: 0, ps5: 0, xbox: 0 };
-        m.set(k, { ps4: prev.ps4 + (j.ps4 || 0), ps5: prev.ps5 + (j.ps5 || 0), xbox: prev.xbox + (j.xbox || 0) });
+        const prev = m.get(k) || { juego: j.juego, plataforma: j.plataforma || "PlayStation", ps4: 0, ps5: 0, xbox: 0, sec: 0 };
+        m.set(k, { ...prev, ps4: prev.ps4 + (j.ps4 || 0), ps5: prev.ps5 + (j.ps5 || 0), xbox: prev.xbox + (j.xbox || 0), sec: prev.sec + (j.sec || 0) });
       }
       comboInventory = m;
       return m;
@@ -4334,6 +4336,104 @@ async function renderCombo(precio) {
   // Al llegar el inventario se reordena (primero lo de entrega inmediata).
   if (!comboInventory) ensureComboInventory().then(() => { if (comboRefresh === refresh) paintGrid(); });
   if (!fullCatalogLoaded) ensureFullCatalog(); // al llegar llama a render() → refresh()
+}
+
+// ── ⚡ Entrega inmediata ────────────────────────────────────────────────────
+// Se arma sola con el inventario: juegos con cupos LIBRES en cuentas ya
+// compradas (ya facturadas). Venderlos no requiere comprar otra licencia, así
+// que es la mercadería que más conviene mover. Al llenarse una cuenta, el
+// juego desaparece solo.
+let stockFilter = "Todas";
+let stockRefresh = null;
+function stockSlotsHTML(inv, g) {
+  const pl = String(g?.platform || inv.plataforma || "");
+  const xbox = /xbox/i.test(pl) || inv.plataforma === "Xbox";
+  const chips = [];
+  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+  if (xbox) { if (inv.xbox) chips.push(`Xbox · ${n(inv.xbox, "primaria", "primarias")}`); }
+  else {
+    if (inv.ps5 && (!g || pl.includes("PS5"))) chips.push(`PS5 · ${n(inv.ps5, "primaria", "primarias")}`);
+    if (inv.ps4 && (!g || pl.includes("PS4"))) chips.push(`PS4 · ${n(inv.ps4, "primaria", "primarias")}`);
+  }
+  if (inv.sec) chips.push(n(inv.sec, "secundaria", "secundarias"));
+  return chips.map(c => `<span class="stock-chip">${escapeHtml(c)}</span>`).join("");
+}
+// Juego del catálogo para un título del inventario (estricto, como el combo:
+// el catálogo puede tener palabras de más, nunca de menos).
+function stockCatalogGame(key, inv) {
+  let best = null;
+  for (const g of allGames || []) {
+    const gk = invTitleKey(g.title);
+    if (!gk || (gk !== key && !gk.startsWith(key + " "))) continue;
+    const pl = String(g.platform || "");
+    if (inv.plataforma === "Xbox" ? !/xbox/i.test(pl) : !/PS/.test(pl)) continue;
+    const score = (gk === key ? 0 : 1000) + g.title.length;
+    if (!best || score < best.score) best = { g, score };
+  }
+  return best?.g || null;
+}
+async function renderEntregaInmediata() {
+  // Al llegar el catálogo completo, render() vuelve a llamar: solo se repinta la lista.
+  if (stockRefresh && document.querySelector(".stock-page")) return stockRefresh();
+  stockRefresh = null;
+  setPageMeta("⚡ Entrega inmediata | Rey Midas Digitales",
+    "Juegos de PS5, PS4 y Xbox listos para entregar al instante en cuenta principal o secundaria. Rey Midas Digitales, Costa Rica.");
+  app.innerHTML = `
+    <section class="container catalog-section stock-page">
+      <div class="section-title">
+        <h2>⚡ Entrega inmediata</h2>
+        <p>Juegos listos para entregarte ya mismo, en cuenta principal o secundaria. Elegí el tuyo y escribinos por WhatsApp.</p>
+      </div>
+      <div class="filters" id="stockChips">
+        ${["Todas", "PS5", "PS4", "Xbox"].map(p => `<button type="button" class="filter${p === stockFilter ? " active" : ""}" data-stock="${p}">${p}</button>`).join("")}
+      </div>
+      <div id="stockGrid" class="grid"><div class="status">Cargando juegos disponibles...</div></div>
+    </section>`;
+  if (!fullCatalogLoaded) ensureFullCatalog();
+  await ensureComboInventory();
+  const paint = () => {
+    const grid = document.getElementById("stockGrid");
+    if (!grid) return;
+    const items = [];
+    for (const [key, inv] of comboInventory || []) {
+      const g = stockCatalogGame(key, inv);
+      const pl = String(g?.platform || "");
+      const libres = (inv.plataforma === "Xbox" ? inv.xbox : (pl && !pl.includes("PS4") ? 0 : inv.ps4) + inv.ps5) + inv.sec;
+      if (!libres) continue;
+      if (stockFilter !== "Todas") {
+        if (stockFilter === "Xbox" && inv.plataforma !== "Xbox") continue;
+        if (stockFilter === "PS5" && !(inv.plataforma !== "Xbox" && (inv.ps5 || inv.sec) && (!g || pl.includes("PS5")))) continue;
+        if (stockFilter === "PS4" && !(inv.plataforma !== "Xbox" && (inv.ps4 || inv.sec) && (!g || pl.includes("PS4")))) continue;
+      }
+      items.push({ key, inv, g, libres });
+    }
+    items.sort((a, b) => (b.g ? 1 : 0) - (a.g ? 1 : 0) || b.libres - a.libres || a.inv.juego.localeCompare(b.inv.juego, "es"));
+    if (!items.length) {
+      grid.innerHTML = fullCatalogLoaded || comboInventory
+        ? `<p class="empty-state-small">Por ahora no hay juegos con entrega inmediata para ${stockFilter === "Todas" ? "ninguna consola" : stockFilter}. Escribinos por WhatsApp y te lo conseguimos.</p>`
+        : `<div class="status">Cargando juegos disponibles...</div>`;
+      return;
+    }
+    grid.innerHTML = items.map(({ inv, g }) => {
+      const slots = `<div class="stock-slots">${stockSlotsHTML(inv, g)}</div>`;
+      // Sin etiqueta "⚡" en cada tarjeta: toda la página es de entrega inmediata.
+      if (g) return cardHTML(g).replace('<div class="card-body">', `<div class="card-body">${slots}`);
+      const wa = `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(`Hola Rey Midas, me interesa ${inv.juego} con entrega inmediata.`)}`;
+      return `<a class="card" href="${wa}" target="_blank" rel="noopener">
+        <div class="card-image">${placeholderHTML()}<span class="badge-platform">${escapeHtml(inv.plataforma)}</span></div>
+        <div class="card-body">${slots}<div class="card-title">${escapeHtml(inv.juego)}</div><span class="stock-ask">Consultar por WhatsApp</span></div>
+      </a>`;
+    }).join("");
+  };
+  stockRefresh = paint;
+  paint();
+  document.getElementById("stockChips")?.addEventListener("click", e => {
+    const b = e.target.closest("[data-stock]");
+    if (!b) return;
+    stockFilter = b.dataset.stock;
+    document.querySelectorAll("#stockChips .filter").forEach(x => x.classList.toggle("active", x === b));
+    paint();
+  });
 }
 
 function renderComboIndex(tramos) {
