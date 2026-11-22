@@ -1,7 +1,7 @@
 // CRUD de compras. Cliente ve las propias, admin ve/crea/borra todas.
 // POST /api/purchases con { action: "mine" | "list-all" | "create" | "delete", ... }
 
-import { sb, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret, hashPassword } from "./_lib.js";
+import { sb, sbAll, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret, hashPassword } from "./_lib.js";
 import crypto from "crypto";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
@@ -232,11 +232,11 @@ async function sales(req, res, body) {
   if (to) q += `&purchase_date=lte.${encodeURIComponent(to)}`;
   let rows;
   try {
-    rows = await sb(q);
+    rows = await sbAll(q);
   } catch (err) {
     // Si la columna amount todavía no existe, la sacamos del select y seguimos.
     if (/amount|does not exist/i.test(err.message || "")) {
-      rows = await sb(q.replace(",amount", ""));
+      rows = await sbAll(q.replace(",amount", ""));
     } else {
       throw err;
     }
@@ -253,11 +253,11 @@ async function accounts(req, res) {
   const q = `purchases?select=${cols}&order=purchase_date.asc&limit=20000`;
   let rows;
   try {
-    rows = await sb(q);
+    rows = await sbAll(q);
   } catch (err) {
     // Tolera que falten columnas de migraciones viejas (amount / is_redemption).
     if (/amount|is_redemption|does not exist/i.test(err.message || "")) {
-      rows = await sb(q.replace(",amount", "").replace(",is_redemption", ""));
+      rows = await sbAll(q.replace(",amount", "").replace(",is_redemption", ""));
     } else {
       throw err;
     }
@@ -265,11 +265,11 @@ async function accounts(req, res) {
   // Cuentas registradas (sin contraseña). null = falta la migración add_cuentas.sql.
   let cuentas = null;
   try {
-    cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at,costo_usd,fecha_compra&order=created_at.asc&limit=20000`);
+    cuentas = await sbAll(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at,costo_usd,fecha_compra&order=created_at.asc&limit=20000`);
   } catch (err) {
     if (costoMissing(err)) {
       // Falta add_cuenta_costo.sql: se listan igual, sin costo.
-      cuentas = await sb(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
+      cuentas = await sbAll(`cuentas?select=id,plataforma,juego,correo,region,tipo,notas,created_at&order=created_at.asc&limit=20000`);
     } else if (!ajustesMissing(err)) throw err;
   }
   // El asistente ve nombre y RM del cliente de cada cupo, no su correo.
@@ -327,12 +327,12 @@ async function importarExcel(req, res, body) {
   // Lo que ya existe (cuentas registradas y correos con ventas).
   let existentes;
   try {
-    existentes = await sb(`cuentas?select=correo&limit=20000`);
+    existentes = await sbAll(`cuentas?select=correo&limit=20000`);
   } catch (err) {
     if (ajustesMissing(err)) throw cuentasMissingError();
     throw err;
   }
-  const ventasPrevias = await sb(`purchases?select=account_email&limit=20000`);
+  const ventasPrevias = await sbAll(`purchases?select=account_email&limit=20000`);
   const ya = new Set([...existentes.map(c => c.correo), ...ventasPrevias.map(v => v.account_email)]
     .map(e => String(e || "").trim().toLowerCase()).filter(Boolean));
 
@@ -436,11 +436,11 @@ async function inventarioCombo(req, res) {
   }
   let cuentas = [];
   try {
-    cuentas = await sb(`cuentas?select=plataforma,juego,correo,tipo,notas&limit=20000`);
+    cuentas = await sbAll(`cuentas?select=plataforma,juego,correo,tipo,notas&limit=20000`);
   } catch (err) {
     if (!ajustesMissing(err)) throw err;
   }
-  const ventas = await sb(`purchases?select=platform,modality,account_email,game_name&limit=20000`);
+  const ventas = await sbAll(`purchases?select=platform,modality,account_email,game_name&limit=20000`);
   const acc = new Map(); // correo → { fam, juego, tipo, usados }
   const key = e => String(e || "").trim().toLowerCase();
   for (const c of cuentas) {

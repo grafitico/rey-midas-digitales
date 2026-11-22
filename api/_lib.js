@@ -83,6 +83,23 @@ export async function sb(path, options = {}) {
   return data;
 }
 
+// Supabase devuelve como máximo 1000 filas por consulta (aunque se pida
+// limit=20000). Para listas completas (ventas, cuentas) se lee por páginas,
+// con "id" como desempate para que el orden sea estable entre páginas.
+export async function sbAll(path, page = 1000) {
+  let base = path.replace(/([?&])limit=\d+(&|$)/, "$1").replace(/[?&]$/, "");
+  if (/[?&]order=/.test(base)) base = base.replace(/([?&]order=[^&]*)/, "$1,id.asc");
+  else base += `${base.includes("?") ? "&" : "?"}order=id.asc`;
+  const out = [];
+  for (let off = 0; off < 200000; off += page) {
+    const rows = await sb(`${base}&limit=${page}&offset=${off}`);
+    if (!Array.isArray(rows)) return rows;
+    out.push(...rows);
+    if (rows.length < page) break;
+  }
+  return out;
+}
+
 // Devuelve el count total de una query sin transferir filas.
 // Usa el header Content-Range que Supabase retorna con Prefer: count=exact.
 export async function sbCount(path) {
