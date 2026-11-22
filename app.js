@@ -4012,6 +4012,47 @@ function loadComboState() {
 function saveComboState(state) {
   try { localStorage.setItem(COMBO_KEY, JSON.stringify(state)); } catch {}
 }
+// Inventario: juegos con primarias LIBRES en cuentas ya compradas (servidor,
+// action "inventario-combo"). El combo los muestra primero con "⚡ Entrega
+// inmediata": venderlos no requiere comprar otra licencia.
+let comboInventory = null; // Map: clave del título → { ps4, ps5, xbox }
+let comboInventoryPromise = null;
+function ensureComboInventory() {
+  if (!comboInventoryPromise) {
+    comboInventoryPromise = fetch("/api/purchases", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "inventario-combo" }),
+      signal: AbortSignal.timeout(15000),
+    }).then(r => r.ok ? r.json() : { juegos: [] }).catch(() => ({ juegos: [] })).then(d => {
+      const m = new Map();
+      for (const j of d.juegos || []) {
+        const k = invTitleKey(j.juego);
+        if (!k) continue;
+        const prev = m.get(k) || { ps4: 0, ps5: 0, xbox: 0 };
+        m.set(k, { ps4: prev.ps4 + (j.ps4 || 0), ps5: prev.ps5 + (j.ps5 || 0), xbox: prev.xbox + (j.xbox || 0) });
+      }
+      comboInventory = m;
+      return m;
+    });
+  }
+  return comboInventoryPromise;
+}
+// ¿Hay una primaria libre de este juego para su consola?
+function comboInStock(g) {
+  if (!comboInventory?.size) return false;
+  // Estricto: el título del catálogo puede tener palabras DE MÁS que el del
+  // inventario ("The Witcher 3: Wild Hunt — Remastered" ↔ "The Witcher 3: Wild
+  // Hunt"), nunca de menos: "Black Ops" no es "Black Ops II".
+  const key = invTitleKey(g.title);
+  if (!key) return false;
+  let inv = comboInventory.get(key);
+  if (!inv) for (const [k, v] of comboInventory) if (key.startsWith(k + " ")) { inv = v; break; }
+  if (!inv) return false;
+  const pl = String(g.platform || "");
+  if (/xbox/i.test(pl)) return inv.xbox > 0;
+  return (pl.includes("PS5") && inv.ps5 > 0) || (pl.includes("PS4") && inv.ps4 > 0);
+}
+
 function comboPrice(g) {
   return g._manualPrices ? Number(g.priceCRC_principal) : principalCRC(g.priceUSD, g.platform);
 }
@@ -4179,9 +4220,13 @@ async function renderCombo(precio) {
     consolaBox.innerHTML = consola
       ? `Tu combo es de <strong>${escapeHtml(consola)}</strong>. Los 3 juegos tienen que ser de la misma consola.`
       : "Los 3 juegos tienen que ser de la misma consola (PS5, PS4 o Xbox).";
+    const usado = picks.reduce((sum, p) => sum + p.price, 0);
+    const faltan = COMBO_SLOTS - picks.length;
     sendBox.innerHTML = full
       ? `<a class="cta combo-send-btn" href="${comboWaURL(t, picks)}" target="_blank" rel="noopener">Enviar mi combo por WhatsApp · ${formatCRC(t.precio)}</a>`
-      : `<p class="combo-send-hint">Llevás <strong>${picks.length}/${COMBO_SLOTS}</strong> juegos. ${picks.length ? "Te faltan " + (COMBO_SLOTS - picks.length) + "." : "Elegí 3 para enviar tu combo."}</p>`;
+      : `<p class="combo-send-hint">Llevás <strong>${picks.length}/${COMBO_SLOTS}</strong> juegos. ${picks.length
+          ? `Te quedan <strong>${formatCRC(t.precio - usado)}</strong> para ${faltan} ${faltan === 1 ? "juego" : "juegos"}: solo se muestran los que entran.`
+          : `Cada juego muestra lo que ocupa de tu combo de ${formatCRC(t.precio)}. Elegí 3 para enviarlo.`}</p>`;
   };
   const paintGrid = () => {
     const q = query.trim().toLowerCase();
@@ -4196,6 +4241,11 @@ async function renderCombo(precio) {
     const list = eligible.filter(g =>
       (plat === "Todos" || g.platform.includes(plat)) && (!q || g.title.toLowerCase().includes(q)) &&
       (full || taken.has(g.id) || cabe(g)));
+    if (sort === "rel" && comboInventory?.size) {
+      // Primero lo que ya está en inventario (orden estable dentro de cada grupo).
+      const stock = new Map(list.map(g => [g.id, comboInStock(g)]));
+      list.sort((x, y) => (stock.get(y.id) ? 1 : 0) - (stock.get(x.id) ? 1 : 0));
+    }
     if (sort === "asc") list.sort((x, y) => comboPrice(x) - comboPrice(y));
     else if (sort === "desc") list.sort((x, y) => comboPrice(y) - comboPrice(x));
     else if (sort === "az") list.sort((x, y) => x.title.localeCompare(y.title, "es"));
@@ -4211,9 +4261,9 @@ async function renderCombo(precio) {
     gridBox.innerHTML = list.slice(0, shown).map(g => {
       const on = taken.has(g.id);
       return `<button type="button" class="combo-game${on ? " selected" : ""}" data-id="${escapeAttr(g.id)}"${!on && full ? " disabled" : ""}>
-        <span class="combo-game-img">${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="" loading="lazy" decoding="async">` : placeholderHTML()}<span class="badge-platform">${escapeHtml(g.platform)}</span></span>
+        <span class="combo-game-img">${g.imageUrl ? `<img src="${escapeAttr(g.imageUrl)}" alt="" loading="lazy" decoding="async">` : placeholderHTML()}<span class="badge-platform">${escapeHtml(g.platform)}</span>${comboInStock(g) ? `<span class="combo-stock">⚡ Entrega inmediata</span>` : ""}</span>
         <span class="combo-game-title">${escapeHtml(g.title)}</span>
-        <span class="combo-game-act">${on ? "✓ En tu combo" : "Agregar"}</span>
+        <span class="combo-game-foot"><span class="combo-game-act">${on ? "✓ En tu combo" : "Agregar"}</span><span class="combo-game-price" title="Lo que ocupa de tu combo">${escapeHtml(formatCRC(comboPrice(g)))}</span></span>
       </button>`;
     }).join("");
     moreBox.innerHTML = list.length > shown
@@ -4281,6 +4331,8 @@ async function renderCombo(precio) {
   };
   comboRefresh = refresh;
   refresh();
+  // Al llegar el inventario se reordena (primero lo de entrega inmediata).
+  if (!comboInventory) ensureComboInventory().then(() => { if (comboRefresh === refresh) paintGrid(); });
   if (!fullCatalogLoaded) ensureFullCatalog(); // al llegar llama a render() → refresh()
 }
 

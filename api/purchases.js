@@ -23,6 +23,7 @@ export default async function handler(req, res) {
   try {
     checkConfig();
     const body = await readJson(req);
+    if (body.action === "inventario-combo") return await inventarioCombo(req, res);
     if (body.action === "mine") return await mine(req, res);
     if (body.action === "list-all") return await listAll(req, res);
     if (body.action === "create") return await create(req, res, body);
@@ -294,6 +295,66 @@ async function byAccount(req, res, body) {
     purchases: exact.map(decryptPurchaseRow),
     cuenta: cuenta ? { ...cuenta, password: decryptSecret(cuenta.password) } : null,
   });
+}
+
+// ===== Inventario para el 3X1 Combo (público) =====
+// Juegos con primarias LIBRES en cuentas ya compradas, para que el combo los
+// muestre primero ("Entrega inmediata"): venderlas no requiere comprar otra
+// licencia. Solo nombre del juego y cuántas primarias libres hay por consola:
+// nada de correos, contraseñas ni clientes. Se guarda 10 minutos en memoria
+// (un combo abierto por muchos no consulta Supabase cada vez).
+const INV_COMBO_TTL_MS = 10 * 60 * 1000;
+let invComboCache = { t: 0, data: null };
+
+async function inventarioCombo(req, res) {
+  res.setHeader("Cache-Control", "public, max-age=300");
+  if (invComboCache.data && Date.now() - invComboCache.t < INV_COMBO_TTL_MS) {
+    return res.status(200).json(invComboCache.data);
+  }
+  let cuentas = [];
+  try {
+    cuentas = await sb(`cuentas?select=plataforma,juego,correo,tipo&limit=20000`);
+  } catch (err) {
+    if (!ajustesMissing(err)) throw err;
+  }
+  const ventas = await sb(`purchases?select=platform,modality,account_email,game_name&limit=20000`);
+  const acc = new Map(); // correo → { fam, juego, tipo, usados }
+  const key = e => String(e || "").trim().toLowerCase();
+  for (const c of cuentas) {
+    if (!key(c.correo)) continue;
+    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, tipo: c.tipo, ps4: 0, ps5: 0, pri: 0, full: false });
+  }
+  for (const v of ventas) {
+    const k = key(v.account_email);
+    if (!k) continue;
+    const plat = String(v.platform || "");
+    const fam = /xbox/i.test(plat) ? "Xbox" : /nintendo|switch/i.test(plat) ? "Nintendo" : "PlayStation";
+    if (!acc.has(k)) acc.set(k, { fam, juego: v.game_name, tipo: "auto", ps4: 0, ps5: 0, pri: 0, full: false });
+    const a = acc.get(k);
+    if (!a.juego && v.game_name) a.juego = v.game_name;
+    const mod = String(v.modality || "").toLowerCase();
+    if (mod === "individual" || mod === "bundle") a.full = true;
+    else if (mod.startsWith("secund")) continue; // la secundaria no ocupa primarias
+    else if (fam === "PlayStation") { if (/ps5/i.test(plat)) a.ps5++; else if (/ps4/i.test(plat)) a.ps4++; }
+    else a.pri++;
+  }
+  const juegos = new Map();
+  for (const a of acc.values()) {
+    if (a.full || !a.juego || a.fam === "Nintendo") continue;
+    let libres;
+    if (a.fam === "Xbox") libres = { xbox: Math.max(0, 2 - a.pri) };
+    else if (a.tipo === "ps5only") libres = { ps5: Math.max(0, 2 - a.ps5) };
+    else libres = { ps4: Math.max(0, 2 - a.ps4), ps5: Math.max(0, 2 - a.ps5) };
+    if (!Object.values(libres).some(n => n > 0)) continue;
+    const nombre = String(a.juego).trim().slice(0, 120);
+    const k = nombre.toLowerCase();
+    const j = juegos.get(k) || { juego: nombre, ps4: 0, ps5: 0, xbox: 0 };
+    for (const [c, n] of Object.entries(libres)) j[c] += n;
+    juegos.set(k, j);
+  }
+  const data = { actualizado: new Date().toISOString(), juegos: [...juegos.values()] };
+  invComboCache = { t: Date.now(), data };
+  res.status(200).json(data);
 }
 
 // ===== Ajustes manuales del Cofre de Oro (migrations/add_cofre_ajustes.sql) =====

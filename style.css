@@ -5817,3 +5817,12 @@ html { scroll-behavior: smooth; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 .form-row-2 label { min-width: 0; }
 @media (max-width: 480px) { .form-row-2 { grid-template-columns: 1fr; } }
+
+/* 3X1 Combo: inventario y precio por juego */
+.combo-stock {
+  position: absolute; top: 8px; left: 8px;
+  background: var(--gold); color: #111; font-weight: 700; font-size: 0.72rem;
+  padding: 3px 8px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+.combo-game-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.combo-game-price { padding: .3rem .6rem .6rem; font-size: .78rem; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
