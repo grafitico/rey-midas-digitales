@@ -424,6 +424,11 @@ const INV_COMBO_TTL_MS = 10 * 60 * 1000;
 const SUSCRIPCION_RE = /game\s*pass|ps\s*plus|playstation\s*plus|ea\s*play|ubisoft\s*\+|nintendo\s*switch\s*online|suscripci[oó]n|membres[ií]a|\b\d+\s*(meses|months?)\b/i;
 let invComboCache = { t: 0, data: null };
 
+// Cuenta enlazada a un bundle de la web ("Web: BPS005") o con lista de varios juegos.
+const BUNDLE_CUENTA_RE = /\bWeb:\s*BPS\d|Juegos:\s*[^|\n]+\|/i;
+// Título que ya dice que son varios juegos: "A + B", "Bundle 5X1", "Combo…", "Triple Pack".
+const VARIOS_JUEGOS_RE = /\+|\bbundle\b|\bcombo\b|triple\s*(pack|play)|\b\d\s*x\s*1\b/i;
+
 async function inventarioCombo(req, res) {
   res.setHeader("Cache-Control", "public, max-age=300");
   if (invComboCache.data && Date.now() - invComboCache.t < INV_COMBO_TTL_MS) {
@@ -431,7 +436,7 @@ async function inventarioCombo(req, res) {
   }
   let cuentas = [];
   try {
-    cuentas = await sb(`cuentas?select=plataforma,juego,correo,tipo&limit=20000`);
+    cuentas = await sb(`cuentas?select=plataforma,juego,correo,tipo,notas&limit=20000`);
   } catch (err) {
     if (!ajustesMissing(err)) throw err;
   }
@@ -440,7 +445,7 @@ async function inventarioCombo(req, res) {
   const key = e => String(e || "").trim().toLowerCase();
   for (const c of cuentas) {
     if (!key(c.correo)) continue;
-    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, tipo: c.tipo, ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
+    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, tipo: c.tipo, bundle: BUNDLE_CUENTA_RE.test(c.notas || ""), ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
   }
   for (const v of ventas) {
     const k = key(v.account_email);
@@ -460,6 +465,8 @@ async function inventarioCombo(req, res) {
   for (const a of acc.values()) {
     if (a.full || !a.juego || a.fam === "Nintendo") continue;
     if (SUSCRIPCION_RE.test(a.juego)) continue; // Game Pass, PS Plus…: no son juegos para entrega inmediata
+    // Cuentas con varios juegos: se venden como bundle (/bundles/PS), no juego por juego.
+    if (a.bundle || VARIOS_JUEGOS_RE.test(a.juego)) continue;
     let libres;
     if (a.fam === "Xbox") libres = { xbox: Math.max(0, 1 - a.pri) }; // Xbox: Principal + Segundo plano
     else if (a.tipo === "ps5only") libres = { ps5: Math.max(0, 2 - a.ps5) };
