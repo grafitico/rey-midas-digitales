@@ -24,6 +24,15 @@ const HOME = process.env.MAIL_HOME || os.homedir() || path.join(process.cwd(), "
 const CPANEL_HOST = process.env.CPANEL_HOST || "127.0.0.1";
 const CPANEL_PORT = Number(process.env.CPANEL_PORT || 2083);
 
+// Correo comodín (cPanel → Dirección predeterminada de reymidascr.com →
+// reenviar a cuentas@reymidascr.com): lo que llega a cualquier dirección sin
+// buzón propio cae en ese buzón. Con él, una cuenta nueva no necesita buzón ni
+// entrar a cPanel (cPanel con verificación en dos pasos rechaza a la API).
+export const CATCHALL_LOCAL = String(process.env.CORREO_COMODIN || "cuentas").toLowerCase().replace(/[^a-z0-9._-]/g, "");
+export function catchAllActivo() {
+  return !!CATCHALL_LOCAL && fs.existsSync(path.join(HOME, "mail", MAIL_DOMAIN, CATCHALL_LOCAL));
+}
+
 export function canCreateMail() {
   return !!(process.env.CPANEL_USER && (process.env.CPANEL_TOKEN || process.env.CPANEL_PASS));
 }
@@ -134,7 +143,7 @@ export function mailStatus() {
   const dir = path.join(HOME, "mail", MAIL_DOMAIN);
   let buzones = null;
   try { buzones = fs.readdirSync(dir, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith(".")).length; } catch {}
-  return { crear_correos: canCreateMail(), buzones, maildir: fs.existsSync(dir) };
+  return { crear_correos: canCreateMail(), comodin: catchAllActivo() ? `${CATCHALL_LOCAL}@${MAIL_DOMAIN}` : null, buzones, maildir: fs.existsSync(dir) };
 }
 
 // ---------- Leer los últimos correos de PlayStation de un buzón ----------
@@ -180,8 +189,14 @@ const SONY_FROM = /playstation|sony|sonyentertainmentnetwork|scea|sie\.com/i;
 const SONY_LINK = /^https?:\/\/[^\s"'<>]*(playstation\.(com|net)|sonyentertainmentnetwork\.com|sony\.com)[^\s"'<>]*/i;
 
 export function readSonyMail(local, { days = 7, max = 5 } = {}) {
-  const base = path.join(HOME, "mail", MAIL_DOMAIN, local);
-  if (!fs.existsSync(base)) return { exists: false, messages: [] };
+  let base = path.join(HOME, "mail", MAIL_DOMAIN, local);
+  // Sin buzón propio: se lee el comodín, solo lo dirigido a esta dirección.
+  let destino = null;
+  if (!fs.existsSync(base)) {
+    if (!catchAllActivo()) return { exists: false, messages: [] };
+    base = path.join(HOME, "mail", MAIL_DOMAIN, CATCHALL_LOCAL);
+    destino = `${local}@${MAIL_DOMAIN}`.toLowerCase();
+  }
   const since = Date.now() - days * 24 * 3600 * 1000;
   const files = [];
   for (const sub of ["new", "cur"]) {
@@ -205,6 +220,11 @@ export function readSonyMail(local, { days = 7, max = 5 } = {}) {
     const head = (headEnd >= 0 ? raw.slice(0, headEnd) : raw).replace(/\r?\n[ \t]+/g, " ");
     const from = decodeWords((head.match(/^from:\s*(.+)$/im) || [])[1] || "");
     if (!SONY_FROM.test(from)) continue;
+    if (destino) {
+      // Exim anota el destinatario original (Envelope-to / X-Original-To); el To: también lo trae.
+      const para = (head.match(/^(?:envelope-to|x-original-to|delivered-to|to|cc):\s*.+$/gim) || []).join(" ").toLowerCase();
+      if (!para.includes(destino)) continue;
+    }
     const subject = decodeWords((head.match(/^subject:\s*(.+)$/im) || [])[1] || "");
     const text = messageText(raw);
     // El mismo enlace suele venir en la parte de texto y en la HTML (con otros
@@ -217,5 +237,5 @@ export function readSonyMail(local, { days = 7, max = 5 } = {}) {
     const codes = [...new Set((`${subject}\n${text}`.match(/(?<![\d#])\d{6}(?!\d)/g) || []))].slice(0, 3);
     messages.push({ fecha: new Date(t).toISOString(), de: from.slice(0, 120), asunto: subject.slice(0, 160), codigos: codes, enlaces: links });
   }
-  return { exists: true, messages };
+  return { exists: true, messages, via: destino ? "comodin" : "buzon" };
 }
