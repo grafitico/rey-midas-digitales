@@ -101,6 +101,25 @@ async function ghGetFile(file) {
 }
 
 // PUT genérico. `contentBase64` ya debe venir codificado en base64.
+// Error de escritura en GitHub explicado para el dueño: qué llave está usando
+// la app (solo el tipo y los últimos 4 caracteres) y qué permiso pide GitHub.
+// Así se ve si cPanel tiene la llave vieja o si le falta "Contents: Read and write".
+async function ghPutError(r) {
+  const body = (await r.text()).slice(0, 200);
+  const tok = String(process.env.GITHUB_TOKEN || "");
+  const tipo = tok.startsWith("github_pat_") ? "fine-grained" : tok.startsWith("ghp_") ? "clásica" : "desconocida";
+  const pide = r.headers.get("x-accepted-github-permissions") || "";
+  let msg = `GitHub PUT ${r.status}: ${body}`;
+  if (r.status === 403 || r.status === 404 || r.status === 401) {
+    msg = `GitHub no deja escribir con la llave que tiene la app (llave ${tipo} que termina en …${tok.slice(-4)}).` +
+      (pide ? ` GitHub pide: ${pide}.` : "") +
+      ` Revisá en github.com/settings/personal-access-tokens que ESA llave tenga Repository access → ${ghRepo()} y Repository permissions → Contents: Read and write. Si creaste otra llave, cargala en cPanel (GITHUB_TOKEN) y reiniciá la app.`;
+  }
+  const e = new Error(msg);
+  e.status = 502;
+  return e;
+}
+
 async function ghPutFile(path, contentBase64, message, sha) {
   const url = `${API}/repos/${ghRepo()}/contents/${encodeURIComponent(path)}`;
   const payload = { message, content: contentBase64, branch: ghBranch() };
@@ -132,7 +151,7 @@ async function writeBundlesFile(file, mutate, message) {
     const r = await ghPutFile(file, contentB64, message, sha);
     if (r.ok) return data.bundles;
     if (r.status === 409 || r.status === 422) continue; // SHA stale → releer
-    throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    throw await ghPutError(r);
   }
   throw new Error("No se pudo guardar (conflicto de versiones tras varios intentos).");
 }
@@ -185,7 +204,7 @@ async function save(req, res, body) {
       existing ? existing.sha : null,
     );
     if (!putRes.ok) {
-      throw new Error(`No se pudo subir la imagen: GitHub ${putRes.status}`);
+      throw await ghPutError(putRes);
     }
     coverUrl = `/${imgPath}`;
   }
@@ -266,7 +285,7 @@ async function writeCofreFile(mutate, message) {
     const r = await ghPutFile(COFRE_FILE, contentB64, message, sha);
     if (r.ok) return data.games;
     if (r.status === 409 || r.status === 422) continue; // SHA stale → releer
-    throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    throw await ghPutError(r);
   }
   throw new Error("No se pudo guardar (conflicto de versiones tras varios intentos).");
 }
@@ -364,7 +383,7 @@ async function writeOfertaFile(mutate, message) {
     const r = await ghPutFile(OFERTA_FILE, contentB64, message, sha);
     if (r.ok) return data.items;
     if (r.status === 409 || r.status === 422) continue; // SHA stale → releer
-    throw new Error(`GitHub PUT ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    throw await ghPutError(r);
   }
   throw new Error("No se pudo guardar (conflicto de versiones tras varios intentos).");
 }
