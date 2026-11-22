@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
 import { CODIGOS_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas } from "./_codigos.js";
-import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel } from "./_correo.js";
+import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel, catchAllActivo, CATCHALL_LOCAL } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
 // de PSN/Xbox vendida: viajan cifradas en Supabase (ver encryptSecret en
@@ -890,7 +890,10 @@ async function cuentaNueva(req, res, body) {
   if (!CUENTA_PLATAFORMAS.includes(plataforma)) return res.status(400).json({ error: "Plataforma inválida" });
   if (!juego) return res.status(400).json({ error: "Falta el juego" });
   if (!CUENTA_TIPOS.includes(tipo)) return res.status(400).json({ error: "Tipo inválido" });
-  const crearCorreo = body.crear_correo !== false;
+  // Con el correo comodín activo no se crea buzón: el correo llega igual y
+  // se lee desde el comodín (no hace falta entrar a cPanel).
+  const comodin = body.crear_correo !== false && catchAllActivo();
+  const crearCorreo = body.crear_correo !== false && !comodin;
   const costo = costoFields(body);
 
   // Nada a medias: primero todo lo que puede fallar sin efectos.
@@ -926,7 +929,7 @@ async function cuentaNueva(req, res, body) {
     }
   }
   console.log(`[cuentas] cuenta nueva ${correo} (${staff.assistant ? "asistente " + staff.tid : "admin"})${crearCorreo ? " + correo en cPanel" : ""}`);
-  res.status(200).json({ ok: true, correo, correo_creado: crearCorreo });
+  res.status(200).json({ ok: true, correo, correo_creado: crearCorreo, ...(comodin ? { correo_por_comodin: `${CATCHALL_LOCAL}@${MAIL_DOMAIN}` } : {}) });
 }
 
 // Últimos correos de PlayStation de un buzón @reymidascr.com: código o enlace
@@ -936,7 +939,7 @@ async function correoLeer(req, res, body) {
   const local = cleanLocal(body.correo);
   if (!local) return res.status(400).json({ error: `Solo se pueden leer correos @${MAIL_DOMAIN}.` });
   const r = readSonyMail(local);
-  if (!r.exists) return res.status(404).json({ error: `No encontré el buzón ${local}@${MAIL_DOMAIN} en el hosting.` });
+  if (!r.exists) return res.status(404).json({ error: `No encontré el buzón ${local}@${MAIL_DOMAIN} en el hosting (ni el correo comodín ${CATCHALL_LOCAL}@${MAIL_DOMAIN}).` });
   res.status(200).json({ correo: `${local}@${MAIL_DOMAIN}`, mensajes: r.messages });
 }
 

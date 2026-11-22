@@ -95,6 +95,12 @@
   Banahosting cortara la app (tope de recursos) y quedó un buzón sin su
   contraseña guardada. `correo-leer` lee el Maildir (~/mail/reymidascr.com/<usuario>) y
   devuelve solo correos de PlayStation de 7 días (código y enlace).
+- **Correo comodín (22/11/2026):** cPanel tiene verificación en dos pasos y
+  así rechaza la UAPI con usuario/contraseña. Si existe el buzón
+  `cuentas@reymidascr.com` (variable CORREO_COMODIN) y la Dirección
+  predeterminada de reymidascr.com reenvía ahí, `cuenta-nueva` NO crea buzón
+  (registra la cuenta con contraseña generada) y `correo-leer` busca los
+  correos de Sony en el comodín filtrando por destinatario (Envelope-to/To).
 - **Códigos de verificación (bóveda, 22/11/2026):** todos los códigos 2FA de una
   cuenta viven cifrados en `cuentas.codigos` (`api/_codigos.js`,
   migrations/add_cuenta_codigos.sql); solo el admin los ve (Admin → Cuentas →

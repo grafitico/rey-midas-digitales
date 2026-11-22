@@ -9886,7 +9886,7 @@ async function openCuentaModal(acc) {
   // cPanel), la casilla se apaga y se explica cómo seguir.
   if (crear) {
     apiPost("/api/purchases", { action: "correo-estado" }).then(st => {
-      if (st.crear_correos) return;
+      if (st.crear_correos || st.comodin) return; // con el comodín no hace falta cPanel
       crear.dataset.off = "1";
       crear.checked = false;
       crear.disabled = true;
@@ -9974,7 +9974,7 @@ async function openCuentaModal(acc) {
           costo_usd: $("costo_usd").value,
           fecha_compra: $("fecha_compra").value,
         });
-        showToast(`Correo ${r.correo} creado ✓`);
+        showToast(r.correo_por_comodin ? `Cuenta ${r.correo} lista ✓ (sus correos llegan a ${r.correo_por_comodin})` : `Correo ${r.correo} creado ✓`);
         modal.close();
         invMarkStale();
         await loadInventory();
