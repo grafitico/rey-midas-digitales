@@ -106,6 +106,10 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
   if (req.method === "OPTIONS") return res.status(200).end();
+  // Solo admin: el scrape en vivo es pesado (agotó el CPU de Vercel) y en el
+  // hosting compartido un bot podría saturar los procesos. La web ya no lo
+  // usa: los precios los generan los robots de GitHub cada 3 h.
+  try { await requireAdmin(req); } catch (e) { return handleError(res, e); }
 
   // Los modos ?debug=... son herramientas de diagnóstico para el dueño del
   // sitio, no las usa el frontend público. searchtest en particular acepta

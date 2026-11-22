@@ -5,7 +5,7 @@
 //                                          distribuidora, géneros, fecha, capturas y video
 //   GET /api/cover?vandal=<titulo>       → ficha de respaldo desde vandal.elespanol.com (español)
 
-import { requireAdmin, handleError } from "./_lib.js";
+import { requireAdmin, handleError, clientIp, createRateLimiter } from "./_lib.js";
 import { findNintendoCover } from "./_nintendo-cover.js";
 
 // Caché en memoria de las carátulas de Nintendo por título (?q=).
@@ -16,10 +16,16 @@ const COVER_CACHE_MAX = 5000;
 const PSN_BASE = "https://store.playstation.com/es-cr";
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+const coverLimit = createRateLimiter({ perMinute: 60, perHour: 600, globalPerHour: 6000 });
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=604800, stale-while-revalidate=86400");
   if (req.method === "OPTIONS") return res.status(200).end();
+  // Límite por visitante: cada consulta sale a un servicio externo (hasta 12 s)
+  // y en el hosting compartido muchas a la vez agotan los procesos.
+  const lim = coverLimit(clientIp(req));
+  if (lim) { res.setHeader("Retry-After", String(lim.retryAfter)); return res.status(429).json({ error: "Demasiadas consultas, probá en un momento." }); }
 
   // ── Diagnóstico: estructura real del apolloState de PSN para un título ───────
   //    /api/cover?psnDebug=<titulo>  (busca el juego, abre su producto y resume)
