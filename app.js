@@ -9420,7 +9420,29 @@ function pfRenderSlots() {
   const platform = form.querySelector('[name="platform"]').value;
   const modality = form.querySelector('[name="modality"]').value;
   const opts = invSlotOptions(acc);
+  // La secundaria de una cuenta PS4/PS5 es UNA sola, que se vende en la
+  // consola que elija el cliente: se dibuja como un cupo con dos botones
+  // ("en PS4" / "en PS5"), no como dos cupos libres.
+  const secOpts = opts.filter(o => o.slot === "sec");
+  const secCard = () => {
+    const free = secOpts.some(o => pfOptionFree(acc, o));
+    const sale = acc.used?.sec?.[0];
+    const who = sale ? (sale.app_users?.full_name || sale.app_users?.email || "vendido") : "";
+    const donde = sale && /ps5/i.test(sale.platform || "") ? "PS5" : sale ? "PS4" : "";
+    const picked = free ? secOpts.find(o => o.platform === platform && o.modality === modality) : null;
+    if (!free) {
+      return `<div class="pf-slot pf-slot-sec is-used"><span class="pf-slot-name">Secundaria · 1 por cuenta</span>
+        <span class="pf-slot-who">${escapeHtml(who)}${donde ? ` · en ${donde}` : ""}</span></div>`;
+    }
+    return `<div class="pf-slot pf-slot-sec is-free${picked ? " is-selected" : ""}">
+      <span class="pf-slot-name">Secundaria · 1 por cuenta (PS4 o PS5)</span>
+      <span class="pf-slot-who">${picked ? `✓ Elegida en ${escapeHtml(picked.platform)}` : "Libre · ¿en qué consola?"}</span>
+      <span class="pf-sec-btns">${secOpts.map(o => `<button type="button" class="pf-sec-btn${picked === o ? " is-on" : ""}"
+        data-pf-platform="${escapeAttr(o.platform)}" data-pf-modality="${escapeAttr(o.modality)}">en ${escapeHtml(o.platform)}</button>`).join("")}</span>
+    </div>`;
+  };
   const chips = opts.map(o => {
+    if (o.slot === "sec" && secOpts.length > 1) return o === secOpts[0] ? secCard() : "";
     const free = pfOptionFree(acc, o);
     const sale = acc.used?.[o.slot]?.[o.i];
     const who = sale ? (sale.app_users?.full_name || sale.app_users?.email || "vendido") : "";
@@ -9435,7 +9457,8 @@ function pfRenderSlots() {
   const kindTxt = acc.family === "PlayStation"
     ? (acc.unknown ? "¿PS4 o PS5? juego sin identificar en el catálogo" : acc.kind === "ps5only" ? "Solo PS5 · 3 cupos" : "PS4 y PS5 · 5 cupos")
     : acc.family === "Xbox" ? "Xbox · 3 cupos" : acc.family === "Nintendo" ? "Nintendo · venta única (cuenta completa)" : `${acc.family}`;
-  const freeCount = opts.filter(o => pfOptionFree(acc, o)).length;
+  // La secundaria en PS4 y en PS5 es el mismo cupo: cuenta una sola vez.
+  const freeCount = opts.filter(o => pfOptionFree(acc, o) && !(o.slot === "sec" && o === secOpts[1])).length;
   box.innerHTML = `
     <div class="pf-slots-head">
       <strong>${acc.isNew ? "Cuenta nueva" : `Cupos de la cuenta`}</strong>

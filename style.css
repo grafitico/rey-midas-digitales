@@ -5837,3 +5837,10 @@ html { scroll-behavior: smooth; }
 .stock-slots { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .45rem; }
 .stock-chip { font-size: .72rem; font-weight: 700; color: var(--gold-bright); border: 1px solid var(--gold); border-radius: 999px; padding: 2px 8px; }
 .stock-ask { display: inline-block; margin-top: .5rem; font-size: .85rem; font-weight: 700; color: var(--green); }
+
+/* Formulario de venta: la secundaria es un solo cupo, en PS4 o PS5 */
+.pf-slot-sec { grid-column: 1 / -1; cursor: default; }
+.pf-sec-btns { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+.pf-sec-btn { flex: 1; padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid var(--green); background: transparent; color: var(--green); font-weight: 700; cursor: pointer; }
+.pf-sec-btn:hover { background: rgba(0, 217, 126, 0.08); }
+.pf-sec-btn.is-on { border-color: var(--gold); color: var(--gold); background: rgba(255, 199, 0, 0.12); }
