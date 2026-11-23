@@ -125,7 +125,7 @@ function esc(s) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function absImg(src) {
-  if (!src) return BASE + "/assets/logo.png?v=2";
+  if (!src) return BASE + "/assets/og-share.jpg"; // 1200×630, la que muestran grande WhatsApp y Facebook
   return /^https?:\/\//.test(src) ? src : (BASE + src);
 }
 function setName(html, name, content) {
@@ -151,6 +151,18 @@ export function applyMeta(html, m) {
   const img = absImg(m.image);
   out = setProp(out, "og:image", img);
   out = setName(out, "twitter:image", img);
+  // Medidas de la imagen: sin ellas Facebook/WhatsApp suelen no mostrarla la
+  // primera vez que se comparte un enlace. Portadas de tienda: 400×400
+  // (api/og.js las pide a ese tamaño); la imagen propia: 1200×630.
+  const size = !m.image ? [1200, 630] : m.imageSize;
+  if (size) {
+    out = setProp(out, "og:image:width", String(size[0]));
+    out = setProp(out, "og:image:height", String(size[1]));
+  } else {
+    // Medida desconocida (imagen de otro sitio): mejor no declarar una falsa.
+    out = out.replace(/\s*<meta property="og:image:(width|height)" content="[^"]*">/g, "");
+  }
+  if (m.imageAlt || m.title) out = setProp(out, "og:image:alt", m.imageAlt || m.title);
   if (m.ogType) out = setProp(out, "og:type", m.ogType);
   const inject = [];
   if (m.url) {
@@ -168,8 +180,8 @@ const STATIC_PAGES = {
   "/ofertas": ["Ofertas y descuentos | Rey Midas Digitales", "Juegos digitales en oferta para PS5, PS4, Xbox y Switch en Costa Rica. Descuentos reales, entrega inmediata por WhatsApp."],
   "/playstation-plus": ["PlayStation Plus en Costa Rica | Rey Midas Digitales", "Membresías PlayStation Plus al mejor precio en Costa Rica. Entrega inmediata por WhatsApp."],
   "/game-pass": ["Xbox Game Pass en Costa Rica | Rey Midas Digitales", "Xbox Game Pass al mejor precio en Costa Rica. Entrega inmediata por WhatsApp."],
-  "/vip": ["Ofertas de Oportunidad VIP | Rey Midas Digitales", "Aprovechá descuentos exclusivos de oportunidad para clientes VIP en Costa Rica."],
-  "/reservaciones": ["Ofertas de Oportunidad VIP | Rey Midas Digitales", "Aprovechá descuentos exclusivos de oportunidad para clientes VIP en Costa Rica."],
+  "/entrega-inmediata": ["⚡ Entrega inmediata | Rey Midas Digitales", "Juegos de PS5, PS4 y Xbox listos para entregar al instante en cuenta principal o secundaria. Costa Rica."],
+  "/cofre": ["Cofre de Oro del Rey Midas | Juego gratis con tus compras", "Juntá monedas con tus compras y canjealas por juegos gratis en Rey Midas Digitales."],
   "/resenas": ["Reseñas de clientes | Rey Midas Digitales", "Lo que dicen nuestros clientes de Rey Midas Digitales."],
   "/faq": ["Preguntas frecuentes | Rey Midas Digitales", "Resolvé tus dudas sobre cómo comprar juegos digitales en Costa Rica."],
   "/como-comprar": ["Cómo comprar e instalar | Rey Midas Digitales", "Guía paso a paso para comprar e instalar tus juegos digitales en Costa Rica."],
@@ -212,6 +224,17 @@ export function buildMeta(pathname, data) {
     if (!r) return { url };
     const desc = `Reservá ${r.title} para ${r.platform} en Costa Rica.${r.deposit ? ` Depósito desde ${formatCRC(r.deposit)}.` : ""} Asegurá tu copia para el día de lanzamiento.`;
     return { title: `Reservá ${r.title} — Rey Midas Digitales`, description: desc, image: r.imageUrl || "", url, ogType: "product" };
+  }
+
+  // Bundles: /ps-bundle/BPS034, /xbox-bundle/…, /bundle/… (Nintendo no: su archivo pesa 2 MB).
+  if (/^(ps-bundle|xbox-bundle|bundle)$/.test(parts[0]) && parts[1]) {
+    const tipo = parts[0] === "xbox-bundle" ? "xbox" : "ps";
+    const b = data.bundles?.[tipo]?.[parts[1]];
+    if (!b) return { url };
+    const nombres = (b.games || []).map(x => String(x.name || x).trim()).filter(Boolean);
+    const precio = Number(b.priceCRC_principal || b.priceCRC) || 0;
+    const desc = `${nombres.length} juegos: ${nombres.slice(0, 4).join(", ")}${nombres.length > 4 ? " y más" : ""}.${precio ? ` Desde ${formatCRC(precio)}.` : ""} Entrega inmediata por WhatsApp.`;
+    return { title: `${b.title || "Bundle"} — Rey Midas Digitales`, description: desc, image: b.coverUrl || "", url, ogType: "product" };
   }
 
   if (parts[0] === "plataforma" && parts[1]) {

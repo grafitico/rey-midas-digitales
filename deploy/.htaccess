@@ -39,7 +39,7 @@ AddType video/mp4 .mp4
   # tienda normal. Los buscadores (Google, Bing) quedan afuera a propósito:
   # ejecutan el JavaScript de la tienda y así no dependen de esta pieza.
   RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|facebot|WhatsApp|Twitterbot|Slackbot|Discordbot|TelegramBot|LinkedInBot|Pinterest|redditbot|SkypeUriPreview|Viber|Iframely|Embedly|vkShare) [NC]
-  RewriteRule ^(|producto/.+|reserva/.+|plataforma/.+|bundles/.*|combo.*|ofertas|playstation-plus|game-pass|vip|resenas|faq|como-comprar|garantia|nosotros|terminos|privacidad)/?$ /api/og?path=/$1 [B,L]
+  RewriteRule ^(|producto/.+|plataforma/.+|bundles/.*|ps-bundle/.+|xbox-bundle/.+|bundle/.+|combo.*|ofertas|entrega-inmediata|cofre|playstation-plus|game-pass|resenas|faq|como-comprar|garantia|nosotros|terminos|privacidad)/?$ /api/og?path=/$1 [B,L]
 
   # Archivos y carpetas reales se sirven tal cual; cualquier otra ruta de la
   # tienda (/plataforma/PS5, /combo/5000, /producto/...) la resuelve index.html.

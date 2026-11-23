@@ -24,7 +24,7 @@ const SITE_DIR = (() => {
 })();
 
 // Cache: se recarga solo cuando cambia algún archivo (cada publicación).
-const FILES = ["index.html", "og-index.json", "reservaciones.json", "faq.json"];
+const FILES = ["index.html", "og-index.json", "reservaciones.json", "faq.json", "ps-bundles.json", "xbox-bundles.json"];
 let cache = { stamp: "", html: "", data: null };
 
 function readJson(name) {
@@ -67,8 +67,11 @@ function load() {
   const reservaMap = {};
   for (const r of readJson("reservaciones.json")?.items || []) if (r?.id) reservaMap[r.id] = r;
   const faqs = readJson("faq.json")?.faqs || [];
+  const bundles = { ps: {}, xbox: {} };
+  for (const b of readJson("ps-bundles.json")?.bundles || []) if (b?.id) bundles.ps[b.id] = b;
+  for (const b of readJson("xbox-bundles.json")?.bundles || []) if (b?.id) bundles.xbox[b.id] = b;
 
-  cache = { stamp, html, data: { games, reservaMap, faqs } };
+  cache = { stamp, html, data: { games, reservaMap, faqs, bundles } };
   return cache;
 }
 
@@ -160,7 +163,11 @@ export default async function handler(req, res) {
   try {
     const { html, data } = load();
     const meta = buildMeta(pathname, data);
-    if (meta?.image) meta.image = previewImage(meta.image);
+    if (meta?.image) {
+      meta.image = previewImage(meta.image);
+      // PlayStation y Microsoft sirven la portada cuadrada a 400 px (ver previewImage).
+      meta.imageSize = /image\.api\.playstation\.com|store-images\.(s-)?microsoft\.com/.test(meta.image) ? [PREVIEW_PX, PREVIEW_PX] : null;
+    }
     const out = meta ? applyMeta(html, meta) : html;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=300");
