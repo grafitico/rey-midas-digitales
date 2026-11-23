@@ -112,9 +112,7 @@
     },
     {
       "id": "BPS005",
-      "priceCRC": 26500,
-      "priceCRC_principal": 26500,
-      "priceCRC_secundaria": 14000,
+      "priceCRC": 8500,
       "coverUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202608/0521/15618b4627bb9e14016484379865574b6caf9041544946c8.png",
       "totalSize": "103 GB",
       "games": [
@@ -131,9 +129,11 @@
           "size": "25 GB"
         }
       ],
-      "date": "2026-11-22T04:08:08.198Z",
+      "date": "2026-11-23T17:43:26.153Z",
       "title": "Bundle Play Station ⚔️ BPS005",
-      "discountPct": 40
+      "discountPct": 40,
+      "priceCRC_principal": 8500,
+      "priceCRC_secundaria": 4500
     },
     {
       "id": "BPS006",
