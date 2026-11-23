@@ -180,6 +180,7 @@ const STATIC_PAGES = {
   "/ofertas": ["Ofertas y descuentos | Rey Midas Digitales", "Juegos digitales en oferta para PS5, PS4, Xbox y Switch en Costa Rica. Descuentos reales, entrega inmediata por WhatsApp."],
   "/playstation-plus": ["PlayStation Plus en Costa Rica | Rey Midas Digitales", "Membresías PlayStation Plus al mejor precio en Costa Rica. Entrega inmediata por WhatsApp."],
   "/game-pass": ["Xbox Game Pass en Costa Rica | Rey Midas Digitales", "Xbox Game Pass al mejor precio en Costa Rica. Entrega inmediata por WhatsApp."],
+  "/ranking": ["🏆 Ranking de embajadores | Rey Midas Digitales", "Invitá a tus amigos, sumá puntos y ganá juegos cada mes en Rey Midas Digitales."],
   "/entrega-inmediata": ["⚡ Entrega inmediata | Rey Midas Digitales", "Juegos de PS5, PS4 y Xbox listos para entregar al instante en cuenta principal o secundaria. Costa Rica."],
   "/cofre": ["Cofre de Oro del Rey Midas | Juego gratis con tus compras", "Juntá monedas con tus compras y canjealas por juegos gratis en Rey Midas Digitales."],
   "/resenas": ["Reseñas de clientes | Rey Midas Digitales", "Lo que dicen nuestros clientes de Rey Midas Digitales."],

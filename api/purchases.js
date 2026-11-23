@@ -3,6 +3,7 @@
 
 import { sb, sbAll, requireAuth, requireAdmin, requireStaff, handleError, readJson, checkConfig, encryptSecret, decryptSecret, hashPassword } from "./_lib.js";
 import crypto from "crypto";
+import { registrarCompra } from "./_ranking.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
 import { CODIGOS_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas } from "./_codigos.js";
@@ -173,6 +174,8 @@ async function create(req, res, body) {
     await aplicarRecortes(boveda.recortes); // recién con la bóveda guardada
     codigos = { entregados: dados.length, ...resumenBoveda(boveda.lista) };
   }
+  // Ranking: si el cliente llegó invitado por otro, +50 al que lo invitó.
+  await registrarCompra({ purchaseId: ventaId, userId: users[0].id, esCanje: !!row.is_redemption });
   if (staff.assistant) console.log(`[asistente] venta cargada (acceso ${staff.tid}): ${row.platform} ${row.modality || ""} → cliente ${users[0].id}`);
   res.status(200).json({ ok: true, id: ventaId, codigos });
 }

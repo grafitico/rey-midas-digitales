@@ -537,6 +537,7 @@ function parseRoute() {
     return { name: "bundles-list", platform: decodeURIComponent(partes[1]) };
   }
   if (partes[0] === "entrega-inmediata") return { name: "entrega-inmediata" };
+  if (partes[0] === "ranking") return { name: "ranking" };
   if (partes[0] === "ofertas") {
     const page = (partes[1] === "p" && partes[2]) ? parseInt(partes[2], 10) || 1 : 1;
     return { name: "ofertas", page };
@@ -1209,6 +1210,7 @@ function render() {
   if (route.name === "cofre") return renderCofre();
   if (route.name === "combo") return renderCombo(route.precio);
   if (route.name === "entrega-inmediata") return renderEntregaInmediata();
+  if (route.name === "ranking") return renderRanking();
   if (route.name === "login") return renderLogin();
   if (route.name === "crear-cuenta") return renderRegister();
   if (route.name === "completar-datos") return renderCompletarDatos();
@@ -6356,6 +6358,7 @@ function shareButtonHTML(g, principal, extraClass = "") {
 }
 
 async function shareGame(url, title, priceLabel) {
+  url = conInvitacion(url); // con sesión iniciada, el enlace suma puntos en el ranking
   const text = priceLabel ? `${title} — ${priceLabel}` : title;
   if (navigator.share) {
     try {
@@ -6606,6 +6609,9 @@ function renderRegister() {
             <input id="regPassword" type="password" required minlength="6" autocomplete="new-password">
           </label>
           ${clientDataFieldsHTML()}
+          <label>Código de invitación (opcional)
+            <input id="regInvite" type="text" maxlength="12" placeholder="Ej: RM0083" value="${escapeAttr(refGuardado())}" autocomplete="off">
+          </label>
           <button type="submit" class="login-submit-btn">Crear cuenta</button>
         </form>
         ${googleAuthButtonHTML()}
@@ -6624,7 +6630,7 @@ function renderRegister() {
     const btn = form.querySelector("button[type='submit']");
     btn.disabled = true;
     btn.textContent = "Creando...";
-    const error = await registerClient({ email, password, ...data });
+    const error = await registerClient({ email, password, ...data, codigo_invitacion: (document.getElementById("regInvite")?.value || "").trim() || undefined });
     if (error) {
       btn.disabled = false;
       btn.textContent = "Crear cuenta";
@@ -6801,11 +6807,13 @@ async function renderMyAccount() {
           <button id="cancelPwdBtn" class="cta-secondary">Cancelar</button>
         </div>
       </div>
+      <div id="acctEmbajador"></div>
       <div id="acctCofre"></div>
       <div id="purchasesList">Cargando compras...</div>
     </section>
   `;
   setupDownloadAppButton("acctDownload", "acctDownloadBtn");
+  renderMiEmbajador();
 
   document.getElementById("changePwdBtn").addEventListener("click", () => {
     const box = document.getElementById("pwdBox");
@@ -7020,6 +7028,7 @@ async function renderAdmin() {
 
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
         <button type="button" class="admin-tab" data-tab="ocultos" role="tab" aria-selected="false">🚫 Ocultos</button>
+        <button type="button" class="admin-tab" data-tab="ranking" role="tab" aria-selected="false">🏆 Ranking</button>
         <button type="button" class="admin-tab" data-tab="asistente" role="tab" aria-selected="false">🤖 Asistente</button>
       </nav>
 
@@ -7309,6 +7318,12 @@ async function renderAdmin() {
           </div>
           <div id="salesReport" class="sales-body">Elegí un rango para ver las ventas.</div>
         </div>
+      </div>
+
+      <div class="admin-panel" data-panel="ranking" role="tabpanel" hidden>
+        <h2>🏆 Ranking de embajadores</h2>
+        <label>Mes <select id="adminRankingMes"></select></label>
+        <div id="adminRanking"></div>
       </div>
 
       <div class="admin-panel" data-panel="asistente" role="tabpanel" hidden>
@@ -8457,6 +8472,7 @@ function setupAdminTabs() {
       // catálogo ya haya terminado de cargar.
       if (target === "ocultos") renderOcultos();
       if (target === "asistente") loadAsistente();
+      if (target === "ranking") loadAdminRanking();
     });
   });
 }
@@ -10392,6 +10408,258 @@ async function handleAdminSubmit(e) {
   }
 }
 
+
+// ============================================================
+// 🏆 Ranking de embajadores (api/ranking.js, migrations/add_ranking.sql)
+// ============================================================
+// Cada cliente invita con su código RM: su enlace lleva ?r=RM0083. Al abrir un
+// enlace así, la tienda guarda el código (cookie rmd_ref, 30 días: el registro
+// lo usa aunque sea con Google) y avisa una visita por día y por embajador.
+const REF_KEY = "rmd_ref", VID_KEY = "rmd_vid";
+const MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+function refCodigo(n) { return n ? `RM${String(n).padStart(4, "0")}` : ""; }
+function refGuardado() { try { return localStorage.getItem(REF_KEY) || ""; } catch { return ""; } }
+// El enlace que comparte un cliente con sesión lleva su código de invitación.
+function conInvitacion(url) {
+  const n = currentUser?.customer_number;
+  if (!n) return url;
+  try { const u = new URL(url, location.origin); u.searchParams.set("r", refCodigo(n)); return u.toString(); } catch { return url; }
+}
+function capturarInvitacion() {
+  let p;
+  try { p = new URLSearchParams(location.search); } catch { return; }
+  const r = String(p.get("r") || "").trim();
+  if (!r) return;
+  p.delete("r");
+  const q = p.toString();
+  try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash); } catch { /* sin history */ }
+  if (!/^rm-?\d{1,7}$/i.test(r)) return;
+  const code = refCodigo(parseInt(r.replace(/\D/g, ""), 10));
+  try { localStorage.setItem(REF_KEY, code); } catch { /* sin storage */ }
+  document.cookie = `rmd_ref=${code}; Max-Age=${30 * 86400}; Path=/; SameSite=Lax; Secure`;
+  let vid = "";
+  try {
+    vid = localStorage.getItem(VID_KEY) || "";
+    if (!vid) { vid = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); localStorage.setItem(VID_KEY, vid); }
+  } catch { /* sin storage */ }
+  const marca = `rmd_vis_${code}_${new Date().toISOString().slice(0, 10)}`;
+  let ya = false;
+  try { ya = !!localStorage.getItem(marca); localStorage.setItem(marca, "1"); } catch { /* sin storage */ }
+  if (!ya) fetch("/api/ranking", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "visita", r: code, vid, ruta: location.pathname }) }).catch(() => {});
+}
+function mesLargo(mes) {
+  const [y, m] = String(mes || "").split("-").map(Number);
+  return m ? `${MESES_ES[m - 1]} ${y}` : "";
+}
+function rankFin() {
+  // Fin del mes en hora de Costa Rica (UTC−6).
+  const ahora = new Date(Date.now() - 6 * 3600 * 1000);
+  return new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() + 1, 1, 6, 0, 0));
+}
+function rankCuentaRegresiva(el) {
+  const fin = rankFin().getTime();
+  const tick = () => {
+    if (!document.body.contains(el)) return clearInterval(t);
+    const s = Math.max(0, Math.floor((fin - Date.now()) / 1000));
+    const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    el.textContent = `${String(d).padStart(2, "0")}d ${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(x).padStart(2, "0")}s`;
+  };
+  const t = setInterval(tick, 1000);
+  tick();
+}
+function rankContarHasta(el, n) {
+  const fin = Number(n) || 0;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || fin < 2) { el.textContent = String(fin).padStart(5, "0"); return; }
+  const t0 = performance.now(), dur = 1200;
+  const paso = (t) => {
+    const k = Math.min(1, (t - t0) / dur);
+    el.textContent = String(Math.round(fin * (1 - Math.pow(1 - k, 3)))).padStart(5, "0");
+    if (k < 1) requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+}
+function rankEnlaceHTML(codigo, compacto = false) {
+  const link = `${location.origin}/?r=${codigo}`;
+  const msg = `Te invito a Rey Midas Digitales: juegos digitales para PS5, PS4, Xbox y Switch en Costa Rica, con entrega inmediata. Registrate con mi código ${codigo} 👉 ${link}`;
+  return `
+    <div class="rk-link${compacto ? " is-compact" : ""}">
+      <div class="rk-code"><span>Tu código</span><b>${escapeHtml(codigo)}</b></div>
+      <div class="rk-url"><code>${escapeHtml(link)}</code></div>
+      <div class="rk-share">
+        <a class="rk-btn rk-wa" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">WhatsApp</a>
+        <a class="rk-btn rk-fb" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}" target="_blank" rel="noopener">Facebook</a>
+        <button type="button" class="rk-btn rk-copy" data-copy-value="${escapeAttr(link)}">Copiar enlace</button>
+      </div>
+      <p class="rk-tip">Tip: al compartir cualquier juego con el botón <b>Compartir</b> estando con tu sesión iniciada, el enlace ya lleva tu código.</p>
+    </div>`;
+}
+function rankCopiarEnlaces(root) {
+  root.querySelectorAll(".rk-copy[data-copy-value]").forEach(b => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copyValue); showToast("Enlace copiado 🏆"); } catch { showToast("No se pudo copiar"); }
+  }));
+}
+function rankMonedas() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return "";
+  return `<div class="rk-coins" aria-hidden="true">${Array.from({ length: 12 }, (_, i) =>
+    `<img src="/assets/coin.png" alt="" style="left:${(i * 8.3 + (i % 3) * 2) % 98}%;animation-delay:${(i * 0.73) % 6}s;animation-duration:${5 + (i % 4)}s">`).join("")}</div>`;
+}
+
+async function renderRanking() {
+  setPageMeta("🏆 Ranking de embajadores | Rey Midas Digitales",
+    "Invitá a tus amigos a Rey Midas Digitales, sumá puntos y ganá juegos cada mes. Ranking mensual de embajadores.");
+  app.innerHTML = `
+    <section class="rk-page">
+      ${rankMonedas()}
+      <div class="container rk-wrap">
+        <header class="rk-hero">
+          <p class="rk-insert">INSERT COIN</p>
+          <h1 class="rk-title">SALÓN DE LA FAMA</h1>
+          <p class="rk-sub">Ranking de embajadores · <span id="rkMes">${escapeHtml(mesLargo(new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 7)))}</span></p>
+          <p class="rk-timer">El mes cierra en <b id="rkTimer">--</b></p>
+        </header>
+        <div id="rkPodio" class="rk-podio"><p class="rk-loading">CARGANDO…</p></div>
+        <div class="rk-board"><div class="rk-screen" id="rkTabla"></div></div>
+        <div id="rkYo"></div>
+        <div class="rk-how">
+          <h2>¿Cómo sumo puntos?</h2>
+          <div class="rk-how-grid">
+            <div class="rk-how-card"><b>+1</b><span>Una persona nueva abre tu enlace</span><small>máximo 30 por día</small></div>
+            <div class="rk-how-card"><b>+10</b><span>Se registra con tu código o tu enlace</span><small>una vez por persona</small></div>
+            <div class="rk-how-card is-gold"><b>+50</b><span>Tu invitado compra</span><small>por cada compra</small></div>
+          </div>
+          <h2>Premios del mes</h2>
+          <ol class="rk-prizes" id="rkPremios">
+            <li><span>🥇</span><p>Un bundle a elegir de la lista de <a href="/bundles/PS">Bundles</a></p></li>
+            <li><span>🥈</span><p>Un juego a elegir de <a href="/entrega-inmediata">Entrega inmediata</a></p></li>
+            <li><span>🥉</span><p>1 mes de TV por streaming</p></li>
+          </ol>
+          <p class="rk-rules">Niveles del mes: Bronce (10 pts), Plata (50), Oro (150) y Rey Midas (300). Para ganar hay que tener al menos <b id="rkMinimo">30</b> puntos.
+            El ranking arranca de cero el día 1 de cada mes. No cuentan las visitas propias, repetidas ni de robots; los puntos sospechosos se anulan.
+            Los ganadores se anuncian los primeros días del mes y el premio se entrega por WhatsApp.</p>
+        </div>
+        <div id="rkGanadores"></div>
+      </div>
+    </section>`;
+  rankCuentaRegresiva(document.getElementById("rkTimer"));
+  let data;
+  try {
+    data = await apiPost("/api/ranking", { action: "tabla" });
+  } catch (err) {
+    document.getElementById("rkPodio").innerHTML = `<p class="rk-loading">${/no está activo/.test(err.message) ? "EL RANKING ARRANCA MUY PRONTO" : "NO SE PUDO CARGAR EL RANKING"}</p>`;
+    return;
+  }
+  document.getElementById("rkMes").textContent = mesLargo(data.mes);
+  if (data.reglas?.minimo) document.getElementById("rkMinimo").textContent = data.reglas.minimo;
+  const top = data.top || [];
+  const lugar = (f, i) => f ? `
+    <div class="rk-step rk-step-${i + 1}">
+      <div class="rk-crown">${["👑", "🥈", "🥉"][i]}</div>
+      <div class="rk-name">${escapeHtml(f.alias)}</div>
+      <div class="rk-pts"><span data-count="${f.puntos}">00000</span> PTS</div>
+      <div class="rk-block"><b>${i + 1}</b></div>
+    </div>` : `
+    <div class="rk-step rk-step-${i + 1} is-empty">
+      <div class="rk-crown">❔</div><div class="rk-name">¿Vos?</div><div class="rk-pts">00000 PTS</div>
+      <div class="rk-block"><b>${i + 1}</b></div>
+    </div>`;
+  document.getElementById("rkPodio").innerHTML = lugar(top[1], 1) + lugar(top[0], 0) + lugar(top[2], 2);
+  document.getElementById("rkTabla").innerHTML = top.length ? `
+    <div class="rk-row rk-head"><span>RANK</span><span>JUGADOR</span><span>NIVEL</span><span>PTS</span></div>
+    ${top.map((f, i) => `
+      <div class="rk-row" style="animation-delay:${i * 90}ms">
+        <span class="rk-rank">${String(i + 1).padStart(2, "0")}</span>
+        <span class="rk-player">${escapeHtml(f.alias)}</span>
+        <span class="rk-lvl rk-lvl-${escapeAttr(String(f.nivel).toLowerCase().replace(/\s+/g, "-"))}">${escapeHtml(f.nivel)}</span>
+        <span class="rk-score" data-count="${f.puntos}">00000</span>
+      </div>`).join("")}` : `<p class="rk-empty">TODAVÍA NADIE SUMA PUNTOS ESTE MES.<br>¡SÉ EL PRIMERO!</p>`;
+  document.querySelectorAll("[data-count]").forEach(el => rankContarHasta(el, el.dataset.count));
+  const gan = data.ganadores_mes_anterior || [];
+  if (gan.length) document.getElementById("rkGanadores").innerHTML = `
+    <div class="rk-winners"><h2>Ganadores de ${escapeHtml(mesLargo(data.mes_anterior))}</h2>
+      <ol>${gan.map((g, i) => `<li><span>${["🥇", "🥈", "🥉"][i]}</span> ${escapeHtml(g.alias)} · ${g.puntos} pts</li>`).join("")}</ol></div>`;
+  // Tu puntaje / tu enlace
+  const yo = document.getElementById("rkYo");
+  if (!currentUser) {
+    yo.innerHTML = `<div class="rk-me"><p>Iniciá sesión o creá tu cuenta para obtener tu código de embajador y empezar a sumar.</p>
+      <div class="rk-share"><a class="rk-btn rk-wa" href="/crear-cuenta" data-route="crear-cuenta">Crear cuenta</a><a class="rk-btn" href="/login" data-route="login">Iniciar sesión</a></div></div>`;
+    return;
+  }
+  try {
+    const m = await apiPost("/api/ranking", { action: "mio" });
+    yo.innerHTML = rankMiTarjetaHTML(m);
+    rankCopiarEnlaces(yo);
+  } catch { /* sin sesión válida */ }
+}
+
+function rankMiTarjetaHTML(m) {
+  const pct = m.siguiente ? Math.round(100 * m.puntos / (m.puntos + m.siguiente.faltan)) : 100;
+  return `
+    <div class="rk-me">
+      <div class="rk-me-top">
+        <div><span class="rk-me-label">Tus puntos de ${escapeHtml(mesLargo(m.mes))}</span><b class="rk-me-pts">${m.puntos}</b></div>
+        <div><span class="rk-me-label">Posición</span><b class="rk-me-pos">${m.posicion ? `#${m.posicion}` : "—"}</b></div>
+        <div><span class="rk-me-label">Nivel</span><b class="rk-me-lvl">${escapeHtml(m.nivel)}</b></div>
+      </div>
+      <div class="rk-bar"><i style="width:${pct}%"></i></div>
+      <p class="rk-me-next">${m.siguiente ? `Te faltan <b>${m.siguiente.faltan}</b> puntos para <b>${escapeHtml(m.siguiente.nombre)}</b>.` : "¡Llegaste al nivel máximo!"}
+        · ${m.desglose.visitas} visitas · ${m.desglose.registros} registros · ${m.desglose.compras} compras</p>
+      ${rankEnlaceHTML(m.codigo, true)}
+    </div>`;
+}
+
+// Tarjeta "Embajador" en Mi cuenta.
+async function renderMiEmbajador() {
+  const box = document.getElementById("acctEmbajador");
+  if (!box) return;
+  try {
+    const m = await apiPost("/api/ranking", { action: "mio" });
+    box.innerHTML = `<div class="rk-acct"><h2>🏆 Embajador Rey Midas <a href="/ranking" data-route="ranking">Ver ranking</a></h2>${rankMiTarjetaHTML(m)}</div>`;
+    rankCopiarEnlaces(box);
+  } catch { box.innerHTML = ""; }
+}
+
+// Panel → 🏆 Ranking: detalle del mes para revisar antes de premiar.
+async function loadAdminRanking() {
+  const box = document.getElementById("adminRanking");
+  const sel = document.getElementById("adminRankingMes");
+  if (!box || !sel) return;
+  if (!sel.options.length) {
+    const base = new Date(Date.now() - 6 * 3600 * 1000);
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - i, 1));
+      const v = d.toISOString().slice(0, 7);
+      sel.add(new Option(mesLargo(v), v));
+    }
+    sel.addEventListener("change", loadAdminRanking);
+  }
+  box.innerHTML = "Cargando…";
+  try {
+    const d = await apiPost("/api/ranking", { action: "admin", mes: sel.value });
+    if (!d.filas.length) { box.innerHTML = `<p>Nadie sumó puntos en ${escapeHtml(mesLargo(d.mes))}.</p>`; return; }
+    box.innerHTML = `
+      <p class="field-hint">Mínimo para premiar: ${d.minimo} puntos. Si un embajador tiene muchas visitas de pocas personas distintas, o compras raras, podés anular esos puntos.</p>
+      <div class="rk-admin-wrap"><table class="cod-table rk-admin">
+        <thead><tr><th>#</th><th>Cliente</th><th>Puntos</th><th>Visitas (personas)</th><th>Registros</th><th>Compras</th><th></th></tr></thead>
+        <tbody>${d.filas.map(f => `
+          <tr${f.posicion <= 3 && f.puntos >= d.minimo ? ` class="rk-admin-top"` : ""}>
+            <td>${f.posicion <= 3 && f.puntos >= d.minimo ? ["🥇", "🥈", "🥉"][f.posicion - 1] : f.posicion}</td>
+            <td>${escapeHtml(f.nombre || f.email)}<br><small>${escapeHtml(f.codigo)} · ${escapeHtml(f.email)}</small>${f.posicion <= 3 && f.puntos >= d.minimo ? `<br><small>Premio: ${escapeHtml(d.premios[f.posicion - 1])}</small>` : ""}</td>
+            <td><b>${f.puntos}</b><br><small>${escapeHtml(f.nivel)}</small></td>
+            <td>${f.visitas} (${f.visitantes_distintos})</td><td>${f.registros}</td><td>${f.compras}</td>
+            <td><button type="button" class="pc-btn" data-rk-anular="${escapeAttr(f.ref_user_id)}" data-rk-tipo="visita">Anular visitas</button>
+                <button type="button" class="pc-btn" data-rk-anular="${escapeAttr(f.ref_user_id)}" data-rk-tipo="">Anular todo</button></td>
+          </tr>`).join("")}</tbody></table></div>`;
+    box.querySelectorAll("[data-rk-anular]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm(b.dataset.rkTipo ? "¿Anular los puntos por visitas de este cliente en este mes?" : "¿Anular TODOS los puntos de este cliente en este mes?")) return;
+      try { await apiPost("/api/ranking", { action: "anular", ref_user_id: b.dataset.rkAnular, mes: sel.value, tipo: b.dataset.rkTipo || undefined }); showToast("Puntos anulados"); loadAdminRanking(); }
+      catch (err) { showToast(err.message); }
+    }));
+  } catch (err) {
+    box.innerHTML = `<p class="form-status error">${escapeHtml(err.message)}</p>`;
+  }
+}
+
 // ============================================================
 // Boot
 // ============================================================
@@ -10402,6 +10670,7 @@ async function handleAdminSubmit(e) {
 const POPUP_SEEN_KEY = "rmd_popup_seen";
 const LIVE_ACTIVITY_DISMISSED_KEY = "rmd_live_dismissed";
 
+capturarInvitacion();
 render();
 // Entrega inmediata y combos: el inventario se pide ya, en paralelo con el
 // catálogo, en vez de esperar a que termine load().

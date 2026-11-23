@@ -14,8 +14,9 @@ import {
   sb, hashPassword, verifyPassword, makeSessionToken,
   requireAuth, handleError, readJson, checkConfig,
   setSessionCookie, clearSessionCookie, signPayload, verifyToken,
-  validateClientData, missingClientData,
+  validateClientData, missingClientData, parseCookies,
 } from "./_lib.js";
+import { registrarInvitado } from "./_ranking.js";
 
 export default async function handler(req, res) {
   if (req.method === "GET") return await googleFlow(req, res);
@@ -137,6 +138,9 @@ async function register(req, res, body) {
     body: JSON.stringify(insert),
   });
   const user = inserted[0];
+  // Ranking: código de invitación escrito en el formulario, o el del enlace con
+  // el que llegó (cookie rmd_ref que pone la tienda al abrir un ?r=).
+  await registrarInvitado(user, body.codigo_invitacion || parseCookies(req).rmd_ref);
   const token = makeSessionToken(user.id);
   setSessionCookie(res, token); // sesión en cookie HttpOnly, no en localStorage
   res.status(200).json({
@@ -321,6 +325,7 @@ async function finishGoogleFlow(res, code, state) {
       }),
     });
     user = inserted[0];
+    await registrarInvitado(user, parseCookies(req).rmd_ref); // ranking: llegó por un enlace ?r=
   }
 
   const token = makeSessionToken(user.id);

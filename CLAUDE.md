@@ -108,5 +108,13 @@
   en Mis compras; "＋ Entregar 1 código más" en el editor de la venta. Estados:
   libre, entregado, expuesto (un cliente los vio cuando se copiaban todos) y
   anulado (set nuevo de Sony). Nunca volver a copiar todos los códigos a una venta.
+- **Ranking de embajadores (23/11/2026):** `api/ranking.js` + `api/_ranking.js`,
+  migrations/add_ranking.sql (tabla `ranking_eventos`, `app_users.referido_por`).
+  Enlace ?r=RM0083 → la tienda guarda cookie `rmd_ref` y avisa la visita. Puntos:
+  visita +1 (tope 30/día, sin robots, propias ni repetidas en 24 h), registro de
+  invitado +10 (auth.js) y venta a un invitado +50 (purchases.js create; canjes
+  no). Mensual, página /ranking (arcade), Mi cuenta y Admin → 🏆 Ranking
+  (anular puntos). Premios: 1.º un bundle, 2.º un juego de Entrega inmediata,
+  3.º 1 mes de TV; mínimo 30 pts.
 - La cuenta PSN y la compra en playstation.com las hace el dueño: Sony lo
   bloquea a programas y sus términos lo prohíben.

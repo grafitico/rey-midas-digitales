@@ -41,6 +41,7 @@ const staticPages = [
   { loc: "/bundles/PS", priority: "0.7", changefreq: "weekly" },
   { loc: "/bundles/Xbox", priority: "0.7", changefreq: "weekly" },
   { loc: "/entrega-inmediata", priority: "0.8", changefreq: "daily" },
+  { loc: "/ranking", priority: "0.6", changefreq: "daily" },
   { loc: "/resenas", priority: "0.6", changefreq: "monthly" },
   { loc: "/faq", priority: "0.6", changefreq: "monthly" },
   { loc: "/como-comprar", priority: "0.5", changefreq: "monthly" },

@@ -37,7 +37,7 @@ const ALIASES = { "auth-google": "auth" };
 // Solo se exponen estos (nada de _lib.js ni otros helpers).
 const ROUTES = new Set([
   "analytics", "auth", "bundles", "chat", "clients", "cover", "featured-prices",
-  "newsletter", "og", "purchases", "rawg", "scrape", "telegram-webhook",
+  "newsletter", "og", "purchases", "rawg", "ranking", "scrape", "telegram-webhook",
 ]);
 const MAX_BODY = 1024 * 1024; // 1 MB
 const STARTED = new Date().toISOString();
