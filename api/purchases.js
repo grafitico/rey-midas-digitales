@@ -315,7 +315,7 @@ async function sales(req, res, body) {
 // libres. Sin contraseñas ni códigos del verificador: el reporte no los usa.
 async function accounts(req, res) {
   const staff = await requireStaff(req);
-  const cols = "id,purchase_date,platform,modality,amount,is_redemption,account_email,game_name,app_users(full_name,customer_number,email)";
+  const cols = "id,purchase_date,platform,modality,amount,is_redemption,account_email,game_name,games,app_users(full_name,customer_number,email)";
   const q = `purchases?select=${cols}&order=purchase_date.asc&limit=20000`;
   let rows;
   try {
@@ -508,9 +508,27 @@ const SUSCRIPCION_RE = /game\s*pass|ps\s*plus|playstation\s*plus|ea\s*play|ubiso
 let invComboCache = { t: 0, data: null };
 
 // Cuenta enlazada a un bundle de la web ("Web: BPS005") o con lista de varios juegos.
-const BUNDLE_CUENTA_RE = /\bWeb:\s*BPS\d|Juegos:\s*[^|\n]+\|/i;
+const BUNDLE_CUENTA_RE = /\bWeb:\s*BPS\d/i;
 // Título que ya dice que son varios juegos: "A + B", "Bundle 5X1", "Combo…", "Triple Pack".
-const VARIOS_JUEGOS_RE = /\+|\bbundle\b|\bcombo\b|triple\s*(pack|play)|\b\d\s*x\s*1\b/i;
+// Juegos de una cuenta para Entrega inmediata. Un título "A + B" (cuenta de 2
+// juegos) se ofrece bajo cada uno, igual que los de "Juegos: a | b" en notas.
+// Los productos de la tienda con "Bundle" en el nombre ("… Cross-Gen Bundle",
+// "Crash Bandicoot Bundle - N. Sane Trilogy + CTR") son UN producto: siguen
+// apareciendo (antes un filtro por la palabra "bundle" los escondía).
+function juegosDeCuenta(juego, notas) {
+  const out = [], vistos = new Set();
+  const add = t => {
+    const n = String(t || "").replace(/^\s*(combo|bundle|\d\s*x\s*1)\b[\s:-]*/i, "").replace(/\s+/g, " ").trim().slice(0, 120);
+    if (n.length < 3 || /add-?on|\bdlc\b|upgrade|falta compra/i.test(n)) return;
+    const k = n.toLowerCase();
+    if (!vistos.has(k)) { vistos.add(k); out.push(n); }
+  };
+  const titulo = String(juego || "");
+  if (/\+/.test(titulo)) titulo.split(/\s*\+\s*/).forEach(add); else add(titulo);
+  const lista = (String(notas || "").match(/Juegos:\s*(.+)$/i) || [])[1];
+  if (lista) lista.split("|").forEach(add);
+  return out;
+}
 
 async function inventarioCombo(req, res) {
   res.setHeader("Cache-Control", "public, max-age=300");
@@ -528,7 +546,7 @@ async function inventarioCombo(req, res) {
   const key = e => String(e || "").trim().toLowerCase();
   for (const c of cuentas) {
     if (!key(c.correo)) continue;
-    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, tipo: c.tipo, bundle: BUNDLE_CUENTA_RE.test(c.notas || ""), ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
+    acc.set(key(c.correo), { fam: c.plataforma, juego: c.juego, notas: c.notas, tipo: c.tipo, bundle: BUNDLE_CUENTA_RE.test(c.notas || ""), ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
   }
   for (const v of ventas) {
     const k = key(v.account_email);
@@ -548,8 +566,8 @@ async function inventarioCombo(req, res) {
   for (const a of acc.values()) {
     if (a.full || !a.juego || a.fam === "Nintendo") continue;
     if (SUSCRIPCION_RE.test(a.juego)) continue; // Game Pass, PS Plus…: no son juegos para entrega inmediata
-    // Cuentas con varios juegos: se venden como bundle (/bundles/PS), no juego por juego.
-    if (a.bundle || VARIOS_JUEGOS_RE.test(a.juego)) continue;
+    // Cuentas enlazadas a un bundle de la web (/bundles/PS): se venden como bundle.
+    if (a.bundle) continue;
     // La secundaria se vende DESPUÉS de las principales (regla del dueño,
     // 22/11/2026): en PlayStation, la de una consola solo se ofrece cuando las
     // 2 principales de esa consola ya están vendidas; en Xbox, el Segundo plano
@@ -568,11 +586,12 @@ async function inventarioCombo(req, res) {
       libres.sec = libres.sec_ps4 || libres.sec_ps5 ? secLibre : 0;
     }
     if (!Object.values(libres).some(n => n > 0)) continue;
-    const nombre = String(a.juego).trim().slice(0, 120);
-    const k = nombre.toLowerCase();
-    const j = juegos.get(k) || { juego: nombre, plataforma: a.fam, ps4: 0, ps5: 0, xbox: 0, sec: 0, sec_ps4: 0, sec_ps5: 0 };
-    for (const [c, n] of Object.entries(libres)) j[c] += n;
-    juegos.set(k, j);
+    for (const nombre of juegosDeCuenta(a.juego, a.notas)) {
+      const k = nombre.toLowerCase();
+      const j = juegos.get(k) || { juego: nombre, plataforma: a.fam, ps4: 0, ps5: 0, xbox: 0, sec: 0, sec_ps4: 0, sec_ps5: 0 };
+      for (const [c, n] of Object.entries(libres)) j[c] += n;
+      juegos.set(k, j);
+    }
   }
   const data = { actualizado: new Date().toISOString(), juegos: [...juegos.values()] };
   invComboCache = { t: Date.now(), data };
