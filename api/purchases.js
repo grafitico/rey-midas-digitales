@@ -515,7 +515,7 @@ const BUNDLE_CUENTA_RE = /\bWeb:\s*BPS\d/i;
 // Los productos de la tienda con "Bundle" en el nombre ("… Cross-Gen Bundle",
 // "Crash Bandicoot Bundle - N. Sane Trilogy + CTR") son UN producto: siguen
 // apareciendo (antes un filtro por la palabra "bundle" los escondía).
-function juegosDeCuenta(juego, notas) {
+function juegosDeCuenta(juego, notas, lista = []) {
   const out = [], vistos = new Set();
   const add = t => {
     const n = String(t || "").replace(/^\s*(combo|bundle|\d\s*x\s*1)\b[\s:-]*/i, "").replace(/\s+/g, " ").trim().slice(0, 120);
@@ -525,8 +525,9 @@ function juegosDeCuenta(juego, notas) {
   };
   const titulo = String(juego || "");
   if (/\+/.test(titulo)) titulo.split(/\s*\+\s*/).forEach(add); else add(titulo);
-  const lista = (String(notas || "").match(/Juegos:\s*(.+)$/i) || [])[1];
-  if (lista) lista.split("|").forEach(add);
+  const enNotas = (String(notas || "").match(/Juegos:\s*(.+)$/i) || [])[1];
+  if (enNotas) enNotas.split("|").forEach(add);
+  for (const j of lista) add(String(j).replace(/\s*\((game|full game)\)\s*$/i, ""));
   return out;
 }
 
@@ -541,7 +542,7 @@ async function inventarioCombo(req, res) {
   } catch (err) {
     if (!ajustesMissing(err)) throw err;
   }
-  const ventas = await sbAll(`purchases?select=platform,modality,account_email,game_name&limit=20000`);
+  const ventas = await sbAll(`purchases?select=platform,modality,account_email,game_name,games&limit=20000`);
   const acc = new Map(); // correo → { fam, juego, tipo, usados }
   const key = e => String(e || "").trim().toLowerCase();
   for (const c of cuentas) {
@@ -556,6 +557,8 @@ async function inventarioCombo(req, res) {
     if (!acc.has(k)) acc.set(k, { fam, juego: v.game_name, tipo: "auto", ps4: 0, ps5: 0, pri: 0, sec: 0, full: false });
     const a = acc.get(k);
     if (!a.juego && v.game_name) a.juego = v.game_name;
+    // Lista de juegos de la venta (cuentas de 2 juegos cargadas a mano, ej. "Call of Duty Bundle 2x1").
+    if (v.games) a.lista = [...new Set([...(a.lista || []), ...String(v.games).split("\n").map(x => x.trim()).filter(Boolean)])].slice(0, 12);
     const mod = String(v.modality || "").toLowerCase();
     if (mod === "individual" || mod === "bundle") a.full = true;
     else if (mod.startsWith("secund")) a.sec++; // la secundaria no ocupa primarias
@@ -586,7 +589,7 @@ async function inventarioCombo(req, res) {
       libres.sec = libres.sec_ps4 || libres.sec_ps5 ? secLibre : 0;
     }
     if (!Object.values(libres).some(n => n > 0)) continue;
-    for (const nombre of juegosDeCuenta(a.juego, a.notas)) {
+    for (const nombre of juegosDeCuenta(a.juego, a.notas, a.lista)) {
       const k = nombre.toLowerCase();
       const j = juegos.get(k) || { juego: nombre, plataforma: a.fam, ps4: 0, ps5: 0, xbox: 0, sec: 0, sec_ps4: 0, sec_ps5: 0 };
       for (const [c, n] of Object.entries(libres)) j[c] += n;
