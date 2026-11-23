@@ -25,7 +25,6 @@ AddType video/mp4 .mp4
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # /reservaciones pasó a llamarse /vip.
   # Ofertas VIP se reemplazó por Entrega inmediata (23/11/2026).
   RewriteRule ^(vip|reservaciones|reserva/.+)/?$ /entrega-inmediata [L,R=301]
 
