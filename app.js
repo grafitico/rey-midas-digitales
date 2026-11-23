@@ -549,7 +549,12 @@ function parseRoute() {
   if (partes[0] === "game-pass") return { name: "subscriptions", service: "gamepass" };
   // Ofertas VIP: ruta nueva /vip. Mantenemos /reservaciones como alias para
   // no romper enlaces viejos (misma vista).
-  if (partes[0] === "vip" || partes[0] === "reservaciones") return { name: "reservaciones" };
+  // Ofertas VIP se reemplazó por Entrega inmediata (23/11/2026): se arma sola
+  // con el inventario. Los enlaces viejos (/vip, /reservaciones, /reserva/…) llevan ahí.
+  if (partes[0] === "vip" || partes[0] === "reservaciones" || partes[0] === "reserva") {
+    try { history.replaceState(null, "", "/entrega-inmediata"); } catch {}
+    return { name: "entrega-inmediata" };
+  }
   if (partes[0] === "reserva" && partes[1]) {
     return { name: "reserva", id: decodeURIComponent(partes[1]) };
   }
@@ -742,7 +747,7 @@ async function load() {
       fetch("/faq.json").then(r => r.json()),
       fetch("/playstation-plus.json").then(r => r.json()),
       fetch("/game-pass.json").then(r => r.json()),
-      fetch("/reservaciones.json").then(r => r.json()),
+      Promise.resolve({ items: [] }), // Ofertas VIP retiradas: ya no se descarga reservaciones.json
       fetch("/featured-games.json").then(r => r.json()),
       // Precios de los destacados: los calcula un robot de GitHub cada 3 h
       // (scripts/sync-featured-prices.js); antes era /api/featured-prices.
@@ -7012,7 +7017,7 @@ async function renderAdmin() {
         <button type="button" class="admin-tab" data-tab="compras" role="tab" aria-selected="false">🛒 Compras</button>
         <button type="button" class="admin-tab" data-tab="ventas" role="tab" aria-selected="false">💰 Ventas</button>
         <button type="button" class="admin-tab" data-tab="canje" role="tab" aria-selected="false"><img class="tab-coin" src="/assets/coin.png" alt="" aria-hidden="true"> Canje</button>
-        <button type="button" class="admin-tab" data-tab="ofertas" role="tab" aria-selected="false">⭐ Ofertas VIP</button>
+
         <button type="button" class="admin-tab" data-tab="bundles" role="tab" aria-selected="false">📦 Bundles</button>
         <button type="button" class="admin-tab" data-tab="ocultos" role="tab" aria-selected="false">🚫 Ocultos</button>
         <button type="button" class="admin-tab" data-tab="asistente" role="tab" aria-selected="false">🤖 Asistente</button>

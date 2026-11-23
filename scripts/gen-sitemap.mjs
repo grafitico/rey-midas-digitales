@@ -40,7 +40,7 @@ const staticPages = [
   { loc: "/game-pass", priority: "0.8", changefreq: "weekly" },
   { loc: "/bundles/PS", priority: "0.7", changefreq: "weekly" },
   { loc: "/bundles/Xbox", priority: "0.7", changefreq: "weekly" },
-  { loc: "/vip", priority: "0.7", changefreq: "daily" },
+  { loc: "/entrega-inmediata", priority: "0.8", changefreq: "daily" },
   { loc: "/resenas", priority: "0.6", changefreq: "monthly" },
   { loc: "/faq", priority: "0.6", changefreq: "monthly" },
   { loc: "/como-comprar", priority: "0.5", changefreq: "monthly" },
@@ -56,7 +56,7 @@ const reservaPaths = reservaciones.map(r => (r && r.id) ? `/reserva/${encodeURIC
 const urls = [
   ...staticPages.map(p => urlEntry(BASE_URL + p.loc, p.priority, p.changefreq)),
   ...[...gamePaths].map(path => urlEntry(BASE_URL + path, "0.7", "weekly")),
-  ...reservaPaths.map(path => urlEntry(BASE_URL + path, "0.7", "weekly")),
+  // Las ofertas VIP (/reserva/…) se reemplazaron por Entrega inmediata.
 ];
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>

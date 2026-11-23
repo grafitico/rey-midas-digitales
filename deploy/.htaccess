@@ -26,7 +26,8 @@ AddType video/mp4 .mp4
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
   # /reservaciones pasó a llamarse /vip.
-  RewriteRule ^reservaciones/?$ /vip [L,R=301]
+  # Ofertas VIP se reemplazó por Entrega inmediata (23/11/2026).
+  RewriteRule ^(vip|reservaciones|reserva/.+)/?$ /entrega-inmediata [L,R=301]
 
   # /api/* lo atiende la app Node.js de cPanel ("Setup Node.js App", URL
   # reymidascr.com/api, código en ~/rey-midas-api). Su conexión vive en
