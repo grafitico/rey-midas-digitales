@@ -126,9 +126,11 @@
   // ---------- Fichas flotantes: elegir el arte de la espalda ----------
   function pintarFichas() {
     const p = lista[idx];
-    const artes = data.productos.filter((x) => x.archivo);
+    // Respeta el filtro Semitono / Full color (el arte ya elegido se queda visible)
+    const actualId = espaldaDe(p || {}, sel)?.id || null;
+    const artes = data.productos.filter((x) => x.archivo && (estilo === "todos" || (estilo === "semitono") === !!x.semitono || x.id === actualId));
     const box = $("#fichas");
-    box.hidden = !p?.archivo || artes.length < 2;
+    box.hidden = !p?.archivo || !artes.some((x) => x.id !== p.id);
     if (box.hidden) return;
     const actual = espaldaDe(p, sel)?.id || null;
     $("#fichasLista").innerHTML =

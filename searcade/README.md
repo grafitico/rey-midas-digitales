@@ -36,3 +36,10 @@ Las camisetas base (frente/espalda, blanca/negra) y la etiqueta salen de
 medidas en cm se pasan a % de la foto con `foto.cmAncho`/`cmAlto`.
 
 Pendiente: probador con cámara (MediaPipe Pose).
+
+## Caché de fotos
+
+Las fotos de `img/` llevan una caché de 7 días. Al publicar,
+`scripts/searcade-version.mjs` les agrega a las rutas de `config.js` y
+`styles.css` un `?v=<huella del archivo>`. Así, si se reemplaza una foto con el
+mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida.
