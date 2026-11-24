@@ -22,7 +22,7 @@ window.SEARCADE_CONFIG = {
   colocaciones: [
     { id: "pecho", nombre: "Pecho", extra: 0 },
     { id: "espalda", nombre: "Espalda", extra: 0 },
-    { id: "ambas", nombre: "Pecho y espalda", extra: 0 },
+    { id: "ambas", nombre: "Pecho y espalda", extra: 3500 },
   ],
   formatoInicial: "grande",
   // Colores de camiseta. Negra y blanca usan su foto; los demás tiñen la blanca.
