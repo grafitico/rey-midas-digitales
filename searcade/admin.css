@@ -31,3 +31,27 @@ body.admin { padding-bottom: 40px; }
 .ficha.subiendo { opacity: .6; pointer-events: none; }
 .ficha.error { box-shadow: inset 0 0 0 2px #ff3b5c; }
 .vacio { color: var(--muted); grid-column: 1 / -1; }
+
+/* Vista en vivo */
+.vivo { padding: 14px 16px; margin-bottom: 16px; display: grid; gap: 10px; --line: linear-gradient(90deg, var(--cyan), var(--violet), var(--pink)); }
+.vivo-tit { margin: 0; font: 700 14px Rajdhani, sans-serif; letter-spacing: 2px; color: var(--cyan); }
+.vivo-tit small { color: var(--muted); letter-spacing: 0; font: 400 12px Inter, sans-serif; margin-left: 6px; }
+.vivo-fila { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 10px; }
+.vivo-fila > span { font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.vivo .seg button small { display: block; font-size: 10px; color: inherit; opacity: .8; }
+@media (max-width: 560px) { .vivo-fila { grid-template-columns: 1fr; gap: 4px; } }
+.ficha .prev { position: relative; }
+.ficha .prev .sello { position: absolute; left: 8px; top: 8px; }
+.chk { display: flex !important; align-items: center; gap: 8px; text-transform: none !important; letter-spacing: 0 !important; font: 600 14px Inter, sans-serif !important; color: #fff !important; }
+.chk input { width: 18px !important; height: 18px; accent-color: var(--cyan); }
+.chk small { color: var(--muted); font-weight: 400; }
+.estilos.izq { justify-content: flex-start; margin: 0; }
+.ficha .botones .adm-btn { padding: 10px 6px; font-size: 13px; }
+/* Comparar colores */
+.modal.comparar { width: min(900px, calc(100vw - 24px)); }
+.comp-nota { color: var(--muted); margin: -6px 0 14px; font-size: 14px; }
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.comp-grid figure { margin: 0; padding: 8px; border-radius: 12px; background: radial-gradient(circle at 50% 40%, #3a1570, #0b0718 75%); text-align: center; }
+.comp-grid .comp { width: 100%; }
+.comp-grid figcaption { font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+.modal h2 .sello { font-size: 11px; vertical-align: 4px; }

@@ -33,6 +33,14 @@
     </section>
 
     <section id="panel" hidden>
+      <div class="vivo cut" aria-label="Vista en vivo">
+        <p class="vivo-tit">VISTA EN VIVO <small>cambia todas las camisetas de esta página</small></p>
+        <div class="vivo-fila"><span>Color</span><div class="swatches" id="vivoColores" role="radiogroup" aria-label="Color"></div></div>
+        <div class="vivo-fila"><span>Colocación</span><div class="seg" id="vivoColoc" role="radiogroup" aria-label="Colocación"></div></div>
+        <div class="vivo-fila"><span>Tamaño</span><div class="seg" id="vivoForm" role="radiogroup" aria-label="Tamaño"></div></div>
+        <div class="vivo-fila"><span>Lado</span><div class="seg" id="vivoLado" role="radiogroup" aria-label="Lado"></div></div>
+      </div>
+
       <label class="drop cut" id="drop">
         <input type="file" id="archivos" accept="image/png,image/webp" multiple hidden>
         <strong>Toca para elegir artes</strong>
@@ -46,13 +54,22 @@
       </div>
 
       <h2 class="adm-h">Artes publicados <small id="cuenta"></small></h2>
+      <div class="estilos izq" id="filtroLista" role="radiogroup" aria-label="Filtrar"></div>
       <div class="lista" id="lista"></div>
     </section>
   </main>
 
+  <dialog class="modal comparar" id="comparar" aria-labelledby="compTitulo">
+    <button class="modal-close" data-close aria-label="Cerrar">✕</button>
+    <h2 id="compTitulo"></h2>
+    <p class="comp-nota" id="compNota"></p>
+    <div class="comp-grid" id="compGrid"></div>
+  </dialog>
+
   <div class="toast" id="toast" role="status"></div>
 
   <script src="config.js"></script>
+  <script src="tee.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

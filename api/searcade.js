@@ -10,8 +10,8 @@
 // reymidascr.com, que el navegador manda porque searcade.* es el mismo sitio):
 //   { action: "yo" }                                   → { ok, nombre }
 //   { action: "listar" }                               → { artes }
-//   { action: "subir", nombre, categoria, precio, imagen: "data:image/webp;base64,..." }
-//   { action: "editar", id, nombre?, categoria?, precio? }
+//   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
+//   { action: "editar", id, nombre?, categoria?, precio?, semitono? }
 //   { action: "borrar", id }
 //
 // Variable opcional: SEARCADE_DIR (carpeta del subdominio; por defecto
@@ -97,7 +97,7 @@ export async function subirArte(body) {
     const archivo = `${id}.${ext}`;
     fs.mkdirSync(artesDir(), { recursive: true });
     fs.writeFileSync(path.join(artesDir(), archivo), buf);
-    const arte = { id, nombre, categoria, precio, archivo: `artes/${archivo}`, creado: new Date().toISOString() };
+    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, archivo: `artes/${archivo}`, creado: new Date().toISOString() };
     artes.unshift(arte);
     escribirArtes(artes);
     return { ok: true, arte, artes };
@@ -112,6 +112,7 @@ export async function editarArte(body) {
     if ("nombre" in body) a.nombre = limpiarNombre(body.nombre);
     if ("categoria" in body) a.categoria = limpiarCategoria(body.categoria);
     if ("precio" in body) a.precio = limpiarPrecio(body.precio);
+    if ("semitono" in body) a.semitono = body.semitono === true;
     escribirArtes(artes);
     return { ok: true, artes };
   });

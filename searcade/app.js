@@ -52,59 +52,19 @@
     </svg>`;
   }
 
-  // ---------- Personalizador ----------
-  const COLORES = CFG.colores?.length ? CFG.colores : [{ id: "negra", nombre: "Negra", hex: "#141218", frente: CFG.camisetaBase }];
-  const FORMATOS = CFG.formatos?.length ? CFG.formatos : [{ id: "grande", nombre: "Grande", ancho: 28, alto: 35, extra: 0 }];
-  const COLOCACIONES = CFG.colocaciones?.length ? CFG.colocaciones : [{ id: "pecho", nombre: "Pecho", extra: 0 }];
-  const FOTO = CFG.foto || { cmAncho: 1.26, cmAlto: 1.23, pecho: { top: 23.5 }, pechoIzquierdo: { centro: 61, top: 21.5 }, espalda: { top: 15 }, espaldaArriba: { top: 9 } };
-  const blancaRef = COLORES.find((c) => c.frente && c.id === "blanca") || COLORES.find((c) => c.frente);
+  // ---------- Personalizador (dibujo compartido en tee.js) ----------
+  const T = window.SearcadeTee;
+  const { COLORES, FORMATOS, COLOCACIONES, colorDe, formatoDe, colocacionDe } = T;
   const sel = {
     color: COLORES[0].id,
     formato: (FORMATOS.find((f) => f.id === CFG.formatoInicial) || FORMATOS[FORMATOS.length - 1]).id,
     colocacion: COLOCACIONES[0].id,
     vista: "frente",
   };
-  const cargadas = new Set(); // imágenes base que sí cargaron
-  const colorDe = (id) => COLORES.find((c) => c.id === id) || COLORES[0];
-  const formatoDe = (id) => FORMATOS.find((f) => f.id === id) || FORMATOS[0];
-  const colocacionDe = (id) => COLOCACIONES.find((c) => c.id === id) || COLOCACIONES[0];
+  let estilo = "todos"; // filtro: todos | semitono | full
   const precioDe = (p, o = sel) => (p.archivo ? p.precio + (formatoDe(o.formato).extra || 0) + (colocacionDe(o.colocacion).extra || 0) : p.precio);
-  const lleva = (colocacion, vista) => colocacion === "ambas" || (colocacion === "pecho" ? vista === "frente" : vista === "espalda");
-
-  // Dónde va el arte (en % de la foto) según tamaño, lado y medidas reales.
-  function zonaArte(formatoId, vista) {
-    const f = formatoDe(formatoId);
-    const w = f.ancho * FOTO.cmAncho, h = f.alto * FOTO.cmAlto;
-    const chico = f.ancho <= 12;
-    if (vista === "frente" && chico) return { left: FOTO.pechoIzquierdo.centro - w / 2, top: FOTO.pechoIzquierdo.top, w, h };
-    const top = vista === "frente" ? FOTO.pecho.top : chico ? FOTO.espaldaArriba.top : FOTO.espalda.top;
-    return { left: 50 - w / 2, top, w, h };
-  }
-
-  // Camiseta base del color y lado pedidos. Los colores sin foto tiñen la blanca.
-  function baseHTML(colorId, vista) {
-    const c = colorDe(colorId);
-    const propia = c[vista] || (vista === "espalda" ? null : c.frente);
-    if (propia && cargadas.has(propia)) return `<img class="base" src="${esc(propia)}" alt="" draggable="false">`;
-    const ref = blancaRef && (blancaRef[vista] || blancaRef.frente);
-    if (ref && cargadas.has(ref)) {
-      const tinte = `<span class="tinte" style="--tinte:${esc(c.hex)};--mask:url('${esc(ref)}')"></span>`;
-      const et = vista === "frente" && FOTO.etiqueta ? `<img class="etq" src="${esc(FOTO.etiqueta.src)}" alt="" style="left:${FOTO.etiqueta.x}%;top:${FOTO.etiqueta.y}%;width:${FOTO.etiqueta.ancho}%;height:${FOTO.etiqueta.alto}%">` : "";
-      return `<img class="base" src="${esc(ref)}" alt="" draggable="false">${tinte}${et}`;
-    }
-    return `<svg class="base" viewBox="0 0 200 210" aria-hidden="true"><path d="${SHIRT}" fill="${esc(c.hex)}" stroke="#2a2633" stroke-width="2" stroke-linejoin="round"/></svg>`;
-  }
-  // Camiseta con el arte puesto (o sin arte si ese lado no lleva).
-  function camiseta(p, o = sel) {
-    const vista = o.vista || "frente";
-    let arte = "";
-    if (lleva(o.colocacion, vista)) {
-      const z = zonaArte(o.formato, vista);
-      arte = `<img class="print" src="${esc(p.archivo)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false" style="left:${z.left}%;top:${z.top}%;width:${z.w}%;height:${z.h}%">`;
-    }
-    const sinFoto = !cargadas.size;
-    return `<span class="comp${sinFoto ? " sin-base" : ""}" data-vista="${vista}">${baseHTML(o.color, vista)}${arte}</span>`;
-  }
+  const camiseta = (p, o = sel) => T.camiseta(p, o);
+  const sello = (p) => (p.archivo ? `<span class="sello ${p.semitono ? "semi" : "full"}">${p.semitono ? "SEMITONO" : "FULL COLOR"}</span>` : "");
   const imgFoto = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
   const teeDe = (p, i) => (p.archivo ? camiseta(p) : imgFoto(p, p.imagen, "c" + i));
 
@@ -132,13 +92,29 @@
     armar(0);
   });
 
+  // Filtro Todos / Semitono / Full color (solo si hay artes de los dos tipos)
+  function pintarEstilos() {
+    const artes = data.productos.filter((p) => p.archivo);
+    const hay = artes.some((p) => p.semitono) && artes.some((p) => !p.semitono);
+    $("#estilos").hidden = !hay;
+    $("#estilos").innerHTML = [["todos", "Todos"], ["semitono", "Semitono"], ["full", "Full color"]]
+      .map(([id, n]) => `<button role="radio" aria-checked="${id === estilo}" data-e="${id}">${n}</button>`).join("");
+  }
+  $("#estilos").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-e]");
+    if (!b || b.dataset.e === estilo) return;
+    estilo = b.dataset.e;
+    pintarEstilos();
+    armar(0);
+  });
+
   // ---------- Carrusel ----------
   function armar(start) {
-    lista = data.productos.filter((p) => filtro === "todas" || p.categoria === filtro);
+    lista = data.productos.filter((p) => (filtro === "todas" || p.categoria === filtro) && (estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono)));
     idx = Math.max(0, Math.min(start, lista.length - 1));
     $("#items").innerHTML = lista.length ? lista.map((p, i) => `
       <button class="item" data-i="${i}" style="--glow:${esc(p.arte?.tono || "#fbb51d")}" aria-label="${esc(p.nombre)}">
-        ${HOOK}<span class="tee">${teeDe(p, i)}</span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}
+        ${HOOK}<span class="tee">${teeDe(p, i)}</span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}
       </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
   }
@@ -225,6 +201,10 @@
     $("#infoDesc").textContent = p.descripcion || "";
     $("#infoMat").textContent = p.material || "Algodón premium";
     $("#perso").hidden = !p.archivo;
+    $("#infoEstilo").innerHTML = p.archivo ? (p.semitono
+      ? '<b class="sello semi">SEMITONO</b> Los puntos del arte dejan ver el color de la camiseta: cambia de carácter en cada color.'
+      : '<b class="sello full">FULL COLOR</b> El arte se imprime sólido: se ve igual sobre cualquier color.') : "";
+    $("#infoEstilo").hidden = !p.archivo;
     if (p.archivo) pintarPerso();
     pintarPrecio();
     pintarTallas(p);
@@ -417,33 +397,20 @@
 
   // ---------- Datos ----------
   const desdeArte = (a) => ({
-    id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo,
+    id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, semitono: !!a.semitono,
     precio: a.precio || CFG.precioBase || 11000,
     descripcion: CFG.descripcionArte || "", material: "Algodón premium",
     arte: { tono: "#fbb51d" },
   });
   const cargarJSON = (u) => fetch(u, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const precargar = () => {
-    const urls = [...new Set(COLORES.flatMap((c) => [c.frente, c.espalda]).filter(Boolean))];
-    return Promise.all(urls.map((u) => new Promise((ok) => {
-      const im = new Image();
-      im.onload = () => {
-        cargadas.add(u);
-        if (!document.documentElement.style.getPropertyValue("--base-ar")) document.documentElement.style.setProperty("--base-ar", `${im.naturalWidth} / ${im.naturalHeight}`);
-        ok();
-      };
-      im.onerror = () => ok();
-      im.src = u;
-    })));
-  };
-
-  Promise.all([cargarJSON("productos.json"), cargarJSON(`artes/artes.json?t=${Date.now()}`), precargar()])
+  Promise.all([cargarJSON("productos.json"), cargarJSON(`artes/artes.json?t=${Date.now()}`), T.precargar()])
     .then(([d, a]) => {
       if (!d) throw new Error("sin catálogo");
       const artes = (a?.artes || []).map(desdeArte);
       // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan foto propia).
       data = { categorias: d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
       renderCats();
+      pintarEstilos();
       armar(0);
       desdeHash();
       pintarCarrito();

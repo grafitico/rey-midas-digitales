@@ -1,16 +1,19 @@
-// SEARCADE — panel de artes: el admin sube PNG/WebP, los ve estampados sobre
-// la camiseta y los publica. Usa la sesión de admin de reymidascr.com.
+// SEARCADE — panel de artes: el admin sube PNG/WebP, los ve EN VIVO sobre la
+// camiseta (color, colocación y tamaño), marca si son semitono y los publica.
+// Usa la sesión de admin de reymidascr.com.
 (() => {
   const CFG = window.SEARCADE_CONFIG || {};
+  const T = window.SearcadeTee;
+  const { COLORES, FORMATOS, COLOCACIONES, esc } = T;
   const API = CFG.api || "https://reymidascr.com/api/searcade";
   const $ = (s) => document.querySelector(s);
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MAX_BYTES = 700 * 1024; // el servidor acepta hasta 720 KB
   const MAX_LADO = 1400;
-  const Z = CFG.zona || { x: 31, y: 27, ancho: 38, alto: 48 };
   let categorias = [];
-  let baseOk = false;
   let pendientes = [];
+  let publicados = [];
+  // Vista en vivo: se aplica a todas las fichas
+  const vivo = { color: COLORES[0].id, colocacion: "pecho", formato: (FORMATOS.find((f) => f.id === CFG.formatoInicial) || FORMATOS[FORMATOS.length - 1]).id, vista: "frente" };
 
   function toast(msg) {
     const t = $("#toast");
@@ -28,16 +31,40 @@
     return d;
   }
 
-  const SHIRT = "M60 18 L88 8 Q100 22 112 8 L140 18 L178 48 L160 78 L142 68 L142 196 L58 196 L58 68 L40 78 L22 48 Z";
-  const BASE = CFG.colores?.[0]?.base || CFG.camisetaBase;
-  const comp = (src) => `<span class="comp${baseOk ? "" : " sin-base"}">${baseOk
-    ? `<img class="base" src="${esc(BASE)}" alt="">`
-    : `<svg class="base" viewBox="0 0 200 210"><path d="${SHIRT}" fill="#121016" stroke="#2a2633" stroke-width="2"/></svg>`}<img class="print" src="${esc(src)}" alt="" style="left:${Z.x}%;top:${Z.y}%;width:${Z.ancho}%;height:${Z.alto}%"></span>`;
   const opciones = (sel) => categorias.map((c) => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(c.nombre)}</option>`).join("");
+  const sello = (semi) => `<span class="sello ${semi ? "semi" : "full"}">${semi ? "SEMITONO" : "FULL COLOR"}</span>`;
+  const prev = (archivo, semi) => `<div class="prev">${T.camiseta({ archivo }, vivo)}${sello(semi)}</div>`;
+
+  // ---------- Barra de vista en vivo ----------
+  function pintarVivo() {
+    $("#vivoColores").innerHTML = COLORES.map((c) => `<button class="swatch" role="radio" aria-checked="${c.id === vivo.color}" title="${esc(c.nombre)}" aria-label="${esc(c.nombre)}" data-c="${esc(c.id)}" style="--sw:${esc(c.hex)}"></button>`).join("");
+    $("#vivoColoc").innerHTML = COLOCACIONES.map((c) => `<button role="radio" aria-checked="${c.id === vivo.colocacion}" data-v="${esc(c.id)}">${esc(c.nombre)}</button>`).join("");
+    $("#vivoForm").innerHTML = FORMATOS.map((f) => `<button role="radio" aria-checked="${f.id === vivo.formato}" data-v="${esc(f.id)}">${esc(f.nombre)}<small>${f.ancho}×${f.alto}</small></button>`).join("");
+    $("#vivoLado").innerHTML = [["frente", "Frente"], ["espalda", "Espalda"]].map(([id, n]) => `<button role="radio" aria-checked="${id === vivo.vista}" data-v="${id}">${n}</button>`).join("");
+  }
+  function repintarPrevias() {
+    document.querySelectorAll(".ficha[data-k] .prev, .ficha[data-id] .prev").forEach((el) => {
+      const f = el.closest(".ficha");
+      const p = f.dataset.k ? pendientes.find((x) => x.key === f.dataset.k) : publicados.find((x) => x.id === f.dataset.id);
+      const semi = f.querySelector('[data-f="semitono"]')?.checked ?? p?.semitono;
+      if (p) el.outerHTML = prev(p.url || p.archivo, semi);
+    });
+  }
+  const cambiar = (k, v) => {
+    if (vivo[k] === v) return;
+    vivo[k] = v;
+    if (k === "colocacion") vivo.vista = v === "espalda" ? "espalda" : "frente";
+    pintarVivo();
+    repintarPrevias();
+  };
+  $("#vivoColores").addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (b) cambiar("color", b.dataset.c); });
+  $("#vivoColoc").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) cambiar("colocacion", b.dataset.v); });
+  $("#vivoForm").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) cambiar("formato", b.dataset.v); });
+  $("#vivoLado").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) cambiar("vista", b.dataset.v); });
 
   // ---------- Preparar la imagen en el navegador ----------
-  // Recorta el borde transparente (para que el arte quede centrado en el
-  // pecho), la achica a 1400 px y la pasa a WebP de menos de 700 KB.
+  // Recorta el borde transparente, la achica a 1400 px, la pasa a WebP de
+  // menos de 700 KB y estima si es semitono (muchos puntos sueltos).
   async function preparar(file) {
     const bmp = await createImageBitmap(file);
     const c = document.createElement("canvas");
@@ -56,8 +83,9 @@
     }
     if (x1 < 0) throw new Error("La imagen está vacía (todo transparente)");
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
-    let escala = Math.min(1, MAX_LADO / Math.max(w, h));
     const transparente = data.some((v, i) => i % 4 === 3 && v < 250);
+    const semitono = transparente && detectarSemitono(c, x0, y0, w, h);
+    let escala = Math.min(1, MAX_LADO / Math.max(w, h));
     for (let intento = 0; intento < 8; intento++) {
       const o = document.createElement("canvas");
       o.width = Math.round(w * escala); o.height = Math.round(h * escala);
@@ -67,12 +95,32 @@
       for (const q of [0.92, 0.85, 0.78]) {
         const blob = await new Promise((ok) => o.toBlob(ok, "image/webp", q));
         if (blob && blob.type === "image/webp" && blob.size <= MAX_BYTES) {
-          return { blob, url: URL.createObjectURL(blob), ancho: o.width, alto: o.height, transparente };
+          return { blob, url: URL.createObjectURL(blob), ancho: o.width, alto: o.height, transparente, semitono };
         }
       }
       escala *= 0.8;
     }
     throw new Error("No se pudo dejar la imagen por debajo de 700 KB");
+  }
+  // Semitono = la transparencia cambia muchísimas veces por fila (puntos).
+  function detectarSemitono(src, x0, y0, w, h) {
+    const lado = 600, k = Math.min(1, lado / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(src, x0, y0, w, h, 0, 0, c.width, c.height);
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let cambios = 0, llenos = 0;
+    for (let y = 0; y < c.height; y++) {
+      let antes = false;
+      for (let x = 0; x < c.width; x++) {
+        const lleno = d[(y * c.width + x) * 4 + 3] > 128;
+        if (lleno) llenos++;
+        if (x && lleno !== antes) cambios++;
+        antes = lleno;
+      }
+    }
+    return llenos > 0 && cambios / llenos > 0.12;
   }
   const aDataUrl = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
   const nombreDesde = (f) => f.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -89,28 +137,34 @@
     pintarPendientes();
   }
 
+  const campoSemi = (semi) => `<label class="chk"><input type="checkbox" data-f="semitono"${semi ? " checked" : ""}> Es semitono <small>(puntos que dejan ver la tela)</small></label>`;
+
   function pintarPendientes() {
     $("#pendientes").innerHTML = pendientes.map((p) => `
       <div class="ficha" data-k="${p.key}">
-        <div class="prev">${comp(p.url)}</div>
+        ${prev(p.url, p.semitono)}
         <label>Nombre<input data-f="nombre" value="${esc(p.nombre)}" maxlength="60"></label>
         <label>Categoría<select data-f="categoria">${opciones(p.categoria)}</select></label>
         <label>Precio (vacío = ₡${(CFG.precioBase || 11000).toLocaleString("es-CR")})<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${esc(p.precio)}"></label>
-        <p class="meta">${p.ancho}×${p.alto} px · ${Math.round(p.blob.size / 1024)} KB</p>
-        <div class="botones"><button class="adm-btn" data-a="subir">Subir</button><button class="adm-btn ghost" data-a="quitar">Quitar</button></div>
+        ${campoSemi(p.semitono)}
+        <p class="meta">${p.ancho}×${p.alto} px · ${Math.round(p.blob.size / 1024)} KB${p.semitono ? " · detectado como semitono" : ""}</p>
+        <div class="botones"><button class="adm-btn" data-a="subir">Subir</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn ghost" data-a="quitar">Quitar</button></div>
       </div>`).join("");
     $("#accionesPend").hidden = pendientes.length < 2;
   }
   $("#pendientes").addEventListener("input", (e) => {
-    const k = e.target.closest(".ficha")?.dataset.k;
-    const p = pendientes.find((x) => x.key === k);
-    if (p && e.target.dataset.f) p[e.target.dataset.f] = e.target.value;
+    const f = e.target.closest(".ficha");
+    const p = pendientes.find((x) => x.key === f?.dataset.k);
+    if (!p || !e.target.dataset.f) return;
+    p[e.target.dataset.f] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    if (e.target.dataset.f === "semitono") f.querySelector(".prev").outerHTML = prev(p.url, p.semitono);
   });
   $("#pendientes").addEventListener("click", async (e) => {
     const b = e.target.closest("button[data-a]");
     if (!b) return;
     const p = pendientes.find((x) => x.key === b.closest(".ficha").dataset.k);
     if (b.dataset.a === "quitar") { quitar(p); pintarPendientes(); }
+    else if (b.dataset.a === "comparar") comparar(p.nombre, p.url, p.semitono);
     else await subir(p);
   });
   function quitar(p) { URL.revokeObjectURL(p.url); pendientes = pendientes.filter((x) => x !== p); }
@@ -119,7 +173,7 @@
     const el = document.querySelector(`.ficha[data-k="${p.key}"]`);
     el?.classList.add("subiendo");
     try {
-      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, imagen: await aDataUrl(p.blob) });
+      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, imagen: await aDataUrl(p.blob) });
       quitar(p);
       pintarPendientes();
       pintarLista(r.artes);
@@ -146,33 +200,59 @@
   ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
   drop.addEventListener("drop", (e) => { e.preventDefault(); agregar([...e.dataTransfer.files]); });
 
+  // ---------- Comparar un arte en todos los colores ----------
+  function comparar(nombre, archivo, semi) {
+    $("#compTitulo").innerHTML = `${esc(nombre)} ${sello(semi)}`;
+    $("#compGrid").innerHTML = COLORES.map((c) => `<figure>${T.camiseta({ archivo }, { ...vivo, color: c.id })}<figcaption>${esc(c.nombre)}</figcaption></figure>`).join("");
+    $("#compNota").textContent = semi
+      ? "Semitono: los puntos dejan ver la tela, por eso el arte cambia de carácter en cada color. Revisa que se lea bien en los claros."
+      : "Full color: el arte es sólido y se ve igual sobre cualquier color.";
+    $("#comparar").showModal();
+  }
+  $("#comparar").addEventListener("click", (e) => { if (e.target.id === "comparar" || e.target.closest("[data-close]")) $("#comparar").close(); });
+
   // ---------- Artes publicados ----------
+  let filtro = "todos";
   function pintarLista(artes) {
-    $("#cuenta").textContent = `(${artes.length})`;
-    $("#lista").innerHTML = artes.length ? artes.map((a) => `
+    if (artes) publicados = artes;
+    const semis = publicados.filter((a) => a.semitono).length;
+    $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
+    const ver = publicados.filter((a) => filtro === "todos" || (filtro === "semitono") === !!a.semitono);
+    $("#lista").innerHTML = ver.length ? ver.map((a) => `
       <div class="ficha" data-id="${esc(a.id)}">
-        <div class="prev">${comp(a.archivo)}</div>
+        ${prev(a.archivo, a.semitono)}
         <label>Nombre<input data-f="nombre" value="${esc(a.nombre)}" maxlength="60"></label>
         <label>Categoría<select data-f="categoria">${opciones(a.categoria)}</select></label>
         <label>Precio<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${a.precio ?? ""}" placeholder="${CFG.precioBase || 11000}"></label>
-        <div class="botones"><button class="adm-btn ghost" data-a="guardar">Guardar</button><button class="adm-btn danger" data-a="borrar">Borrar</button></div>
-      </div>`).join("") : '<p class="vacio">Todavía no hay artes. Sube el primero arriba.</p>';
+        ${campoSemi(a.semitono)}
+        <div class="botones"><button class="adm-btn ghost" data-a="guardar">Guardar</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn danger" data-a="borrar">Borrar</button></div>
+      </div>`).join("") : `<p class="vacio">${publicados.length ? "No hay artes de este tipo." : "Todavía no hay artes. Sube el primero arriba."}</p>`;
+    $("#filtroLista").innerHTML = [["todos", "Todos"], ["semitono", "Semitono"], ["full", "Full color"]]
+      .map(([id, n]) => `<button role="radio" aria-checked="${id === filtro}" data-v="${id}">${n}</button>`).join("");
   }
+  $("#filtroLista").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { filtro = b.dataset.v; pintarLista(); } });
+  $("#lista").addEventListener("change", (e) => {
+    if (e.target.dataset.f !== "semitono") return;
+    const f = e.target.closest(".ficha");
+    const a = publicados.find((x) => x.id === f.dataset.id);
+    f.querySelector(".prev").outerHTML = prev(a.archivo, e.target.checked);
+  });
   $("#lista").addEventListener("click", async (e) => {
     const b = e.target.closest("button[data-a]");
     if (!b) return;
     const f = b.closest(".ficha");
     const id = f.dataset.id;
+    const v = (k) => f.querySelector(`[data-f="${k}"]`);
+    if (b.dataset.a === "comparar") return comparar(v("nombre").value, publicados.find((x) => x.id === id).archivo, v("semitono").checked);
     try {
       if (b.dataset.a === "borrar") {
-        if (!confirm(`¿Borrar "${f.querySelector('[data-f="nombre"]').value}" de la tienda?`)) return;
+        if (!confirm(`¿Borrar "${v("nombre").value}" de la tienda?`)) return;
         b.disabled = true;
         pintarLista((await api({ action: "borrar", id })).artes);
         toast("Arte borrado");
       } else {
         b.disabled = true;
-        const v = (k) => f.querySelector(`[data-f="${k}"]`).value;
-        pintarLista((await api({ action: "editar", id, nombre: v("nombre"), categoria: v("categoria"), precio: v("precio") })).artes);
+        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked })).artes);
         toast("✓ Cambios guardados");
       }
     } catch (err) {
@@ -198,16 +278,9 @@
   }
   $("#reintentar").addEventListener("click", iniciar);
 
-  const base = new Promise((ok) => {
-    if (!BASE) return ok(false);
-    const im = new Image();
-    im.onload = () => { document.documentElement.style.setProperty("--base-ar", `${im.naturalWidth} / ${im.naturalHeight}`); ok(true); };
-    im.onerror = () => ok(false);
-    im.src = BASE;
-  });
-  Promise.all([fetch("productos.json").then((r) => r.json()).catch(() => ({})), base]).then(([d, b]) => {
+  Promise.all([fetch("productos.json").then((r) => r.json()).catch(() => ({})), T.precargar()]).then(([d]) => {
     categorias = d.categorias || [{ id: "pop", nombre: "Pop" }];
-    baseOk = b;
+    pintarVivo();
     iniciar();
   });
 })();
