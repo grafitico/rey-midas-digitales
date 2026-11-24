@@ -280,7 +280,10 @@ a { color: var(--cyan); }
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--acento) 40%, transparent); }
 
 /* ---------- Ficha estilo póster ---------- */
-.info { --line: linear-gradient(160deg, var(--acento), color-mix(in srgb, var(--acento) 50%, var(--violet)) 50%, var(--violet)); }
+.info { --line: linear-gradient(160deg, var(--acento), color-mix(in srgb, var(--acento) 50%, var(--violet)) 50%, var(--violet));
+  /* fondo y borde en la misma caja: no se rompe al desplazarse dentro de la ficha */
+  border: 2px solid transparent; background: linear-gradient(160deg, #150d2cf2, #08051afa) padding-box, var(--line) border-box; }
+.info::before { display: none; }
 .coleccion { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 3px; color: #fff; }
 .coleccion::before, .coleccion::after { content: ""; height: 1px; flex: 1; max-width: 34px; background: #fff; }
 .franja { margin: 0 0 10px; }
@@ -304,7 +307,7 @@ a { color: var(--cyan); }
 .precio-box strong#infoPrice { margin: 0; font: 900 italic 38px / 1 Kanit, sans-serif; color: #fff; text-shadow: 0 0 14px var(--acento); }
 .comprar { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 16px; padding: 14px 18px; border: 0; border-radius: 999px; cursor: pointer;
   background: linear-gradient(180deg, color-mix(in srgb, var(--acento) 80%, #fff), var(--acento) 45%, color-mix(in srgb, var(--acento) 70%, #000));
-  color: #fff; font: 900 italic 20px Kanit, sans-serif; letter-spacing: 1px; text-shadow: 0 2px 4px #0008;
+  color: #fff; font: 900 italic 19px Kanit, sans-serif; letter-spacing: 1px; text-shadow: 0 2px 4px #0008; white-space: nowrap;
   box-shadow: 0 0 26px color-mix(in srgb, var(--acento) 65%, transparent), inset 0 1px 0 #ffffff88; transition: transform .15s, box-shadow .2s; }
 .comprar svg { width: 26px; padding-right: 12px; border-right: 2px solid #ffffff88; box-sizing: content-box; }
 .comprar b { font-size: 28px; line-height: 0; }
@@ -326,6 +329,22 @@ a { color: var(--cyan); }
 .look-dots { display: flex; gap: 8px; margin-top: 16px; }
 .look-dots button { width: 26px; height: 6px; border: 0; border-radius: 3px; background: #ffffff44; cursor: pointer; padding: 0; }
 .look-dots button[aria-current="true"] { background: var(--acento); box-shadow: 0 0 10px var(--acento); }
+
+/* Lema grande detrás de las camisetas (cambia con cada arte) */
+.lema { position: absolute; z-index: 0; left: 2%; right: 2%; top: 3%; margin: 0; pointer-events: none; text-align: center;
+  font: 400 clamp(34px, 7vw, 110px) / .9 "Permanent Marker", Kanit, sans-serif; text-transform: uppercase; letter-spacing: 1px;
+  color: transparent; -webkit-text-stroke: 1.5px color-mix(in srgb, var(--acento) 70%, transparent);
+  text-shadow: 0 0 40px color-mix(in srgb, var(--acento) 35%, transparent); opacity: .8; transform: rotate(-4deg); }
+.lema.entra { animation: lema .9s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes lema { from { opacity: 0; transform: rotate(-4deg) translateX(-6%) scale(1.08); filter: blur(6px); } }
+.items { z-index: 2; }
+/* Tallas compactas en pestañas */
+.talla-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.talla-tabs button { flex: 1; padding: 6px 8px; border: 0; border-bottom: 2px solid #ffffff33; background: none; color: var(--muted); font: 700 13px Rajdhani, sans-serif; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+.talla-tabs button[aria-selected="true"] { color: #fff; border-color: var(--acento); }
+.talla-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sizes { display: block; }
+.sizes .size { min-width: 38px; height: 34px; padding: 0 6px; font-size: 14px; border-width: 1.5px; }
 
 /* Patrón de logos de fondo (como en las fotos de marca) */
 .bg::after { content: ""; position: absolute; inset: 0; opacity: .1;

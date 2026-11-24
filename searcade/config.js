@@ -15,16 +15,37 @@ window.SEARCADE_CONFIG = {
   },
   // Formatos comerciales de estampado (medidas reales del DTF) y lo que suman al precio.
   formatos: [
-    { id: "pequeno", nombre: "Pequeño", ancho: 10, alto: 10, extra: 0, nota: "Logos · pecho izquierdo" },
-    { id: "mediano", nombre: "Mediano", ancho: 20, alto: 25, extra: 0, nota: "Estampado compacto" },
-    { id: "grande", nombre: "Grande", ancho: 28, alto: 35, extra: 0, nota: "Estampado completo" },
+    { id: "pequeno", nombre: "Pequeño", ancho: 20, alto: 25, extra: 0, nota: "Estampado compacto" },
+    { id: "mediano", nombre: "Mediano", ancho: 28, alto: 35, extra: 0, nota: "Estampado completo" },
+    { id: "grande", nombre: "Grande", ancho: 34, alto: 42, extra: 0, nota: "Estampado máximo" },
   ],
   colocaciones: [
     { id: "pecho", nombre: "Pecho", extra: 0 },
     { id: "espalda", nombre: "Espalda", extra: 0 },
     { id: "ambas", nombre: "Pecho y espalda", extra: 3500 },
   ],
-  formatoInicial: "grande",
+  formatoInicial: "mediano",
+  // Textos de cada arte cuando el panel los deja vacíos: cambian según la
+  // categoría y el arte (se elige uno fijo por arte, no al azar en cada visita).
+  textosAuto: {
+    coleccion: { pop: "POP CULTURE", urbana: "STREET LEVEL", gamer: "PLAYER ONE", anime: "OTAKU MODE", verano: "SUMMER DROP", otra: "SEARCADE DROP" },
+    lemas: {
+      pop: ["Brilla en cualquier pantalla", "Ícono de colección", "Pura actitud pop"],
+      urbana: ["La calle es tu nivel", "Estilo sin pausa", "Hecho para la ciudad"],
+      gamer: ["Una partida más", "Modo leyenda activado", "Press start a tu estilo"],
+      anime: ["Tu estilo, modo protagonista", "Poder desbloqueado", "Episodio final: tú"],
+      verano: ["Sol, playa y nivel máximo", "Modo vacaciones", "Calor de jefe final"],
+      otra: ["Sube de nivel", "Edición SEARCADE", "Original o nada"],
+    },
+    descripciones: {
+      pop: ["Arte de alto detalle con colores que se roban las miradas.", "Diseño pop impreso en DTF, listo para destacar."],
+      urbana: ["Diseño urbano en DTF sobre algodón premium: para la calle, sin miedo.", "Actitud de barrio con acabado de primera."],
+      gamer: ["Para los que no sueltan el control. Impresión DTF de alta definición.", "Diseño gamer con detalle de pantalla 4K."],
+      anime: ["Ilustración de alto detalle con el estilo que te define.", "Tu personaje favorito en DTF de colores intensos."],
+      verano: ["Colores que aguantan el sol y el mar.", "Fresco, liviano y con un arte que se ve de lejos."],
+      otra: ["Camiseta premium con arte de alto detalle."],
+    },
+  },
   // Colores de camiseta. Negra y blanca usan su foto; los demás tiñen la blanca.
   colores: [
     { id: "negra", nombre: "Negra", hex: "#141218", frente: "img/marca/camiseta-negra.webp", espalda: "img/marca/camiseta-negra-espalda.webp" },

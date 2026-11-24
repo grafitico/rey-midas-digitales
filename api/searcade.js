@@ -15,7 +15,7 @@
 //   { action: "yo", token }                            → { ok, nombre }
 //   { action: "listar" }                               → { artes }
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
-//   { action: "editar", id, nombre?, categoria?, precio?, semitono? }
+//   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion? }
 //   { action: "borrar", id }
 //   { action: "subir-foto", titulo, imagen }  /  { action: "borrar-foto", id }   (lookbook)
 //
@@ -77,6 +77,17 @@ function limpiarCategoria(v) {
   if (!/^[a-z0-9-]{1,20}$/.test(s)) throw bad("Categoría inválida");
   return s;
 }
+// Textos opcionales de cada arte (colección, lema, descripción)
+const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180 };
+function limpiarTexto(v, max) {
+  return String(v ?? "").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+function textosDe(body) {
+  const t = {};
+  for (const [k, max] of Object.entries(TEXTOS)) if (k in body) t[k] = limpiarTexto(body[k], max);
+  return t;
+}
+
 function limpiarPrecio(v) {
   if (v === null || v === undefined || v === "") return null;
   const n = Math.round(Number(v));
@@ -109,7 +120,7 @@ export async function subirArte(body) {
     const archivo = `${id}.${ext}`;
     fs.mkdirSync(artesDir(), { recursive: true });
     fs.writeFileSync(path.join(artesDir(), archivo), buf);
-    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, archivo: `artes/${archivo}`, creado: new Date().toISOString() };
+    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...textosDe(body), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
     artes.unshift(arte);
     escribirArtes(artes);
     return { ok: true, arte, artes };
@@ -125,6 +136,7 @@ export async function editarArte(body) {
     if ("categoria" in body) a.categoria = limpiarCategoria(body.categoria);
     if ("precio" in body) a.precio = limpiarPrecio(body.precio);
     if ("semitono" in body) a.semitono = body.semitono === true;
+    Object.assign(a, textosDe(body));
     escribirArtes(artes);
     return { ok: true, artes };
   });

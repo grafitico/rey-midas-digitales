@@ -150,6 +150,12 @@
     pintarPendientes();
   }
 
+  // Textos del arte en la tienda (vacíos = automáticos por categoría)
+  const camposTexto = (a = {}) => `<details class="textos"${a.coleccion || a.lema || a.descripcion ? " open" : ""}><summary>Textos en la tienda <small>(opcional)</small></summary>
+        <label>Colección (franja)<input data-f="coleccion" maxlength="30" value="${esc(a.coleccion || "")}" placeholder="Automático por categoría"></label>
+        <label>Lema (frase grande de fondo)<input data-f="lema" maxlength="60" value="${esc(a.lema || "")}" placeholder="Automático por categoría"></label>
+        <label>Descripción<textarea data-f="descripcion" maxlength="180" rows="2" placeholder="Automática por categoría">${esc(a.descripcion || "")}</textarea></label>
+      </details>`;
   const campoSemi = (semi) => `<label class="chk"><input type="checkbox" data-f="semitono"${semi ? " checked" : ""}> Es semitono <small>(puntos que dejan ver la tela)</small></label>`;
 
   function pintarPendientes() {
@@ -160,6 +166,7 @@
         <label>Categoría<select data-f="categoria">${opciones(p.categoria)}</select></label>
         <label>Precio (vacío = ₡${(CFG.precioBase || 11000).toLocaleString("es-CR")})<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${esc(p.precio)}"></label>
         ${campoSemi(p.semitono)}
+        ${camposTexto(p)}
         <p class="meta">${p.ancho}×${p.alto} px · ${Math.round(p.blob.size / 1024)} KB${p.semitono ? " · detectado como semitono" : ""}</p>
         <div class="botones"><button class="adm-btn" data-a="subir">Subir</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn ghost" data-a="quitar">Quitar</button></div>
       </div>`).join("");
@@ -186,7 +193,7 @@
     const el = document.querySelector(`.ficha[data-k="${p.key}"]`);
     el?.classList.add("subiendo");
     try {
-      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, imagen: await aDataUrl(p.blob) });
+      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.blob) });
       quitar(p);
       pintarPendientes();
       pintarLista(r.artes);
@@ -239,6 +246,7 @@
         <label>Categoría<select data-f="categoria">${opciones(a.categoria)}</select></label>
         <label>Precio<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${a.precio ?? ""}" placeholder="${CFG.precioBase || 11000}"></label>
         ${campoSemi(a.semitono)}
+        ${camposTexto(a)}
         <div class="botones"><button class="adm-btn ghost" data-a="guardar">Guardar</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn danger" data-a="borrar">Borrar</button></div>
       </div>`).join("") : `<p class="vacio">${publicados.length ? "No hay artes de este tipo." : "Todavía no hay artes. Sube el primero arriba."}</p>`;
     $("#filtroLista").innerHTML = [["todos", "Todos"], ["semitono", "Semitono"], ["full", "Full color"]]
@@ -266,7 +274,7 @@
         toast("Arte borrado");
       } else {
         b.disabled = true;
-        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked })).artes);
+        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked, coleccion: v("coleccion").value, lema: v("lema").value, descripcion: v("descripcion").value })).artes);
         toast("✓ Cambios guardados");
       }
     } catch (err) {

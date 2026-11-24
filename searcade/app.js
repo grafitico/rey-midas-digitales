@@ -208,14 +208,41 @@
   }
   $("#girar").addEventListener("click", () => girar(sel.vista === "frente" ? "espalda" : "frente"));
 
+  // ---------- Textos de cada arte (propios del panel o automáticos por categoría) ----------
+  const AUTO = CFG.textosAuto || {};
+  const elegir = (lista, semilla) => {
+    if (!lista?.length) return "";
+    let h = 0;
+    for (const ch of String(semilla)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return lista[h % lista.length];
+  };
+  function textos(p) {
+    const cat = p.categoria in (AUTO.coleccion || {}) ? p.categoria : "otra";
+    return {
+      coleccion: p.coleccion || AUTO.coleccion?.[cat] || (data.categorias.find((c) => c.id === p.categoria)?.nombre || "SEARCADE"),
+      lema: p.lema || elegir(AUTO.lemas?.[cat], p.id),
+      descripcion: p.descripcionPropia || (p.archivo ? elegir(AUTO.descripciones?.[cat], p.id + "d") : "") || p.descripcion || "",
+    };
+  }
+  function pintarLema(texto) {
+    const el = $("#lema");
+    if (el.dataset.t === texto) return;
+    el.dataset.t = texto;
+    el.classList.remove("entra"); void el.offsetWidth;
+    el.textContent = texto;
+    el.classList.add("entra");
+  }
+
   // ---------- Ficha ----------
   function renderInfo(p) {
     talla = null;
     if (!p) { $("#infoName").textContent = ""; $("#infoDesc").textContent = ""; $("#infoPrice").textContent = ""; $("#sizes").innerHTML = ""; $("#perso").hidden = true; return; }
     const [w1, ...resto] = p.nombre.split(" ");
     $("#infoName").innerHTML = resto.length ? `${esc(w1)} <em>${esc(resto.join(" "))}</em>` : esc(w1);
-    $("#infoDesc").textContent = p.descripcion || "";
-    $("#infoCat").textContent = (data.categorias.find((c) => c.id === p.categoria)?.nombre || "SEARCADE").toUpperCase();
+    const tx = textos(p);
+    $("#infoDesc").textContent = tx.descripcion;
+    $("#infoCat").textContent = tx.coleccion.toUpperCase();
+    pintarLema(tx.lema);
     $("#perso").hidden = !p.archivo;
     $("#feats").innerHTML = [
       [FEAT.algodon, p.material || "Algodón premium", "Suave, resistente y transpirable."],
@@ -284,10 +311,15 @@
     if (lista[idx] !== p) return; // ya se movió a otra camiseta
     document.documentElement.style.setProperty("--acento", c || "#fbb51d");
   }
+  // Tallas: pestañas Adultos / Niños (solo se ve un grupo a la vez)
+  let grupoTalla = null;
   function pintarTallas(p) {
     const t = p.archivo && CFG.tallas && !Array.isArray(CFG.tallas) ? CFG.tallas : { "": p.tallas || [] };
-    $("#sizes").innerHTML = Object.entries(t).map(([grupo, ts]) =>
-      `${grupo ? `<span class="size-grupo">${esc(grupo)}</span>` : ""}${ts.map((x) => `<button class="size" role="radio" aria-checked="false" data-t="${esc(x)}">${esc(x)}</button>`).join("")}`).join("");
+    const grupos = Object.keys(t);
+    const orden = grupos.slice().sort((a, b) => (/adult/i.test(b) ? 1 : 0) - (/adult/i.test(a) ? 1 : 0)); // Adultos primero
+    if (!grupos.includes(grupoTalla)) grupoTalla = orden[0];
+    const tabs = grupos.length > 1 ? `<div class="talla-tabs" role="tablist">${orden.map((g) => `<button role="tab" data-g="${esc(g)}" aria-selected="${g === grupoTalla}">${esc(g.replace(/\s*\(.*\)/, ""))}</button>`).join("")}</div>` : "";
+    $("#sizes").innerHTML = tabs + `<div class="talla-chips">${(t[grupoTalla] || []).map((x) => `<button class="size" role="radio" aria-checked="${x === talla}" data-t="${esc(x)}">${esc(/^\d+$/.test(x) ? x + "a" : x)}</button>`).join("")}</div>`;
   }
   const etiquetaTalla = (t) => (/^\d+$/.test(t) ? `${t} años` : t);
   const extraTxt = (n) => (n ? ` <small>+${fmt(n)}</small>` : "");
@@ -326,6 +358,8 @@
     repintarArtes();
   });
   $("#sizes").addEventListener("click", (e) => {
+    const g = e.target.closest("[data-g]");
+    if (g) { grupoTalla = g.dataset.g; const p = lista[idx]; if (p) pintarTallas(p); return; }
     const b = e.target.closest(".size");
     if (!b) return;
     talla = b.dataset.t;
@@ -502,6 +536,7 @@
   // ---------- Datos ----------
   const desdeArte = (a) => ({
     id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, semitono: !!a.semitono,
+    coleccion: a.coleccion || "", lema: a.lema || "", descripcionPropia: a.descripcion || "",
     precio: a.precio || CFG.precioBase || 11000,
     descripcion: CFG.descripcionArte || "", material: "Algodón premium",
     arte: { tono: "#fbb51d" },
