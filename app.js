@@ -1487,7 +1487,7 @@ async function renderProduct(id) {
               <div class="price-card principal">
                 <div class="price-label">Cuenta Principal</div>
                 <div class="price-amount">${formatCRC(principal)}</div>
-                <div class="price-note">Tu consola queda como principal · jugás sin internet y desde tu propio usuario</div>
+                <div class="price-note">Juega con tu cuenta personal · Solo para una consola · No necesita internet</div>
                 <button class="price-cta" data-add="principal" data-id="${escapeAttr(g.id)}">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                   Agregar al carrito
@@ -3569,7 +3569,7 @@ async function renderBundle(id, type = "nintendo") {
         <div class="price-card principal">
           <div class="price-label">Cuenta Principal</div>
           <div class="price-amount">${formatCRC(b.priceCRC_principal)}</div>
-          <div class="price-note">Tu consola queda como principal · jugás sin internet y desde tu propio usuario</div>
+          <div class="price-note">Juega con tu cuenta personal · Solo para una consola · No necesita internet</div>
         </div>
       ` : ""}
       ${b.priceCRC_secundaria != null ? `
@@ -4570,7 +4570,7 @@ function comoComprarHTML() {
         <h2>Comprar en 4 pasos</h2>
         <ol class="info-steps">
           <li>
-            <strong>Elegí tus juegos del catálogo.</strong> Navegá por PS5, PS4, Xbox o Switch. Click en el juego para ver detalles. Decidí si lo querés en <em>Cuenta Principal</em> (tu consola queda como principal: jugás sin internet y desde tu propio usuario) o <em>Cuenta Secundaria</em> (más barata: jugás con internet, desde la cuenta que te damos).
+            <strong>Elegí tus juegos del catálogo.</strong> Navegá por PS5, PS4, Xbox o Switch. Click en el juego para ver detalles. Decidí si lo querés en <em>Cuenta Principal</em> (juega con tu cuenta personal, solo para una consola, no necesita internet) o <em>Cuenta Secundaria</em> (más barata: jugás con internet, desde la cuenta que te damos).
           </li>
           <li>
             <strong>Agregá al carrito y enviá el pedido por WhatsApp.</strong> Click en "Agregar al carrito" en cada juego. Cuando termines, andá al carrito (icono arriba a la derecha) y click en "Enviar pedido por WhatsApp". Te abre el chat con la lista lista para mandar.
