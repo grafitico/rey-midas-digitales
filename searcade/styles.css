@@ -1,3 +1,6 @@
+/* Color de ambiente: lo pone app.js según el color dominante de cada arte */
+@property --acento { syntax: "<color>"; inherits: true; initial-value: #fbb51d; }
+:root { transition: --acento .9s ease; }
 :root {
   --bg: #0a0414;
   --panel: #0d0a1c;
@@ -30,7 +33,7 @@ a { color: var(--cyan); }
 .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: linear-gradient(180deg, #12052a 0%, #1a0838 45%, #0a0414 75%); }
 .glow { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .55; }
 .g1 { width: 60vw; height: 60vw; left: -20vw; top: -10vw; background: #6a1bff; }
-.g2 { width: 50vw; height: 50vw; right: -15vw; top: 10vh; background: #b3359f; opacity: .45; }
+.g2 { width: 55vw; height: 55vw; right: -15vw; top: 5vh; background: var(--acento); opacity: .32; }
 .g3 { width: 70vw; height: 30vw; left: 15vw; bottom: 8vh; background: #00b7ff; opacity: .25; }
 .bg::before { /* tiras de luz de la ciudad */
   content: ""; position: absolute; inset: 0;
@@ -95,9 +98,9 @@ a { color: var(--cyan); }
 .pipe { position: absolute; left: 0; right: 0; top: 22px; height: 12px; border-radius: 6px; background: linear-gradient(#cfd2e6, #5d5f78 60%, #2b2c3d); box-shadow: 0 4px 10px #000a, 0 0 18px #ff2e8833; }
 .post { position: absolute; top: 22px; bottom: 0; width: 12px; border-radius: 6px; background: linear-gradient(90deg, #2b2c3d, #9fa2bd 45%, #3a3b50); box-shadow: 0 0 14px #19e6ff44; }
 .post.l { left: 0; } .post.r { right: 0; }
-.podium { position: absolute; left: 50%; top: calc(var(--tw) * 1.22 - 8px); width: calc(var(--tw) * 1.25); height: calc(var(--tw) * .16 + 14px); transform: translateX(-50%); border-radius: 50%;
+.podium { position: absolute; z-index: 1; left: 50%; top: calc(var(--tw) * 1.22 - 8px); width: calc(var(--tw) * 1.25); height: calc(var(--tw) * .16 + 14px); transform: translateX(-50%); border-radius: 50%;
   background: radial-gradient(closest-side, #ff2e88aa, #8b3dff66 55%, transparent 72%); box-shadow: 0 0 0 3px #19e6ffaa, 0 0 30px #ff2e88, inset 0 0 20px #19e6ff; }
-.podium span { position: absolute; inset: 8px 18%; border-radius: 50%; border: 2px solid #ff8fd8; box-shadow: 0 0 14px #ff2e88; animation: pulse 2.2s ease-in-out infinite; }
+.podium span { position: absolute; inset: 8px 18%; border-radius: 50%; border: 2px solid var(--acento); box-shadow: 0 0 14px var(--acento); animation: pulse 2.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .4; transform: scale(.92); } }
 
 .items { position: absolute; inset: 0; transform-style: preserve-3d; }
@@ -236,7 +239,7 @@ a { color: var(--cyan); }
 .comp .print { position: absolute; object-fit: contain; object-position: 50% 0; mix-blend-mode: normal; filter: saturate(1.05) contrast(1.03); }
 .item .tee .comp img.base, .item .tee .comp svg.base { filter: drop-shadow(0 12px 18px #000d); aspect-ratio: auto; }
 .item .tee .comp img.print { filter: saturate(1.05) contrast(1.03); aspect-ratio: auto; height: auto; }
-.item.is-center .tee .comp img.base { filter: drop-shadow(0 0 22px var(--glow, #fbb51d)) drop-shadow(0 14px 20px #000); }
+.item.is-center .tee .comp img.base { filter: drop-shadow(0 0 26px color-mix(in srgb, var(--acento) 70%, transparent)) drop-shadow(0 14px 20px #000); }
 .zoom-photo .comp { width: 92%; }
 .zoom-photo .comp img, .zoom-photo .comp svg { width: auto; height: auto; }
 .zoom-photo .comp .base { width: 100%; height: 100%; }
@@ -255,6 +258,66 @@ a { color: var(--cyan); }
 .estilos { display: flex; justify-content: center; gap: 6px; margin: 10px 16px 0; }
 .estilos button { padding: 6px 14px; border-radius: 999px; border: 1px solid #ffffff44; background: #0006; color: #fff; font: 700 13px Rajdhani, sans-serif; letter-spacing: 1px; cursor: pointer; }
 .estilos button[aria-checked="true"] { background: var(--cyan); border-color: var(--cyan); color: #04121a; box-shadow: 0 0 12px #19e6ff77; }
+
+/* ---------- Escena con atmósfera (toma el color del arte) ---------- */
+.ambiente { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.haz { position: absolute; left: 50%; top: -10%; width: 70%; height: 95%; transform: translateX(-50%);
+  background: conic-gradient(from 180deg at 50% 0%, transparent 160deg, color-mix(in srgb, var(--acento) 30%, transparent) 180deg, transparent 200deg);
+  filter: blur(8px); opacity: .8; animation: haz 7s ease-in-out infinite alternate; }
+@keyframes haz { from { opacity: .55; } to { opacity: .95; } }
+.niebla { position: absolute; left: -20%; right: -20%; height: 45%; bottom: 0; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--acento) 28%, transparent), transparent);
+  filter: blur(24px); animation: niebla 16s ease-in-out infinite alternate; }
+.niebla.n2 { bottom: 12%; height: 30%; opacity: .7; animation-duration: 22s; animation-direction: alternate-reverse; }
+@keyframes niebla { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+.lluvia { position: absolute; inset: -20% 0 0; opacity: .22;
+  background: repeating-linear-gradient(100deg, transparent 0 22px, #ffffff 22px 23px, transparent 23px 61px);
+  -webkit-mask: linear-gradient(transparent, #000 30%, #000 70%, transparent); mask: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+  animation: lluvia .7s linear infinite; }
+@keyframes lluvia { from { transform: translateY(-40px); } to { transform: translateY(0); } }
+.piso { position: absolute; left: 0; right: 0; bottom: 0; height: 32%;
+  background: linear-gradient(transparent, color-mix(in srgb, var(--acento) 14%, #05030a) 60%, #05030a);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--acento) 40%, transparent); }
+
+/* ---------- Ficha estilo póster ---------- */
+.info { --line: linear-gradient(160deg, var(--acento), color-mix(in srgb, var(--acento) 50%, var(--violet)) 50%, var(--violet)); }
+.coleccion { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 3px; color: #fff; }
+.coleccion::before, .coleccion::after { content: ""; height: 1px; flex: 1; max-width: 34px; background: #fff; }
+.franja { margin: 0 0 10px; }
+.franja span { display: inline-block; padding: 5px 22px 5px 12px; background: var(--acento); color: #0b0614; font: 900 italic 18px Kanit, sans-serif; letter-spacing: 1px;
+  clip-path: polygon(6% 0, 100% 0, 94% 100%, 0 100%); box-shadow: 0 0 18px var(--acento); }
+.info h2#infoName { margin: 2px 0 8px; font: 400 clamp(30px, 3vw, 40px) / .95 "Permanent Marker", Kanit, sans-serif; text-transform: uppercase; transform: rotate(-3deg); transform-origin: left; text-shadow: 0 3px 0 #0008; }
+.info h2#infoName em { display: block; font-style: normal; color: var(--acento); font-size: 1.12em; text-shadow: 0 0 18px color-mix(in srgb, var(--acento) 60%, transparent); }
+.info-desc { border-left: 3px solid var(--acento); padding-left: 10px; }
+.feats { display: grid; gap: 8px; margin: 12px 0; }
+.feat { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px; border: 1.5px solid color-mix(in srgb, var(--acento) 75%, transparent); background: #0007;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--acento) 30%, transparent), inset 0 0 12px color-mix(in srgb, var(--acento) 15%, transparent); }
+.feat svg { width: 30px; flex: none; color: #fff; padding-right: 10px; border-right: 1px solid #ffffff44; box-sizing: content-box; }
+.feat p { margin: 0; display: grid; line-height: 1.2; }
+.feat b { font: 700 14px Rajdhani, sans-serif; letter-spacing: 1px; text-transform: uppercase; }
+.feat span { font-size: 12.5px; color: var(--muted); }
+.precio-box { display: inline-grid; margin: 4px 0 14px; padding: 8px 26px 10px 18px; transform: skewX(-10deg);
+  border: 2px solid var(--acento); background: linear-gradient(135deg, color-mix(in srgb, var(--acento) 35%, #0b0614), #0b0614);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--acento) 55%, transparent); }
+.precio-box > * { transform: skewX(10deg); }
+.precio-box small { font: 900 italic 14px Kanit, sans-serif; letter-spacing: 1px; }
+.precio-box strong#infoPrice { margin: 0; font: 900 italic 38px / 1 Kanit, sans-serif; color: #fff; text-shadow: 0 0 14px var(--acento); }
+.comprar { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 16px; padding: 14px 18px; border: 0; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--acento) 80%, #fff), var(--acento) 45%, color-mix(in srgb, var(--acento) 70%, #000));
+  color: #fff; font: 900 italic 20px Kanit, sans-serif; letter-spacing: 1px; text-shadow: 0 2px 4px #0008;
+  box-shadow: 0 0 26px color-mix(in srgb, var(--acento) 65%, transparent), inset 0 1px 0 #ffffff88; transition: transform .15s, box-shadow .2s; }
+.comprar svg { width: 26px; padding-right: 12px; border-right: 2px solid #ffffff88; box-sizing: content-box; }
+.comprar b { font-size: 28px; line-height: 0; }
+.comprar:hover { transform: translateY(-2px); box-shadow: 0 0 40px var(--acento), inset 0 1px 0 #ffffff88; }
+.comprar:active { transform: translateY(1px); }
+
+/* Barra de confianza */
+.confianza { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 0; max-width: 1100px; margin: 16px auto 0; padding: 12px 16px;
+  border-top: 1px solid color-mix(in srgb, var(--acento) 60%, transparent); }
+.confianza p { display: flex; align-items: center; gap: 10px; margin: 0; padding: 4px 22px; font: 800 italic 16px Kanit, sans-serif; letter-spacing: .5px; }
+.confianza p + p { border-left: 2px solid #ffffff55; }
+.confianza svg { width: 30px; color: #fff; }
+@media (max-width: 600px) { .confianza p { padding: 4px 10px; font-size: 12px; gap: 6px; } .confianza svg { width: 22px; } }
 
 /* Patrón de logos de fondo (como en las fotos de marca) */
 .bg::after { content: ""; position: absolute; inset: 0; opacity: .1;

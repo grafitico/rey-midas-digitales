@@ -215,18 +215,75 @@
     const [w1, ...resto] = p.nombre.split(" ");
     $("#infoName").innerHTML = resto.length ? `${esc(w1)} <em>${esc(resto.join(" "))}</em>` : esc(w1);
     $("#infoDesc").textContent = p.descripcion || "";
-    $("#infoMat").textContent = p.material || "Algodón premium";
+    $("#infoCat").textContent = (data.categorias.find((c) => c.id === p.categoria)?.nombre || "SEARCADE").toUpperCase();
     $("#perso").hidden = !p.archivo;
-    $("#infoEstilo").innerHTML = p.archivo ? (p.semitono
-      ? '<b class="sello semi">SEMITONO</b> Los puntos del arte dejan ver el color de la camiseta: cambia de carácter en cada color.'
-      : '<b class="sello full">FULL COLOR</b> El arte se imprime sólido: se ve igual sobre cualquier color.') : "";
-    $("#infoEstilo").hidden = !p.archivo;
+    $("#feats").innerHTML = [
+      [FEAT.algodon, p.material || "Algodón premium", "Suave, resistente y transpirable."],
+      p.archivo && p.semitono
+        ? [FEAT.capas, "Impresión DTF · Semitono", "Los puntos dejan ver el color de la camiseta."]
+        : [FEAT.capas, "Impresión DTF · Full color", "Colores intensos y de larga duración."],
+      [FEAT.corona, "Diseño exclusivo", "Edición limitada SEARCADE."],
+    ].map(([ico, t, d]) => `<div class="feat">${ico}<p><b>${esc(t)}</b><span>${esc(d)}</span></p></div>`).join("");
+    aplicarAcento(p);
     if (p.archivo) pintarPerso();
     pintarPrecio();
     pintarTallas(p);
     pintarGirar();
   }
-  const pintarPrecio = () => { const p = lista[idx]; if (p) $("#infoPrice").textContent = fmt(precioDe(p)); };
+  const pintarPrecio = () => {
+    const p = lista[idx];
+    if (!p) return;
+    const precio = precioDe(p);
+    $("#infoPrice").textContent = fmt(precio);
+    $("#precioEt").textContent = precio > p.precio ? "TU CAMISETA" : "DESDE";
+  };
+  const FEAT = {
+    algodon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-7M12 14c-2-3-7-2-7 1.5S9 20 12 14Zm0 0c2-3 7-2 7 1.5S15 20 12 14ZM8 8a4 4 0 0 1 8 0 3.5 3.5 0 0 1 3 5.5M8 8a3.5 3.5 0 0 0-3 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    capas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+    corona: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  };
+
+  // ---------- Color de ambiente: el color dominante de cada arte ----------
+  const acentos = new Map();
+  function colorDominante(src) {
+    return new Promise((ok) => {
+      const im = new Image();
+      im.onload = () => {
+        try {
+          const c = document.createElement("canvas"); c.width = c.height = 48;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(im, 0, 0, 48, 48);
+          const d = ctx.getImageData(0, 0, 48, 48).data;
+          const bins = new Array(24).fill(0), sum = new Array(24).fill(0).map(() => [0, 0]);
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 128) continue;
+            const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, ch = max - min;
+            if (ch < 0.18 || l < 0.15 || l > 0.9) continue; // grises, negros y blancos no cuentan
+            let h = max === r ? ((g - b) / ch) % 6 : max === g ? (b - r) / ch + 2 : (r - g) / ch + 4;
+            h = (h * 60 + 360) % 360;
+            const k = Math.floor(h / 15), peso = ch * ch;
+            bins[k] += peso; sum[k][0] += Math.cos(h * Math.PI / 180) * peso; sum[k][1] += Math.sin(h * Math.PI / 180) * peso;
+          }
+          const k = bins.indexOf(Math.max(...bins));
+          if (!bins[k]) return ok(null);
+          const h = Math.round((Math.atan2(sum[k][1], sum[k][0]) * 180 / Math.PI + 360) % 360);
+          ok(`hsl(${h} 90% 56%)`);
+        } catch { ok(null); }
+      };
+      im.onerror = () => ok(null);
+      im.src = src;
+    });
+  }
+  async function aplicarAcento(p) {
+    let c = p.arte?.tono && !p.archivo ? p.arte.tono : null;
+    if (p.archivo) {
+      if (!acentos.has(p.archivo)) acentos.set(p.archivo, colorDominante(p.archivo));
+      c = await acentos.get(p.archivo);
+    }
+    if (lista[idx] !== p) return; // ya se movió a otra camiseta
+    document.documentElement.style.setProperty("--acento", c || "#fbb51d");
+  }
   function pintarTallas(p) {
     const t = p.archivo && CFG.tallas && !Array.isArray(CFG.tallas) ? CFG.tallas : { "": p.tallas || [] };
     $("#sizes").innerHTML = Object.entries(t).map(([grupo, ts]) =>
@@ -355,15 +412,18 @@
     pintarCarrito();
   });
 
-  $("#ctlAdd").addEventListener("click", () => {
+  // Compra ahora: agrega y abre el carrito
+  $("#comprar").addEventListener("click", () => { if (agregar()) { pintarCarrito(); $("#cart").showModal(); } });
+  $("#ctlAdd").addEventListener("click", () => agregar());
+  function agregar() {
     const p = lista[idx];
-    if (!p) return;
+    if (!p) return false;
     if (!talla) {
       const s = $("#sizes");
       s.classList.remove("shake"); void s.offsetWidth; s.classList.add("shake");
       if (matchMedia("(max-width: 999px)").matches) s.scrollIntoView({ behavior: "smooth", block: "center" });
       toast("Elige tu talla primero");
-      return;
+      return false;
     }
     const nueva = p.archivo
       ? { id: p.id, talla, color: sel.color, formato: sel.formato, colocacion: sel.colocacion, qty: 1 }
@@ -375,7 +435,8 @@
     const btn = $("#cartBtn");
     btn.classList.remove("bump"); void btn.offsetWidth; btn.classList.add("bump");
     toast(`✓ ${p.nombre} (talla ${etiquetaTalla(talla)}) agregada`);
-  });
+    return true;
+  }
   $("#cartBtn").addEventListener("click", () => { pintarCarrito(); $("#cart").showModal(); });
 
   document.querySelectorAll("dialog").forEach((d) => {

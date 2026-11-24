@@ -12,7 +12,7 @@
   <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Kanit:ital,wght@1,800;1,900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Kanit:ital,wght@1,800;1,900&family=Rajdhani:wght@600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -55,6 +55,7 @@
     <nav class="cats cut" id="cats" aria-label="Categorías"></nav>
 
     <section class="stage" id="stage" aria-roledescription="carrusel" aria-label="Camisetas">
+      <div class="ambiente" aria-hidden="true"><span class="haz"></span><span class="niebla n1"></span><span class="niebla n2"></span><span class="lluvia"></span><span class="piso"></span></div>
       <div class="rack" aria-hidden="true"><span class="pipe"></span><span class="post l"></span><span class="post r"></span></div>
       <div class="podium" aria-hidden="true"><span></span></div>
       <div class="items" id="items"></div>
@@ -65,10 +66,12 @@
     </section>
 
     <aside class="info cut" id="info" aria-live="polite">
+      <p class="coleccion">COLECCIÓN EXCLUSIVA</p>
+      <p class="franja"><span id="infoCat"></span></p>
       <h2 id="infoName"></h2>
       <p class="info-desc" id="infoDesc"></p>
-      <p class="info-estilo" id="infoEstilo" hidden></p>
-      <p class="info-price" id="infoPrice"></p>
+      <div class="feats" id="feats"></div>
+      <div class="precio-box"><small id="precioEt">DESDE</small><strong id="infoPrice"></strong></div>
       <div class="perso" id="perso" hidden>
         <p class="info-label">COLOR <span id="colorNombre"></span></p>
         <div class="swatches" id="colores" role="radiogroup" aria-label="Color de camiseta"></div>
@@ -79,10 +82,10 @@
       </div>
       <p class="info-label">TALLA</p>
       <div class="sizes" id="sizes" role="radiogroup" aria-label="Talla"></div>
-      <div class="info-mat">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9l4-6Zm-4 6h20M9 3l3 18M15 3l-3 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-        <p><b id="infoMat">ALGODÓN PREMIUM</b><span>Suave, resistente y transpirable.</span></p>
-      </div>
+      <button class="comprar" id="comprar" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h3l2.4 11.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L21 7H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.6" fill="currentColor"/><circle cx="17" cy="20" r="1.6" fill="currentColor"/></svg>
+        <span>COMPRA AHORA</span><b aria-hidden="true">›</b>
+      </button>
     </aside>
   </main>
 
@@ -100,6 +103,12 @@
       <span>AGREGAR AL CARRITO</span>
     </button>
   </nav>
+
+  <div class="confianza" aria-label="Garantías">
+    <p><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 7h6M1 11h7M3 15h5M10 4h12v12H10zM22 8h5l3 4v4h-8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="14" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="26" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>ENVÍO RÁPIDO</p>
+    <p><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>COMPRA SEGURA</p>
+    <p><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>TODO COSTA RICA</p>
+  </div>
 
   <section class="look">
     <div class="look-photo"><img src="img/productos/SC-011-modelo.webp" alt="Modelo con la camiseta Do Not Disturb de SEARCADE" loading="lazy" width="1000" height="1500"></div>
