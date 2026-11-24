@@ -24,7 +24,13 @@
   }
 
   async function api(body) {
-    const r = await fetch(API, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    let r;
+    try {
+      // text/plain = consulta "simple" (sin preflight), la que menos bloquean los navegadores
+      r = await fetch(API, { method: "POST", credentials: "include", headers: { "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(body) });
+    } catch {
+      throw Object.assign(new Error("sin conexión"), { status: 0 });
+    }
     let d = {};
     try { d = await r.json(); } catch {}
     if (!r.ok) throw Object.assign(new Error(d.error || `Error ${r.status}`), { status: r.status });
@@ -273,7 +279,10 @@
     } catch (e) {
       $("#panel").hidden = true;
       $("#login").hidden = false;
-      $("#estado").textContent = e.status === 403 ? "Esa cuenta no es de administrador." : e.status === 401 ? "" : `No se pudo conectar con el servidor (${e.message}).`;
+      $("#estado").innerHTML = e.status === 403 ? "Esa cuenta no es de administrador."
+        : e.status === 401 ? ""
+        : e.status === 0 ? "<b>El navegador no pudo comunicarse con reymidascr.com.</b> Si usas <b>Brave</b>, toca el león de la barra de direcciones y baja los Escudos para este sitio; luego toca «Ya inicié sesión». También puede ser que la API se esté reiniciando: espera un minuto y reintenta."
+        : `Error del servidor: ${e.message}`;
     }
   }
   $("#reintentar").addEventListener("click", iniciar);

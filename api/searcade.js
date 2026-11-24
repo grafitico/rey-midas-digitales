@@ -151,7 +151,12 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   try {
-    const body = await readJson(req);
+    // El panel manda el JSON como text/plain: así es una consulta "simple"
+    // sin preflight OPTIONS, que algunos navegadores (Brave) y filtros cortan.
+    let body;
+    if (typeof req.body === "string") {
+      try { body = JSON.parse(req.body || "{}"); } catch { return res.status(400).json({ error: "Datos inválidos" }); }
+    } else body = await readJson(req);
     const user = await requireAdmin(req);
     switch (body.action) {
       case "yo": return res.status(200).json({ ok: true, nombre: user.full_name || user.email });
