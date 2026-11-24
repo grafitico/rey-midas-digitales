@@ -25,4 +25,14 @@ y `zona`). Con artes publicados, los productos de ejemplo dibujados se ocultan.
 `searcade/artes/` está en `.gitignore`: esos archivos viven solo en el hosting
 y el deploy por FTP no los toca.
 
+## Personalizador
+
+Con un arte, el cliente elige color de camiseta, colocación (pecho, espalda o
+ambas), tamaño del estampado (pequeño 10×10, mediano 20×25, grande 28×35 cm),
+y talla (niños 2–12 años, adultos XS–3XL). Todo se configura en `config.js`
+(`colores`, `colocaciones`, `formatos` con su `extra` de precio, `tallas`).
+Las camisetas base (frente/espalda, blanca/negra) y la etiqueta salen de
+`scripts/searcade-camisetas-base.py`; los demás colores tiñen la blanca. Las
+medidas en cm se pasan a % de la foto con `foto.cmAncho`/`cmAlto`.
+
 Pendiente: probador con cámara (MediaPipe Pose).

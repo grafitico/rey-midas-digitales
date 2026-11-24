@@ -29,8 +29,9 @@
   }
 
   const SHIRT = "M60 18 L88 8 Q100 22 112 8 L140 18 L178 48 L160 78 L142 68 L142 196 L58 196 L58 68 L40 78 L22 48 Z";
+  const BASE = CFG.colores?.[0]?.base || CFG.camisetaBase;
   const comp = (src) => `<span class="comp${baseOk ? "" : " sin-base"}">${baseOk
-    ? `<img class="base" src="${esc(CFG.camisetaBase)}" alt="">`
+    ? `<img class="base" src="${esc(BASE)}" alt="">`
     : `<svg class="base" viewBox="0 0 200 210"><path d="${SHIRT}" fill="#121016" stroke="#2a2633" stroke-width="2"/></svg>`}<img class="print" src="${esc(src)}" alt="" style="left:${Z.x}%;top:${Z.y}%;width:${Z.ancho}%;height:${Z.alto}%"></span>`;
   const opciones = (sel) => categorias.map((c) => `<option value="${esc(c.id)}"${c.id === sel ? " selected" : ""}>${esc(c.nombre)}</option>`).join("");
 
@@ -198,11 +199,11 @@
   $("#reintentar").addEventListener("click", iniciar);
 
   const base = new Promise((ok) => {
-    if (!CFG.camisetaBase) return ok(false);
+    if (!BASE) return ok(false);
     const im = new Image();
     im.onload = () => { document.documentElement.style.setProperty("--base-ar", `${im.naturalWidth} / ${im.naturalHeight}`); ok(true); };
     im.onerror = () => ok(false);
-    im.src = CFG.camisetaBase;
+    im.src = BASE;
   });
   Promise.all([fetch("productos.json").then((r) => r.json()).catch(() => ({})), base]).then(([d, b]) => {
     categorias = d.categorias || [{ id: "pop", nombre: "Pop" }];

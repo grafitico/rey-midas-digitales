@@ -60,13 +60,22 @@
       <button class="arrow prev cut" id="prev" aria-label="Camiseta anterior"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="arrow next cut" id="next" aria-label="Camiseta siguiente"><svg viewBox="0 0 24 24"><path d="m9 4 8 8-8 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <p class="counter" id="counter" aria-live="polite"></p>
+      <button class="girar cut" id="girar" hidden aria-label="Girar la camiseta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="girarTxt">VER ESPALDA</span></button>
     </section>
 
     <aside class="info cut" id="info" aria-live="polite">
       <h2 id="infoName"></h2>
       <p class="info-desc" id="infoDesc"></p>
       <p class="info-price" id="infoPrice"></p>
-      <p class="info-label">TALLAS DISPONIBLES</p>
+      <div class="perso" id="perso" hidden>
+        <p class="info-label">COLOR <span id="colorNombre"></span></p>
+        <div class="swatches" id="colores" role="radiogroup" aria-label="Color de camiseta"></div>
+        <p class="info-label">COLOCACIÓN</p>
+        <div class="seg" id="colocaciones" role="radiogroup" aria-label="Colocación del estampado"></div>
+        <p class="info-label">TAMAÑO DEL ARTE <span id="formatoMedida"></span></p>
+        <div class="seg" id="formatos" role="radiogroup" aria-label="Tamaño del estampado"></div>
+      </div>
+      <p class="info-label">TALLA</p>
       <div class="sizes" id="sizes" role="radiogroup" aria-label="Talla"></div>
       <div class="info-mat">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9l4-6Zm-4 6h20M9 3l3 18M15 3l-3 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
