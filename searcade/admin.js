@@ -284,7 +284,7 @@
     $("#estado").textContent = "";
     setTimeout(() => ($("#usuario").value ? $("#clave") : $("#usuario")).focus(), 50);
   };
-  const sinConexion = "No se pudo comunicar con el servidor. Revisa tu internet; si usas Brave, baja los Escudos (el león) para este sitio y reintenta.";
+  const sinConexion = "El navegador no dejó salir la conexión al servidor. Suele ser una extensión (bloqueador de anuncios, antivirus o privacidad): prueba en una ventana de incógnito o desactívala para este sitio. En Brave, baja los Escudos (el león).";
   async function iniciar() {
     if (!token) return mostrarLogin();
     $("#estado").textContent = "Abriendo el panel…";
