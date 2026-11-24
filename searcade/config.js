@@ -69,6 +69,12 @@ window.SEARCADE_CONFIG = {
   // Vista previa en el panel de artes (estampado grande en el pecho).
   camisetaBase: "img/marca/camiseta-negra.webp",
   zona: { x: 32.4, y: 23.5, ancho: 35.2, alto: 43.1 },
+  // Fotos fijas del Lookbook (las que se suben desde el panel salen antes).
+  lookbook: [
+    { archivo: "img/lookbook/otro-ano.webp", titulo: "Otro año ya se ha ido" },
+    { archivo: "img/lookbook/llega-navidad.webp", titulo: "Llega Navidad" },
+    { archivo: "img/lookbook/do-not-disturb.webp", titulo: "Do Not Disturb, I'm Gaming" },
+  ],
   // API de Rey Midas (panel de artes).
   api: "https://reymidascr.com/api/searcade",
   // Fase 2: cuando exista el proyecto en Supabase, llenar esto y los productos

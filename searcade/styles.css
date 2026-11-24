@@ -324,7 +324,7 @@ a { color: var(--cyan); }
 
 /* Lookbook en carrusel */
 .look-photo.slider { display: grid; }
-.look-photo.slider img { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: cover; aspect-ratio: 4 / 5; opacity: 0; transform: scale(1.04); transition: opacity .9s ease, transform 6s ease; }
+.look-photo.slider img { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; aspect-ratio: 4 / 5; opacity: 0; transform: scale(1.04); transition: opacity .9s ease, transform 6s ease; }
 .look-photo.slider img.on { opacity: 1; transform: scale(1); }
 .look-dots { display: flex; gap: 8px; margin-top: 16px; }
 .look-dots button { width: 26px; height: 6px; border: 0; border-radius: 3px; background: #ffffff44; cursor: pointer; padding: 0; }

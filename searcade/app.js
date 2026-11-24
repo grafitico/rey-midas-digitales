@@ -548,7 +548,7 @@
       const artes = (a?.artes || []).map(desdeArte);
       // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan foto propia).
       data = { categorias: d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
-      pintarLookbook(a?.lookbook || []);
+      pintarLookbook([...(a?.lookbook || []), ...(CFG.lookbook || [])]);
       renderCats();
       pintarEstilos();
       armar(0);
