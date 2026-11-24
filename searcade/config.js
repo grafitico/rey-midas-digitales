@@ -2,7 +2,7 @@
 window.SEARCADE_CONFIG = {
   // Número de WhatsApp de pedidos, con código de país y sin "+" ni espacios.
   // Ejemplo: "50688887777". Si queda vacío, WhatsApp abre para elegir contacto.
-  whatsapp: "",
+  whatsapp: "50661133381",
   // Moneda para mostrar precios.
   moneda: "₡",
   // Precio y tallas de una camiseta con un arte subido desde el panel
