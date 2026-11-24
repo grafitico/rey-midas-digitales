@@ -14,6 +14,7 @@ on:
     paths:
       - "searcade/**"
       - ".github/workflows/deploy-searcade.yml"
+      - "scripts/searcade-version.mjs"
   workflow_dispatch:
 
 concurrency:
@@ -36,6 +37,12 @@ jobs:
       - name: Checkout
         if: env.FTP_SERVER != ''
         uses: actions/checkout@v5
+
+      # Cada publicación pide .js/.css nuevos (?v=commit): si no, Cloudflare
+      # y los navegadores siguen sirviendo la copia vieja.
+      - name: Versión en los archivos
+        if: env.FTP_SERVER != ''
+        run: node scripts/searcade-version.mjs searcade "${GITHUB_SHA::7}"
 
       - name: Subir SEARCADE por FTP (solo lo que cambió)
         if: env.FTP_SERVER != ''
