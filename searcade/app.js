@@ -131,7 +131,7 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (document.querySelector("dialog[open]") || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (document.querySelector("dialog[open]") || $("#intro")?.isConnected || /INPUT|TEXTAREA/.test(e.target.tagName)) return;
     if (e.key === "ArrowLeft") mover(idx - 1);
     else if (e.key === "ArrowRight") mover(idx + 1);
     else if (e.key.toLowerCase() === "a" || (e.key === "Enter" && e.target === document.body)) abrirZoom();
@@ -159,7 +159,9 @@
   function abrirZoom() {
     const p = lista[idx];
     if (!p) return;
-    const fotos = [p.imagen, ...(p.fotos || [])].filter((f, i) => i === 0 || f);
+    // Si todavía no hay mockup, abre directo en las fotos con modelo
+    let fotos = [p.imagen, ...(p.fotos || [])].filter(Boolean);
+    if (!fotos.length) fotos = [""];
     $("#zoomTitle").textContent = p.nombre;
     const ver = (src) => { $("#zoomPhoto").innerHTML = imgOr(p, src, "z") + (src ? "" : '<span class="slot">Espacio para mockup / foto con modelo (PNG)</span>'); };
     $("#zoomThumbs").innerHTML = fotos.length > 1 ? fotos.map((f, i) => `<button data-i="${i}" aria-current="${i === 0}" aria-label="Foto ${i + 1}">${imgOr(p, f, "zt" + i)}</button>`).join("") : "";
@@ -254,7 +256,23 @@
     if (i < 0 && byId(id)) { filtro = "todas"; renderCats(); armar(0); i = lista.findIndex((p) => p.id === id); }
     if (i >= 0) mover(i, true);
   }
-  window.addEventListener("hashchange", desdeHash);
+  window.addEventListener("hashchange", () => { desdeHash(); $("#stage").scrollIntoView({ behavior: "smooth", block: "center" }); });
+
+  // ---------- Pantalla de entrada (una vez por sesión) ----------
+  const intro = $("#intro");
+  let visto = false;
+  try { visto = sessionStorage.getItem("searcade-start") === "1"; } catch {}
+  const empezar = () => {
+    if (!intro.isConnected || intro.classList.contains("go")) return;
+    intro.classList.add("go");
+    try { sessionStorage.setItem("searcade-start", "1"); } catch {}
+    setTimeout(() => intro.remove(), 650);
+  };
+  if (visto) intro.remove();
+  else {
+    intro.addEventListener("click", empezar);
+    addEventListener("keydown", empezar, { once: true });
+  }
   addEventListener("resize", () => mover(idx, true));
 
   fetch("productos.json", { cache: "no-cache" })
