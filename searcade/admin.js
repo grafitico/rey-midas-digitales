@@ -23,7 +23,14 @@
     toast.t = setTimeout(() => t.classList.remove("show"), 2600);
   }
 
+  // Sesión propia del panel (token de 30 días guardado en este navegador)
+  const CLAVE_TOKEN = "searcade-panel-token";
+  let token = "";
+  try { token = localStorage.getItem(CLAVE_TOKEN) || ""; } catch {}
+  const guardarToken = (t) => { token = t || ""; try { t ? localStorage.setItem(CLAVE_TOKEN, t) : localStorage.removeItem(CLAVE_TOKEN); } catch {} };
+
   async function api(body) {
+    body = { ...body, token };
     let r;
     try {
       // text/plain = consulta "simple" (sin preflight), la que menos bloquean los navegadores
@@ -188,7 +195,8 @@
     } catch (e) {
       el?.classList.remove("subiendo");
       el?.classList.add("error");
-      toast(e.status === 401 || e.status === 403 ? "Tu sesión de admin venció: vuelve a entrar en reymidascr.com" : e.message);
+      if (e.status === 401) { guardarToken(""); mostrarLogin("Tu sesión venció: vuelve a entrar. Lo que no se subió sigue aquí."); $("#panel").hidden = false; }
+      toast(e.status === 401 ? "Tu sesión venció: vuelve a entrar" : e.message);
       return false;
     }
   }
@@ -267,25 +275,48 @@
     }
   });
 
-  // ---------- Arranque ----------
+  // ---------- Arranque y acceso ----------
+  const mostrarLogin = (msg = "") => {
+    $("#panel").hidden = true;
+    $("#salir").hidden = true;
+    $("#login").hidden = false;
+    $("#loginError").textContent = msg;
+    $("#estado").textContent = "";
+    setTimeout(() => ($("#usuario").value ? $("#clave") : $("#usuario")).focus(), 50);
+  };
+  const sinConexion = "No se pudo comunicar con el servidor. Revisa tu internet; si usas Brave, baja los Escudos (el león) para este sitio y reintenta.";
   async function iniciar() {
-    $("#estado").textContent = "Revisando tu sesión…";
+    if (!token) return mostrarLogin();
+    $("#estado").textContent = "Abriendo el panel…";
     try {
       const yo = await api({ action: "yo" });
       $("#login").hidden = true;
       $("#panel").hidden = false;
+      $("#salir").hidden = false;
       $("#estado").textContent = `Hola, ${yo.nombre}. Lo que subas aparece en la tienda al instante.`;
       pintarLista((await api({ action: "listar" })).artes);
     } catch (e) {
-      $("#panel").hidden = true;
-      $("#login").hidden = false;
-      $("#estado").innerHTML = e.status === 403 ? "Esa cuenta no es de administrador."
-        : e.status === 401 ? ""
-        : e.status === 0 ? "<b>El navegador no pudo comunicarse con reymidascr.com.</b> Si usas <b>Brave</b>, toca el león de la barra de direcciones y baja los Escudos para este sitio; luego toca «Ya inicié sesión». También puede ser que la API se esté reiniciando: espera un minuto y reintenta."
-        : `Error del servidor: ${e.message}`;
+      if (e.status === 401) { guardarToken(""); mostrarLogin("Tu sesión venció: vuelve a entrar."); }
+      else mostrarLogin(e.status === 0 ? sinConexion : e.message);
     }
   }
-  $("#reintentar").addEventListener("click", iniciar);
+  $("#login").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const b = $("#entrar");
+    b.disabled = true;
+    $("#loginError").textContent = "";
+    try {
+      const r = await api({ action: "entrar", usuario: $("#usuario").value, clave: $("#clave").value });
+      guardarToken(r.token);
+      $("#clave").value = "";
+      await iniciar();
+    } catch (err) {
+      $("#loginError").textContent = err.status === 0 ? sinConexion : err.message;
+    } finally {
+      b.disabled = false;
+    }
+  });
+  $("#salir").addEventListener("click", () => { guardarToken(""); mostrarLogin(); });
 
   Promise.all([fetch("productos.json").then((r) => r.json()).catch(() => ({})), T.precargar()]).then(([d]) => {
     categorias = d.categorias || [{ id: "pop", nombre: "Pop" }];

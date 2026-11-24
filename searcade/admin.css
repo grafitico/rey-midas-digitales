@@ -55,3 +55,13 @@ body.admin { padding-bottom: 40px; }
 .comp-grid .comp { width: 100%; }
 .comp-grid figcaption { font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
 .modal h2 .sello { font-size: 11px; vertical-align: 4px; }
+
+/* Acceso propio */
+.adm-login { display: grid; gap: 12px; max-width: 420px; margin: 20px auto; padding: 24px; }
+.adm-login label { display: grid; gap: 4px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.adm-login input { padding: 12px; border-radius: 10px; border: 1px solid #ffffff33; background: #0008; color: #fff; font: 600 16px Inter, sans-serif; }
+.adm-login input:focus { outline: 2px solid var(--amber); outline-offset: 1px; }
+.adm-login .adm-btn { width: 100%; }
+.adm-login .login-error { margin: 0; min-height: 1.2em; color: #ff8fa3; font-weight: 600; }
+.adm-acc { display: flex; align-items: center; gap: 14px; }
+.adm-salir { border: 0; background: none; color: var(--muted); font: 600 14px Inter, sans-serif; cursor: pointer; text-decoration: underline; }

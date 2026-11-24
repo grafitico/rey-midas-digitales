@@ -17,20 +17,21 @@
 
   <header class="adm-top">
     <a class="adm-brand" href="./"><img src="favicon.svg" alt="" width="44"><span>Panel de artes</span></a>
-    <a class="adm-link" href="./" target="_blank" rel="noopener">Ver tienda ↗</a>
+    <span class="adm-acc"><a class="adm-link" href="./" target="_blank" rel="noopener">Ver tienda ↗</a><button class="adm-salir" id="salir" hidden>Salir</button></span>
   </header>
 
   <main class="adm">
     <p class="adm-estado" id="estado">Revisando tu sesión…</p>
 
-    <section class="adm-login cut" id="login" hidden>
-      <h2>Inicia sesión como administrador</h2>
-      <p>El panel usa tu cuenta de admin de Rey Midas. Entra en reymidascr.com con tu cuenta, luego vuelve aquí y toca "Ya inicié sesión".</p>
+    <form class="adm-login cut" id="login" hidden autocomplete="on">
+      <h2>Entrar al panel</h2>
+      <label>Usuario<input id="usuario" name="username" autocomplete="username" required maxlength="60"></label>
+      <label>Contraseña<input id="clave" name="password" type="password" autocomplete="current-password" required maxlength="200"></label>
       <div class="adm-row">
-        <a class="adm-btn" href="https://reymidascr.com/" target="_blank" rel="noopener">Abrir reymidascr.com</a>
-        <button class="adm-btn ghost" id="reintentar">Ya inicié sesión</button>
+        <button class="adm-btn" id="entrar" type="submit">Entrar</button>
       </div>
-    </section>
+      <p class="login-error" id="loginError" role="alert"></p>
+    </form>
 
     <section id="panel" hidden>
       <div class="vivo cut" aria-label="Vista en vivo">

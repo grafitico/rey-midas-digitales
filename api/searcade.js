@@ -6,9 +6,13 @@
 // directo como archivo estático: mirar la tienda no pasa por esta API. El
 // deploy por FTP no los toca porque no están en el repo.
 //
-// POST /api/searcade (solo administradores; la sesión es la cookie de
-// reymidascr.com, que el navegador manda porque searcade.* es el mismo sitio):
-//   { action: "yo" }                                   → { ok, nombre }
+// POST /api/searcade. El panel tiene su PROPIO acceso (no usa el de Rey
+// Midas): usuario y contraseña en las variables de entorno de la app Node.js
+// de cPanel, SEARCADE_USUARIO y SEARCADE_CLAVE (texto o hash "scrypt$..." de
+// scripts/hash-password.mjs). Al entrar se recibe un token de 30 días que el
+// panel manda en cada consulta (campo "token"); solo sirve para esta API.
+//   { action: "entrar", usuario, clave }               → { ok, token, nombre }
+//   { action: "yo", token }                            → { ok, nombre }
 //   { action: "listar" }                               → { artes }
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono? }
@@ -21,7 +25,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { requireAdmin, handleError, readJson } from "./_lib.js";
+import { handleError, readJson, signPayload, verifyToken, verifyPassword } from "./_lib.js";
 
 const ORIGINS = new Set(["https://searcade.reymidascr.com"]);
 // El cuerpo de una consulta tiene tope de 1 MB (server/app.mjs) y el base64
@@ -133,6 +137,60 @@ export async function borrarArte(body) {
   });
 }
 
+// ===== Acceso propio del panel =====
+const SCOPE = "searcade";
+const DIAS = 30;
+const acceso = () => ({ usuario: String(process.env.SEARCADE_USUARIO || "").trim(), clave: String(process.env.SEARCADE_CLAVE || "") });
+// Huella de las credenciales: si cambian, los tokens viejos dejan de servir.
+const huella = ({ usuario, clave }) => crypto.createHash("sha256").update(`${usuario.toLowerCase()}\n${clave}`).digest("hex").slice(0, 16);
+const iguales = (a, b) => {
+  const x = crypto.createHash("sha256").update(String(a)).digest();
+  const y = crypto.createHash("sha256").update(String(b)).digest();
+  return crypto.timingSafeEqual(x, y);
+};
+
+// Intentos fallidos por IP: 5 cada 15 minutos (en memoria, sin temporizadores).
+const FALLOS = new Map();
+const VENTANA = 15 * 60 * 1000, MAX_FALLOS = 5;
+const ipDe = (req) => String(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "?").split(",")[0].trim();
+function bloqueado(ip) {
+  const ahora = Date.now();
+  for (const [k, v] of FALLOS) if (ahora - v.desde > VENTANA) FALLOS.delete(k);
+  const f = FALLOS.get(ip);
+  return f && f.n >= MAX_FALLOS ? Math.ceil((f.desde + VENTANA - ahora) / 60000) : 0;
+}
+function fallo(ip) {
+  const f = FALLOS.get(ip);
+  if (f) f.n++; else FALLOS.set(ip, { n: 1, desde: Date.now() });
+}
+
+export function entrar(body, ip = "?") {
+  const cred = acceso();
+  if (!cred.usuario || !cred.clave) throw Object.assign(new Error("El acceso del panel no está configurado (faltan SEARCADE_USUARIO y SEARCADE_CLAVE en cPanel)"), { status: 503 });
+  const espera = bloqueado(ip);
+  if (espera) throw Object.assign(new Error(`Demasiados intentos. Prueba de nuevo en ${espera} min.`), { status: 429 });
+  const usuarioOk = iguales(String(body.usuario || "").trim().toLowerCase(), cred.usuario.toLowerCase());
+  const clave = String(body.clave || "");
+  const claveOk = cred.clave.startsWith("scrypt$") ? verifyPassword(clave, cred.clave) : iguales(clave, cred.clave);
+  if (!usuarioOk || !claveOk) {
+    fallo(ip);
+    throw Object.assign(new Error("Usuario o contraseña incorrectos"), { status: 401 });
+  }
+  FALLOS.delete(ip);
+  const ahora = Math.floor(Date.now() / 1000);
+  const token = signPayload({ scope: SCOPE, sub: cred.usuario, h: huella(cred), iat: ahora, exp: ahora + DIAS * 24 * 3600 });
+  return { ok: true, token, nombre: cred.usuario };
+}
+
+export function requirePanel(body) {
+  const p = verifyToken(String(body.token || ""));
+  const cred = acceso();
+  if (!p || p.scope !== SCOPE || !cred.usuario || p.h !== huella(cred)) {
+    throw Object.assign(new Error("Sesión vencida: vuelve a entrar"), { status: 401 });
+  }
+  return { nombre: p.sub };
+}
+
 function cors(req, res) {
   const origin = req.headers.origin;
   if (origin && ORIGINS.has(origin)) {
@@ -157,9 +215,10 @@ export default async function handler(req, res) {
     if (typeof req.body === "string") {
       try { body = JSON.parse(req.body || "{}"); } catch { return res.status(400).json({ error: "Datos inválidos" }); }
     } else body = await readJson(req);
-    const user = await requireAdmin(req);
+    if (body.action === "entrar") return res.status(200).json(entrar(body, ipDe(req)));
+    const user = requirePanel(body);
     switch (body.action) {
-      case "yo": return res.status(200).json({ ok: true, nombre: user.full_name || user.email });
+      case "yo": return res.status(200).json({ ok: true, nombre: user.nombre });
       case "listar": return res.status(200).json({ artes: leerArtes() });
       case "subir": return res.status(200).json(await subirArte(body));
       case "editar": return res.status(200).json(await editarArte(body));
