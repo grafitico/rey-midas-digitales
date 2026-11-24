@@ -275,6 +275,57 @@
     }
   });
 
+  // ---------- Lookbook / banners ----------
+  async function prepararFoto(file) {
+    const bmp = await createImageBitmap(file);
+    let escala = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    for (let intento = 0; intento < 8; intento++) {
+      const c = document.createElement("canvas");
+      c.width = Math.round(bmp.width * escala); c.height = Math.round(bmp.height * escala);
+      const ctx = c.getContext("2d"); ctx.imageSmoothingQuality = "high"; ctx.drawImage(bmp, 0, 0, c.width, c.height);
+      for (const q of [0.86, 0.78, 0.7]) {
+        const blob = await new Promise((ok) => c.toBlob(ok, "image/webp", q));
+        if (blob && blob.type === "image/webp" && blob.size <= MAX_BYTES) return blob;
+      }
+      escala *= 0.8;
+    }
+    throw new Error("No se pudo dejar la foto por debajo de 700 KB");
+  }
+  function pintarFotos(lookbook = []) {
+    $("#cuentaFotos").textContent = `(${lookbook.length})`;
+    $("#fotos").innerHTML = lookbook.length ? lookbook.map((f) => `
+      <div class="ficha" data-foto="${esc(f.id)}">
+        <img src="${esc(f.archivo)}" alt="${esc(f.titulo)}" loading="lazy">
+        <p>${esc(f.titulo || "Sin título")}</p>
+        <div class="botones"><button class="adm-btn danger" data-a="borrar-foto">Borrar</button></div>
+      </div>`).join("") : '<p class="vacio">Todavía no hay fotos. Mientras tanto la tienda muestra la foto de ejemplo.</p>';
+  }
+  $("#fotoArchivo").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const caja = $(".foto-subir");
+    caja.classList.add("subiendo");
+    try {
+      const blob = await prepararFoto(file);
+      const r = await api({ action: "subir-foto", titulo: $("#fotoTitulo").value, imagen: await aDataUrl(blob) });
+      $("#fotoTitulo").value = "";
+      pintarFotos(r.lookbook);
+      toast("✓ Foto publicada en el lookbook");
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      caja.classList.remove("subiendo");
+    }
+  });
+  $("#fotos").addEventListener("click", async (e) => {
+    const b = e.target.closest('[data-a="borrar-foto"]');
+    if (!b || !confirm("¿Borrar esta foto del lookbook?")) return;
+    b.disabled = true;
+    try { pintarFotos((await api({ action: "borrar-foto", id: b.closest(".ficha").dataset.foto })).lookbook); toast("Foto borrada"); }
+    catch (err) { b.disabled = false; toast(err.message); }
+  });
+
   // ---------- Arranque y acceso ----------
   const mostrarLogin = (msg = "") => {
     $("#panel").hidden = true;
@@ -294,7 +345,9 @@
       $("#panel").hidden = false;
       $("#salir").hidden = false;
       $("#estado").textContent = `Hola, ${yo.nombre}. Lo que subas aparece en la tienda al instante.`;
-      pintarLista((await api({ action: "listar" })).artes);
+      const ind = await api({ action: "listar" });
+      pintarLista(ind.artes);
+      pintarFotos(ind.lookbook);
     } catch (e) {
       if (e.status === 401) { guardarToken(""); mostrarLogin("Tu sesión venció: vuelve a entrar."); }
       else mostrarLogin(e.status === 0 ? sinConexion : e.message);

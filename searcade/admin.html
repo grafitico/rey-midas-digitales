@@ -57,6 +57,15 @@
       <h2 class="adm-h">Artes publicados <small id="cuenta"></small></h2>
       <div class="estilos izq" id="filtroLista" role="radiogroup" aria-label="Filtrar"></div>
       <div class="lista" id="lista"></div>
+
+      <h2 class="adm-h">Lookbook / Banners <small id="cuentaFotos"></small></h2>
+      <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel.</p>
+      <div class="foto-subir cut">
+        <label>Título (opcional)<input id="fotoTitulo" maxlength="80" placeholder="Ej.: Nueva colección"></label>
+        <label class="adm-btn" for="fotoArchivo">Elegir foto y subir</label>
+        <input type="file" id="fotoArchivo" accept="image/jpeg,image/png,image/webp" hidden>
+      </div>
+      <div class="lista fotos" id="fotos"></div>
     </section>
   </main>
 

@@ -319,6 +319,14 @@ a { color: var(--cyan); }
 .confianza svg { width: 30px; color: #fff; }
 @media (max-width: 600px) { .confianza p { padding: 4px 10px; font-size: 12px; gap: 6px; } .confianza svg { width: 22px; } }
 
+/* Lookbook en carrusel */
+.look-photo.slider { display: grid; }
+.look-photo.slider img { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: cover; aspect-ratio: 4 / 5; opacity: 0; transform: scale(1.04); transition: opacity .9s ease, transform 6s ease; }
+.look-photo.slider img.on { opacity: 1; transform: scale(1); }
+.look-dots { display: flex; gap: 8px; margin-top: 16px; }
+.look-dots button { width: 26px; height: 6px; border: 0; border-radius: 3px; background: #ffffff44; cursor: pointer; padding: 0; }
+.look-dots button[aria-current="true"] { background: var(--acento); box-shadow: 0 0 10px var(--acento); }
+
 /* Patrón de logos de fondo (como en las fotos de marca) */
 .bg::after { content: ""; position: absolute; inset: 0; opacity: .1;
   background: linear-gradient(90deg, #3d5cff, #8b3dff 50%, #ff5a3d);

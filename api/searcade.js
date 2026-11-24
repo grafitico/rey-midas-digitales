@@ -17,6 +17,7 @@
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono? }
 //   { action: "borrar", id }
+//   { action: "subir-foto", titulo, imagen }  /  { action: "borrar-foto", id }   (lookbook)
 //
 // Variable opcional: SEARCADE_DIR (carpeta del subdominio; por defecto
 // ~/searcade.reymidascr.com).
@@ -39,21 +40,26 @@ export function artesDir() {
 }
 const indexPath = () => path.join(artesDir(), "artes.json");
 
-export function leerArtes() {
+// El índice guarda los artes y las fotos del lookbook (banners de la tienda).
+function leerIndice() {
   try {
     const d = JSON.parse(fs.readFileSync(indexPath(), "utf8"));
-    return Array.isArray(d.artes) ? d.artes : [];
+    return { artes: Array.isArray(d.artes) ? d.artes : [], lookbook: Array.isArray(d.lookbook) ? d.lookbook : [] };
   } catch {
-    return [];
+    return { artes: [], lookbook: [] };
   }
 }
+export const leerArtes = () => leerIndice().artes;
+export const leerLookbook = () => leerIndice().lookbook;
 
-function escribirArtes(artes) {
+function escribirIndice(cambios) {
+  const d = { ...leerIndice(), ...cambios };
   fs.mkdirSync(artesDir(), { recursive: true });
   const tmp = `${indexPath()}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ actualizado: new Date().toISOString(), artes }, null, 1));
+  fs.writeFileSync(tmp, JSON.stringify({ actualizado: new Date().toISOString(), artes: d.artes, lookbook: d.lookbook }, null, 1));
   fs.renameSync(tmp, indexPath());
 }
+const escribirArtes = (artes) => escribirIndice({ artes });
 
 // Un cambio a la vez, para que dos subidas seguidas no se pisen el índice.
 let cola = Promise.resolve();
@@ -78,15 +84,17 @@ function limpiarPrecio(v) {
   return n;
 }
 
-export function decodificarImagen(dataUrl) {
-  const m = /^data:image\/(webp|png);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
-  if (!m) throw bad("La imagen debe ser PNG o WebP");
+export function decodificarImagen(dataUrl, { jpeg = false } = {}) {
+  const m = /^data:image\/(webp|png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
+  if (!m || (m[1] === "jpeg" && !jpeg)) throw bad(jpeg ? "La imagen debe ser JPG, PNG o WebP" : "La imagen debe ser PNG o WebP");
   const buf = Buffer.from(m[2], "base64");
   if (buf.length > MAX_IMG) throw bad(`La imagen pesa ${Math.round(buf.length / 1024)} KB; el máximo es ${Math.round(MAX_IMG / 1024)} KB`);
   const esPng = buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   const esWebp = buf.subarray(0, 4).toString("latin1") === "RIFF" && buf.subarray(8, 12).toString("latin1") === "WEBP";
-  if (m[1] === "png" ? !esPng : !esWebp) throw bad("El archivo no es una imagen válida");
-  return { buf, ext: m[1] };
+  const esJpg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+  const ok = m[1] === "png" ? esPng : m[1] === "webp" ? esWebp : esJpg;
+  if (!ok) throw bad("El archivo no es una imagen válida");
+  return { buf, ext: m[1] === "jpeg" ? "jpg" : m[1] };
 }
 
 export async function subirArte(body) {
@@ -191,6 +199,36 @@ export function requirePanel(body) {
   return { nombre: p.sub };
 }
 
+// ===== Lookbook: fotos y banners que el dueño sube para la tienda =====
+const MAX_FOTOS = 40;
+export async function subirFoto(body) {
+  const titulo = String(body.titulo ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
+  const { buf, ext } = decodificarImagen(body.imagen, { jpeg: true });
+  return enCola(() => {
+    const lookbook = leerLookbook();
+    if (lookbook.length >= MAX_FOTOS) throw bad(`Ya hay ${MAX_FOTOS} fotos; borra alguna antes de subir más`);
+    const id = `f-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
+    fs.mkdirSync(artesDir(), { recursive: true });
+    fs.writeFileSync(path.join(artesDir(), `${id}.${ext}`), buf);
+    const foto = { id, titulo, archivo: `artes/${id}.${ext}`, creado: new Date().toISOString() };
+    lookbook.unshift(foto);
+    escribirIndice({ lookbook });
+    return { ok: true, foto, lookbook };
+  });
+}
+export async function borrarFoto(body) {
+  return enCola(() => {
+    const lookbook = leerLookbook();
+    const i = lookbook.findIndex((x) => x.id === body.id);
+    if (i < 0) throw Object.assign(new Error("Esa foto ya no existe"), { status: 404 });
+    const [f] = lookbook.splice(i, 1);
+    const nombre = path.basename(String(f.archivo || ""));
+    if (/^f-[a-z0-9]+-[0-9a-f]{6}\.(webp|png|jpg)$/.test(nombre)) { try { fs.unlinkSync(path.join(artesDir(), nombre)); } catch {} }
+    escribirIndice({ lookbook });
+    return { ok: true, lookbook };
+  });
+}
+
 function cors(req, res) {
   const origin = req.headers.origin;
   if (origin && ORIGINS.has(origin)) {
@@ -219,7 +257,9 @@ export default async function handler(req, res) {
     const user = requirePanel(body);
     switch (body.action) {
       case "yo": return res.status(200).json({ ok: true, nombre: user.nombre });
-      case "listar": return res.status(200).json({ artes: leerArtes() });
+      case "listar": return res.status(200).json(leerIndice());
+      case "subir-foto": return res.status(200).json(await subirFoto(body));
+      case "borrar-foto": return res.status(200).json(await borrarFoto(body));
       case "subir": return res.status(200).json(await subirArte(body));
       case "editar": return res.status(200).json(await editarArte(body));
       case "borrar": return res.status(200).json(await borrarArte(body));

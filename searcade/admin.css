@@ -65,3 +65,13 @@ body.admin { padding-bottom: 40px; }
 .adm-login .login-error { margin: 0; min-height: 1.2em; color: #ff8fa3; font-weight: 600; }
 .adm-acc { display: flex; align-items: center; gap: 14px; }
 .adm-salir { border: 0; background: none; color: var(--muted); font: 600 14px Inter, sans-serif; cursor: pointer; text-decoration: underline; }
+
+/* Lookbook */
+.adm-nota { color: var(--muted); margin: -4px 0 12px; }
+.foto-subir { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 14px 16px; --line: linear-gradient(90deg, var(--amber), var(--pink)); }
+.foto-subir label:first-child { display: grid; gap: 4px; flex: 1 1 220px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.foto-subir input { padding: 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #0006; color: #fff; font: 600 15px Inter, sans-serif; }
+.foto-subir .adm-btn { cursor: pointer; }
+.foto-subir.subiendo { opacity: .6; pointer-events: none; }
+.lista.fotos .ficha img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; display: block; }
+.lista.fotos .ficha p { margin: 0; font-weight: 600; }

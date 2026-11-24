@@ -472,6 +472,33 @@
   }
   addEventListener("resize", () => mover(idx, true));
 
+  // ---------- Lookbook: fotos que el dueño sube desde el panel ----------
+  function pintarLookbook(fotos) {
+    if (!fotos.length) return; // queda la foto de ejemplo
+    const marco = $("#look .look-photo");
+    marco.classList.add("slider");
+    marco.innerHTML = fotos.map((f, i) => `<img src="${esc(f.archivo)}" alt="${esc(f.titulo || "Lookbook SEARCADE")}" loading="${i ? "lazy" : "eager"}" class="${i ? "" : "on"}">`).join("");
+    $("#lookBtn").textContent = "Elegir mi camiseta";
+    $("#lookBtn").setAttribute("href", "#stage");
+    $("#lookBtn").addEventListener("click", (e) => { e.preventDefault(); $("#stage").scrollIntoView({ behavior: "smooth", block: "center" }); });
+    $("#lookDots").innerHTML = fotos.length > 1 ? fotos.map((f, i) => `<button aria-label="Foto ${i + 1}" aria-current="${i === 0}" data-i="${i}"></button>`).join("") : "";
+    let actual = 0, pausa = false, t;
+    const ver = (i) => {
+      actual = (i + fotos.length) % fotos.length;
+      marco.querySelectorAll("img").forEach((im, j) => im.classList.toggle("on", j === actual));
+      $("#lookDots").querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === actual));
+      const tit = fotos[actual].titulo || "Lookbook SEARCADE";
+      const [p1, ...p2] = tit.split(" ");
+      $("#lookTitulo").innerHTML = p2.length ? `${esc(p1)} <em>${esc(p2.join(" "))}</em>` : esc(p1);
+    };
+    const siguiente = () => { clearTimeout(t); t = setTimeout(() => { if (!pausa) ver(actual + 1); siguiente(); }, 5000); };
+    $("#lookDots").addEventListener("click", (e) => { const b = e.target.closest("[data-i]"); if (b) { ver(+b.dataset.i); siguiente(); } });
+    marco.addEventListener("pointerenter", () => (pausa = true));
+    marco.addEventListener("pointerleave", () => (pausa = false));
+    ver(0);
+    if (fotos.length > 1) siguiente();
+  }
+
   // ---------- Datos ----------
   const desdeArte = (a) => ({
     id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, semitono: !!a.semitono,
@@ -486,6 +513,7 @@
       const artes = (a?.artes || []).map(desdeArte);
       // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan foto propia).
       data = { categorias: d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
+      pintarLookbook(a?.lookbook || []);
       renderCats();
       pintarEstilos();
       armar(0);
