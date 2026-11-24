@@ -346,6 +346,29 @@ a { color: var(--cyan); }
 .sizes { display: block; }
 .sizes .size { min-width: 38px; height: 34px; padding: 0 6px; font-size: 14px; border-width: 1.5px; }
 
+/* Fichas flotantes: arte de la espalda */
+.fichas { min-width: 0; }
+.fichas-tit { margin: 0 0 6px; text-align: center; font: 700 13px Rajdhani, sans-serif; letter-spacing: 3px; color: #fff; }
+.fichas-tit small { color: var(--muted); letter-spacing: 0; font: 400 12px Inter, sans-serif; margin-left: 6px; }
+.fichas-lista { display: flex; gap: 14px; overflow-x: auto; padding: 12px 10px 16px; scroll-snap-type: x proximity; scrollbar-width: thin; justify-content: safe center; }
+.ficha-arte { flex: none; width: 92px; scroll-snap-align: center; display: grid; gap: 5px; justify-items: center; padding: 8px 6px; border-radius: 14px; cursor: pointer;
+  border: 1.5px solid color-mix(in srgb, var(--acento) 55%, transparent); background: linear-gradient(160deg, #1a1033e6, #0a0618f2); color: #fff;
+  box-shadow: 0 8px 22px #0009, 0 0 14px color-mix(in srgb, var(--acento) 25%, transparent);
+  animation: flotar 3.6s ease-in-out infinite; animation-delay: calc(var(--d) * -1); transition: border-color .2s, box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+@keyframes flotar { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(1deg); } }
+.ficha-arte:hover { border-color: var(--acento); box-shadow: 0 12px 26px #000a, 0 0 22px var(--acento); }
+.ficha-arte[aria-pressed="true"] { border-color: var(--acento); background: linear-gradient(160deg, color-mix(in srgb, var(--acento) 30%, #1a1033), #0a0618); box-shadow: 0 0 26px var(--acento); }
+.fa-img { width: 72px; height: 72px; display: grid; place-items: center; border-radius: 10px; background: radial-gradient(circle, #ffffff14, transparent 70%); font-size: 28px; color: var(--acento); }
+.fa-img img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 3px 6px #000); }
+.fa-n { font: 700 11px/1.15 Rajdhani, sans-serif; letter-spacing: .5px; text-transform: uppercase; text-align: center; max-width: 84px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (min-width: 1000px) {
+  .fichas { grid-column: 2; grid-row: 2; margin-top: -6px; }
+  .cats { grid-row: 1 / span 2; align-self: start; }
+  .info { grid-column: 3; grid-row: 1 / span 2; align-self: start; }
+}
+/* Protección: las imágenes de las camisetas no se pueden arrastrar ni guardar con mantener presionado */
+.comp img, .fichas img, .zoom-photo img, .zoom-thumbs img, .mini img { -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
+
 /* Patrón de logos de fondo (como en las fotos de marca) */
 .bg::after { content: ""; position: absolute; inset: 0; opacity: .1;
   background: linear-gradient(90deg, #3d5cff, #8b3dff 50%, #ff5a3d);

@@ -17,10 +17,17 @@
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion? }
 //   { action: "borrar", id }
+//   { action: "original", id, imagen }   el ORIGINAL va a una carpeta privada
+//   { action: "descargar", id }          → { nombre, imagen } (solo con sesión)
+//   { action: "proteger", id, imagen }   artes viejos: original a privado + vista previa
 //   { action: "subir-foto", titulo, imagen }  /  { action: "borrar-foto", id }   (lookbook)
 //
-// Variable opcional: SEARCADE_DIR (carpeta del subdominio; por defecto
-// ~/searcade.reymidascr.com).
+// Protección: la tienda solo publica una VISTA PREVIA (chica y con marca de
+// agua, la arma el panel). El archivo original para imprimir queda en
+// ~/searcade-privado/artes (fuera de la web) y solo se baja con sesión.
+//
+// Variables opcionales: SEARCADE_DIR (carpeta del subdominio; por defecto
+// ~/searcade.reymidascr.com) y SEARCADE_PRIVADO (por defecto ~/searcade-privado).
 
 import crypto from "crypto";
 import fs from "fs";
@@ -38,6 +45,10 @@ export function artesDir() {
   const base = process.env.SEARCADE_DIR || path.join(os.homedir(), "searcade.reymidascr.com");
   return path.join(base, "artes");
 }
+export function privadoDir() {
+  return path.join(process.env.SEARCADE_PRIVADO || path.join(os.homedir(), "searcade-privado"), "artes");
+}
+const NOMBRE_ARTE = /^a-[a-z0-9]+-[0-9a-f]{6}(-v)?\.(webp|png)$/;
 const indexPath = () => path.join(artesDir(), "artes.json");
 
 // El índice guarda los artes y las fotos del lookbook (banners de la tienda).
@@ -149,9 +160,63 @@ export async function borrarArte(body) {
     if (i < 0) throw Object.assign(new Error("Ese arte ya no existe"), { status: 404 });
     const [a] = artes.splice(i, 1);
     const nombreArchivo = path.basename(String(a.archivo || ""));
-    if (/^a-[a-z0-9]+-[0-9a-f]{6}\.(webp|png)$/.test(nombreArchivo)) {
+    if (NOMBRE_ARTE.test(nombreArchivo)) {
       try { fs.unlinkSync(path.join(artesDir(), nombreArchivo)); } catch {}
     }
+    if (a.original && NOMBRE_ARTE.test(a.original)) {
+      try { fs.unlinkSync(path.join(privadoDir(), a.original)); } catch {}
+    }
+    escribirArtes(artes);
+    return { ok: true, artes };
+  });
+}
+
+// ===== Original privado (para imprimir) =====
+function buscar(artes, id) {
+  const a = artes.find((x) => x.id === id);
+  if (!a) throw Object.assign(new Error("Ese arte ya no existe"), { status: 404 });
+  return a;
+}
+export async function guardarOriginal(body) {
+  const { buf, ext } = decodificarImagen(body.imagen);
+  return enCola(() => {
+    const artes = leerArtes();
+    const a = buscar(artes, body.id);
+    fs.mkdirSync(privadoDir(), { recursive: true });
+    const nombre = `${a.id}.${ext}`;
+    fs.writeFileSync(path.join(privadoDir(), nombre), buf);
+    a.original = nombre;
+    a.protegido = true;
+    escribirArtes(artes);
+    return { ok: true, artes };
+  });
+}
+export function descargarOriginal(body) {
+  const a = buscar(leerArtes(), body.id);
+  // Artes viejos sin proteger: el archivo sigue en la carpeta pública
+  const ruta = a.original ? path.join(privadoDir(), a.original) : path.join(artesDir(), path.basename(String(a.archivo || "")));
+  if (!fs.existsSync(ruta)) throw Object.assign(new Error("No se encontró el archivo original"), { status: 404 });
+  const ext = path.extname(ruta).slice(1);
+  return { ok: true, nombre: `${a.nombre}.${ext}`, imagen: `data:image/${ext};base64,${fs.readFileSync(ruta).toString("base64")}` };
+}
+// Arte subido antes de la protección: el archivo público pasa a privado y en su
+// lugar queda la vista previa que manda el panel.
+export async function protegerArte(body) {
+  const { buf } = decodificarImagen(body.imagen);
+  return enCola(() => {
+    const artes = leerArtes();
+    const a = buscar(artes, body.id);
+    const publico = path.basename(String(a.archivo || ""));
+    fs.mkdirSync(privadoDir(), { recursive: true });
+    if (!a.original && NOMBRE_ARTE.test(publico) && fs.existsSync(path.join(artesDir(), publico))) {
+      fs.copyFileSync(path.join(artesDir(), publico), path.join(privadoDir(), publico));
+      fs.unlinkSync(path.join(artesDir(), publico));
+      a.original = publico;
+    }
+    const vista = `${a.id}-v.webp`;
+    fs.writeFileSync(path.join(artesDir(), vista), buf);
+    a.archivo = `artes/${vista}`;
+    a.protegido = true;
     escribirArtes(artes);
     return { ok: true, artes };
   });
@@ -275,6 +340,9 @@ export default async function handler(req, res) {
       case "subir": return res.status(200).json(await subirArte(body));
       case "editar": return res.status(200).json(await editarArte(body));
       case "borrar": return res.status(200).json(await borrarArte(body));
+      case "original": return res.status(200).json(await guardarOriginal(body));
+      case "descargar": return res.status(200).json(descargarOriginal(body));
+      case "proteger": return res.status(200).json(await protegerArte(body));
       default: return res.status(400).json({ error: "Acción desconocida" });
     }
   } catch (err) {

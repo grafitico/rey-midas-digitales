@@ -60,10 +60,13 @@
     formato: (FORMATOS.find((f) => f.id === CFG.formatoInicial) || FORMATOS[FORMATOS.length - 1]).id,
     colocacion: COLOCACIONES[0].id,
     vista: "frente",
+    espalda: null, // id del arte de la espalda (null = el mismo del frente)
   };
   let estilo = "todos"; // filtro: todos | semitono | full
   const precioDe = (p, o = sel) => (p.archivo ? p.precio + (formatoDe(o.formato).extra || 0) + (colocacionDe(o.colocacion).extra || 0) : p.precio);
-  const camiseta = (p, o = sel) => T.camiseta(p, o);
+  // Arte de la espalda: otro arte elegido en las fichas flotantes (o el mismo)
+  const espaldaDe = (p, o) => (o.espalda && o.espalda !== p.id && o.colocacion !== "pecho" ? byId(o.espalda) : null);
+  const camiseta = (p, o = sel) => T.camiseta(p, { ...o, espaldaArchivo: espaldaDe(p, o)?.archivo });
   const sello = (p) => (p.archivo ? `<span class="sello ${p.semitono ? "semi" : "full"}">${p.semitono ? "SEMITONO" : "FULL COLOR"}</span>` : "");
   const imgFoto = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
   // Artes: dos caras (frente y espalda) que giran en 3D; brillo que las recorre al girar.
@@ -120,6 +123,29 @@
       </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
   }
+  // ---------- Fichas flotantes: elegir el arte de la espalda ----------
+  function pintarFichas() {
+    const p = lista[idx];
+    const artes = data.productos.filter((x) => x.archivo);
+    const box = $("#fichas");
+    box.hidden = !p?.archivo || artes.length < 2;
+    if (box.hidden) return;
+    const actual = espaldaDe(p, sel)?.id || null;
+    $("#fichasLista").innerHTML =
+      `<button class="ficha-arte mismo" data-e="" aria-pressed="${!actual}" style="--d:0s"><span class="fa-img">↺</span><span class="fa-n">Mismo arte</span></button>` +
+      artes.filter((x) => x.id !== p.id).map((x, i) => `<button class="ficha-arte" data-e="${esc(x.id)}" aria-pressed="${x.id === actual}" style="--d:${((i + 1) * 0.37) % 3}s"><span class="fa-img"><img src="${esc(x.archivo)}" alt="" draggable="false" loading="lazy"></span><span class="fa-n">${esc(x.nombre)}</span></button>`).join("");
+  }
+  $("#fichasLista").addEventListener("click", (e) => {
+    const b = e.target.closest(".ficha-arte");
+    if (!b) return;
+    sel.espalda = b.dataset.e || null;
+    if (sel.espalda && sel.colocacion === "pecho") { sel.colocacion = "ambas"; pintarPerso(); pintarPrecio(); }
+    repintarArtes();
+    pintarFichas();
+    if (sel.espalda || sel.colocacion !== "pecho") girar("espalda");
+    if (sel.espalda) toast(`Espalda: ${byId(sel.espalda)?.nombre}`);
+  });
+
   // Redibuja las camisetas con arte (al cambiar color, tamaño, colocación o lado).
   function repintarArtes() {
     document.querySelectorAll(".item").forEach((el) => {
@@ -254,6 +280,7 @@
     aplicarAcento(p);
     if (p.archivo) pintarPerso();
     pintarPrecio();
+    pintarFichas();
     pintarTallas(p);
     pintarGirar();
   }
@@ -401,13 +428,14 @@
   let carrito = [];
   try { carrito = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { carrito = []; }
   const guardar = () => { try { localStorage.setItem(KEY, JSON.stringify(carrito)); } catch {} };
-  const mismaLinea = (a, b) => a.id === b.id && a.talla === b.talla && a.color === b.color && a.formato === b.formato && a.colocacion === b.colocacion;
+  const mismaLinea = (a, b) => a.id === b.id && a.talla === b.talla && a.color === b.color && a.formato === b.formato && a.colocacion === b.colocacion && (a.espalda || null) === (b.espalda || null);
   const lineas = () => carrito.map((l) => ({ ...l, p: byId(l.id) })).filter((l) => l.p);
   const total = () => lineas().reduce((s, l) => s + precioDe(l.p, l) * l.qty, 0);
   const detalle = (l) => {
     if (!l.p.archivo) return `Talla ${etiquetaTalla(l.talla)}`;
     const f = formatoDe(l.formato);
-    return `Camiseta ${colorDe(l.color).nombre.toLowerCase()}, talla ${etiquetaTalla(l.talla)} · Arte ${f.nombre.toLowerCase()} (${f.ancho} × ${f.alto} cm) en ${colocacionDe(l.colocacion).nombre.toLowerCase()}`;
+    const esp = espaldaDe(l.p, l);
+    return `Camiseta ${colorDe(l.color).nombre.toLowerCase()}, talla ${etiquetaTalla(l.talla)} · Arte ${f.nombre.toLowerCase()} (${f.ancho} × ${f.alto} cm) en ${colocacionDe(l.colocacion).nombre.toLowerCase()}${esp ? ` · Espalda: ${esp.nombre}` : ""}`;
   };
 
   function pintarCarrito() {
@@ -424,9 +452,8 @@
       : '<li class="cart-empty">Tu carrito está vacío. ¡Selecciona una camiseta!</li>';
     const wa = $("#cartWa");
     if (ls.length) {
-      const sitio = location.origin.startsWith("http") ? location.origin : "https://searcade.reymidascr.com";
       const msg = "¡Hola SEARCADE! 👋 Quiero hacer este pedido:\n\n" +
-        ls.map((l) => `• ${l.qty}× ${l.p.nombre} (${l.p.id}) — ${fmt(precioDe(l.p, l) * l.qty)}\n   ${detalle(l)}${l.p.archivo ? `\n   Arte: ${sitio}/${l.p.archivo}` : ""}`).join("\n") +
+        ls.map((l) => { const esp = espaldaDe(l.p, l); return `• ${l.qty}× ${l.p.nombre} — ${fmt(precioDe(l.p, l) * l.qty)}\n   ${detalle(l)}\n   Código: ${l.p.id}${esp ? ` / espalda ${esp.id}` : ""}`; }).join("\n") +
         `\n\nTotal: ${fmt(total())}\n\nNombre:\nLugar de entrega:`;
       wa.href = waLink(msg);
       wa.removeAttribute("aria-disabled");
@@ -460,7 +487,7 @@
       return false;
     }
     const nueva = p.archivo
-      ? { id: p.id, talla, color: sel.color, formato: sel.formato, colocacion: sel.colocacion, qty: 1 }
+      ? { id: p.id, talla, color: sel.color, formato: sel.formato, colocacion: sel.colocacion, espalda: espaldaDe(p, sel)?.id || null, qty: 1 }
       : { id: p.id, talla, qty: 1 };
     const l = carrito.find((x) => mismaLinea(x, nueva));
     if (l) l.qty++; else carrito.push(nueva);
@@ -476,6 +503,12 @@
   document.querySelectorAll("dialog").forEach((d) => {
     d.addEventListener("click", (e) => { if (e.target === d || e.target.closest("[data-close]")) d.close(); });
   });
+
+  // Protección de los artes: sin "guardar imagen" (clic derecho / mantener
+  // presionado) ni arrastrar sobre camisetas y artes. Los archivos públicos ya
+  // son vistas previas chicas con marca de agua; el original es privado.
+  document.addEventListener("contextmenu", (e) => { if (e.target.closest(".tee, .comp, .zoom-photo, .zoom-thumbs, .fichas, .mini")) e.preventDefault(); });
+  document.addEventListener("dragstart", (e) => { if (e.target.closest?.(".comp, .fichas, .zoom-photo")) e.preventDefault(); });
 
   $("#customBtn").href = waLink("¡Hola SEARCADE! 👋 Quiero cotizar una camiseta personalizada con mi propio diseño.");
 

@@ -98,6 +98,7 @@
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
     const transparente = data.some((v, i) => i % 4 === 3 && v < 250);
     const semitono = transparente && detectarSemitono(c, x0, y0, w, h);
+    const vista = await hacerVista(c, x0, y0, w, h);
     let escala = Math.min(1, MAX_LADO / Math.max(w, h));
     for (let intento = 0; intento < 8; intento++) {
       const o = document.createElement("canvas");
@@ -108,7 +109,7 @@
       for (const q of [0.92, 0.85, 0.78]) {
         const blob = await new Promise((ok) => o.toBlob(ok, "image/webp", q));
         if (blob && blob.type === "image/webp" && blob.size <= MAX_BYTES) {
-          return { blob, url: URL.createObjectURL(blob), ancho: o.width, alto: o.height, transparente, semitono };
+          return { blob, vista, url: URL.createObjectURL(blob), ancho: o.width, alto: o.height, transparente, semitono };
         }
       }
       escala *= 0.8;
@@ -134,6 +135,39 @@
       }
     }
     return llenos > 0 && cambios / llenos > 0.12;
+  }
+  // Vista previa PÚBLICA: 800 px como máximo (a 28 cm son ~70 DPI, no sirve
+  // para imprimir) y marca de agua SEARCADE solo sobre el arte. El original
+  // para imprimir va a la carpeta privada y solo se baja desde este panel.
+  async function hacerVista(src, x0, y0, w, h) {
+    const k = Math.min(1, 800 / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(src, x0, y0, w, h, 0, 0, c.width, c.height);
+    ctx.globalCompositeOperation = "source-atop"; // la marca solo cae sobre el arte
+    ctx.globalAlpha = 0.13;
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 1;
+    const t = Math.max(16, Math.round(c.width / 14));
+    ctx.font = `900 italic ${t}px Kanit, Arial, sans-serif`;
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate(-Math.PI / 6);
+    const paso = t * 3.2, diag = Math.hypot(c.width, c.height);
+    for (let y = -diag; y < diag; y += paso) {
+      for (let x = -diag; x < diag; x += t * 7) {
+        const dx = x + ((y / paso) % 2 ? t * 3.5 : 0);
+        ctx.fillText("SEARCADE", dx, y);
+        ctx.strokeText("SEARCADE", dx, y);
+      }
+    }
+    for (const q of [0.82, 0.72, 0.6]) {
+      const blob = await new Promise((ok) => c.toBlob(ok, "image/webp", q));
+      if (blob && blob.size <= 300 * 1024) return blob;
+    }
+    return await new Promise((ok) => c.toBlob(ok, "image/webp", 0.5));
   }
   const aDataUrl = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
   const nombreDesde = (f) => f.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
@@ -193,7 +227,10 @@
     const el = document.querySelector(`.ficha[data-k="${p.key}"]`);
     el?.classList.add("subiendo");
     try {
-      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.blob) });
+      // 1) la vista previa pública, 2) el original a la carpeta privada
+      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
+      const r2 = await api({ action: "original", id: r.arte.id, imagen: await aDataUrl(p.blob) });
+      r.artes = r2.artes;
       quitar(p);
       pintarPendientes();
       pintarLista(r.artes);
@@ -234,10 +271,42 @@
 
   // ---------- Artes publicados ----------
   let filtro = "todos";
+  // Descargar el ORIGINAL (para imprimir); solo con sesión
+  async function descargar(id, b) {
+    b.disabled = true;
+    try {
+      const r = await api({ action: "descargar", id });
+      const a = document.createElement("a");
+      a.href = r.imagen; a.download = r.nombre;
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch (err) { toast(err.message); }
+    b.disabled = false;
+  }
+  // Artes subidos antes de la protección: arma su vista previa y manda el original a privado
+  async function proteger(a) {
+    const im = new Image();
+    im.src = `${a.archivo}?t=${Date.now()}`;
+    await im.decode();
+    const c = document.createElement("canvas");
+    c.width = im.naturalWidth; c.height = im.naturalHeight;
+    c.getContext("2d").drawImage(im, 0, 0);
+    const vista = await hacerVista(c, 0, 0, c.width, c.height);
+    pintarLista((await api({ action: "proteger", id: a.id, imagen: await aDataUrl(vista) })).artes);
+  }
+  $("#protegerTodos").addEventListener("click", async (e) => {
+    const b = e.target; b.disabled = true;
+    const sin = publicados.filter((a) => !a.protegido);
+    let ok = 0;
+    for (const a of sin) { try { await proteger(a); ok++; } catch (err) { toast(`${a.nombre}: ${err.message}`); } }
+    toast(`🔒 ${ok} de ${sin.length} artes protegidos`);
+    b.disabled = false;
+  });
+
   function pintarLista(artes) {
     if (artes) publicados = artes;
     const semis = publicados.filter((a) => a.semitono).length;
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
+    $("#protegerTodos").hidden = !publicados.some((a) => !a.protegido);
     const ver = publicados.filter((a) => filtro === "todos" || (filtro === "semitono") === !!a.semitono);
     $("#lista").innerHTML = ver.length ? ver.map((a) => `
       <div class="ficha" data-id="${esc(a.id)}">
@@ -247,7 +316,9 @@
         <label>Precio<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${a.precio ?? ""}" placeholder="${CFG.precioBase || 11000}"></label>
         ${campoSemi(a.semitono)}
         ${camposTexto(a)}
+        <p class="meta">Código: <b>${esc(a.id)}</b> · ${a.protegido ? "🔒 original protegido" : "⚠️ sin proteger"}</p>
         <div class="botones"><button class="adm-btn ghost" data-a="guardar">Guardar</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn danger" data-a="borrar">Borrar</button></div>
+        <div class="botones"><button class="adm-btn ghost" data-a="descargar">⬇ Original</button>${a.protegido ? "" : '<button class="adm-btn" data-a="proteger">🔒 Proteger</button>'}</div>
       </div>`).join("") : `<p class="vacio">${publicados.length ? "No hay artes de este tipo." : "Todavía no hay artes. Sube el primero arriba."}</p>`;
     $("#filtroLista").innerHTML = [["todos", "Todos"], ["semitono", "Semitono"], ["full", "Full color"]]
       .map(([id, n]) => `<button role="radio" aria-checked="${id === filtro}" data-v="${id}">${n}</button>`).join("");
@@ -266,6 +337,8 @@
     const id = f.dataset.id;
     const v = (k) => f.querySelector(`[data-f="${k}"]`);
     if (b.dataset.a === "comparar") return comparar(v("nombre").value, publicados.find((x) => x.id === id).archivo, v("semitono").checked);
+    if (b.dataset.a === "descargar") return descargar(id, b);
+    if (b.dataset.a === "proteger") { b.disabled = true; try { await proteger(publicados.find((x) => x.id === id)); toast("🔒 Arte protegido"); } catch (err) { b.disabled = false; toast(err.message); } return; }
     try {
       if (b.dataset.a === "borrar") {
         if (!confirm(`¿Borrar "${v("nombre").value}" de la tienda?`)) return;

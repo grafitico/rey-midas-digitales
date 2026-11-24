@@ -82,3 +82,6 @@ body.admin { padding-bottom: 40px; }
 .textos summary small { color: var(--muted); text-transform: none; letter-spacing: 0; }
 .textos[open] { display: grid; gap: 8px; padding-bottom: 10px; }
 .ficha textarea { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #0006; color: #fff; font: 500 14px Inter, sans-serif; resize: vertical; }
+
+.proteger-todos { margin: 0 0 12px; }
+.ficha .meta b { color: #fff; font-family: ui-monospace, monospace; font-weight: 600; }

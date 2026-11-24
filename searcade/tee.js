@@ -44,13 +44,15 @@
     return `<svg class="base" viewBox="0 0 200 210" aria-hidden="true"><path d="${SHIRT}" fill="${esc(c.hex)}" stroke="#2a2633" stroke-width="2" stroke-linejoin="round"/></svg>`;
   }
 
-  // Camiseta con el arte (p.archivo) puesto según o = { color, vista, formato, colocacion }.
+  // Camiseta con el arte (p.archivo) puesto según o = { color, vista, formato, colocacion, espaldaArchivo? }.
   function camiseta(p, o) {
     const vista = o.vista || "frente";
     let arte = "";
     if (lleva(o.colocacion, vista)) {
       const z = zonaArte(o.formato, vista);
-      arte = `<img class="print" src="${esc(p.archivo)}" alt="${esc(p.nombre || "")}" loading="lazy" draggable="false" style="left:${z.left}%;top:${z.top}%;width:${z.w}%;height:${z.h}%">`;
+      // La espalda puede llevar otro arte (o.espaldaArchivo)
+      const src = vista === "espalda" && o.espaldaArchivo ? o.espaldaArchivo : p.archivo;
+      arte = `<img class="print" src="${esc(src)}" alt="${esc(p.nombre || "")}" loading="lazy" draggable="false" style="left:${z.left}%;top:${z.top}%;width:${z.w}%;height:${z.h}%">`;
     }
     return `<span class="comp${cargadas.size ? "" : " sin-base"}" data-vista="${vista}">${baseHTML(o.color, vista)}${arte}</span>`;
   }
