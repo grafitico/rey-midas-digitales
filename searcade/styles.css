@@ -11,8 +11,9 @@
   --violet: #8b3dff;
   --yellow: #fbb51d;
   --wa: #25d366;
-  --tw: min(56vw, 250px);       /* ancho de la camiseta central */
-  --step: min(30vw, 150px);     /* separación entre camisetas */
+  /* ancho de la camiseta central: crece con la pantalla, sin pasarse del alto */
+  --tw: clamp(190px, min(56vw, 40vh), 340px);
+  --step-k: .56;               /* separación entre camisetas (× ancho) */
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
@@ -55,7 +56,7 @@ a { color: var(--cyan); }
   clip-path: inherit; box-shadow: inset 0 0 26px #8b3dff55; }
 
 /* ---------- Encabezado ---------- */
-.hud-top { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 14px 16px 0; max-width: 1280px; margin: 0 auto; }
+.hud-top { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 14px 16px 0; max-width: 1640px; margin: 0 auto; }
 .brand { display: flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
 .brand-mark { width: 52px; color: var(--amber); filter: drop-shadow(0 0 10px #fbb51d88); }
 .brand-word { width: 132px; color: #fff; }
@@ -77,7 +78,7 @@ a { color: var(--cyan); }
 .slogan b { color: var(--amber); text-shadow: 0 0 10px #fbb51d88; }
 
 /* ---------- Zona de juego ---------- */
-.arena { display: grid; gap: 14px; padding: 12px 16px 0; max-width: 1280px; margin: 0 auto; }
+.arena { display: grid; gap: 14px; padding: 12px 16px 0; max-width: 1640px; margin: 0 auto; }
 
 /* Categorías */
 .cats { display: flex; gap: 4px; overflow-x: auto; padding: 8px; scrollbar-width: none; --cut: 10px; }
@@ -89,12 +90,12 @@ a { color: var(--cyan); }
 .cat[aria-pressed="true"] svg { color: var(--cyan); filter: drop-shadow(0 0 6px var(--cyan)); }
 
 /* Escenario: perchero + carrusel */
-.stage { position: relative; overflow: hidden; height: calc(var(--tw) * 1.12 + 96px); perspective: 1100px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.stage { position: relative; overflow: hidden; height: calc(var(--tw) * 1.3 + 64px); perspective: 1100px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .rack { position: absolute; inset: 0 2% 18px; pointer-events: none; }
 .pipe { position: absolute; left: 0; right: 0; top: 22px; height: 12px; border-radius: 6px; background: linear-gradient(#cfd2e6, #5d5f78 60%, #2b2c3d); box-shadow: 0 4px 10px #000a, 0 0 18px #ff2e8833; }
 .post { position: absolute; top: 22px; bottom: 0; width: 12px; border-radius: 6px; background: linear-gradient(90deg, #2b2c3d, #9fa2bd 45%, #3a3b50); box-shadow: 0 0 14px #19e6ff44; }
 .post.l { left: 0; } .post.r { right: 0; }
-.podium { position: absolute; left: 50%; bottom: 24px; width: calc(var(--tw) * 1.15); height: 46px; transform: translateX(-50%); border-radius: 50%;
+.podium { position: absolute; left: 50%; top: calc(var(--tw) * 1.22 - 8px); width: calc(var(--tw) * 1.25); height: calc(var(--tw) * .16 + 14px); transform: translateX(-50%); border-radius: 50%;
   background: radial-gradient(closest-side, #ff2e88aa, #8b3dff66 55%, transparent 72%); box-shadow: 0 0 0 3px #19e6ffaa, 0 0 30px #ff2e88, inset 0 0 20px #19e6ff; }
 .podium span { position: absolute; inset: 8px 18%; border-radius: 50%; border: 2px solid #ff8fd8; box-shadow: 0 0 14px #ff2e88; animation: pulse 2.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .4; transform: scale(.92); } }
@@ -217,22 +218,31 @@ a { color: var(--cyan); }
 .look p { color: var(--muted); line-height: 1.5; }
 .look-btn { display: inline-block; padding: 14px 26px; color: #fff; text-decoration: none; font: 700 16px Rajdhani, sans-serif; letter-spacing: 2px; text-transform: uppercase; --line: linear-gradient(90deg, var(--amber), var(--pink)); }
 
+/* Celulares angostos: carrito compacto */
+@media (max-width: 420px) {
+  .cart-btn { padding: 8px 12px 8px 10px; gap: 12px; }
+  .cart-txt small { display: none; }
+  .cart-txt strong { font-size: 18px; }
+  .brand-mark { width: 44px; }
+  .brand-word { width: 112px; }
+}
+
 /* ---------- Escritorio ---------- */
 @media (min-width: 1000px) {
-  :root { --tw: 290px; --step: 205px; }
+  /* La pantalla de juego entra completa en el alto de la ventana */
+  :root { --tw: clamp(220px, min((100vh - 330px) / 1.3, (100vw - 520px) / 1.9), 470px); --step-k: .72; }
   body { padding-bottom: 0; }
   .hud-top { grid-template-columns: 1fr auto 1fr; padding-top: 18px; }
   .brand-mark { width: 74px; }
   .brand-word { width: 190px; }
   .title-plate { grid-column: 2; grid-row: 1; padding: 14px 34px; --cut: 18px; }
   .cart-btn { justify-self: end; }
-  .arena { grid-template-columns: 112px 1fr 300px; align-items: center; gap: 18px; padding-top: 8px; }
+  .arena { grid-template-columns: 112px 1fr clamp(280px, 22vw, 360px); align-items: center; gap: 18px; padding-top: 8px; }
   .cats { flex-direction: column; overflow: visible; padding: 10px 8px; --cut: 14px; }
   .cat { flex: none; padding: 12px 4px; }
   .cat svg { width: 32px; height: 32px; }
-  .stage { height: 520px; }
   .arrow.prev { left: 0; } .arrow.next { right: 0; }
-  .controls { position: relative; left: auto; right: auto; bottom: auto; max-width: 1000px; margin: 18px auto 0; }
+  .controls { position: relative; left: auto; right: auto; bottom: auto; max-width: min(1100px, 70vw); margin: 10px auto 0; }
   .ctl { padding: 16px 10px; font-size: 17px; gap: 12px; }
   .ctl svg { width: 34px; }
   .custom { margin: 40px auto 0; }

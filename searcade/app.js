@@ -89,7 +89,9 @@
   function mover(i, sinHash) {
     if (!lista.length) { renderInfo(null); return; }
     idx = (i + lista.length) % lista.length;
-    const step = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--step")) || 150;
+    // Separación proporcional al ancho real de la camiseta
+    const k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--step-k")) || 0.6;
+    const step = (document.querySelector(".item")?.offsetWidth || 220) * k;
     document.querySelectorAll(".item").forEach((el, j) => {
       let d = j - idx;
       // Camino más corto alrededor del carrusel
