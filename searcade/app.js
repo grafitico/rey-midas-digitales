@@ -66,7 +66,9 @@
   const camiseta = (p, o = sel) => T.camiseta(p, o);
   const sello = (p) => (p.archivo ? `<span class="sello ${p.semitono ? "semi" : "full"}">${p.semitono ? "SEMITONO" : "FULL COLOR"}</span>` : "");
   const imgFoto = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
-  const teeDe = (p, i) => (p.archivo ? camiseta(p) : imgFoto(p, p.imagen, "c" + i));
+  // Artes: dos caras (frente y espalda) que giran en 3D; brillo que las recorre al girar.
+  const caras = (p) => `<span class="cara frente">${camiseta(p, { ...sel, vista: "frente" })}<span class="brillo"></span></span><span class="cara espalda">${camiseta(p, { ...sel, vista: "espalda" })}<span class="brillo"></span></span>`;
+  const teeDe = (p, i) => (p.archivo ? caras(p) : imgFoto(p, p.imagen, "c" + i));
 
   const waLink = (texto) => `https://wa.me/${String(CFG.whatsapp || "").replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`;
   const byId = (id) => data.productos.find((p) => p.id === id);
@@ -114,7 +116,7 @@
     idx = Math.max(0, Math.min(start, lista.length - 1));
     $("#items").innerHTML = lista.length ? lista.map((p, i) => `
       <button class="item" data-i="${i}" style="--glow:${esc(p.arte?.tono || "#fbb51d")}" aria-label="${esc(p.nombre)}">
-        ${HOOK}<span class="tee">${teeDe(p, i)}</span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}
+        <span class="colgante">${HOOK}<span class="inclina"><span class="tee${p.archivo ? ` volteable${sel.vista === "espalda" ? " volteada" : ""}` : ""}">${teeDe(p, i)}</span></span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}</span>
       </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
   }
@@ -122,7 +124,7 @@
   function repintarArtes() {
     document.querySelectorAll(".item").forEach((el) => {
       const p = lista[+el.dataset.i];
-      if (p?.archivo) el.querySelector(".tee").innerHTML = camiseta(p);
+      if (p?.archivo) el.querySelector(".tee").innerHTML = caras(p);
     });
   }
 
@@ -162,6 +164,19 @@
     x0 = null;
     if (Math.abs(dx) > 40) { arrastre = true; mover(idx + (dx < 0 ? 1 : -1)); }
   });
+  // La camiseta del centro se inclina siguiendo el mouse (como un objeto real)
+  stage.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const c = document.querySelector(".item.is-center .inclina");
+    if (!c) return;
+    const r = stage.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+    c.style.setProperty("--ry", `${(x * 22).toFixed(1)}deg`);
+    c.style.setProperty("--rx", `${(-y * 10).toFixed(1)}deg`);
+  });
+  stage.addEventListener("pointerleave", () => {
+    document.querySelectorAll(".inclina").forEach((c) => { c.style.removeProperty("--ry"); c.style.removeProperty("--rx"); });
+  });
   $("#items").addEventListener("click", (e) => {
     const b = e.target.closest(".item");
     if (!b || arrastre) return;
@@ -180,9 +195,10 @@
   function girar(vista) {
     if (vista === sel.vista) return;
     sel.vista = vista;
-    const centro = document.querySelector(".item.is-center .tee");
-    centro?.classList.remove("girando"); void centro?.offsetWidth; centro?.classList.add("girando");
-    setTimeout(repintarArtes, 180); // a mitad del giro
+    document.querySelectorAll(".tee.volteable").forEach((t) => {
+      t.classList.toggle("volteada", vista === "espalda");
+      t.classList.remove("brillando"); void t.offsetWidth; t.classList.add("brillando");
+    });
     pintarGirar();
   }
   function pintarGirar() {
