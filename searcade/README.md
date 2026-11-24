@@ -5,9 +5,9 @@ Se publica sola en Banahosting con `.github/workflows/deploy-searcade.yml`
 cuando cambia algo en esta carpeta (en `main`).
 
 - `config.js`: número de WhatsApp de pedidos (y, en la fase 2, Supabase).
-- `productos.json`: categorías y productos. Campos de cada producto:
+- `productos.json`: categorías (pop, urbana, gamer, anime, verano) y productos. Campos de cada producto:
   `id`, `nombre`, `categoria`, `precio`, `tallas`, `descripcion`,
-  `imagen` (mockup PNG, ej. `img/productos/SC-001.png`), `fotos` (fotos con
+  `material`, `imagen` (mockup PNG, ej. `img/productos/SC-001.png`), `fotos` (fotos con
   modelo), `nuevo`, `arte` (texto y color de la camiseta de muestra que se
   dibuja mientras no haya `imagen`).
 - `img/productos/`: los PNG de mockups y fotos.
