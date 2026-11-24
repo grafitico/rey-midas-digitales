@@ -50,7 +50,16 @@
       ${lineas.map((l, i) => `<text x="100" y="${y0 + i * 18}" text-anchor="middle" font-family="Kanit, sans-serif" font-style="italic" font-weight="900" font-size="${l.length > 8 ? 14 : 17}" fill="url(#${id}g)" stroke="#0b0614" stroke-width="3" paint-order="stroke">${esc(l)}</text>`).join("")}
     </svg>`;
   }
-  const imgOr = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
+  // Camiseta en blanco + arte en la zona del pecho (los artes subidos desde el panel).
+  const Z = CFG.zona || { x: 31, y: 27, ancho: 38, alto: 48 };
+  let baseOk = false;
+  const teeBase = () => (baseOk ? `<img class="base" src="${esc(CFG.camisetaBase)}" alt="" draggable="false">`
+    : `<svg class="base" viewBox="0 0 200 210" aria-hidden="true"><path d="${SHIRT}" fill="#121016" stroke="#2a2633" stroke-width="2" stroke-linejoin="round"/><path d="M88 8 Q100 22 112 8" fill="none" stroke="#2a2633" stroke-width="3"/></svg>`);
+  const estampada = (p) => `<span class="comp${baseOk ? "" : " sin-base"}">${teeBase()}<img class="print" src="${esc(p.archivo)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false" style="left:${Z.x}%;top:${Z.y}%;width:${Z.ancho}%;height:${Z.alto}%"></span>`;
+  const imgOr = (p, src, uid) => {
+    if (p.archivo && (src === undefined || src === p.archivo || src === "comp")) return src === p.archivo ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" class="solo-arte" draggable="false">` : estampada(p);
+    return src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid);
+  };
   const waLink = (texto) => `https://wa.me/${String(CFG.whatsapp || "").replace(/\D/g, "")}?text=${encodeURIComponent(texto)}`;
   const byId = (id) => data.productos.find((p) => p.id === id);
 
@@ -81,7 +90,7 @@
     idx = Math.max(0, Math.min(start, lista.length - 1));
     $("#items").innerHTML = lista.length ? lista.map((p, i) => `
       <button class="item" data-i="${i}" style="--glow:${esc(p.arte?.tono || "#ff2e88")}" aria-label="${esc(p.nombre)}">
-        ${HOOK}<span class="tee">${imgOr(p, p.imagen, "c" + i)}${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}</span>
+        ${p.archivo && baseOk ? "" : HOOK}<span class="tee">${imgOr(p, p.archivo ? "comp" : p.imagen, "c" + i)}${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}</span>
       </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
   }
@@ -162,7 +171,7 @@
     const p = lista[idx];
     if (!p) return;
     // Si todavía no hay mockup, abre directo en las fotos con modelo
-    let fotos = [p.imagen, ...(p.fotos || [])].filter(Boolean);
+    let fotos = p.archivo ? ["comp", p.archivo] : [p.imagen, ...(p.fotos || [])].filter(Boolean);
     if (!fotos.length) fotos = [""];
     $("#zoomTitle").textContent = p.nombre;
     const ver = (src) => { $("#zoomPhoto").innerHTML = imgOr(p, src, "z") + (src ? "" : '<span class="slot">Espacio para mockup / foto con modelo (PNG)</span>'); };
@@ -194,7 +203,7 @@
     $("#cartTotal").textContent = fmt(total());
     $("#cartSum").textContent = fmt(total());
     $("#cartList").innerHTML = ls.length ? ls.map((l, i) => `
-      <li><span class="mini">${imgOr(l.p, l.p.imagen, "k" + i)}</span>
+      <li><span class="mini">${imgOr(l.p, l.p.archivo ? "comp" : l.p.imagen, "k" + i)}</span>
         <span><span class="nm">${esc(l.p.nombre)}</span><br><span class="meta">Talla ${esc(l.talla)} · ${fmt(l.p.precio)}</span></span>
         <span class="qty"><button data-k="${i}" data-d="-1" aria-label="Quitar uno">−</button><b>${l.qty}</b><button data-k="${i}" data-d="1" aria-label="Agregar uno">+</button></span></li>`).join("")
       : '<li class="cart-empty">Tu carrito está vacío. ¡Selecciona una camiseta!</li>';
@@ -277,10 +286,30 @@
   }
   addEventListener("resize", () => mover(idx, true));
 
-  fetch("productos.json", { cache: "no-cache" })
-    .then((r) => r.json())
-    .then((d) => {
-      data = d;
+  // Artes subidos desde el panel → camisetas listas para el perchero.
+  const desdeArte = (a) => ({
+    id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo,
+    precio: a.precio || CFG.precioBase || 11000,
+    tallas: CFG.tallas || ["S", "M", "L", "XL", "XXL"],
+    descripcion: CFG.descripcionArte || "", material: "Algodón premium",
+    arte: { tono: "#fbb51d" },
+  });
+  const cargarJSON = (u) => fetch(u, { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const probarBase = () => new Promise((ok) => {
+    if (!CFG.camisetaBase) return ok(false);
+    const im = new Image();
+    im.onload = () => { document.documentElement.style.setProperty("--base-ar", `${im.naturalWidth} / ${im.naturalHeight}`); ok(true); };
+    im.onerror = () => ok(false);
+    im.src = CFG.camisetaBase;
+  });
+
+  Promise.all([cargarJSON("productos.json"), cargarJSON(`artes/artes.json?t=${Date.now()}`), probarBase()])
+    .then(([d, a, base]) => {
+      if (!d) throw new Error("sin catálogo");
+      baseOk = base;
+      const artes = (a?.artes || []).map(desdeArte);
+      // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan mockup propio).
+      data = { categorias: d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
       renderCats();
       armar(0);
       desdeHash();

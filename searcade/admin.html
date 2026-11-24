@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>SEARCADE — Panel de artes</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Kanit:ital,wght@1,800;1,900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin">
+  <div class="bg" aria-hidden="true"><span class="glow g1"></span><span class="glow g2"></span></div>
+
+  <header class="adm-top">
+    <a class="adm-brand" href="./"><img src="img/marca/logo-icono.svg" alt="" width="44"><span>Panel de artes</span></a>
+    <a class="adm-link" href="./" target="_blank" rel="noopener">Ver tienda ↗</a>
+  </header>
+
+  <main class="adm">
+    <p class="adm-estado" id="estado">Revisando tu sesión…</p>
+
+    <section class="adm-login cut" id="login" hidden>
+      <h2>Inicia sesión como administrador</h2>
+      <p>El panel usa tu cuenta de admin de Rey Midas. Entra en reymidascr.com con tu cuenta, luego vuelve aquí y toca "Ya inicié sesión".</p>
+      <div class="adm-row">
+        <a class="adm-btn" href="https://reymidascr.com/" target="_blank" rel="noopener">Abrir reymidascr.com</a>
+        <button class="adm-btn ghost" id="reintentar">Ya inicié sesión</button>
+      </div>
+    </section>
+
+    <section id="panel" hidden>
+      <label class="drop cut" id="drop">
+        <input type="file" id="archivos" accept="image/png,image/webp" multiple hidden>
+        <strong>Toca para elegir artes</strong>
+        <span>o arrástralos aquí · PNG con fondo transparente · puedes elegir varios</span>
+      </label>
+
+      <div class="pendientes" id="pendientes"></div>
+      <div class="adm-row" id="accionesPend" hidden>
+        <button class="adm-btn" id="subirTodos">Subir todos</button>
+        <button class="adm-btn ghost" id="limpiar">Descartar</button>
+      </div>
+
+      <h2 class="adm-h">Artes publicados <small id="cuenta"></small></h2>
+      <div class="lista" id="lista"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

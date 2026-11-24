@@ -14,4 +14,15 @@ cuando cambia algo en esta carpeta (en `main`).
 
 Enlace directo a una ficha: `https://searcade.reymidascr.com/#SC-001`.
 
-Pendiente: Supabase + panel admin; probador con cámara (MediaPipe Pose).
+## Panel de artes (`admin.html`)
+
+`searcade.reymidascr.com/admin.html`, con la sesión de admin de reymidascr.com.
+Se suben PNG/WebP (el navegador recorta el borde transparente, achica a 1400 px
+y pasa a WebP de menos de 700 KB); la API `api/searcade.js` los guarda en
+`~/searcade.reymidascr.com/artes/` con el índice `artes.json`. La tienda lee ese
+índice y estampa cada arte sobre la camiseta base (`config.js`: `camisetaBase`
+y `zona`). Con artes publicados, los productos de ejemplo dibujados se ocultan.
+`searcade/artes/` está en `.gitignore`: esos archivos viven solo en el hosting
+y el deploy por FTP no los toca.
+
+Pendiente: probador con cámara (MediaPipe Pose).
