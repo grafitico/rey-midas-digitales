@@ -62,7 +62,7 @@ window.SEARCADE_CONFIG = {
     cmAncho: 1.2586, cmAlto: 1.2316,
     pecho: { top: 23.5 },                  // ~8 cm bajo el cuello, centrado
     pechoIzquierdo: { centro: 61.3, top: 21.5 },
-    espalda: { top: 15 },                  // ~8 cm bajo el cuello de atrás
+    espalda: { top: 16.1 },                // ~8 cm bajo el cuello de atrás (foto real de espalda)
     espaldaArriba: { top: 9 },
     etiqueta: { src: "img/marca/etiqueta.webp", x: 46.77, y: 6.33, ancho: 7.03, alto: 4.56 },
   },
