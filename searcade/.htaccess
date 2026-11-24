@@ -8,6 +8,11 @@ RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Enlaces copiados con un punto o coma al final ("admin.html.") → sin él
+RewriteRule ^(.*?)[.,;:]+$ /$1 [L,R=301]
+# Dirección corta del panel
+RewriteRule ^admin/?$ /admin.html [L,R=302]
+
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
   Header set Referrer-Policy "strict-origin-when-cross-origin"
