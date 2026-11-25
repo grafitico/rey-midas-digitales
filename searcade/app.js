@@ -166,7 +166,7 @@
     lista = data.productos.filter((p) => (filtro === "todas" || p.categoria === filtro) && (estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono)));
     idx = Math.max(0, Math.min(start, lista.length - 1));
     $("#items").innerHTML = lista.length ? lista.map((p, i) => `
-      <button class="item" data-i="${i}" style="--glow:${esc(p.arte?.tono || "#fbb51d")}" aria-label="${esc(p.nombre)}">
+      <button class="item" data-i="${i}" style="--glow:${esc(p.archivo ? "#19e6ffaa" : p.arte?.tono || "#19e6ffaa")}" aria-label="${esc(p.nombre)}">
         <span class="colgante">${HOOK}<span class="inclina"><span class="tee${p.archivo ? ` volteable${ladoDe(i) === "espalda" ? " volteada" : ""}` : ""}">${teeDe(p, i)}</span></span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}</span>
       </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
@@ -660,6 +660,108 @@
   if ("IntersectionObserver" in window) {
     new IntersectionObserver(([e]) => document.body.classList.toggle("sin-controles", !e.isIntersecting), { rootMargin: "0px 0px -15% 0px" }).observe($("#stage"));
   }
+
+  // ---------- Partículas y energía del escenario ----------
+  // Partículas que flotan hacia arriba, destellos que titilan y trazos de
+  // energía azul/violeta que giran alrededor de la plataforma. Se pausa con
+  // la pestaña oculta o el escenario fuera de pantalla; con "menos
+  // movimiento" queda un cuadro quieto.
+  (() => {
+    const cv = $("#energia");
+    if (!cv?.getContext) return;
+    const ctx = cv.getContext("2d");
+    const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const COL = ["#19e6ff", "#3d7bff", "#6d4bff", "#a64dff", "#ff2e88"];
+    const azar = (a, b) => a + Math.random() * (b - a);
+    let W = 0, H = 0, parts = [], trazos = [], enPantalla = true, raf = 0, ultimo = 0;
+
+    const particula = (p = {}, arriba) => Object.assign(p, {
+      x: azar(0, W), y: arriba ? azar(0, H) : H + azar(0, 40), r: azar(0.5, 2.1),
+      vy: -azar(8, 34), vx: azar(-8, 8), c: COL[(Math.random() * COL.length) | 0],
+      f: azar(0, 6.28), vf: azar(1.5, 4), destello: Math.random() < 0.14,
+    });
+    // Trazo: arco elíptico alrededor del centro de la plataforma que avanza
+    // dejando una estela. Vive unos segundos y se desvanece.
+    const trazo = () => ({
+      cx: W / 2 + azar(-W * 0.05, W * 0.05), cy: H * azar(0.5, 0.88),
+      rx: W * azar(0.22, 0.46), ry: H * azar(0.05, 0.13), a: azar(0, 6.28),
+      va: azar(0.9, 1.7) * (Math.random() < 0.5 ? -1 : 1), cola: azar(0.9, 1.7),
+      vida: 0, dura: azar(2.6, 4.6), c: COL[(Math.random() * COL.length) | 0], g: azar(1.6, 3),
+    });
+    function medir() {
+      const r = cv.getBoundingClientRect();
+      if (!r.width) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = r.width; H = r.height;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const n = Math.round(Math.min(110, Math.max(36, (W * H) / 7000)));
+      parts = Array.from({ length: n }, () => particula({}, true));
+      trazos = Array.from({ length: W < 600 ? 3 : 5 }, () => { const t = trazo(); t.vida = azar(0, t.dura); return t; });
+    }
+    function dibujar(dt) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "lighter";
+      // Trazos de energía
+      for (let i = 0; i < trazos.length; i++) {
+        const t = trazos[i];
+        t.vida += dt; t.a += t.va * dt;
+        if (t.vida > t.dura) { trazos[i] = trazo(); continue; }
+        const fade = Math.min(1, t.vida / 0.6, (t.dura - t.vida) / 0.8);
+        // Estela en 6 tramos que se apagan hacia la cola (halo ancho + línea fina)
+        const tramos = 6, dir = Math.sign(t.va);
+        ctx.strokeStyle = t.c; ctx.lineCap = "round";
+        for (let k = 0; k < tramos; k++) {
+          const a0 = t.a - dir * (t.cola * k) / tramos, a1 = t.a - dir * (t.cola * (k + 1)) / tramos;
+          const al = fade * (1 - k / tramos);
+          ctx.beginPath();
+          ctx.ellipse(t.cx, t.cy, t.rx, t.ry, 0, Math.min(a0, a1), Math.max(a0, a1));
+          ctx.globalAlpha = al * 0.28; ctx.lineWidth = t.g * 6; ctx.stroke();
+          ctx.globalAlpha = al; ctx.lineWidth = t.g; ctx.stroke();
+        }
+        // Chispa en la punta
+        const hx = t.cx + Math.cos(t.a) * t.rx, hy = t.cy + Math.sin(t.a) * t.ry;
+        ctx.globalAlpha = fade; ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(hx, hy, t.g * 1.1, 0, 6.283); ctx.fill();
+      }
+      // Partículas y destellos
+      for (const p of parts) {
+        p.y += p.vy * dt; p.x += p.vx * dt + Math.sin(p.f) * 0.15; p.f += p.vf * dt;
+        if (p.y < -10 || p.x < -10 || p.x > W + 10) particula(p);
+        const brillo = 0.45 + 0.55 * Math.abs(Math.sin(p.f));
+        const alto = Math.min(1, (H - p.y) / (H * 0.25) + 0.2, p.y / (H * 0.2));
+        ctx.globalAlpha = Math.max(0, brillo * alto);
+        ctx.fillStyle = p.c;
+        if (p.r > 1.4) { ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.6, 0, 6.283); ctx.globalAlpha *= 0.25; ctx.fill(); ctx.globalAlpha = Math.max(0, brillo * alto); }
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
+        if (p.destello && brillo > 0.8) {
+          const l = p.r * 5 * brillo;
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.moveTo(p.x - l, p.y); ctx.lineTo(p.x + l, p.y); ctx.moveTo(p.x, p.y - l); ctx.lineTo(p.x, p.y + l); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+    function cuadro(ts) {
+      raf = 0;
+      const dt = Math.min(0.05, ultimo ? (ts - ultimo) / 1000 : 0.016);
+      ultimo = ts;
+      dibujar(dt);
+      seguir();
+    }
+    function seguir() {
+      if (!raf && enPantalla && !document.hidden && !quieto) raf = requestAnimationFrame(cuadro);
+    }
+    medir();
+    if (quieto) { dibujar(0.016); return; }
+    addEventListener("resize", () => { medir(); });
+    document.addEventListener("visibilitychange", () => { ultimo = 0; seguir(); });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(([e]) => { enPantalla = e.isIntersecting; ultimo = 0; seguir(); }).observe(cv);
+    }
+    seguir();
+  })();
 
   // ---------- Lookbook: fotos que el dueño sube desde el panel ----------
   function pintarLookbook(fotos) {

@@ -98,10 +98,15 @@ a { color: var(--cyan); }
 .pipe { position: absolute; left: 0; right: 0; top: 22px; height: 12px; border-radius: 6px; background: linear-gradient(#cfd2e6, #5d5f78 60%, #2b2c3d); box-shadow: 0 4px 10px #000a, 0 0 18px #ff2e8833; }
 .post { position: absolute; top: 22px; bottom: 0; width: 12px; border-radius: 6px; background: linear-gradient(90deg, #2b2c3d, #9fa2bd 45%, #3a3b50); box-shadow: 0 0 14px #19e6ff44; }
 .post.l { left: 0; } .post.r { right: 0; }
-.podium { position: absolute; z-index: 1; left: 50%; top: calc(var(--tw) * 1.22 - 8px); width: calc(var(--tw) * 1.25); height: calc(var(--tw) * .16 + 14px); transform: translateX(-50%); border-radius: 50%;
-  background: radial-gradient(closest-side, #ff2e88aa, #8b3dff66 55%, transparent 72%); box-shadow: 0 0 0 3px #19e6ffaa, 0 0 30px #ff2e88, inset 0 0 20px #19e6ff; }
-.podium span { position: absolute; inset: 8px 18%; border-radius: 50%; border: 2px solid var(--acento); box-shadow: 0 0 14px var(--acento); animation: pulse 2.2s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .4; transform: scale(.92); } }
+/* Plataforma holográfica (img/marca/plataforma.webp): el disco queda bajo la
+   camiseta del centro y el haz de luz sube detrás de ella. */
+.podium { position: absolute; z-index: 1; left: 50%; top: calc(var(--tw) * .57); width: calc(var(--tw) * 1.7); transform: translateX(-50%); pointer-events: none; }
+.plataforma { display: block; width: 100%; height: auto; animation: plataforma 3.2s ease-in-out infinite alternate; -webkit-user-drag: none; user-select: none; will-change: opacity; }
+@keyframes plataforma { from { opacity: .82; } to { opacity: 1; } }
+/* Destello que respira en el centro del disco */
+.nucleo { position: absolute; left: 50%; top: 76%; width: 34%; height: 12%; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(closest-side, #ffffffaa, #19e6ff66 35%, #8b3dff33 65%, transparent); animation: nucleo 2.4s ease-in-out infinite; will-change: transform, opacity; }
+@keyframes nucleo { 50% { opacity: .45; transform: translate(-50%, -50%) scale(.82); } }
 
 .items { position: absolute; inset: 0; transform-style: preserve-3d; }
 .item { position: absolute; left: 50%; top: 8px; width: var(--tw); margin-left: calc(var(--tw) / -2); padding: 0; border: 0; background: none; cursor: pointer; transition: transform .75s cubic-bezier(.22,1.25,.36,1), opacity .5s, filter .5s; -webkit-tap-highlight-color: transparent; }
@@ -239,7 +244,7 @@ a { color: var(--cyan); }
 .comp .print { position: absolute; object-fit: contain; object-position: 50% 0; mix-blend-mode: normal; filter: saturate(1.05) contrast(1.03); }
 .item .tee .comp img.base, .item .tee .comp svg.base { filter: drop-shadow(0 12px 18px #000d); aspect-ratio: auto; }
 .item .tee .comp img.print { filter: saturate(1.05) contrast(1.03); aspect-ratio: auto; height: auto; }
-.item.is-center .tee .comp img.base { filter: drop-shadow(0 0 26px color-mix(in srgb, var(--acento) 70%, transparent)) drop-shadow(0 14px 20px #000); }
+.item.is-center .tee .comp img.base { filter: drop-shadow(0 0 26px color-mix(in srgb, color-mix(in srgb, var(--acento) 30%, #19e6ff) 60%, transparent)) drop-shadow(0 14px 20px #000); }
 .zoom-photo .comp { width: 92%; }
 .zoom-photo .comp img, .zoom-photo .comp svg { width: auto; height: auto; }
 .zoom-photo .comp .base { width: 100%; height: 100%; }
@@ -266,10 +271,13 @@ a { color: var(--cyan); }
   filter: blur(8px); opacity: .8; animation: haz 7s ease-in-out infinite alternate; }
 @keyframes haz { from { opacity: .55; } to { opacity: .95; } }
 .niebla { position: absolute; left: -20%; right: -20%; height: 45%; bottom: 0; border-radius: 50%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--acento) 28%, transparent), transparent);
+  background: radial-gradient(closest-side, color-mix(in srgb, color-mix(in srgb, var(--acento) 25%, #5a3dff) 32%, transparent), transparent);
   filter: blur(24px); animation: niebla 16s ease-in-out infinite alternate; }
 .niebla.n2 { bottom: 12%; height: 30%; opacity: .7; animation-duration: 22s; animation-direction: alternate-reverse; }
 @keyframes niebla { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+/* Partículas, destellos y trazos de energía (canvas animado en app.js) */
+/* Delante de la plataforma (z 1) y detrás de las camisetas (z 2, van después) */
+.energia { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; }
 .lluvia { position: absolute; inset: -20% 0 0; opacity: .22;
   background: repeating-linear-gradient(100deg, transparent 0 22px, #ffffff 22px 23px, transparent 23px 61px);
   -webkit-mask: linear-gradient(transparent, #000 30%, #000 70%, transparent); mask: linear-gradient(transparent, #000 30%, #000 70%, transparent);
@@ -331,6 +339,7 @@ a { color: var(--cyan); }
 .look-dots button[aria-current="true"] { background: var(--acento); box-shadow: 0 0 10px var(--acento); }
 
 /* Lema grande detrás de las camisetas (cambia con cada arte) */
+.lema[hidden] { display: none; }
 .lema { position: absolute; z-index: 0; left: 2%; right: 2%; top: 3%; margin: 0; pointer-events: none; text-align: center;
   font: 400 clamp(34px, 7vw, 110px) / .9 "Permanent Marker", Kanit, sans-serif; text-transform: uppercase; letter-spacing: 1px;
   color: transparent; -webkit-text-stroke: 1.5px color-mix(in srgb, var(--acento) 70%, transparent);
