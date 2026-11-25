@@ -67,8 +67,45 @@
     <section class="stage" id="stage" aria-roledescription="carrusel" aria-label="Camisetas">
       <p class="lema" id="lema" aria-hidden="true" hidden></p>
       <div class="ambiente" aria-hidden="true"><span class="niebla n1"></span><span class="niebla n2"></span><span class="piso"></span><canvas class="energia" id="energia"></canvas></div>
-      <div class="rack" aria-hidden="true"><span class="pipe"></span><span class="post l"></span><span class="post r"></span></div>
-      <div class="podium" aria-hidden="true"><img class="plataforma" src="img/marca/plataforma.webp" alt="" width="1100" height="536" draggable="false"><span class="nucleo"></span></div>
+      <div class="rack" aria-hidden="true"><svg class="marco-svg" id="marcoSvg"><defs><linearGradient id="mBorde" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#a64dff"/><stop offset=".22" stop-color="#2b56ff"/><stop offset=".5" stop-color="#19e6ff"/><stop offset=".78" stop-color="#2b56ff"/><stop offset="1" stop-color="#a64dff"/></linearGradient><linearGradient id="mInt" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#19e6ff" stop-opacity=".7"/><stop offset=".5" stop-color="#7b3dff" stop-opacity=".55"/><stop offset="1" stop-color="#19e6ff" stop-opacity=".7"/></linearGradient></defs><path class="m-halo"/><path class="m-borde"/><path class="m-int"/></svg><span class="marco-pestana l"></span><span class="marco-pestana r"></span><span class="marco-luz"></span><span class="marco-barrido"></span><span class="marco-placa"></span><span class="marco-acento l"></span><span class="marco-acento r"></span></div>
+      <div class="podium" aria-hidden="true"><svg class="tarima" viewBox="0 0 400 170" preserveAspectRatio="xMidYMax meet">
+        <defs>
+          <radialGradient id="tPiso" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#7b3dff" stop-opacity=".55"/><stop offset=".55" stop-color="#2b56ff" stop-opacity=".18"/><stop offset="1" stop-color="#2b56ff" stop-opacity="0"/></radialGradient>
+          <linearGradient id="tMetal" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#06041a"/><stop offset=".16" stop-color="#1a1540"/><stop offset=".46" stop-color="#3b3478"/><stop offset=".62" stop-color="#262058"/><stop offset=".86" stop-color="#140f33"/><stop offset="1" stop-color="#06041a"/></linearGradient>
+          <linearGradient id="tSombra" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".10"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient>
+          <radialGradient id="tCara" cx="50%" cy="42%" r="60%"><stop offset="0" stop-color="#2a2366"/><stop offset=".6" stop-color="#130e33"/><stop offset="1" stop-color="#0a0720"/></radialGradient>
+          <radialGradient id="tNucleo"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".3" stop-color="#19e6ff" stop-opacity=".7"/><stop offset=".7" stop-color="#7b3dff" stop-opacity=".25"/><stop offset="1" stop-color="#7b3dff" stop-opacity="0"/></radialGradient>
+          <linearGradient id="tHaz" x1="0" x2="0" y1="1" y2="0"><stop offset="0" stop-color="#19e6ff" stop-opacity=".30"/><stop offset=".6" stop-color="#7b3dff" stop-opacity=".08"/><stop offset="1" stop-color="#7b3dff" stop-opacity="0"/></linearGradient>
+        </defs>
+        <!-- reflejo en el piso -->
+        <ellipse class="t-piso" cx="200" cy="140" rx="200" ry="30" fill="url(#tPiso)"/>
+        <!-- nivel de abajo -->
+        <path d="M14 108 L14 132 A186 34 0 0 0 386 132 L386 108 A186 34 0 0 1 14 108 Z" fill="url(#tMetal)"/>
+        <path d="M14 108 L14 132 A186 34 0 0 0 386 132 L386 108 A186 34 0 0 1 14 108 Z" fill="url(#tSombra)"/>
+        <path class="t-led" d="M14 121 A186 34 0 0 0 386 121" fill="none" stroke="#19e6ff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 9"/>
+        <path d="M14 132 A186 34 0 0 0 386 132" fill="none" stroke="#a64dff" stroke-width="7" stroke-opacity=".22"/>
+        <path d="M14 132 A186 34 0 0 0 386 132" fill="none" stroke="#c77dff" stroke-width="1.6"/>
+        <ellipse cx="200" cy="108" rx="186" ry="34" fill="url(#tCara)"/>
+        <ellipse cx="200" cy="108" rx="186" ry="34" fill="none" stroke="#7b3dff" stroke-width="6" stroke-opacity=".25"/>
+        <ellipse cx="200" cy="108" rx="186" ry="34" fill="none" stroke="#a64dff" stroke-width="1.4"/>
+        <ellipse class="t-gira t-lento" cx="200" cy="108" rx="166" ry="30" fill="none" stroke="#2b8cff" stroke-width="1.2" stroke-dasharray="14 10 3 10" stroke-opacity=".7"/>
+        <!-- haz suave detrás de la camiseta -->
+        <path class="t-haz" d="M86 86 L314 86 L262 -40 L138 -40 Z" fill="url(#tHaz)"/>
+        <!-- nivel de arriba -->
+        <path d="M66 86 L66 104 A134 24 0 0 0 334 104 L334 86 A134 24 0 0 1 66 86 Z" fill="url(#tMetal)"/>
+        <path d="M66 86 L66 104 A134 24 0 0 0 334 104 L334 86 A134 24 0 0 1 66 86 Z" fill="url(#tSombra)"/>
+        <path class="t-led t-led2" d="M66 95 A134 24 0 0 0 334 95" fill="none" stroke="#ff2e88" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 8"/>
+        <path d="M66 104 A134 24 0 0 0 334 104" fill="none" stroke="#19e6ff" stroke-width="5" stroke-opacity=".25"/>
+        <path d="M66 104 A134 24 0 0 0 334 104" fill="none" stroke="#19e6ff" stroke-width="1.2"/>
+        <ellipse cx="200" cy="86" rx="134" ry="24" fill="url(#tCara)"/>
+        <ellipse cx="200" cy="86" rx="134" ry="24" fill="none" stroke="#19e6ff" stroke-width="6" stroke-opacity=".28"/>
+        <ellipse cx="200" cy="86" rx="134" ry="24" fill="none" stroke="#5ff3ff" stroke-width="1.6"/>
+        <!-- anillos holográficos que giran -->
+        <ellipse class="t-gira" cx="200" cy="86" rx="112" ry="20" fill="none" stroke="#19e6ff" stroke-width="1.4" stroke-dasharray="30 8 6 8"/>
+        <ellipse class="t-gira t-reves" cx="200" cy="86" rx="84" ry="15" fill="none" stroke="#a64dff" stroke-width="2" stroke-dasharray="18 12"/>
+        <ellipse class="t-gira" cx="200" cy="86" rx="56" ry="10" fill="none" stroke="#5ff3ff" stroke-width="1" stroke-dasharray="4 6"/>
+        <ellipse class="t-nucleo" cx="200" cy="86" rx="64" ry="12" fill="url(#tNucleo)"/>
+      </svg></div>
       <div class="items" id="items"></div>
       <button class="arrow prev cut" id="prev" aria-label="Camiseta anterior"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <button class="arrow next cut" id="next" aria-label="Camiseta siguiente"><svg viewBox="0 0 24 24"><path d="m9 4 8 8-8 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>

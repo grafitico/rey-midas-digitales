@@ -661,6 +661,25 @@
     new IntersectionObserver(([e]) => document.body.classList.toggle("sin-controles", !e.isIntersecting), { rootMargin: "0px 0px -15% 0px" }).observe($("#stage"));
   }
 
+  // ---------- Marco del perchero: borde con esquinas en diagonal a la medida ----------
+  (() => {
+    const svg = $("#marcoSvg");
+    if (!svg) return;
+    const forma = (w, h, x, c, cb) => `M${x + c} ${x} H${w - x - c} L${w - x} ${x + c} V${h - x - cb} L${w - x - cb} ${h - x} H${x + cb} L${x} ${h - x - cb} V${x + c} Z`;
+    const dibujar = () => {
+      const r = svg.getBoundingClientRect();
+      if (!r.width) return;
+      const w = r.width, h = r.height, c = Math.min(26, w * 0.05);
+      svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      svg.querySelector(".m-halo").setAttribute("d", forma(w, h, 3, c, 12));
+      svg.querySelector(".m-borde").setAttribute("d", forma(w, h, 3, c, 12));
+      svg.querySelector(".m-int").setAttribute("d", forma(w, h, 13, Math.max(8, c - 8), 6));
+    };
+    dibujar();
+    if ("ResizeObserver" in window) new ResizeObserver(dibujar).observe(svg);
+    else addEventListener("resize", dibujar);
+  })();
+
   // ---------- Partículas y energía del escenario ----------
   // Partículas que flotan hacia arriba, destellos que titilan y trazos de
   // energía azul/violeta que giran alrededor de la plataforma. Se pausa con

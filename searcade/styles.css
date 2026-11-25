@@ -94,19 +94,53 @@ a { color: var(--cyan); }
 
 /* Escenario: perchero + carrusel */
 .stage { position: relative; overflow: hidden; height: calc(var(--tw) * 1.3 + 64px); perspective: 1100px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-.rack { position: absolute; inset: 0 2% 18px; pointer-events: none; }
-.pipe { position: absolute; left: 0; right: 0; top: 22px; height: 12px; border-radius: 6px; background: linear-gradient(#cfd2e6, #5d5f78 60%, #2b2c3d); box-shadow: 0 4px 10px #000a, 0 0 18px #ff2e8833; }
-.post { position: absolute; top: 22px; bottom: 0; width: 12px; border-radius: 6px; background: linear-gradient(90deg, #2b2c3d, #9fa2bd 45%, #3a3b50); box-shadow: 0 0 14px #19e6ff44; }
-.post.l { left: 0; } .post.r { right: 0; }
-/* Plataforma holográfica (img/marca/plataforma.webp): el disco queda bajo la
-   camiseta del centro y el haz de luz sube detrás de ella. */
-.podium { position: absolute; z-index: 1; left: 50%; top: calc(var(--tw) * .57); width: calc(var(--tw) * 1.7); transform: translateX(-50%); pointer-events: none; }
-.plataforma { display: block; width: 100%; height: auto; animation: plataforma 3.2s ease-in-out infinite alternate; -webkit-user-drag: none; user-select: none; will-change: opacity; }
-@keyframes plataforma { from { opacity: .82; } to { opacity: 1; } }
-/* Destello que respira en el centro del disco */
-.nucleo { position: absolute; left: 50%; top: 76%; width: 34%; height: 12%; transform: translate(-50%, -50%); border-radius: 50%;
-  background: radial-gradient(closest-side, #ffffffaa, #19e6ff66 35%, #8b3dff33 65%, transparent); animation: nucleo 2.4s ease-in-out infinite; will-change: transform, opacity; }
-@keyframes nucleo { 50% { opacity: .45; transform: translate(-50%, -50%) scale(.82); } }
+/* Marco tecnológico (reemplaza el tubo del perchero): esquinas en diagonal,
+   borde de neón azul/violeta, luz que recorre la barra de arriba (de ahí
+   cuelgan los ganchos) y placa violeta abajo al centro. Todo en CSS. */
+.rack { position: absolute; inset: 22px 1.2% 8px; pointer-events: none; --c: 26px; --g: 8px; }
+/* Resplandor fijo (sin filtros: así la animación no recalcula sombras) */
+.rack::before { content: ""; position: absolute; inset: 2px; border-radius: 14px;
+  box-shadow: 0 0 22px #2b8cff55, 0 0 40px #7b3dff33, inset 0 0 26px #2b8cff33; }
+/* El borde se dibuja en SVG (app.js ajusta el trazo al tamaño): las esquinas en diagonal quedan cerradas en cualquier pantalla */
+.marco-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.marco-svg path { fill: none; stroke-linejoin: miter; }
+.m-halo { stroke: #2b8cff; stroke-width: 12; stroke-opacity: .22; }
+.m-borde { stroke: url(#mBorde); stroke-width: 6; }
+.m-int { stroke: url(#mInt); stroke-width: 1.5; }
+/* Escalones de la barra de arriba, como en un HUD */
+.marco-pestana { position: absolute; top: -5px; width: 22%; height: 6px; background: linear-gradient(90deg, #7b3dff, #19e6ff); }
+.marco-pestana.l { left: var(--c); clip-path: polygon(0 100%, 0 0, 92% 0, 100% 100%); }
+.marco-pestana.r { right: var(--c); clip-path: polygon(0 100%, 8% 0, 100% 0, 100% 100%); background: linear-gradient(90deg, #19e6ff, #7b3dff); }
+/* Foco de luz en el centro de la barra (respira) */
+.marco-luz { position: absolute; left: 50%; top: -10px; width: 34%; height: 28px; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(closest-side, #ffffff, #19e6ff 35%, #2b56ff66 65%, transparent); opacity: .85; animation: marcoLuz 2.8s ease-in-out infinite; }
+@keyframes marcoLuz { 50% { opacity: .45; } }
+/* Destello que recorre la barra de lado a lado */
+.marco-barrido { position: absolute; left: 0; top: -1px; width: 14%; height: 4px; background: linear-gradient(90deg, transparent, #ffffffee, transparent);
+  animation: marcoBarrido 4.5s cubic-bezier(.5, 0, .5, 1) infinite; }
+@keyframes marcoBarrido { from { transform: translateX(-10%); } to { transform: translateX(720%); } }
+/* Placa abajo al centro y acentos violeta en los lados */
+.marco-placa { position: absolute; left: 50%; bottom: -5px; width: 26%; height: 6px; transform: translateX(-50%);
+  clip-path: polygon(0 0, 100% 0, 96% 100%, 4% 100%); background: linear-gradient(90deg, #a64dff, #ff2e88 30%, #19e6ff 50%, #ff2e88 70%, #a64dff); }
+.marco-acento { position: absolute; bottom: 12%; width: 5px; height: 26%; background: linear-gradient(#ff2e88, #a64dff); border-radius: 3px; animation: marcoLuz 3.4s ease-in-out infinite; }
+.marco-acento.l { left: 1px; } .marco-acento.r { right: 1px; animation-delay: -1.7s; }
+/* Tarima 3D (SVG en index.html): pedestal de dos niveles de metal oscuro con
+   bordes de neón, anillos holográficos que giran, LEDs que corren por el
+   costado y reflejo en el piso. La cara de arriba queda bajo la camiseta. */
+.podium { position: absolute; z-index: 1; left: 50%; top: calc(var(--tw) * .8); width: calc(var(--tw) * 1.5); transform: translateX(-50%); pointer-events: none; }
+.tarima { display: block; width: 100%; height: auto; overflow: visible; }
+.tarima .t-gira { animation: tGira 9s linear infinite; }
+.tarima .t-reves { animation-direction: reverse; animation-duration: 6s; }
+.tarima .t-lento { animation-duration: 24s; }
+@keyframes tGira { to { stroke-dashoffset: -400; } }
+.tarima .t-led { animation: tLed 1.6s linear infinite; }
+.tarima .t-led2 { animation-duration: 2.2s; animation-direction: reverse; }
+@keyframes tLed { to { stroke-dashoffset: -40; } }
+.tarima .t-nucleo { transform-box: fill-box; transform-origin: center; animation: tNucleo 2.6s ease-in-out infinite; }
+@keyframes tNucleo { 50% { opacity: .5; transform: scale(.8); } }
+.tarima .t-haz { animation: tHaz 4s ease-in-out infinite alternate; }
+@keyframes tHaz { from { opacity: .55; } to { opacity: 1; } }
+.tarima .t-piso { animation: tHaz 3.4s ease-in-out infinite alternate-reverse; }
 
 .items { position: absolute; inset: 0; transform-style: preserve-3d; }
 .item { position: absolute; left: 50%; top: 8px; width: var(--tw); margin-left: calc(var(--tw) / -2); padding: 0; border: 0; background: none; cursor: pointer; transition: transform .75s cubic-bezier(.22,1.25,.36,1), opacity .5s, filter .5s; -webkit-tap-highlight-color: transparent; }
@@ -142,7 +176,7 @@ a { color: var(--cyan); }
   -webkit-mask: url(img/marca/camiseta-blanca.webp) center / 100% 100% no-repeat; mask: url(img/marca/camiseta-blanca.webp) center / 100% 100% no-repeat; }
 .tee.brillando .brillo { animation: barrer 1.1s ease-out; }
 @keyframes barrer { 0% { opacity: 0; background-position: -150% 0; } 25% { opacity: 1; } 100% { opacity: 0; background-position: 150% 0; } }
-.counter { position: absolute; z-index: 25; left: 0; right: 0; bottom: 2px; margin: 0; text-align: center; font: 700 12px Rajdhani, sans-serif; letter-spacing: 2px; color: var(--muted); }
+.counter { position: absolute; z-index: 25; left: 0; right: 0; bottom: 18px; margin: 0; text-align: center; font: 700 12px Rajdhani, sans-serif; letter-spacing: 2px; color: var(--muted); }
 .empty { position: absolute; inset: 40% 0 auto; text-align: center; color: var(--muted); }
 
 /* Ficha lateral */

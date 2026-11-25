@@ -71,3 +71,8 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   un diseño, sus fotos quedan como banners.
 - "Arma tu espalda" es POR camiseta (`sel.espaldas`): elegir una ficha cambia
   solo la camiseta seleccionada, y "Ver espalda" gira solo esa.
+- Escenario (25/11/2026): tarima 3D en SVG dentro de `index.html` (`.tarima`:
+  dos niveles, anillos que giran, LEDs, reflejo) y marco del perchero en SVG
+  (`#marcoSvg`, el trazo lo ajusta `app.js` al tamaño para que las esquinas en
+  diagonal cierren). Partículas y energía en el canvas `#energia`. Nada de eso
+  usa imágenes ni filtros animados (rendimiento en teléfonos).
