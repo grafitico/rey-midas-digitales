@@ -106,8 +106,13 @@
   migrations/add_cuenta_codigos.sql); solo el admin los ve (Admin → Cuentas →
   🔑). Cada venta recibe 2 libres (`codigos_entregar`) y el cliente ve solo esos
   en Mis compras; "＋ Entregar 1 código más" en el editor de la venta. Estados:
-  libre, entregado, expuesto (un cliente los vio cuando se copiaban todos) y
+  libre, entregado, usado, expuesto (un cliente los vio cuando se copiaban todos) y
   anulado (set nuevo de Sony). Nunca volver a copiar todos los códigos a una venta.
+  Sony acepta cada código UNA vez (25/11/2026): el cliente toca "Ya lo usé" en
+  Mis compras (acción `codigo-usado`), el código sale de su compra y recibe otro
+  libre, hasta `TOPE_POR_VENTA` (5) por venta; el admin puede marcar/deshacer en
+  la bóveda (`codigos-marcar`). Al cargar un set nuevo se anulan también los
+  entregados sin usar y cada venta recibe automáticamente sus códigos nuevos.
 - **Ranking de embajadores (23/11/2026):** `api/ranking.js` + `api/_ranking.js`,
   migrations/add_ranking.sql (tabla `ranking_eventos`, `app_users.referido_por`).
   Enlace ?r=RM0083 → la tienda guarda cookie `rmd_ref` y avisa la visita. Puntos:

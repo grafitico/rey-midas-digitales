@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { registrarCompra } from "./_ranking.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
-import { CODIGOS_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas } from "./_codigos.js";
+import { CODIGOS_POR_VENTA, TOPE_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas, codigosDeVenta, reponerUsado, desmarcarUsado } from "./_codigos.js";
 import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel, catchAllActivo, CATCHALL_LOCAL } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
@@ -57,6 +57,8 @@ export default async function handler(req, res) {
     if (body.action === "codigos-guardar") return await codigosGuardar(req, res, body);
     if (body.action === "codigos-entregar") return await codigosEntregar(req, res, body);
     if (body.action === "codigos-migrar") return await codigosMigrar(req, res, body);
+    if (body.action === "codigo-usado") return await codigoUsado(req, res, body);
+    if (body.action === "codigos-marcar") return await codigosMarcar(req, res, body);
     return res.status(400).json({ error: "Acción desconocida" });
   } catch (err) {
     handleError(res, err);
@@ -172,6 +174,7 @@ async function create(req, res, body) {
     if (dados.length) await sb(`purchases?id=eq.${ventaId}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: encryptSecret(dados.join("\n")) }) });
     await guardarBoveda(boveda.cuenta.id, boveda.lista);
     await aplicarRecortes(boveda.recortes); // recién con la bóveda guardada
+    await sincronizarVentas(boveda.reasignadas, boveda.lista);
     codigos = { entregados: dados.length, ...resumenBoveda(boveda.lista) };
   }
   // Ranking: si el cliente llegó invitado por otro, +50 al que lo invitó.
@@ -197,8 +200,8 @@ async function prepararBoveda(acc, body) {
   }
   let lista = leerBoveda(cuenta), recortes = [];
   if (!lista) ({ lista, recortes } = sembrarDesdeVentas(await ventasDeCuenta(acc)));
-  if (nuevos.length) cargarSet(lista, nuevos, "reemplazar");
-  return { cuenta, lista, recortes };
+  const reasignadas = nuevos.length ? cargarSet(lista, nuevos, "reemplazar").reasignadas : [];
+  return { cuenta, lista, recortes, reasignadas };
 }
 
 let bovedaOk = false;
@@ -206,6 +209,17 @@ async function bovedaDisponible() {
   if (bovedaOk) return;
   await sb(`cuentas?select=codigos&limit=1`);
   bovedaOk = true;
+}
+
+// Ventas cuyos códigos cambiaron en la bóveda (set nuevo de Sony): cada una
+// queda con sus vigentes. Va DESPUÉS de guardar la bóveda y de los recortes.
+async function sincronizarVentas(reasignadas, lista) {
+  for (const r of reasignadas || []) {
+    const v = (await sb(`purchases?id=eq.${r.venta}&select=id,verifier_codes`))[0];
+    if (!v) continue;
+    const cods = codigosDeVenta(decryptSecret(v.verifier_codes) || "", lista, r.venta);
+    await sb(`purchases?id=eq.${r.venta}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: cods.length ? encryptSecret(cods.join("\n")) : null }) });
+  }
 }
 
 // Ventas de clientes reales que tenían todos los códigos: quedan con los suyos.
@@ -806,10 +820,15 @@ async function codigosGuardar(req, res, body) {
   return conBoveda(async () => {
     const b = await bovedaDe(email);
     if (!b) return res.status(404).json({ error: "Esa cuenta no está registrada: registrala primero en Cuentas." });
-    const n = cargarSet(b.lista, nuevos, body.modo === "agregar" ? "agregar" : "reemplazar");
+    const { agregados, reasignadas } = cargarSet(b.lista, nuevos, body.modo === "agregar" ? "agregar" : "reemplazar");
     await guardarBoveda(b.cuenta.id, b.lista);
     await aplicarRecortes(b.recortes);
-    res.status(200).json({ ok: true, agregados: n, resumen: resumenBoveda(b.lista) });
+    await sincronizarVentas(reasignadas, b.lista);
+    res.status(200).json({
+      ok: true, agregados, resumen: resumenBoveda(b.lista),
+      clientes_actualizados: reasignadas.filter(r => r.dados).length,
+      clientes_sin_codigos: reasignadas.filter(r => r.faltan).length,
+    });
   });
 }
 
@@ -834,6 +853,59 @@ async function codigosEntregar(req, res, body) {
     await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: encryptSecret([...base, ...dados].join("\n")) }) });
     // Al admin se le devuelven para mostrarlos; al asistente no.
     res.status(200).json({ ok: true, entregados: dados.length, ...(staff.admin ? { codigos: dados } : {}), resumen: resumenBoveda(b.lista) });
+  });
+}
+
+// Cliente: "Ya lo usé". Los códigos de Sony sirven UNA vez: el usado sale de
+// su compra y recibe otro libre (hasta TOPE_POR_VENTA en total). Devuelve la
+// lista nueva de SUS códigos, que el cliente ya tiene derecho a ver.
+async function codigoUsado(req, res, body) {
+  const user = await requireAuth(req);
+  const id = String(body.purchase_id || "");
+  const codigo = String(body.codigo || "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !/^[A-Za-z0-9-]{4,20}$/.test(codigo)) return res.status(400).json({ error: "Datos inválidos" });
+  const v = (await sb(`purchases?id=eq.${id}&user_id=eq.${user.id}&select=id,account_email,verifier_codes,app_users(customer_number)`))[0];
+  if (!v) return res.status(404).json({ error: "No encontramos esa compra." });
+  const actuales = parseCodigos(decryptSecret(v.verifier_codes) || "");
+  if (!actuales.includes(codigo)) return res.status(404).json({ error: "Ese código ya no está en tu compra. Recargá la página." });
+  return conBoveda(async () => {
+    const b = await bovedaDe(String(v.account_email || "").trim().toLowerCase());
+    let r = { ok: false, repuestos: 0, motivo: null };
+    if (b) {
+      await aplicarRecortes(b.recortes);
+      r = reponerUsado(b.lista, codigo, id, v.app_users?.customer_number);
+      if (r.ok) await guardarBoveda(b.cuenta.id, b.lista);
+    }
+    // Sin bóveda (o código que la bóveda no conoce): solo sale de la compra.
+    const lista = b?.lista || [];
+    const base = b?.recortes.find(x => x.venta === id)?.codigos ?? actuales;
+    const cods = codigosDeVenta(base.filter(c => c !== codigo).join("\n"), lista, id);
+    await sb(`purchases?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ verifier_codes: cods.length ? encryptSecret(cods.join("\n")) : null }) });
+    console.log(`[codigos] venta ${id}: usado 1, repuestos ${r.repuestos}${r.motivo ? ` (${r.motivo})` : ""}`);
+    res.status(200).json({ ok: true, codigos: cods, repuestos: r.repuestos, motivo: r.motivo, tope: TOPE_POR_VENTA });
+  });
+}
+
+// Admin: marcar un código como usado (y reponer) o deshacerlo (vuelve a la
+// venta que lo tenía).
+async function codigosMarcar(req, res, body) {
+  await requireAdmin(req);
+  const email = String(body.account_email || "").trim().toLowerCase();
+  const codigo = String(body.codigo || "").trim();
+  if (!email || !codigo) return res.status(400).json({ error: "Faltan la cuenta o el código" });
+  return conBoveda(async () => {
+    const b = await bovedaDe(email);
+    if (!b) return res.status(404).json({ error: "Esa cuenta no está registrada." });
+    const x = b.lista.find(y => y.c === codigo);
+    if (!x?.venta) return res.status(404).json({ error: "Ese código no está entregado a ninguna venta." });
+    let r = { ok: false };
+    if (body.estado === "usado") r = reponerUsado(b.lista, codigo, x.venta, x.rm);
+    else if (body.estado === "entregado") r = { ok: desmarcarUsado(b.lista, codigo) };
+    if (!r.ok) return res.status(409).json({ error: "Ese código no se puede cambiar a ese estado." });
+    await guardarBoveda(b.cuenta.id, b.lista);
+    await aplicarRecortes(b.recortes);
+    await sincronizarVentas([{ venta: x.venta }], b.lista);
+    res.status(200).json({ ok: true, repuestos: r.repuestos || 0, motivo: r.motivo || null, codigos: b.lista, resumen: resumenBoveda(b.lista) });
   });
 }
 

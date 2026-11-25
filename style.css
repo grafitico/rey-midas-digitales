@@ -5981,3 +5981,13 @@ html { scroll-behavior: smooth; }
   .rk-insert, .rk-crown, .rk-step, .rk-row { animation: none; }
 }
 .rk-prizes li p { margin: 0; }
+
+/* Códigos de verificación del cliente (uno por fila, "Ya lo usé") */
+.pc-codes-hint { margin: 0 0 .35rem; font-size: .85rem; color: var(--text-dim); }
+.pc-codes-list { list-style: none; margin: 0 0 .4rem; padding: 0; display: grid; gap: .35rem; }
+.pc-codes-list li { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.pc-codes-list .pc-value { flex: 1 1 7rem; }
+.pc-cod-usado { white-space: nowrap; }
+.pc-codes > [data-codes-reveal] { justify-self: start; }
+.cod-table tr.cod-usado { opacity: .55; }
+.cod-table tr.cod-usado td:nth-child(2) { text-decoration: line-through; }

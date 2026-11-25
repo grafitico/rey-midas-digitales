@@ -6960,7 +6960,7 @@ function purchaseCardHTML(p, open = false) {
         <div class="pc-fields">
           ${field("Correo de la cuenta", p.account_email)}
           ${field("Contraseña", p.account_password || "", { secret: true })}
-          ${codes.length ? field(`Códigos de verificación (${codes.length})`, codes.join("\n"), { secret: true }) : ""}
+          ${codes.length ? codigosClienteHTML(p.id, codes) : ""}
         </div>
         ${otherGames.length ? `<div class="pc-games"><span class="pc-label">También incluye</span><ul>${otherGames.map(g => `<li>${escapeHtml(g)}</li>`).join("")}</ul></div>` : ""}
         ${p.notes ? `<p class="pc-notes">${escapeHtml(p.notes)}</p>` : ""}
@@ -6970,6 +6970,57 @@ function purchaseCardHTML(p, open = false) {
     </details>
   `;
 }
+
+// Códigos de verificación del cliente: Sony acepta cada uno UNA sola vez.
+// "Ya lo usé" lo saca de la compra y trae otro (api/purchases.js codigo-usado).
+function codigosClienteHTML(ventaId, codes) {
+  return `
+    <div class="pc-field pc-codes" data-venta="${escapeAttr(ventaId)}">
+      <span class="pc-label">Códigos de verificación (${codes.length})</span>
+      <p class="pc-codes-hint">Cada código sirve <b>una sola vez</b>. Cuando uses uno, tocá <b>Ya lo usé</b> y te damos otro.</p>
+      <ul class="pc-codes-list">
+        ${codes.map(c => `<li>
+          <code class="pc-value is-secret" data-value="${escapeAttr(c)}">••••••</code>
+          <button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(c)}" aria-label="Copiar código">${COPY_ICON}<span>Copiar</span></button>
+          <button type="button" class="pc-btn pc-cod-usado" data-cod-usado="${escapeAttr(c)}">Ya lo usé</button>
+        </li>`).join("")}
+      </ul>
+      <button type="button" class="pc-btn" data-codes-reveal>Mostrar códigos</button>
+    </div>`;
+}
+document.addEventListener("click", async (e) => {
+  const rev = e.target.closest("[data-codes-reveal]");
+  if (rev) {
+    const box = rev.closest(".pc-codes");
+    const show = !box.classList.contains("is-shown");
+    box.classList.toggle("is-shown", show);
+    box.querySelectorAll(".pc-value").forEach(v => { v.textContent = show ? v.dataset.value : "••••••"; v.classList.toggle("is-secret", !show); });
+    rev.textContent = show ? "Ocultar códigos" : "Mostrar códigos";
+    return;
+  }
+  const b = e.target.closest("[data-cod-usado]");
+  if (!b) return;
+  const box = b.closest(".pc-codes");
+  const codigo = b.dataset.codUsado;
+  if (!confirm(`¿Ya usaste el código ${codigo}? Sony no lo acepta dos veces: lo sacamos de tu lista y te damos otro.`)) return;
+  b.disabled = true;
+  try {
+    const r = await apiPost("/api/purchases", { action: "codigo-usado", purchase_id: box.dataset.venta, codigo });
+    const shown = box.classList.contains("is-shown");
+    const tmp = document.createElement("div");
+    tmp.innerHTML = r.codigos.length ? codigosClienteHTML(box.dataset.venta, r.codigos) : `<div class="pc-field pc-codes"><span class="pc-label">Códigos de verificación</span><p class="pc-codes-hint">Ya no te quedan códigos. Escribinos por WhatsApp y te ayudamos.</p></div>`;
+    const nuevo = tmp.firstElementChild;
+    box.replaceWith(nuevo);
+    if (shown && r.codigos.length) nuevo.querySelector("[data-codes-reveal]").click();
+    showToast(r.repuestos ? "Listo: te dimos un código nuevo ✓"
+      : r.motivo === "tope" ? "Listo. Ya recibiste el máximo de códigos: si necesitás otro, escribinos por WhatsApp."
+      : r.motivo === "sin-libres" ? "Listo. Estamos generando códigos nuevos para esta cuenta: escribinos por WhatsApp si lo necesitás ya."
+      : "Listo ✓", r.repuestos || !r.motivo ? "success" : "error");
+  } catch (err) {
+    b.disabled = false;
+    showToast(err.message || "No se pudo marcar el código", "error");
+  }
+});
 
 // Mostrar/ocultar contraseña y códigos; copiar con botón.
 document.addEventListener("click", (e) => {
@@ -9717,7 +9768,7 @@ function invCodigosChip(a) {
     title="${warn ? "Quedan pocos: generá un set nuevo en Sony y cargalo acá" : "Ver y cargar los códigos de la cuenta"}">${escapeHtml(txt)}</button>`;
 }
 
-const COD_ESTADOS = { libre: "Libre", entregado: "Entregado", expuesto: "Expuesto", anulado: "Anulado" };
+const COD_ESTADOS = { libre: "Libre", entregado: "Entregado", usado: "Usado", expuesto: "Expuesto", anulado: "Anulado" };
 async function openCodigosModal(email) {
   let modal = document.getElementById("codigosModal");
   if (!modal) {
@@ -9733,14 +9784,17 @@ async function openCodigosModal(email) {
       <tr class="cod-${escapeAttr(x.e)}">
         <td><code>${escapeHtml(x.c)}</code></td>
         <td>${escapeHtml(COD_ESTADOS[x.e] || x.e)}</td>
-        <td>${x.rm ? escapeHtml(fmtClientId(x.rm)) : ""}${x.f ? ` · ${escapeHtml(x.f)}` : ""}</td>
-        <td>${x.e === "libre" ? `<button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(x.c)}">${COPY_ICON}<span>Copiar</span></button>` : ""}</td>
+        <td>${x.rm ? escapeHtml(fmtClientId(x.rm)) : ""}${x.f ? ` · ${escapeHtml(x.f)}` : ""}${x.fu ? ` · usado ${escapeHtml(x.fu)}` : ""}</td>
+        <td>${x.e === "libre" ? `<button type="button" class="pc-btn pc-copy" data-copy-value="${escapeAttr(x.c)}">${COPY_ICON}<span>Copiar</span></button>`
+          : x.e === "entregado" ? `<button type="button" class="pc-btn" data-cod-marcar="usado" data-cod="${escapeAttr(x.c)}" title="El cliente lo usó: sale de su compra y recibe otro">Marcar usado</button>`
+          : x.e === "usado" ? `<button type="button" class="pc-btn" data-cod-marcar="entregado" data-cod="${escapeAttr(x.c)}" title="Se marcó por error: vuelve a la compra del cliente">Deshacer</button>` : ""}</td>
       </tr>`).join("");
     modal.innerHTML = `
       <h3>🔑 Códigos de ${escapeHtml(email)}</h3>
       <p class="field-hint">Solo vos ves esta lista. Cada venta recibe 2 libres y el cliente ve únicamente los suyos.
-        <b>Expuesto</b>: un cliente lo vio cuando se copiaban todos (no se vuelve a dar). <b>Anulado</b>: Sony lo invalidó al generar un set nuevo.</p>
+        <b>Usado</b>: el cliente tocó "Ya lo usé" (Sony los acepta una vez) y recibió otro, hasta 5 por venta. <b>Expuesto</b>: un cliente lo vio cuando se copiaban todos (no se vuelve a dar). <b>Anulado</b>: Sony lo invalidó al generar un set nuevo; al cargar el set nuevo, cada cliente recibe sus códigos nuevos solo.</p>
       <p><span class="inv-chip is-free">${r.libres || 0} libres</span> <span class="inv-chip">${r.entregados || 0} entregados</span>
+        ${r.usados ? `<span class="inv-chip">${r.usados} usados</span>` : ""}
         ${r.expuestos ? `<span class="inv-chip">${r.expuestos} expuestos</span>` : ""} ${r.anulados ? `<span class="inv-chip">${r.anulados} anulados</span>` : ""}</p>
       ${(r.libres || 0) <= 2 ? `<p class="form-status error">Quedan pocos códigos libres: generá un set nuevo en Sony (Seguridad → Verificación en dos pasos → Códigos de respaldo) y pegalo abajo.</p>` : ""}
       ${filas ? `<div class="cod-table-wrap"><table class="cod-table"><thead><tr><th>Código</th><th>Estado</th><th>Cliente</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>` : `<p>Esta cuenta todavía no tiene códigos cargados.</p>`}
@@ -9757,17 +9811,29 @@ async function openCodigosModal(email) {
     modal.querySelectorAll("[data-copy-value]").forEach(b => b.addEventListener("click", () => {
       navigator.clipboard?.writeText(b.dataset.copyValue).then(() => showToast("Código copiado")).catch(() => {});
     }));
+    modal.querySelectorAll("[data-cod-marcar]").forEach(b => b.addEventListener("click", async () => {
+      const usado = b.dataset.codMarcar === "usado";
+      if (usado && !confirm(`¿Marcar ${b.dataset.cod} como usado? Sale de la compra del cliente y, si hay libres, recibe otro.`)) return;
+      b.disabled = true;
+      try {
+        const r2 = await apiPost("/api/purchases", { action: "codigos-marcar", account_email: email, codigo: b.dataset.cod, estado: b.dataset.codMarcar });
+        invMarkStale();
+        pintar(r2, usado ? (r2.repuestos ? "✓ Marcado usado: el cliente recibió otro código." : r2.motivo === "tope" ? "✓ Marcado usado. Esa venta ya recibió el máximo (5): no se le dio otro." : r2.motivo === "sin-libres" ? "✓ Marcado usado. No quedan libres: cargá un set nuevo." : "✓ Marcado usado.") : "✓ Volvió a la compra del cliente.");
+      } catch (err) { b.disabled = false; showToast(err.message, "error"); }
+    }));
     modal.querySelector("#codGuardar").addEventListener("click", async () => {
       const st = modal.querySelector("#codStatus");
       const texto = modal.querySelector("#codNuevos").value;
       const agregar = modal.querySelector("#codAgregar").checked;
       if (!texto.trim()) { st.textContent = "Pegá los códigos primero."; st.className = "form-status error"; return; }
-      if (!agregar && !confirm("Los códigos libres anteriores quedan ANULADOS (Sony los invalida al generar un set nuevo). ¿Seguir?")) return;
+      if (!agregar && !confirm("Todos los códigos anteriores sin usar quedan ANULADOS (Sony los invalida al generar un set nuevo), también los que tienen los clientes: cada cliente recibe sus códigos nuevos automáticamente. ¿Seguir?")) return;
       st.textContent = "Guardando..."; st.className = "form-status";
       try {
         const r2 = await apiPost("/api/purchases", { action: "codigos-guardar", account_email: email, codigos: texto, modo: agregar ? "agregar" : "reemplazar" });
         invMarkStale();
-        await cargar(`✓ ${r2.agregados} ${r2.agregados === 1 ? "código nuevo" : "códigos nuevos"} guardados.`);
+        await cargar(`✓ ${r2.agregados} ${r2.agregados === 1 ? "código nuevo" : "códigos nuevos"} guardados.`
+          + (r2.clientes_actualizados ? ` ${r2.clientes_actualizados} ${r2.clientes_actualizados === 1 ? "cliente recibió" : "clientes recibieron"} sus códigos nuevos.` : "")
+          + (r2.clientes_sin_codigos ? ` ⚠️ A ${r2.clientes_sin_codigos} no les alcanzó: cargá más.` : ""));
       } catch (err) { st.textContent = err.message; st.className = "form-status error"; }
     });
   };

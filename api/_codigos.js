@@ -4,13 +4,21 @@
 // un JSON cifrado (ACCOUNT_SECRET). Cada venta recibe pocos códigos (2 por
 // defecto) y el cliente ve solo esos en "Mis compras". Estados de cada código:
 //   libre      → se puede entregar
-//   entregado  → se le dio a una venta (venta, rm, fecha)
+//   entregado  → se le dio a una venta (venta, rm, fecha) y sigue sirviendo
+//   usado      → el cliente (o el admin) avisó que ya lo usó: Sony los
+//                acepta UNA sola vez, así que sale de su compra y, si no
+//                pasó el tope, le llega otro libre (reponerUsado)
 //   expuesto   → un cliente lo vio antes de la bóveda (cuando se le copiaban
 //                todos): no se vuelve a entregar
-//   anulado    → Sony lo invalidó al generar un set nuevo
+//   anulado    → Sony lo invalidó al generar un set nuevo (los que tenían
+//                los clientes también: cargarSet les da los nuevos)
 import { sb, encryptSecret, decryptSecret } from "./_lib.js";
 
 export const CODIGOS_POR_VENTA = 2;
+// Máximo de códigos que una venta recibe en total (los 2 iniciales + los que
+// se reponen al marcar "Ya lo usé"). Pasado el tope, el cliente escribe por
+// WhatsApp: así nadie vacía la bóveda que comparten las 5 ventas de la cuenta.
+export const TOPE_POR_VENTA = 5;
 export const CLIENTE_EXCEL_EMAIL = "ventas-anteriores@reymidascr.com";
 
 // La columna todavía no existe (migración sin correr).
@@ -47,11 +55,12 @@ export function leerBoveda(cuenta) {
 }
 
 export function resumenBoveda(lista) {
-  const r = { libres: 0, entregados: 0, expuestos: 0, anulados: 0, total: 0 };
+  const r = { libres: 0, entregados: 0, usados: 0, expuestos: 0, anulados: 0, total: 0 };
   for (const x of lista || []) {
     r.total++;
     if (x.e === "libre") r.libres++;
     else if (x.e === "entregado") r.entregados++;
+    else if (x.e === "usado") r.usados++;
     else if (x.e === "expuesto") r.expuestos++;
     else if (x.e === "anulado") r.anulados++;
   }
@@ -79,16 +88,68 @@ export function asignar(lista, n, { venta, rm }) {
   return dados;
 }
 
-// Set nuevo de Sony: los códigos viejos quedan anulados (Sony los invalida) y
-// los nuevos entran como libres. Con modo "agregar" solo suma los nuevos.
+// Set nuevo de Sony: TODOS los códigos viejos que no se usaron quedan
+// anulados (Sony los invalida), también los que tenían los clientes, y los
+// nuevos entran como libres. A cada venta que se quedó sin sus códigos se le
+// entregan otros tantos del set nuevo (reasignadas: hay que actualizar esas
+// ventas con codigosDeVenta). Con modo "agregar" solo suma los nuevos.
 export function cargarSet(lista, codigos, modo = "reemplazar") {
   const ya = new Set(lista.map(x => x.c));
   const nuevos = codigos.filter(c => !ya.has(c));
+  const perdidas = new Map(); // venta → { n, rm }
   if (modo === "reemplazar" && nuevos.length) {
-    for (const x of lista) if (x.e === "libre" || x.e === "expuesto") Object.assign(x, { e: "anulado", f: hoy() });
+    for (const x of lista) {
+      if (x.e === "entregado" && x.venta) {
+        const p = perdidas.get(x.venta) || { n: 0, rm: x.rm || null };
+        p.n++;
+        perdidas.set(x.venta, p);
+      }
+      if (x.e === "libre" || x.e === "expuesto" || x.e === "entregado") Object.assign(x, { e: "anulado", f: hoy() });
+    }
   }
   for (const c of nuevos) lista.push({ c, e: "libre" });
-  return nuevos.length;
+  const reasignadas = [];
+  for (const [venta, { n, rm }] of perdidas) {
+    const dados = asignar(lista, n, { venta, rm });
+    reasignadas.push({ venta, dados: dados.length, faltan: n - dados.length });
+  }
+  return { agregados: nuevos.length, reasignadas };
+}
+
+// Códigos que una venta tiene vigentes en la bóveda (los que el cliente ve).
+export const vigentesDe = (lista, venta) => lista.filter(x => x.e === "entregado" && x.venta === venta).map(x => x.c);
+// Cuántos recibió en total (vigentes + usados), para el tope.
+export const recibidosDe = (lista, venta) => lista.filter(x => (x.e === "entregado" || x.e === "usado") && x.venta === venta).length;
+
+// Lo que la venta debe mostrar: sus vigentes de la bóveda, más los que tenga
+// de antes que la bóveda no conoce (cuentas sin bóveda completa).
+export function codigosDeVenta(actuales, lista, venta) {
+  const enBoveda = new Set(lista.map(x => x.c));
+  return [...parseCodigos(actuales).filter(c => !enBoveda.has(c)), ...vigentesDe(lista, venta)];
+}
+
+// "Ya lo usé": el código sale de la venta y, si la venta tiene menos de
+// CODIGOS_POR_VENTA vigentes y no llegó al TOPE_POR_VENTA, recibe uno libre.
+// Devuelve { ok, repuestos, motivo } (motivo: "tope" | "sin-libres" | null).
+export function reponerUsado(lista, codigo, venta, rm) {
+  const x = lista.find(y => y.c === codigo && y.venta === venta && y.e === "entregado");
+  if (!x) return { ok: false };
+  Object.assign(x, { e: "usado", fu: hoy() });
+  const faltan = Math.max(0, CODIGOS_POR_VENTA - vigentesDe(lista, venta).length);
+  const cupo = Math.max(0, TOPE_POR_VENTA - recibidosDe(lista, venta));
+  const pedir = Math.min(faltan, cupo);
+  const dados = pedir ? asignar(lista, pedir, { venta, rm }) : [];
+  const motivo = faltan && !cupo ? "tope" : faltan && dados.length < pedir ? "sin-libres" : null;
+  return { ok: true, repuestos: dados.length, motivo };
+}
+
+// Admin: corregir un error ("lo marqué usado sin querer"): vuelve a entregado.
+export function desmarcarUsado(lista, codigo) {
+  const x = lista.find(y => y.c === codigo && y.e === "usado");
+  if (!x) return false;
+  x.e = "entregado";
+  delete x.fu;
+  return true;
 }
 
 // Ventas de una cuenta (todas), con el cliente: para sembrar la bóveda.
