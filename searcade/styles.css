@@ -434,6 +434,35 @@ a { color: var(--cyan); }
   .look { grid-template-columns: 1fr 1.1fr; gap: 40px; margin: 60px auto 0; padding: 0 16px; }
   .toast { bottom: 40px; }
 }
+/* ---------- Compra: nota, compartir, guía de tallas, redes ---------- */
+.nota-compra { display: grid; gap: 4px; margin: 12px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); text-align: center; }
+.compartir { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 10px; border: 1px solid #ffffff33; border-radius: 999px; background: #ffffff0d; cursor: pointer; font: 700 14px Rajdhani, sans-serif; letter-spacing: 1px; }
+.compartir svg { width: 18px; fill: none; stroke: var(--cyan); stroke-width: 1.8; }
+.compartir:hover { border-color: var(--cyan); }
+.guia-btn { margin-left: 8px; min-height: 32px; padding: 2px 10px; border: 1px solid #ffffff44; border-radius: 999px; background: none; cursor: pointer; font: 700 12px Rajdhani, sans-serif; letter-spacing: .5px; color: var(--cyan); text-transform: none; }
+.guia-nota { margin: 0 0 12px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.modal h3 { margin: 14px 0 6px; font: 700 14px Rajdhani, sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--amber); }
+.guia-tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.guia-tabla th, .guia-tabla td { padding: 8px 6px; text-align: center; border-bottom: 1px solid #ffffff1f; }
+.guia-tabla th { font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.redes a { font-weight: 700; }
+
+/* ---------- Teléfono: botones de tamaño cómodo para el dedo ---------- */
+@media (max-width: 999px) {
+  .swatches { gap: 8px; flex-wrap: wrap; }
+  .swatch { width: 40px; height: 40px; }
+  .look-dots { gap: 4px; }
+  .look-dots button { width: 34px; height: 30px; background: none; position: relative; }
+  .look-dots button::after { content: ""; position: absolute; left: 4px; right: 4px; top: 12px; height: 6px; border-radius: 3px; background: #ffffff44; }
+  .look-dots button[aria-current="true"] { background: none; box-shadow: none; }
+  .look-dots button[aria-current="true"]::after { background: var(--acento); box-shadow: 0 0 10px var(--acento); }
+  .modal-close { width: 44px; height: 44px; }
+  /* La barra de abajo solo se ve con el perchero en pantalla: no tapa la ficha ni el pie */
+  .controls { transition: transform .3s, opacity .3s; }
+  body.sin-controles .controls { transform: translateY(140%); opacity: 0; pointer-events: none; }
+  body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

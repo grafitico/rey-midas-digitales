@@ -20,6 +20,7 @@
 //   { action: "original", id, imagen }   el ORIGINAL va a una carpeta privada
 //   { action: "descargar", id }          → { nombre, imagen } (solo con sesión)
 //   { action: "proteger", id, imagen }   artes viejos: original a privado + vista previa
+//   { action: "miniatura", id, imagen }  miniatura liviana (WebP ≤ 150 KB) para el perchero
 //   { action: "subir-foto", titulo, imagen }  /  { action: "borrar-foto", id }   (lookbook)
 //
 // Protección: la tienda solo publica una VISTA PREVIA (chica y con marca de
@@ -48,7 +49,8 @@ export function artesDir() {
 export function privadoDir() {
   return path.join(process.env.SEARCADE_PRIVADO || path.join(os.homedir(), "searcade-privado"), "artes");
 }
-const NOMBRE_ARTE = /^a-[a-z0-9]+-[0-9a-f]{6}(-v)?\.(webp|png)$/;
+const NOMBRE_ARTE = /^a-[a-z0-9]+-[0-9a-f]{6}(-v|-m)?\.(webp|png)$/;
+export const MAX_MINI = 150 * 1024;
 const indexPath = () => path.join(artesDir(), "artes.json");
 
 // El índice guarda los artes y las fotos del lookbook (banners de la tienda).
@@ -163,6 +165,10 @@ export async function borrarArte(body) {
     if (NOMBRE_ARTE.test(nombreArchivo)) {
       try { fs.unlinkSync(path.join(artesDir(), nombreArchivo)); } catch {}
     }
+    const mini = path.basename(String(a.mini || "").split("?")[0]);
+    if (mini && NOMBRE_ARTE.test(mini)) {
+      try { fs.unlinkSync(path.join(artesDir(), mini)); } catch {}
+    }
     if (a.original && NOMBRE_ARTE.test(a.original)) {
       try { fs.unlinkSync(path.join(privadoDir(), a.original)); } catch {}
     }
@@ -215,8 +221,30 @@ export async function protegerArte(body) {
     }
     const vista = `${a.id}-v.webp`;
     fs.writeFileSync(path.join(artesDir(), vista), buf);
+    // La miniatura vieja salió del archivo sin marca de agua: el panel arma otra
+    const mini = path.basename(String(a.mini || "").split("?")[0]);
+    if (mini && NOMBRE_ARTE.test(mini)) { try { fs.unlinkSync(path.join(artesDir(), mini)); } catch {} }
+    delete a.mini;
     a.archivo = `artes/${vista}`;
     a.protegido = true;
+    escribirArtes(artes);
+    return { ok: true, artes };
+  });
+}
+
+// Miniatura liviana para el perchero y las fichas (el panel la genera). Lleva
+// ?v= para que una miniatura nueva no quede tapada por la caché de 7 días.
+export async function guardarMiniatura(body) {
+  const { buf, ext } = decodificarImagen(body.imagen);
+  if (ext !== "webp") throw bad("La miniatura debe ser WebP");
+  if (buf.length > MAX_MINI) throw bad(`La miniatura pesa ${Math.round(buf.length / 1024)} KB; el máximo es ${MAX_MINI / 1024} KB`);
+  return enCola(() => {
+    const artes = leerArtes();
+    const a = buscar(artes, body.id);
+    const nombre = `${a.id}-m.webp`;
+    fs.mkdirSync(artesDir(), { recursive: true });
+    fs.writeFileSync(path.join(artesDir(), nombre), buf);
+    a.mini = `artes/${nombre}?v=${Date.now().toString(36)}`;
     escribirArtes(artes);
     return { ok: true, artes };
   });
@@ -343,6 +371,7 @@ export default async function handler(req, res) {
       case "original": return res.status(200).json(await guardarOriginal(body));
       case "descargar": return res.status(200).json(descargarOriginal(body));
       case "proteger": return res.status(200).json(await protegerArte(body));
+      case "miniatura": return res.status(200).json(await guardarMiniatura(body));
       default: return res.status(400).json({ error: "Acción desconocida" });
     }
   } catch (err) {

@@ -43,3 +43,23 @@ Las fotos de `img/` llevan una caché de 7 días. Al publicar,
 `scripts/searcade-version.mjs` les agrega a las rutas de `config.js` y
 `styles.css` un `?v=<huella del archivo>`. Así, si se reemplaza una foto con el
 mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida.
+
+## Venta, medición y compartir (25/11/2026)
+
+- `config.js`: `envio`, `pagos`, `envioCorto`, `guiaTallas`, `redes` y
+  `analitica` (`metaPixel`, `ga4`). Lo que queda vacío no se muestra ni se carga.
+  Con analítica, la tienda registra ViewContent, AddToCart, InitiateCheckout
+  (botón de WhatsApp del carrito), Contact (personalizada) y Share.
+- Miniaturas: el panel arma sola una miniatura WebP (≤ 480 px, ≤ 140 KB) de
+  cada arte que no la tenga (acción `miniatura` de `api/searcade.js`, campo
+  `mini` en `artes.json`). El perchero, las fichas y el carrito usan la
+  miniatura; la vista de cerca usa el arte completo. Al proteger un arte se
+  borra su miniatura y el panel arma otra.
+- `/d/<id>` (`d.php`) es la página para compartir un diseño: vista previa con
+  foto, nombre y precio para WhatsApp/Facebook, y redirige a `/#<id>`.
+  `/sitemap.xml` (`sitemap.php`) lista la tienda y cada diseño. Banahosting
+  sirve PHP en el subdominio.
+- La pantalla "Presiona START" sigue sola a los 1,6 s, se ve una vez por
+  semana y no aparece al llegar con un enlace a un diseño.
+- `img/marca/og-searcade.jpg` (1200×630) es la vista previa de la tienda al
+  compartirla.

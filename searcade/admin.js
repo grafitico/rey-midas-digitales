@@ -302,8 +302,53 @@
     b.disabled = false;
   });
 
+  // Miniatura liviana (≤ 480 px, WebP ≤ 140 KB) para el perchero y las fichas
+  // de la tienda: sin ella, cada visita baja los artes completos (~500 KB c/u).
+  // Se hace sola para cada arte que no la tenga (al subir, al proteger y al
+  // abrir el panel).
+  async function hacerMini(src) {
+    const im = new Image();
+    im.src = src;
+    await im.decode();
+    let lado = 480;
+    for (let intento = 0; intento < 5; intento++) {
+      const k = Math.min(1, lado / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(im, 0, 0, c.width, c.height);
+      for (const q of [0.82, 0.72]) {
+        const blob = await new Promise((ok) => c.toBlob(ok, "image/webp", q));
+        if (blob && blob.type === "image/webp" && blob.size <= 140 * 1024) return blob;
+      }
+      lado *= 0.8;
+    }
+    throw new Error("No se pudo achicar la miniatura");
+  }
+  let haciendoMinis = false;
+  async function completarMiniaturas() {
+    if (haciendoMinis) return;
+    haciendoMinis = true;
+    try {
+      for (;;) {
+        const a = publicados.find((x) => !x.mini && x.archivo && !x.sinMini);
+        if (!a) break;
+        try {
+          const blob = await hacerMini(`${a.archivo}?t=${Date.now()}`);
+          publicados = (await api({ action: "miniatura", id: a.id, imagen: await aDataUrl(blob) })).artes;
+        } catch (err) {
+          a.sinMini = true; // no reintentar en esta visita
+          if (err.status === 401) break;
+          console.warn("miniatura", a.nombre, err);
+        }
+      }
+    } finally { haciendoMinis = false; }
+  }
+
   function pintarLista(artes) {
     if (artes) publicados = artes;
+    setTimeout(completarMiniaturas, 400);
     const semis = publicados.filter((a) => a.semitono).length;
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
     $("#protegerTodos").hidden = !publicados.some((a) => !a.protegido);
