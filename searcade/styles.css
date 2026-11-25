@@ -434,6 +434,11 @@ a { color: var(--cyan); }
   .look { grid-template-columns: 1fr 1.1fr; gap: 40px; margin: 60px auto 0; padding: 0 16px; }
   .toast { bottom: 40px; }
 }
+/* ---------- Foto con modelo del diseño ---------- */
+.ver-puesta { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: 0 0 12px; padding: 6px 16px; border: 1px solid var(--acento); border-radius: 999px; background: color-mix(in srgb, var(--acento) 18%, transparent); color: #fff; cursor: pointer; font: 700 14px Rajdhani, sans-serif; letter-spacing: 1px; }
+.ver-puesta:hover { box-shadow: 0 0 14px var(--acento); }
+.zoom-photo img.con-modelo, .zoom-thumbs img.con-modelo { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+
 /* ---------- Compra: nota, compartir, guía de tallas, redes ---------- */
 .nota-compra { display: grid; gap: 4px; margin: 12px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); text-align: center; }
 .compartir { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 10px; border: 1px solid #ffffff33; border-radius: 999px; background: #ffffff0d; cursor: pointer; font: 700 14px Rajdhani, sans-serif; letter-spacing: 1px; }

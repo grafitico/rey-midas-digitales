@@ -21,7 +21,8 @@
 //   { action: "descargar", id }          → { nombre, imagen } (solo con sesión)
 //   { action: "proteger", id, imagen }   artes viejos: original a privado + vista previa
 //   { action: "miniatura", id, imagen }  miniatura liviana (WebP ≤ 150 KB) para el perchero
-//   { action: "subir-foto", titulo, imagen }  /  { action: "borrar-foto", id }   (lookbook)
+//   { action: "subir-foto", titulo, arte?, imagen }  /  { action: "borrar-foto", id }   (lookbook)
+//   { action: "editar-foto", id, titulo?, arte? }   arte = id del diseño que sale en la foto ("" = ninguno)
 //
 // Protección: la tienda solo publica una VISTA PREVIA (chica y con marca de
 // agua, la arma el panel). El archivo original para imprimir queda en
@@ -172,7 +173,9 @@ export async function borrarArte(body) {
     if (a.original && NOMBRE_ARTE.test(a.original)) {
       try { fs.unlinkSync(path.join(privadoDir(), a.original)); } catch {}
     }
-    escribirArtes(artes);
+    const lookbook = leerLookbook();
+    for (const f of lookbook) if (f.arte === a.id) delete f.arte;
+    escribirIndice({ artes, lookbook });
     return { ok: true, artes };
   });
 }
@@ -306,16 +309,36 @@ export function requirePanel(body) {
 
 // ===== Lookbook: fotos y banners que el dueño sube para la tienda =====
 const MAX_FOTOS = 40;
+const limpiarTitulo = (v) => String(v ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
+// Diseño ligado a una foto del lookbook: tiene que existir (o vacío = ninguno).
+function arteDeFoto(v, artes) {
+  const id = String(v ?? "").trim();
+  if (!id) return "";
+  if (!artes.some((a) => a.id === id)) throw bad("Ese diseño ya no existe");
+  return id;
+}
+export async function editarFoto(body) {
+  return enCola(() => {
+    const { artes, lookbook } = leerIndice();
+    const f = lookbook.find((x) => x.id === body.id);
+    if (!f) throw Object.assign(new Error("Esa foto ya no existe"), { status: 404 });
+    if ("titulo" in body) f.titulo = limpiarTitulo(body.titulo);
+    if ("arte" in body) { const a = arteDeFoto(body.arte, artes); if (a) f.arte = a; else delete f.arte; }
+    escribirIndice({ lookbook });
+    return { ok: true, lookbook };
+  });
+}
 export async function subirFoto(body) {
-  const titulo = String(body.titulo ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
+  const titulo = limpiarTitulo(body.titulo);
   const { buf, ext } = decodificarImagen(body.imagen, { jpeg: true });
   return enCola(() => {
     const lookbook = leerLookbook();
     if (lookbook.length >= MAX_FOTOS) throw bad(`Ya hay ${MAX_FOTOS} fotos; borra alguna antes de subir más`);
+    const arte = arteDeFoto(body.arte, leerArtes());
     const id = `f-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
     fs.mkdirSync(artesDir(), { recursive: true });
     fs.writeFileSync(path.join(artesDir(), `${id}.${ext}`), buf);
-    const foto = { id, titulo, archivo: `artes/${id}.${ext}`, creado: new Date().toISOString() };
+    const foto = { id, titulo, ...(arte ? { arte } : {}), archivo: `artes/${id}.${ext}`, creado: new Date().toISOString() };
     lookbook.unshift(foto);
     escribirIndice({ lookbook });
     return { ok: true, foto, lookbook };
@@ -365,6 +388,7 @@ export default async function handler(req, res) {
       case "listar": return res.status(200).json(leerIndice());
       case "subir-foto": return res.status(200).json(await subirFoto(body));
       case "borrar-foto": return res.status(200).json(await borrarFoto(body));
+      case "editar-foto": return res.status(200).json(await editarFoto(body));
       case "subir": return res.status(200).json(await subirArte(body));
       case "editar": return res.status(200).json(await editarArte(body));
       case "borrar": return res.status(200).json(await borrarArte(body));

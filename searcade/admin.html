@@ -60,9 +60,10 @@
       <div class="lista" id="lista"></div>
 
       <h2 class="adm-h">Lookbook / Banners <small id="cuentaFotos"></small></h2>
-      <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel.</p>
+      <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel. Si elegís el diseño que sale en la foto, la ficha de ese diseño muestra "📸 Verla puesta" y el botón del Lookbook lleva directo a él.</p>
       <div class="foto-subir cut">
         <label>Título (opcional)<input id="fotoTitulo" maxlength="80" placeholder="Ej.: Nueva colección"></label>
+        <label>Diseño que sale en la foto<select id="fotoArte"><option value="">— Ninguno (banner) —</option></select></label>
         <label class="adm-btn" for="fotoArchivo">Elegir foto y subir</label>
         <input type="file" id="fotoArchivo" accept="image/jpeg,image/png,image/webp" hidden>
       </div>

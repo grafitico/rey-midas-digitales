@@ -21,6 +21,10 @@ $precio = (int) ($arte['precio'] ?? 0) ?: 11000; // mismo precio base que config
 $tipo = !empty($arte['semitono']) ? 'DTF semitono' : 'DTF full color';
 $desc = trim((string) ($arte['descripcion'] ?? '')) ?: "Camiseta SEARCADE con estampado $tipo. Elegí color, tamaño y espalda. Envíos a todo Costa Rica.";
 $img = $base . '/' . ltrim((string) ($arte['archivo'] ?? ''), '/');
+// Si hay una foto con modelo de este diseño (Lookbook ligado), esa vende más.
+foreach (($indice['lookbook'] ?? []) as $f) {
+  if (($f['arte'] ?? '') === $id && !empty($f['archivo'])) { $img = $base . '/' . ltrim((string) $f['archivo'], '/'); break; }
+}
 $url = $base . '/d/' . rawurlencode($id);
 $monto = '₡' . number_format($precio, 0, ',', '.');
 $ld = [

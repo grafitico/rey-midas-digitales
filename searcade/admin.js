@@ -348,6 +348,7 @@
 
   function pintarLista(artes) {
     if (artes) publicados = artes;
+    if (artes) pintarFotos();
     setTimeout(completarMiniaturas, 400);
     const semis = publicados.filter((a) => a.semitono).length;
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
@@ -417,12 +418,20 @@
     }
     throw new Error("No se pudo dejar la foto por debajo de 700 KB");
   }
-  function pintarFotos(lookbook = []) {
+  // Opciones "¿qué diseño sale en la foto?" (los artes publicados)
+  let fotosActuales = [];
+  const opcionesArte = (sel) => `<option value="">— Ninguno (banner) —</option>` +
+    publicados.map((a) => `<option value="${esc(a.id)}"${a.id === sel ? " selected" : ""}>${esc(a.nombre)}</option>`).join("");
+  function pintarFotos(lookbook = fotosActuales) {
+    fotosActuales = lookbook;
+    const elegido = $("#fotoArte").value;
+    $("#fotoArte").innerHTML = opcionesArte(elegido);
     $("#cuentaFotos").textContent = `(${lookbook.length})`;
     $("#fotos").innerHTML = lookbook.length ? lookbook.map((f) => `
       <div class="ficha" data-foto="${esc(f.id)}">
         <img src="${esc(f.archivo)}" alt="${esc(f.titulo)}" loading="lazy">
         <p>${esc(f.titulo || "Sin título")}</p>
+        <label>Diseño en la foto<select data-f="arte">${opcionesArte(f.arte || "")}</select></label>
         <div class="botones"><button class="adm-btn danger" data-a="borrar-foto">Borrar</button></div>
       </div>`).join("") : '<p class="vacio">Todavía no hay fotos. Mientras tanto la tienda muestra la foto de ejemplo.</p>';
   }
@@ -434,8 +443,9 @@
     caja.classList.add("subiendo");
     try {
       const blob = await prepararFoto(file);
-      const r = await api({ action: "subir-foto", titulo: $("#fotoTitulo").value, imagen: await aDataUrl(blob) });
+      const r = await api({ action: "subir-foto", titulo: $("#fotoTitulo").value, arte: $("#fotoArte").value, imagen: await aDataUrl(blob) });
       $("#fotoTitulo").value = "";
+      $("#fotoArte").value = "";
       pintarFotos(r.lookbook);
       toast("✓ Foto publicada en el lookbook");
     } catch (err) {
@@ -443,6 +453,13 @@
     } finally {
       caja.classList.remove("subiendo");
     }
+  });
+  $("#fotos").addEventListener("change", async (e) => {
+    if (e.target.dataset.f !== "arte") return;
+    const s = e.target;
+    s.disabled = true;
+    try { pintarFotos((await api({ action: "editar-foto", id: s.closest(".ficha").dataset.foto, arte: s.value })).lookbook); toast(s.value ? "✓ Foto ligada al diseño" : "✓ La foto quedó como banner"); }
+    catch (err) { s.disabled = false; toast(err.message); }
   });
   $("#fotos").addEventListener("click", async (e) => {
     const b = e.target.closest('[data-a="borrar-foto"]');

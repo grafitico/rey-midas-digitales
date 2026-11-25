@@ -60,12 +60,22 @@
     formato: (FORMATOS.find((f) => f.id === CFG.formatoInicial) || FORMATOS[FORMATOS.length - 1]).id,
     colocacion: COLOCACIONES[0].id,
     vista: "frente",
-    espalda: null, // id del arte de la espalda (null = el mismo del frente)
+    // Arte de la espalda POR camiseta: { idDeLaCamiseta: idDelArteDeAtrás }.
+    // Elegir una ficha cambia solo la camiseta seleccionada, no todas.
+    espaldas: {},
   };
   let estilo = "todos"; // filtro: todos | semitono | full
   const precioDe = (p, o = sel) => (p.archivo ? p.precio + (formatoDe(o.formato).extra || 0) + (colocacionDe(o.colocacion).extra || 0) : p.precio);
   // Arte de la espalda: otro arte elegido en las fichas flotantes (o el mismo)
-  const espaldaDe = (p, o) => (o.espalda && o.espalda !== p.id && o.colocacion !== "pecho" ? byId(o.espalda) : null);
+  // o = sel (o una copia): usa el mapa por camiseta; o = línea del carrito: su campo espalda.
+  const espaldaDe = (p, o) => {
+    const e = o.espaldas ? o.espaldas[p.id] : o.espalda;
+    return e && e !== p.id && o.colocacion !== "pecho" ? byId(e) : null;
+  };
+  // Lado que muestra cada camiseta: la seleccionada, el que eligió el cliente;
+  // las demás, el lado donde va el arte.
+  const ladoNatural = () => (sel.colocacion === "espalda" ? "espalda" : "frente");
+  const ladoDe = (i) => (i === idx ? sel.vista : ladoNatural());
   // En el perchero, las fichas y el carrito va la miniatura liviana del arte;
   // el archivo completo solo en la vista de cerca (camisetaGrande).
   const camiseta = (p, o = sel) => T.camiseta(p.mini ? { ...p, archivo: p.mini } : p, { ...o, espaldaArchivo: (espaldaDe(p, o)?.mini || espaldaDe(p, o)?.archivo) });
@@ -157,7 +167,7 @@
     idx = Math.max(0, Math.min(start, lista.length - 1));
     $("#items").innerHTML = lista.length ? lista.map((p, i) => `
       <button class="item" data-i="${i}" style="--glow:${esc(p.arte?.tono || "#fbb51d")}" aria-label="${esc(p.nombre)}">
-        <span class="colgante">${HOOK}<span class="inclina"><span class="tee${p.archivo ? ` volteable${sel.vista === "espalda" ? " volteada" : ""}` : ""}">${teeDe(p, i)}</span></span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}</span>
+        <span class="colgante">${HOOK}<span class="inclina"><span class="tee${p.archivo ? ` volteable${ladoDe(i) === "espalda" ? " volteada" : ""}` : ""}">${teeDe(p, i)}</span></span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}</span>
       </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
   }
@@ -178,12 +188,15 @@
   $("#fichasLista").addEventListener("click", (e) => {
     const b = e.target.closest(".ficha-arte");
     if (!b) return;
-    sel.espalda = b.dataset.e || null;
-    if (sel.espalda && sel.colocacion === "pecho") { sel.colocacion = "ambas"; pintarPerso(); pintarPrecio(); }
+    const p = lista[idx];
+    if (!p) return;
+    const elegido = b.dataset.e || null;
+    if (elegido) sel.espaldas[p.id] = elegido; else delete sel.espaldas[p.id];
+    if (elegido && sel.colocacion === "pecho") { sel.colocacion = "ambas"; pintarPerso(); pintarPrecio(); }
     repintarArtes();
     pintarFichas();
-    if (sel.espalda || sel.colocacion !== "pecho") girar("espalda");
-    if (sel.espalda) toast(`Espalda: ${byId(sel.espalda)?.nombre}`);
+    if (elegido || sel.colocacion !== "pecho") girar("espalda", true);
+    if (elegido) toast(`Espalda de ${p.nombre}: ${byId(elegido)?.nombre}`);
   });
 
   // Redibuja las camisetas con arte (al cambiar color, tamaño, colocación o lado).
@@ -196,7 +209,10 @@
 
   function mover(i, sinHash) {
     if (!lista.length) { renderInfo(null); return; }
-    idx = (i + lista.length) % lista.length;
+    const nuevo = (i + lista.length) % lista.length;
+    if (nuevo !== idx) sel.vista = ladoNatural();
+    idx = nuevo;
+    ladosEnPerchero();
     const k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--step-k")) || 0.6;
     const step = (document.querySelector(".item")?.offsetWidth || 220) * k;
     document.querySelectorAll(".item").forEach((el, j) => {
@@ -259,14 +275,22 @@
   });
 
   // Girar la camiseta (frente / espalda)
-  function girar(vista) {
-    if (vista === sel.vista) return;
+  // Solo gira la camiseta seleccionada (forzar: brilla aunque ya esté de ese lado).
+  function girar(vista, forzar) {
+    if (vista === sel.vista && !forzar) return;
     sel.vista = vista;
-    document.querySelectorAll(".tee.volteable").forEach((t) => {
+    const t = document.querySelector(`.item[data-i="${idx}"] .tee.volteable`);
+    if (t) {
       t.classList.toggle("volteada", vista === "espalda");
       t.classList.remove("brillando"); void t.offsetWidth; t.classList.add("brillando");
-    });
+    }
     pintarGirar();
+  }
+  // Al cambiar de camiseta o de colocación, cada una vuelve a su lado.
+  function ladosEnPerchero() {
+    document.querySelectorAll(".item").forEach((el) => {
+      el.querySelector(".tee.volteable")?.classList.toggle("volteada", ladoDe(+el.dataset.i) === "espalda");
+    });
   }
   function pintarGirar() {
     const p = lista[idx];
@@ -318,6 +342,7 @@
         : [FEAT.capas, "Impresión DTF · Full color", "Colores intensos y de larga duración."],
       [FEAT.corona, "Diseño exclusivo", "Edición limitada SEARCADE."],
     ].map(([ico, t, d]) => `<div class="feat">${ico}<p><b>${esc(t)}</b><span>${esc(d)}</span></p></div>`).join("");
+    $("#verPuesta").hidden = !p.fotosModelo?.length;
     aplicarAcento(p);
     if (p.archivo) pintarPerso();
     pintarPrecio();
@@ -413,9 +438,10 @@
     pintarPerso();
     pintarPrecio();
     // Mostrar el lado donde va el arte
+    repintarArtes();
     if (sel.colocacion === "espalda") girar("espalda");
     else if (sel.colocacion === "pecho") girar("frente");
-    else repintarArtes();
+    ladosEnPerchero();
   });
   $("#formatos").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-v]");
@@ -435,7 +461,7 @@
   });
 
   // ---------- Vista de cerca ----------
-  function abrirZoom() {
+  function abrirZoom(conModelo) {
     const p = lista[idx];
     if (!p) return;
     let vistas;
@@ -446,6 +472,9 @@
         { html: () => `<img src="${esc(p.archivo)}" alt="${esc(p.nombre)}" class="solo-arte" draggable="false">`, thumb: "Arte" },
       ];
       if (sel.vista === "espalda") vistas.unshift(vistas.splice(1, 1)[0]);
+      // Fotos con modelo de este diseño (Lookbook ligado desde el panel)
+      const modelo = (p.fotosModelo || []).map((f) => ({ html: () => `<img src="${esc(f.archivo)}" alt="${esc(f.titulo || p.nombre)}" class="con-modelo" draggable="false">`, thumb: "Puesta" }));
+      vistas = conModelo ? [...modelo, ...vistas] : [...vistas.slice(0, 2), ...modelo, ...vistas.slice(2)];
     } else {
       const fotos = [p.imagen, ...(p.fotos || [])].filter(Boolean);
       vistas = (fotos.length ? fotos : [""]).map((f, i) => ({ html: () => imgFoto(p, f, "z" + i) + (f ? "" : '<span class="slot">Espacio para mockup / foto con modelo (PNG)</span>'), thumb: null }));
@@ -462,7 +491,8 @@
     ver(0);
     $("#zoom").showModal();
   }
-  $("#ctlSel").addEventListener("click", abrirZoom);
+  $("#ctlSel").addEventListener("click", () => abrirZoom());
+  $("#verPuesta").addEventListener("click", () => abrirZoom(true));
 
   // ---------- Carrito ----------
   const KEY = "searcade-carrito";
@@ -637,16 +667,24 @@
     const marco = $("#look .look-photo");
     marco.classList.add("slider");
     marco.innerHTML = fotos.map((f, i) => `<img src="${esc(f.archivo)}" alt="${esc(f.titulo || "Lookbook SEARCADE")}" loading="${i ? "lazy" : "eager"}" class="${i ? "" : "on"}">`).join("");
-    $("#lookBtn").textContent = "Elegir mi camiseta";
-    $("#lookBtn").setAttribute("href", "#stage");
-    $("#lookBtn").addEventListener("click", (e) => { e.preventDefault(); $("#stage").scrollIntoView({ behavior: "smooth", block: "center" }); });
+    // Foto ligada a un diseño en venta → "Ver esta camiseta" lo abre en el perchero.
+    const disenoDe = (f) => (f.arte && byId(f.arte) ? f.arte : null);
+    $("#lookBtn").addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = disenoDe(fotos[actual]);
+      if (id) location.hash = id; // desdeHash lo centra y baja al perchero
+      else $("#stage").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
     $("#lookDots").innerHTML = fotos.length > 1 ? fotos.map((f, i) => `<button aria-label="Foto ${i + 1}" aria-current="${i === 0}" data-i="${i}"></button>`).join("") : "";
     let actual = 0, pausa = false, t;
     const ver = (i) => {
       actual = (i + fotos.length) % fotos.length;
       marco.querySelectorAll("img").forEach((im, j) => im.classList.toggle("on", j === actual));
       $("#lookDots").querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === actual));
-      const tit = fotos[actual].titulo || "Lookbook SEARCADE";
+      const id = disenoDe(fotos[actual]);
+      $("#lookBtn").textContent = id ? "Ver esta camiseta" : "Elegir mi camiseta";
+      $("#lookBtn").setAttribute("href", id ? `#${id}` : "#stage");
+      const tit = fotos[actual].titulo || (id ? byId(id).nombre : "") || "Lookbook SEARCADE";
       const [p1, ...p2] = tit.split(" ");
       $("#lookTitulo").innerHTML = p2.length ? `${esc(p1)} <em>${esc(p2.join(" "))}</em>` : esc(p1);
     };
@@ -673,7 +711,9 @@
       const artes = (a?.artes || []).map(desdeArte);
       // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan foto propia).
       data = { categorias: d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
-      pintarLookbook([...(a?.lookbook || []), ...(CFG.lookbook || [])]);
+      const look = [...(a?.lookbook || []), ...(CFG.lookbook || [])];
+      for (const f of look) { const p = f.arte && byId(f.arte); if (p) (p.fotosModelo ||= []).push(f); }
+      pintarLookbook(look);
       renderCats();
       pintarEstilos();
       armar(0);

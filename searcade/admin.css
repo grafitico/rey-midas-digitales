@@ -69,7 +69,9 @@ body.admin { padding-bottom: 40px; }
 /* Lookbook */
 .adm-nota { color: var(--muted); margin: -4px 0 12px; }
 .foto-subir { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 14px 16px; --line: linear-gradient(90deg, var(--amber), var(--pink)); }
-.foto-subir label:first-child { display: grid; gap: 4px; flex: 1 1 220px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.foto-subir label:not(.adm-btn) { display: grid; gap: 4px; flex: 1 1 220px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.foto-subir select, .lista.fotos .ficha select { padding: 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #0b0614; color: #fff; font: 600 14px Inter, sans-serif; max-width: 100%; }
+.lista.fotos .ficha label { display: grid; gap: 4px; font: 700 12px Rajdhani, sans-serif; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
 .foto-subir input { padding: 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #0006; color: #fff; font: 600 15px Inter, sans-serif; }
 .foto-subir .adm-btn { cursor: pointer; }
 .foto-subir.subiendo { opacity: .6; pointer-events: none; }

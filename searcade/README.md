@@ -63,3 +63,11 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   semana y no aparece al llegar con un enlace a un diseño.
 - `img/marca/og-searcade.jpg` (1200×630) es la vista previa de la tienda al
   compartirla.
+- Lookbook ligado (25/11/2026): cada foto puede decir qué diseño sale en ella
+  (`arte` en el lookbook de `artes.json`; acciones `subir-foto` con `arte` y
+  `editar-foto`). La ficha de ese diseño muestra "📸 Verla puesta" (abre la
+  vista de cerca con las fotos primero), el botón del Lookbook pasa a "Ver esta
+  camiseta" y `/d/<id>` usa esa foto como vista previa al compartir. Al borrar
+  un diseño, sus fotos quedan como banners.
+- "Arma tu espalda" es POR camiseta (`sel.espaldas`): elegir una ficha cambia
+  solo la camiseta seleccionada, y "Ver espalda" gira solo esa.
