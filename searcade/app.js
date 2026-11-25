@@ -66,7 +66,10 @@
   const precioDe = (p, o = sel) => (p.archivo ? p.precio + (formatoDe(o.formato).extra || 0) + (colocacionDe(o.colocacion).extra || 0) : p.precio);
   // Arte de la espalda: otro arte elegido en las fichas flotantes (o el mismo)
   const espaldaDe = (p, o) => (o.espalda && o.espalda !== p.id && o.colocacion !== "pecho" ? byId(o.espalda) : null);
-  const camiseta = (p, o = sel) => T.camiseta(p, { ...o, espaldaArchivo: espaldaDe(p, o)?.archivo });
+  // En el perchero, las fichas y el carrito va la miniatura liviana del arte;
+  // el archivo completo solo en la vista de cerca (camisetaGrande).
+  const camiseta = (p, o = sel) => T.camiseta(p.mini ? { ...p, archivo: p.mini } : p, { ...o, espaldaArchivo: (espaldaDe(p, o)?.mini || espaldaDe(p, o)?.archivo) });
+  const camisetaGrande = (p, o = sel) => T.camiseta(p, { ...o, espaldaArchivo: espaldaDe(p, o)?.archivo });
   const sello = (p) => (p.archivo ? `<span class="sello ${p.semitono ? "semi" : "full"}">${p.semitono ? "SEMITONO" : "FULL COLOR"}</span>` : "");
   const imgFoto = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
   // Artes: dos caras (frente y espalda) que giran en 3D; brillo que las recorre al girar.
@@ -84,9 +87,44 @@
     toast.t = setTimeout(() => t.classList.remove("show"), 2200);
   }
 
+  // ---------- Medición (Meta Pixel / GA4, solo si están en config.js) ----------
+  const AN = CFG.analitica || {};
+  function cargarAnalitica() {
+    if (/^\d{6,20}$/.test(AN.metaPixel || "")) {
+      /* eslint-disable */
+      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");
+      window.fbq("init", AN.metaPixel);
+      window.fbq("track", "PageView");
+    }
+    if (/^G-[A-Z0-9]{4,20}$/.test(AN.ga4 || "")) {
+      const sc = document.createElement("script");
+      sc.async = true;
+      sc.src = `https://www.googletagmanager.com/gtag/js?id=${AN.ga4}`;
+      document.head.appendChild(sc);
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function () { window.dataLayer.push(arguments); };
+      window.gtag("js", new Date());
+      window.gtag("config", AN.ga4);
+    }
+  }
+  const GA = { ViewContent: "view_item", AddToCart: "add_to_cart", InitiateCheckout: "begin_checkout", Contact: "generate_lead", Share: "share" };
+  function medir(evento, datos = {}) {
+    try {
+      if (window.fbq) window.fbq(evento === "Share" ? "trackCustom" : "track", evento, datos);
+      if (window.gtag) window.gtag("event", GA[evento] || evento, datos);
+    } catch {}
+  }
+  cargarAnalitica();
+  let vistoTimer;
+  const medirVista = (p) => {
+    clearTimeout(vistoTimer);
+    vistoTimer = setTimeout(() => medir("ViewContent", { content_ids: [p.id], content_name: p.nombre, content_type: "product", value: p.precio, currency: "CRC" }), 1500);
+  };
+
   // ---------- Categorías ----------
   function renderCats() {
-    const cats = [{ id: "todas", nombre: "Todas" }, ...data.categorias];
+    const conDiseños = new Set(data.productos.map((p) => p.categoria));
+    const cats = [{ id: "todas", nombre: "Todas" }, ...data.categorias.filter((c) => conDiseños.has(c.id))];
     $("#cats").innerHTML = cats.map((c) => `<button class="cat" data-cat="${esc(c.id)}" aria-pressed="${c.id === filtro}">${icon(c.id)}<span>${esc(c.nombre)}</span></button>`).join("");
   }
   $("#cats").addEventListener("click", (e) => {
@@ -135,7 +173,7 @@
     const actual = espaldaDe(p, sel)?.id || null;
     $("#fichasLista").innerHTML =
       `<button class="ficha-arte mismo" data-e="" aria-pressed="${!actual}" style="--d:0s"><span class="fa-img">↺</span><span class="fa-n">Mismo arte</span></button>` +
-      artes.filter((x) => x.id !== p.id).map((x, i) => `<button class="ficha-arte" data-e="${esc(x.id)}" aria-pressed="${x.id === actual}" style="--d:${((i + 1) * 0.37) % 3}s"><span class="fa-img"><img src="${esc(x.archivo)}" alt="" draggable="false" loading="lazy"></span><span class="fa-n">${esc(x.nombre)}</span></button>`).join("");
+      artes.filter((x) => x.id !== p.id).map((x, i) => `<button class="ficha-arte" data-e="${esc(x.id)}" aria-pressed="${x.id === actual}" style="--d:${((i + 1) * 0.37) % 3}s"><span class="fa-img"><img src="${esc(x.mini || x.archivo)}" alt="" draggable="false" loading="lazy"></span><span class="fa-n">${esc(x.nombre)}</span></button>`).join("");
   }
   $("#fichasLista").addEventListener("click", (e) => {
     const b = e.target.closest(".ficha-arte");
@@ -176,6 +214,7 @@
     });
     $("#counter").textContent = `${idx + 1} / ${lista.length}`;
     renderInfo(lista[idx]);
+    medirVista(lista[idx]);
     if (!sinHash) history.replaceState(null, "", `#${lista[idx].id}`);
   }
 
@@ -334,7 +373,7 @@
   async function aplicarAcento(p) {
     let c = p.arte?.tono && !p.archivo ? p.arte.tono : null;
     if (p.archivo) {
-      if (!acentos.has(p.archivo)) acentos.set(p.archivo, colorDominante(p.archivo));
+      if (!acentos.has(p.archivo)) acentos.set(p.archivo, colorDominante(p.mini || p.archivo));
       c = await acentos.get(p.archivo);
     }
     if (lista[idx] !== p) return; // ya se movió a otra camiseta
@@ -402,8 +441,8 @@
     let vistas;
     if (p.archivo) {
       vistas = [
-        { html: () => camiseta(p, { ...sel, vista: "frente" }), thumb: "Frente" },
-        { html: () => camiseta(p, { ...sel, vista: "espalda" }), thumb: "Espalda" },
+        { html: () => camisetaGrande(p, { ...sel, vista: "frente" }), thumb: "Frente" },
+        { html: () => camisetaGrande(p, { ...sel, vista: "espalda" }), thumb: "Espalda" },
         { html: () => `<img src="${esc(p.archivo)}" alt="${esc(p.nombre)}" class="solo-arte" draggable="false">`, thumb: "Arte" },
       ];
       if (sel.vista === "espalda") vistas.unshift(vistas.splice(1, 1)[0]);
@@ -498,9 +537,11 @@
     const btn = $("#cartBtn");
     btn.classList.remove("bump"); void btn.offsetWidth; btn.classList.add("bump");
     toast(`✓ ${p.nombre} (talla ${etiquetaTalla(talla)}) agregada`);
+    medir("AddToCart", { content_ids: [p.id], content_name: p.nombre, content_type: "product", value: precioDe(p, nueva), currency: "CRC" });
     return true;
   }
   $("#cartBtn").addEventListener("click", () => { pintarCarrito(); $("#cart").showModal(); });
+  $("#cartWa").addEventListener("click", () => { if (lineas().length) medir("InitiateCheckout", { value: total(), currency: "CRC", num_items: lineas().reduce((s, l) => s + l.qty, 0) }); });
 
   document.querySelectorAll("dialog").forEach((d) => {
     d.addEventListener("click", (e) => { if (e.target === d || e.target.closest("[data-close]")) d.close(); });
@@ -513,6 +554,46 @@
   document.addEventListener("dragstart", (e) => { if (e.target.closest?.(".comp, .fichas, .zoom-photo")) e.preventDefault(); });
 
   $("#customBtn").href = waLink("¡Hola SEARCADE! 👋 Quiero cotizar una camiseta personalizada con mi propio diseño.");
+  $("#customBtn").addEventListener("click", () => medir("Contact", { tipo: "personalizada" }));
+
+  // ---------- Compra, envío, guía de tallas y redes (desde config.js) ----------
+  $("#notaCompra").innerHTML = [
+    CFG.envio && `<span>📦 ${esc(CFG.envio)}</span>`,
+    CFG.pagos && `<span>💳 ${esc(CFG.pagos)}</span>`,
+    `<span>💬 Confirmás tu pedido por WhatsApp: ahí coordinamos ${CFG.pagos ? "" : "el pago y "}la entrega.</span>`,
+  ].filter(Boolean).join("");
+  if (CFG.envioCorto) $("#envioCorto").textContent = CFG.envioCorto;
+  const GUIA = CFG.guiaTallas || {};
+  const gruposGuia = Object.keys(GUIA).filter((g) => Object.keys(GUIA[g] || {}).length);
+  if (gruposGuia.length) {
+    $("#guiaBtn").hidden = false;
+    $("#guiaTablas").innerHTML = gruposGuia.map((g) => `<h3>${esc(g)}</h3><table class="guia-tabla"><thead><tr><th>Talla</th><th>Ancho</th><th>Largo</th></tr></thead><tbody>${
+      Object.entries(GUIA[g]).map(([t, [an, la]]) => `<tr><td>${esc(etiquetaTalla(t))}</td><td>${esc(an)} cm</td><td>${esc(la)} cm</td></tr>`).join("")}</tbody></table>`).join("");
+    $("#guiaBtn").addEventListener("click", () => $("#guia").showModal());
+  }
+  const REDES = { instagram: "Instagram", tiktok: "TikTok", facebook: "Facebook" };
+  const redes = Object.entries(CFG.redes || {}).filter(([k, u]) => REDES[k] && /^https:\/\//.test(u || ""));
+  if (redes.length) {
+    $("#redes").hidden = false;
+    $("#redes").innerHTML = "Seguinos: " + redes.map(([k, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${REDES[k]}</a>`).join(" · ");
+  }
+
+  // ---------- Compartir un diseño ----------
+  // /d/<id> es una página con la vista previa de ESE diseño (d.php) que
+  // después abre la tienda en #<id>.
+  const enlaceDe = (p) => `${location.origin}/d/${encodeURIComponent(p.id)}`;
+  $("#compartir").addEventListener("click", async () => {
+    const p = lista[idx];
+    if (!p) return;
+    const url = enlaceDe(p);
+    const texto = `Mirá esta camiseta de SEARCADE: ${p.nombre}`;
+    medir("Share", { id: p.id });
+    try {
+      if (navigator.share) return await navigator.share({ title: p.nombre, text: texto, url });
+    } catch (e) { if (e?.name === "AbortError") return; }
+    try { await navigator.clipboard.writeText(url); toast("🔗 Enlace copiado"); }
+    catch { location.href = waLink(`${texto}\n${url}`); }
+  });
 
   // ---------- Enlaces directos (#id) ----------
   function desdeHash() {
@@ -524,22 +605,31 @@
   }
   window.addEventListener("hashchange", () => { desdeHash(); $("#stage").scrollIntoView({ behavior: "smooth", block: "center" }); });
 
-  // ---------- Pantalla de entrada (una vez por sesión) ----------
+  // ---------- Pantalla de entrada ----------
+  // Se ve una vez cada 7 días, sigue sola a los 1,6 s (o con un toque) y no
+  // aparece si se llega con un enlace directo a un diseño (#id).
   const intro = $("#intro");
+  const SEMANA = 7 * 864e5;
   let visto = false;
-  try { visto = sessionStorage.getItem("searcade-start") === "1"; } catch {}
+  try { visto = Date.now() - Number(localStorage.getItem("searcade-start") || 0) < SEMANA; } catch {}
   const empezar = () => {
     if (!intro.isConnected || intro.classList.contains("go")) return;
     intro.classList.add("go");
-    try { sessionStorage.setItem("searcade-start", "1"); } catch {}
+    try { localStorage.setItem("searcade-start", String(Date.now())); } catch {}
     setTimeout(() => intro.remove(), 650);
   };
-  if (visto) intro.remove();
+  if (visto || location.hash.length > 1 || matchMedia("(prefers-reduced-motion: reduce)").matches) intro.remove();
   else {
     intro.addEventListener("click", empezar);
     addEventListener("keydown", empezar, { once: true });
+    setTimeout(empezar, 1600);
   }
   addEventListener("resize", () => mover(idx, true));
+
+  // Teléfono: la barra NAVEGAR / SELECCIONAR / AGREGAR solo con el perchero a la vista
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(([e]) => document.body.classList.toggle("sin-controles", !e.isIntersecting), { rootMargin: "0px 0px -15% 0px" }).observe($("#stage"));
+  }
 
   // ---------- Lookbook: fotos que el dueño sube desde el panel ----------
   function pintarLookbook(fotos) {
@@ -570,7 +660,7 @@
 
   // ---------- Datos ----------
   const desdeArte = (a) => ({
-    id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, semitono: !!a.semitono,
+    id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, mini: a.mini || "", semitono: !!a.semitono,
     coleccion: a.coleccion || "", lema: a.lema || "", descripcionPropia: a.descripcion || "",
     precio: a.precio || CFG.precioBase || 11000,
     descripcion: CFG.descripcionArte || "", material: "Algodón premium",

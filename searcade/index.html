@@ -6,10 +6,20 @@
   <title>SEARCADE — Sube de nivel</title>
   <meta name="description" content="SEARCADE: camisetas con diseños pop, urbanos, gamer, anime y de verano, estampadas en DTF a todo color o en semitono, y camisetas personalizadas. Costa Rica. Sube de nivel con SEARCADE.">
   <meta name="theme-color" content="#0a0414">
-  <meta property="og:image" content="https://searcade.reymidascr.com/img/productos/SC-011-modelo.webp">
-  <meta property="og:title" content="SEARCADE — Sube de nivel con SEARCADE">
-  <meta property="og:description" content="Selecciona tu camiseta: diseños DTF full color y semitono, y personalizadas. Costa Rica.">
+  <link rel="canonical" href="https://searcade.reymidascr.com/">
+  <meta property="og:site_name" content="SEARCADE">
+  <meta property="og:url" content="https://searcade.reymidascr.com/">
+  <meta property="og:image" content="https://searcade.reymidascr.com/img/marca/og-searcade.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Camisetas SEARCADE con diseños DTF: Otro año ya se ha ido, Do Not Disturb y Llega Navidad">
+  <meta property="og:title" content="SEARCADE — Camisetas DTF de otro nivel">
+  <meta property="og:description" content="Diseños anime, gamer y urbanos en DTF full color y semitono. Elegí color, tamaño y espalda. Envíos a todo Costa Rica.">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_CR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="apple-touch-icon" href="img/marca/logo-icono.svg">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Store","name":"SEARCADE","url":"https://searcade.reymidascr.com/","image":"https://searcade.reymidascr.com/img/marca/og-searcade.jpg","logo":"https://searcade.reymidascr.com/img/marca/logo.svg","description":"Camisetas con diseños anime, gamer y urbanos estampadas en DTF full color y semitono.","areaServed":"CR","currenciesAccepted":"CRC","parentOrganization":{"@type":"Organization","name":"Grafitico"}}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Kanit:ital,wght@1,800;1,900&family=Rajdhani:wght@600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
@@ -86,12 +96,14 @@
         <p class="info-label">TAMAÑO DEL ARTE <span id="formatoMedida"></span></p>
         <div class="seg" id="formatos" role="radiogroup" aria-label="Tamaño del estampado"></div>
       </div>
-      <p class="info-label">TALLA</p>
+      <p class="info-label">TALLA <button class="guia-btn" id="guiaBtn" type="button" hidden>📏 Guía de tallas</button></p>
       <div class="sizes" id="sizes" role="radiogroup" aria-label="Talla"></div>
       <button class="comprar" id="comprar" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h3l2.4 11.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L21 7H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.6" fill="currentColor"/><circle cx="17" cy="20" r="1.6" fill="currentColor"/></svg>
         <span>COMPRA AHORA</span><b aria-hidden="true">›</b>
       </button>
+      <p class="nota-compra" id="notaCompra"></p>
+      <button class="compartir" id="compartir" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="m8.3 10.8 7.4-4.4M8.3 13.2l7.4 4.4"/></svg>Compartir este diseño</button>
     </aside>
   </main>
 
@@ -111,7 +123,7 @@
   </nav>
 
   <div class="confianza" aria-label="Garantías">
-    <p><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 7h6M1 11h7M3 15h5M10 4h12v12H10zM22 8h5l3 4v4h-8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="14" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="26" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>ENVÍO RÁPIDO</p>
+    <p><svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 7h6M1 11h7M3 15h5M10 4h12v12H10zM22 8h5l3 4v4h-8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="14" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="26" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span id="envioCorto">ENVÍO RÁPIDO</span></p>
     <p><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>COMPRA SEGURA</p>
     <p><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>TODO COSTA RICA</p>
   </div>
@@ -136,6 +148,7 @@
   <footer class="foot">
     <p><b>SUBE DE NIVEL CON SEARCADE</b></p>
     <p>Una marca de <strong>Grafitico</strong> · Costa Rica</p>
+    <p class="redes" id="redes" hidden></p>
     <p>¿Videojuegos digitales? <a href="https://reymidascr.com" target="_blank" rel="noopener">Rey Midas</a></p>
   </footer>
 
@@ -155,6 +168,14 @@
     <p class="cart-sum">Total <strong id="cartSum">₡0</strong></p>
     <a class="btn-wa" id="cartWa" target="_blank" rel="noopener">Enviar pedido por WhatsApp</a>
     <p class="cart-note">Te respondemos por WhatsApp para coordinar el pago y la entrega.</p>
+  </dialog>
+
+  <!-- Guía de tallas -->
+  <dialog class="modal" id="guia" aria-labelledby="guiaTitle">
+    <button class="modal-close" data-close aria-label="Cerrar">✕</button>
+    <h2 id="guiaTitle">Guía de tallas</h2>
+    <p class="guia-nota">Medí una camiseta tuya que te quede bien, acostada y sin estirar: el ancho de axila a axila y el largo desde el hombro.</p>
+    <div id="guiaTablas"></div>
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>

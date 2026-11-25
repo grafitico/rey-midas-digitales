@@ -5,6 +5,21 @@ window.SEARCADE_CONFIG = {
   whatsapp: "50661133381",
   // Moneda para mostrar precios.
   moneda: "₡",
+  // ===== Compra, envío y confianza (lo que quede vacío no se muestra) =====
+  // Debajo de "Compra ahora". Ej.: "Correos de Costa Rica · ₡2.500 · 2 a 4 días hábiles"
+  envio: "",
+  // Ej.: "SINPE Móvil o transferencia"
+  pagos: "",
+  // Texto corto de la franja de confianza (reemplaza "ENVÍO RÁPIDO"). Ej.: "ENVÍO 2–4 DÍAS"
+  envioCorto: "",
+  // Guía de tallas en cm (ancho de pecho × largo). Con datos, aparece el enlace
+  // "Guía de tallas" junto a TALLA. Ej.: { "Adultos": { S: [46, 70], M: [50, 72] } }
+  guiaTallas: {},
+  // Redes de SEARCADE (enlaces completos). Aparecen en el pie de página.
+  redes: { instagram: "", tiktok: "", facebook: "" },
+  // Medición de visitas y ventas (vacío = no se carga nada).
+  // metaPixel: el número del píxel de Meta. ga4: el ID "G-XXXXXXX" de Google Analytics.
+  analitica: { metaPixel: "", ga4: "" },
   // ===== Personalizador (camisetas con los artes subidos desde el panel) =====
   // Precio de la camiseta con un arte (cada arte puede tener su propio precio).
   precioBase: 11000,
