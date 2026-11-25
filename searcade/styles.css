@@ -67,6 +67,20 @@ a { color: var(--cyan); }
 .title-plate svg { width: 30px; flex: none; }
 .title-plate h1 { margin: 0; font: 900 italic clamp(18px, 5.4vw, 34px) / 1 Kanit, sans-serif; text-transform: uppercase; letter-spacing: .5px; }
 .title-plate em { color: var(--amber); text-shadow: 0 0 14px #fbb51d88; }
+.hud-acciones { display: flex; align-items: center; gap: 10px; justify-self: end; }
+/* Música de fondo: 🔊 sonando (con barritas que se mueven) / 🔇 en silencio */
+.musica-btn { position: relative; display: grid; place-items: center; width: 52px; height: 52px; padding: 0; cursor: pointer; --cut: 10px; color: #fff; }
+.musica-btn[hidden] { display: none; }
+.musica-btn svg { width: 24px; grid-area: 1 / 1; }
+.musica-btn .m-on { display: none; color: var(--cyan); filter: drop-shadow(0 0 6px var(--cyan)); }
+.musica-btn .m-off { color: var(--muted); }
+.musica-btn[aria-pressed="true"] .m-on { display: block; }
+.musica-btn[aria-pressed="true"] .m-off { display: none; }
+.m-barras { position: absolute; right: 7px; bottom: 8px; display: flex; align-items: flex-end; gap: 2px; height: 10px; opacity: 0; }
+.m-barras i { width: 2px; height: 100%; background: var(--pink); border-radius: 1px; transform-origin: bottom; animation: mBarra .9s ease-in-out infinite; }
+.m-barras i:nth-child(2) { animation-delay: -.3s; } .m-barras i:nth-child(3) { animation-delay: -.6s; }
+.musica-btn[aria-pressed="true"] .m-barras { opacity: 1; }
+@keyframes mBarra { 50% { transform: scaleY(.3); } }
 .cart-btn { display: flex; align-items: center; gap: 16px; padding: 9px 16px 9px 12px; cursor: pointer; --cut: 10px; }
 .cart-ico { position: relative; display: block; }
 .cart-ico svg { width: 30px; display: block; }
@@ -463,7 +477,7 @@ a { color: var(--cyan); }
   .brand-mark { width: 74px; }
   .brand-word { width: 190px; }
   .title-plate { grid-column: 2; grid-row: 1; padding: 14px 34px; --cut: 18px; }
-  .cart-btn { justify-self: end; }
+  .hud-acciones { justify-self: end; }
   .arena { grid-template-columns: 112px 1fr clamp(280px, 22vw, 360px); align-items: center; gap: 18px; padding-top: 8px; }
   .cats { flex-direction: column; overflow: visible; padding: 10px 8px; --cut: 14px; }
   .cat { flex: none; padding: 12px 4px; }

@@ -661,6 +661,71 @@
     new IntersectionObserver(([e]) => document.body.classList.toggle("sin-controles", !e.isIntersecting), { rootMargin: "0px 0px -15% 0px" }).observe($("#stage"));
   }
 
+  // ---------- Música de fondo (config.js: musica) ----------
+  // Los navegadores no dejan sonar audio sin un toque del visitante: arranca
+  // con el primero (p. ej. PRESIONA START). Sube de a poco, se pausa con la
+  // pestaña oculta y el botón 🔊/🔇 guarda la elección en este navegador.
+  (() => {
+    const btn = $("#musicaBtn");
+    if (!btn || !CFG.musica) return;
+    btn.hidden = false;
+    const CLAVE = "searcade-musica";
+    let quiere = true;
+    try { quiere = localStorage.getItem(CLAVE) !== "off"; } catch {}
+    const VOL = Math.min(1, Math.max(0, Number(CFG.musicaVolumen) || 0.35));
+    let audio = null, fade = 0;
+    const pintar = (sonando) => {
+      btn.setAttribute("aria-pressed", sonando ? "true" : "false");
+      btn.setAttribute("aria-label", sonando ? "Silenciar música" : "Activar música");
+    };
+    const llevarA = (destino, ms, alTerminar) => {
+      cancelAnimationFrame(fade);
+      const desde = audio.volume, t0 = performance.now();
+      const paso = (t) => {
+        const k = Math.min(1, (t - t0) / ms);
+        audio.volume = Math.min(1, Math.max(0, desde + (destino - desde) * k));
+        if (k < 1) fade = requestAnimationFrame(paso); else alTerminar?.();
+      };
+      fade = requestAnimationFrame(paso);
+    };
+    const sonar = () => {
+      if (!audio) {
+        audio = new Audio(CFG.musica);
+        audio.loop = true;
+        audio.preload = "auto";
+        audio.volume = 0;
+      }
+      const p = audio.play();
+      pintar(true);
+      if (p?.catch) p.catch(() => pintar(false)); // el navegador no dejó: queda en 🔇
+      llevarA(VOL, 2000);
+    };
+    const callar = () => {
+      pintar(false);
+      if (audio && !audio.paused) llevarA(0, 400, () => audio.pause());
+    };
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      quiere = btn.getAttribute("aria-pressed") !== "true";
+      try { localStorage.setItem(CLAVE, quiere ? "on" : "off"); } catch {}
+      quiere ? sonar() : callar();
+    });
+    // Primer toque o tecla en la página: arranca si el visitante no la silenció
+    const primero = (e) => {
+      if (e.target.closest?.("#musicaBtn")) return;
+      removeEventListener("pointerdown", primero, true);
+      removeEventListener("keydown", primero, true);
+      if (quiere) sonar();
+    };
+    addEventListener("pointerdown", primero, true);
+    addEventListener("keydown", primero, true);
+    document.addEventListener("visibilitychange", () => {
+      if (!audio) return;
+      if (document.hidden) audio.pause();
+      else if (quiere && btn.getAttribute("aria-pressed") === "true") audio.play().catch(() => pintar(false));
+    });
+  })();
+
   // ---------- Marco del perchero: borde con esquinas en diagonal a la medida ----------
   (() => {
     const svg = $("#marcoSvg");

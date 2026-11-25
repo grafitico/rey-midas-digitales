@@ -17,6 +17,11 @@ window.SEARCADE_CONFIG = {
   guiaTallas: {},
   // Redes de SEARCADE (enlaces completos). Aparecen en el pie de página.
   redes: { instagram: "", tiktok: "", facebook: "" },
+  // Música de fondo (MP3 en la carpeta audio/). Vacío = sin música ni botón.
+  // Suena desde el primer toque del visitante; el botón 🔊/🔇 la silencia y la
+  // tienda recuerda la elección.
+  musica: "",
+  musicaVolumen: 0.35,
   // Medición de visitas y ventas (vacío = no se carga nada).
   // metaPixel: el número del píxel de Meta. ga4: el ID "G-XXXXXXX" de Google Analytics.
   analitica: { metaPixel: "", ga4: "" },

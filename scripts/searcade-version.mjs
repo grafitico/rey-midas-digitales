@@ -40,7 +40,7 @@ for (const nombre of ["config.js", "styles.css"]) {
   const archivo = path.join(dir, nombre);
   if (!fs.existsSync(archivo)) continue;
   const antes = fs.readFileSync(archivo, "utf8");
-  const despues = antes.replace(/(["'(])(img\/[^"'()?#\s]+\.(?:webp|png|jpe?g|svg|avif))(?:\?v=[^"')]*)?(?=["')])/g, (todo, a, ruta) => {
+  const despues = antes.replace(/(["'(])((?:img|audio)\/[^"'()?#\s]+\.(?:webp|png|jpe?g|svg|avif|mp3|m4a|ogg))(?:\?v=[^"')]*)?(?=["')])/g, (todo, a, ruta) => {
     const h = huellaDe(ruta);
     if (!h) return todo;
     fotos++;

@@ -22,7 +22,7 @@ RewriteRule ^sitemap\.xml$ sitemap.php [L]
   <FilesMatch "\.(html|json|js|css)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
-  <FilesMatch "\.(png|jpe?g|webp|avif|svg)$">
+  <FilesMatch "\.(png|jpe?g|webp|avif|svg|mp3|m4a|ogg)$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
 </IfModule>
