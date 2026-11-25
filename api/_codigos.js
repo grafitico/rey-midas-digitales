@@ -33,15 +33,30 @@ export function codigosMissingError() {
 }
 
 // Texto libre → códigos (uno por línea, o separados por espacios/comas).
-// Sony da códigos alfanuméricos de 6 a 8; se toleran de 4 a 20.
-export function parseCodigos(texto) {
-  const out = [];
-  for (const t of String(texto || "").split(/[\s,;|]+/)) {
-    const c = t.trim().replace(/^[-•*·]+/, "");
-    if (/^[A-Za-z0-9-]{4,20}$/.test(c) && /\d/.test(c) && !out.includes(c)) out.push(c);
-  }
-  return out;
+// Sony da códigos alfanuméricos de 6 a 8; se toleran de 4 a 20. Un código
+// puede NO tener números (ABCDEF, abcd-efgh): se acepta si tiene 6 o más
+// caracteres y es todo mayúsculas o todo minúsculas (así no entran palabras
+// como "Backup" o "PlayStation"). Antes del 25/11/2026 se exigía un número
+// y los códigos solo con letras se perdían en silencio.
+const PALABRAS = new Set(["backup", "codes", "codigos", "code", "codigo", "playstation", "verificacion", "respaldo", "copiar", "imprimir", "descargar", "download", "print", "copy"]);
+function pareceCodigo(c) {
+  if (!/^[A-Za-z0-9-]{4,20}$/.test(c) || !/[A-Za-z0-9]/.test(c)) return false;
+  if (/\d/.test(c)) return !/^\d{1,2}[.)]?$/.test(c);
+  const letras = c.replace(/-/g, "");
+  return letras.length >= 6 && (letras === letras.toUpperCase() || letras === letras.toLowerCase()) && !PALABRAS.has(letras.toLowerCase());
 }
+export function parseCodigosDetalle(texto) {
+  const codigos = [], ignorados = [];
+  for (const t of String(texto || "").split(/[\s,;|]+/)) {
+    const c = t.trim().replace(/^[-•*·]+/, "").replace(/[.)]+$/, "");
+    if (!c) continue;
+    if (/^\d{1,2}$/.test(c)) continue; // numeración "1." "2)"
+    if (pareceCodigo(c)) { if (!codigos.includes(c)) codigos.push(c); }
+    else if (!ignorados.includes(t.trim())) ignorados.push(t.trim());
+  }
+  return { codigos, ignorados };
+}
+export const parseCodigos = (texto) => parseCodigosDetalle(texto).codigos;
 
 // cuentas.codigos → lista, o null si la cuenta todavía no tiene bóveda.
 export function leerBoveda(cuenta) {
@@ -96,9 +111,13 @@ export function asignar(lista, n, { venta, rm }) {
 export function cargarSet(lista, codigos, modo = "reemplazar") {
   const ya = new Set(lista.map(x => x.c));
   const nuevos = codigos.filter(c => !ya.has(c));
+  const enSet = new Set(codigos);
   const perdidas = new Map(); // venta → { n, rm }
   if (modo === "reemplazar" && nuevos.length) {
     for (const x of lista) {
+      // Los que vienen otra vez en el set pegado siguen valiendo (Sony los
+      // sigue mostrando): no se anulan.
+      if (enSet.has(x.c)) { if (x.e === "anulado") x.e = "libre"; continue; }
       if (x.e === "entregado" && x.venta) {
         const p = perdidas.get(x.venta) || { n: 0, rm: x.rm || null };
         p.n++;
@@ -113,7 +132,7 @@ export function cargarSet(lista, codigos, modo = "reemplazar") {
     const dados = asignar(lista, n, { venta, rm });
     reasignadas.push({ venta, dados: dados.length, faltan: n - dados.length });
   }
-  return { agregados: nuevos.length, reasignadas };
+  return { agregados: nuevos.length, repetidos: codigos.length - nuevos.length, reasignadas };
 }
 
 // Códigos que una venta tiene vigentes en la bóveda (los que el cliente ve).

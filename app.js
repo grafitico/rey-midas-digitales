@@ -8979,6 +8979,15 @@ function setupInventory() {
     if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
     const ed = e.target.closest("[data-inv-edit]");
     const se = e.target.closest("[data-inv-sell]");
+    const ex = e.target.closest("[data-inv-sec-excepcion]");
+    if (ex) {
+      e.preventDefault();
+      const email = ex.dataset.invSecExcepcion;
+      if (!confirm(`Excepción: vender la SECUNDARIA de ${email} antes de que se vendan las principales.\n\nOjo: las principales siguen libres para vender después. ¿Seguir?`)) return;
+      invSecExcepcion.add(email.toLowerCase());
+      invSellSlot(email, "sec");
+      return;
+    }
     if (!ed && !se) return;
     e.preventDefault();
     if (ed) invEditSale(ed.dataset.invEdit, ed.dataset.invAcc);
@@ -9375,9 +9384,9 @@ function invAccountCard(a, inRange) {
     const secEspera = k === "sec" && !a.full && invSlotOptions(a).filter(o => o.slot === "sec").every(o => invSecWaiting(a, o.platform));
     for (let i = used.length; i < cap; i++) {
       if (secEspera) {
-        slots.push(`<div class="inv-slot is-blocked" title="La secundaria se vende después de las principales">
+        slots.push(`<div class="inv-slot is-blocked" role="button" tabindex="0" data-inv-sec-excepcion="${escapeAttr(a.email)}" title="La secundaria se vende después de las principales. Tocá para venderla igual (excepción).">
           <span class="inv-slot-name">${invSlotLabel(k, a.family)}</span>
-          <strong>DESPUÉS</strong><span class="inv-slot-cta">de las principales</span>
+          <strong>DESPUÉS</strong><span class="inv-slot-cta">de las principales · <u>vender igual</u></span>
         </div>`);
         continue;
       }
@@ -9483,6 +9492,15 @@ function invBundleGames(acc) {
   const m = String(acc?.cuenta?.notas || "").match(/Juegos:\s*(.+)$/i);
   return m ? m[1].split("|").map(x => x.trim()).filter(Boolean).join("\n") : "";
 }
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pf-sec-excepcion]");
+  if (!b) return;
+  const email = b.dataset.pfSecExcepcion;
+  if (!confirm(`Excepción: vender la SECUNDARIA de ${email} antes de que se vendan las principales.\n\nOjo: las principales siguen libres para vender después. ¿Seguir?`)) return;
+  invSecExcepcion.add(email.toLowerCase());
+  pfApplyAccount(email, "sec");
+});
 
 async function invSellSlot(email, slot) {
   document.querySelector('.admin-tab[data-tab="compras"]')?.click();
@@ -9620,7 +9638,12 @@ function pfResetAccount() {
 // principales. PlayStation: la secundaria en una consola espera a que se
 // vendan las 2 principales de esa consola. Xbox: Segundo plano después de la
 // Principal.
+// Excepción a la regla (la elige el dueño, p. ej. un cliente viejo de
+// secundaria que necesita otra cuenta): esas cuentas dejan vender la
+// secundaria antes de las principales. Dura hasta recargar el panel.
+const invSecExcepcion = new Set();
 function invSecWaiting(acc, platform) {
+  if (invSecExcepcion.has(String(acc?.email || "").toLowerCase())) return false;
   const libre = k => Math.max(0, (acc.cap?.[k] || 0) - (acc.used?.[k]?.length || 0));
   if (acc.family === "PlayStation") return acc.kind === "psplus" ? false : libre(/ps5/i.test(platform) ? "ps5" : "ps4") > 0;
   if (acc.family === "Xbox") return libre("pri") > 0;
@@ -9716,6 +9739,8 @@ function pfRenderSlots() {
       ${acc.isNew ? "" : `<span class="inv-chip ${acc.full || !freeCount ? "is-full" : "is-free"}">${acc.full || !freeCount ? "Llena" : `${acc.freeTotal} ${acc.freeTotal === 1 ? "libre" : "libres"}`}</span>`}
     </div>
     <div class="pf-slot-grid">${chips}</div>
+    ${!acc.isNew && !acc.full && opts.some(o => o.slot === "sec" && !(acc.used?.sec?.length) && invSecWaiting(acc, o.platform))
+      ? `<p class="field-hint">¿Excepción a la regla? <button type="button" class="pc-btn" data-pf-sec-excepcion="${escapeAttr(acc.email)}">Vender la secundaria igual</button></p>` : ""}
     <p class="field-hint" id="pfAccNote">${acc.isNew ? "Tocá el cupo que vendés: se ponen solas la plataforma y la modalidad." : "Tocá un cupo libre: se ponen solas la plataforma y la modalidad."}</p>`;
   box.hidden = false;
 }
@@ -9832,6 +9857,8 @@ async function openCodigosModal(email) {
         const r2 = await apiPost("/api/purchases", { action: "codigos-guardar", account_email: email, codigos: texto, modo: agregar ? "agregar" : "reemplazar" });
         invMarkStale();
         await cargar(`✓ ${r2.agregados} ${r2.agregados === 1 ? "código nuevo" : "códigos nuevos"} guardados.`
+          + (r2.repetidos ? ` ${r2.repetidos} ya ${r2.repetidos === 1 ? "estaba" : "estaban"} en la lista.` : "")
+          + (r2.ignorados?.length ? ` ⚠️ No ${r2.ignorados.length === 1 ? "entró" : "entraron"} (no ${r2.ignorados.length === 1 ? "parece" : "parecen"} código): ${r2.ignorados.join(", ")}.` : "")
           + (r2.clientes_actualizados ? ` ${r2.clientes_actualizados} ${r2.clientes_actualizados === 1 ? "cliente recibió" : "clientes recibieron"} sus códigos nuevos.` : "")
           + (r2.clientes_sin_codigos ? ` ⚠️ A ${r2.clientes_sin_codigos} no les alcanzó: cargá más.` : ""));
       } catch (err) { st.textContent = err.message; st.className = "form-status error"; }

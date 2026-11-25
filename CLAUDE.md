@@ -113,6 +113,13 @@
   libre, hasta `TOPE_POR_VENTA` (5) por venta; el admin puede marcar/deshacer en
   la bóveda (`codigos-marcar`). Al cargar un set nuevo se anulan también los
   entregados sin usar y cada venta recibe automáticamente sus códigos nuevos.
+  Los códigos pegados que ya estaban no se anulan (Sony los sigue mostrando).
+  Hasta el 25/11/2026 `parseCodigos` descartaba en silencio los códigos sin
+  números (ABCDEF): muchas cuentas del Excel quedaron con 1–3 códigos; hay que
+  volver a pegar los vigentes desde Sony.
+- Excepción a "secundaria después de las principales": en el inventario la
+  secundaria en espera dice "vender igual" y en el formulario hay "Vender la
+  secundaria igual" (con confirmación, solo para esa sesión del panel).
 - **Ranking de embajadores (23/11/2026):** `api/ranking.js` + `api/_ranking.js`,
   migrations/add_ranking.sql (tabla `ranking_eventos`, `app_users.referido_por`).
   Enlace ?r=RM0083 → la tienda guarda cookie `rmd_ref` y avisa la visita. Puntos:

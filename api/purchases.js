@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { registrarCompra } from "./_ranking.js";
 import { selectClients } from "./clients.js";
 import { findCover } from "./og.js";
-import { CODIGOS_POR_VENTA, TOPE_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas, codigosDeVenta, reponerUsado, desmarcarUsado } from "./_codigos.js";
+import { CODIGOS_POR_VENTA, TOPE_POR_VENTA, codigosMissing, codigosMissingError, parseCodigos, parseCodigosDetalle, leerBoveda, resumenBoveda, guardarBoveda, asignar, cargarSet, ventasDeCuenta, sembrarDesdeVentas, codigosDeVenta, reponerUsado, desmarcarUsado } from "./_codigos.js";
 import { MAIL_DOMAIN, cleanLocal, makePassword, mailboxExists, createMailbox, mailStatus, readSonyMail, canCreateMail, testCpanel, catchAllActivo, CATCHALL_LOCAL } from "./_correo.js";
 
 // account_password y verifier_codes son las credenciales reales de la cuenta
@@ -814,18 +814,18 @@ async function codigosCuenta(req, res, body) {
 async function codigosGuardar(req, res, body) {
   await requireAdmin(req);
   const email = String(body.account_email || "").trim().toLowerCase();
-  const nuevos = parseCodigos(body.codigos);
+  const { codigos: nuevos, ignorados } = parseCodigosDetalle(body.codigos);
   if (!email) return res.status(400).json({ error: "Correo de la cuenta requerido" });
-  if (!nuevos.length) return res.status(400).json({ error: "No vinieron códigos válidos (uno por línea)." });
+  if (!nuevos.length) return res.status(400).json({ error: `No reconocí ningún código (uno por línea).${ignorados.length ? ` No entraron: ${ignorados.slice(0, 12).join(", ")}` : ""}` });
   return conBoveda(async () => {
     const b = await bovedaDe(email);
     if (!b) return res.status(404).json({ error: "Esa cuenta no está registrada: registrala primero en Cuentas." });
-    const { agregados, reasignadas } = cargarSet(b.lista, nuevos, body.modo === "agregar" ? "agregar" : "reemplazar");
+    const { agregados, repetidos, reasignadas } = cargarSet(b.lista, nuevos, body.modo === "agregar" ? "agregar" : "reemplazar");
     await guardarBoveda(b.cuenta.id, b.lista);
     await aplicarRecortes(b.recortes);
     await sincronizarVentas(reasignadas, b.lista);
     res.status(200).json({
-      ok: true, agregados, resumen: resumenBoveda(b.lista),
+      ok: true, agregados, repetidos, ignorados: ignorados.slice(0, 20), resumen: resumenBoveda(b.lista),
       clientes_actualizados: reasignadas.filter(r => r.dados).length,
       clientes_sin_codigos: reasignadas.filter(r => r.faltan).length,
     });
