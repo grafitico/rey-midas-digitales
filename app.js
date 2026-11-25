@@ -9819,7 +9819,7 @@ async function openCodigosModal(email) {
       <p class="field-hint">Solo vos ves esta lista. Cada venta recibe 2 libres y el cliente ve únicamente los suyos.
         <b>Usado</b>: el cliente tocó "Ya lo usé" (Sony los acepta una vez) y recibió otro, hasta 5 por venta. <b>Expuesto</b>: un cliente lo vio cuando se copiaban todos (no se vuelve a dar). <b>Anulado</b>: Sony lo invalidó al generar un set nuevo; al cargar el set nuevo, cada cliente recibe sus códigos nuevos solo.</p>
       <p><span class="inv-chip is-free">${r.libres || 0} libres</span> <span class="inv-chip">${r.entregados || 0} entregados</span>
-        ${r.usados ? `<span class="inv-chip">${r.usados} usados</span>` : ""}
+        ${r.usados ? `<span class="inv-chip">${r.usados} ${r.usados === 1 ? "usado" : "usados"}</span>` : ""}
         ${r.expuestos ? `<span class="inv-chip">${r.expuestos} expuestos</span>` : ""} ${r.anulados ? `<span class="inv-chip">${r.anulados} anulados</span>` : ""}</p>
       ${(r.libres || 0) <= 2 ? `<p class="form-status error">Quedan pocos códigos libres: generá un set nuevo en Sony (Seguridad → Verificación en dos pasos → Códigos de respaldo) y pegalo abajo.</p>` : ""}
       ${filas ? `<div class="cod-table-wrap"><table class="cod-table"><thead><tr><th>Código</th><th>Estado</th><th>Cliente</th><th></th></tr></thead><tbody>${filas}</tbody></table></div>` : `<p>Esta cuenta todavía no tiene códigos cargados.</p>`}
