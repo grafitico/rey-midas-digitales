@@ -196,7 +196,8 @@
   const opcionesSub = (cat, sel) => `<option value="">— Ninguna —</option>` + [...subsDe(cat), ...(sel && !subsDe(cat).includes(sel) ? [sel] : [])]
     .map((x) => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join("");
   const camposExtra = (a = {}) => `<label>Subcategoría <small>(se crean en Categorías)</small><select data-f="sub">${opcionesSub(a.categoria, a.sub || "")}</select></label>
-        <label class="chk"><input type="checkbox" data-f="oscuras"${a.oscuras ? " checked" : ""}> Solo camisetas oscuras <small>(arte de recorte: en las claras pierde las sombras)</small></label>`;
+        <label class="chk"><input type="checkbox" data-f="oscuras"${a.oscuras ? " checked" : ""}> Solo camisetas oscuras <small>(arte de recorte: en las claras pierde las sombras)</small></label>
+        <label class="chk"><input type="checkbox" data-f="claras"${a.claras ? " checked" : ""}> Solo camisetas claras <small>(líneas negras: en la camiseta negra no se ve)</small></label>`;
 
   function pintarPendientes() {
     $("#pendientes").innerHTML = pendientes.map((p) => `
@@ -240,7 +241,7 @@
       const igual = mismoDibujo(huella);
       const forzar = !!igual && confirm(`"${p.nombre}" parece el mismo dibujo que "${igual.nombre}", que ya está en la tienda. ¿Subirlo igual?`);
       if (igual && !forzar) { quitar(p); pintarPendientes(); toast(`No se subió: ya está como "${igual.nombre}"`); return true; }
-      const r = await api({ action: "subir", huella, forzar, nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, sub: p.sub || "", oscuras: !!p.oscuras, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
+      const r = await api({ action: "subir", huella, forzar, nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, sub: p.sub || "", oscuras: !!p.oscuras, claras: !!p.claras && !p.oscuras, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
       const r2 = await api({ action: "original", id: r.arte.id, imagen: await aDataUrl(p.blob) });
       r.artes = r2.artes;
       quitar(p);
@@ -493,7 +494,7 @@
         toast("Arte borrado");
       } else {
         b.disabled = true;
-        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked, sub: v("sub").value, oscuras: v("oscuras").checked, coleccion: v("coleccion").value, lema: v("lema").value, descripcion: v("descripcion").value })).artes);
+        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked, sub: v("sub").value, oscuras: v("oscuras").checked, claras: v("claras").checked && !v("oscuras").checked, coleccion: v("coleccion").value, lema: v("lema").value, descripcion: v("descripcion").value })).artes);
         toast("✓ Cambios guardados");
       }
     } catch (err) {
@@ -1012,10 +1013,11 @@
       const key = ((d[i] / 48) | 0) * 36 + ((d[i + 1] / 48) | 0) * 6 + ((d[i + 2] / 48) | 0);
       cubos.set(key, (cubos.get(key) || 0) + 1);
     }
-    if (!n) return { oscuras: false, pocasTintas: false };
+    if (!n) return { oscuras: false, claras: false, pocasTintas: false };
     let acc = 0, tintas = 0;
     for (const v of [...cubos.values()].sort((a, b) => b - a)) { acc += v; tintas++; if (acc >= 0.95 * n) break; }
-    return { oscuras: oscuro / n < 0.03, pocasTintas: tintas <= 4 }; // calibrado: 21 de 25 y 22 de 25
+    // claras: casi todo es negro (líneas negras sobre transparente): en camiseta negra no se ve
+    return { oscuras: oscuro / n < 0.03, claras: oscuro / n > 0.6, pocasTintas: tintas <= 4 }; // calibrado: 21 de 25 y 22 de 25
   }
 
   $("#masivaSubir").addEventListener("click", async () => {
@@ -1062,7 +1064,7 @@
           if (igual) { it.estado = "repetido"; it.error = `misma imagen que «${igual.nombre}»`; URL.revokeObjectURL(img.url); continue; }
           const vis = await analizar(it.file);
           const r = await api({ action: "subir", corto: true, fuente: it.ruta, codigo: it.codigo, huella, nombre: it.nombre, categoria: destino(it), sub: it.sub, precio: "",
-            semitono: vis.pocasTintas, oscuras: img.transparente && vis.oscuras, imagen: await aDataUrl(img.vista) });
+            semitono: vis.pocasTintas, oscuras: img.transparente && vis.oscuras, claras: img.transparente && vis.claras, imagen: await aDataUrl(img.vista) });
           if (r.repetido) { it.estado = "repetido"; if (r.mismaImagen) it.error = `misma imagen que «${r.arte.nombre}»`; URL.revokeObjectURL(img.url); continue; }
           await api({ action: "original", corto: true, id: r.arte.id, imagen: await aDataUrl(img.blob) });
           const vurl = URL.createObjectURL(img.vista);

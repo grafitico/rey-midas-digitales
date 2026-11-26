@@ -24,7 +24,8 @@
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion?, sub?, oscuras? }
 //   (sub = subcategoría dentro de la categoría, p. ej. "Attack on Titan";
 //    oscuras = el arte solo se ofrece en camisetas oscuras: es de recorte y en
-//    las claras pierde las sombras)
+//    las claras pierde las sombras; claras = al revés: dibujo de líneas
+//    negras que en camiseta oscura no se ve)
 //   { action: "borrar", id }
 //   { action: "categorias", categorias: [{ id, nombre, icono, subs: [..], claves?: [..], subClaves?: { sub: [..] } }], renombrar?: [{ categoria, de, a }] }
 //     claves/subClaves: palabras que, en el nombre del archivo o de su carpeta,
@@ -177,7 +178,7 @@ export async function subirArte(body) {
     const archivo = `${id}.${ext}`;
     fs.mkdirSync(artesDir(), { recursive: true });
     fs.writeFileSync(path.join(artesDir(), archivo), buf);
-    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...(body.oscuras === true ? { oscuras: true } : {}), ...textosDe(body), ...(fuente ? { fuente } : {}), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
+    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...(body.oscuras === true ? { oscuras: true } : {}), ...(body.claras === true && body.oscuras !== true ? { claras: true } : {}), ...textosDe(body), ...(fuente ? { fuente } : {}), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
     artes.unshift(arte);
     escribirArtes(artes);
     return { ok: true, arte, ...(body.corto ? {} : { artes }) };
@@ -193,7 +194,8 @@ export async function editarArte(body) {
     if ("categoria" in body) a.categoria = limpiarCategoria(body.categoria);
     if ("precio" in body) a.precio = limpiarPrecio(body.precio);
     if ("semitono" in body) a.semitono = body.semitono === true;
-    if ("oscuras" in body) { if (body.oscuras === true) a.oscuras = true; else delete a.oscuras; }
+    if ("oscuras" in body) { if (body.oscuras === true) { a.oscuras = true; delete a.claras; } else delete a.oscuras; }
+    if ("claras" in body) { if (body.claras === true) { a.claras = true; delete a.oscuras; } else delete a.claras; }
     Object.assign(a, textosDe(body));
     escribirArtes(artes);
     return { ok: true, ...(body.corto ? { arte: a } : { artes }) };

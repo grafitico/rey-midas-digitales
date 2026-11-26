@@ -145,3 +145,6 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   artes viejos reciben su huella solos al abrir el panel. Panel → Artes
   publicados → "🔍 Buscar repetidos": grupos del mismo dibujo, sugiere quedarse
   con el que tiene subcategoría y código, y borra las copias.
+- `claras: true` ("Solo camisetas claras"): arte de líneas negras que en camiseta
+  oscura no se ve; la tienda solo ofrece `config.js` → `coloresClaros` (blanca,
+  gris). La carga masiva lo marca sola si más del 60 % del dibujo es negro.
