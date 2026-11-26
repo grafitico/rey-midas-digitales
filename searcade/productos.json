@@ -23,31 +23,6 @@
   ],
   "productos": [
     {
-      "id": "SC-011",
-      "nombre": "Do Not Disturb",
-      "categoria": "gamer",
-      "precio": 11000,
-      "tallas": [
-        "S",
-        "M",
-        "L",
-        "XL",
-        "XXL"
-      ],
-      "descripcion": "Do not disturb, I'm gaming. Para cuando la partida va primero.",
-      "material": "Algodón premium",
-      "imagen": "",
-      "fotos": [
-        "img/productos/SC-011-modelo.webp"
-      ],
-      "nuevo": true,
-      "arte": {
-        "texto": "DO NOT DISTURB",
-        "tono": "#fbb51d",
-        "tono2": "#3fd16b"
-      }
-    },
-    {
       "id": "SC-001",
       "nombre": "Formula Nano200",
       "categoria": "urbana",

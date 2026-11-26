@@ -361,7 +361,13 @@
     const semis = publicados.filter((a) => a.semitono).length;
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
     $("#protegerTodos").hidden = !publicados.some((a) => !a.protegido);
-    const ver = publicados.filter((a) => filtro === "todos" || (filtro === "semitono") === !!a.semitono);
+    const q = norm($("#buscarArte").value);
+    const catF = $("#catLista").value;
+    $("#catLista").innerHTML = `<option value="">Todas las categorías</option>` + categorias.map((c) => `<option value="${esc(c.id)}"${c.id === catF ? " selected" : ""}>${esc(c.nombre)} (${cuantos(c.id)})</option>`).join("");
+    const todos = publicados.filter((a) => (filtro === "todos" || (filtro === "semitono") === !!a.semitono) && (!catF || a.categoria === catF) && (!q || norm(`${a.nombre} ${a.sub || ""} ${a.id}`).includes(q)));
+    const ver = todos.slice(0, limiteLista);
+    $("#verMas").hidden = todos.length <= ver.length;
+    $("#verMas").textContent = `Ver más (${todos.length - ver.length})`;
     $("#lista").innerHTML = ver.length ? ver.map((a) => `
       <div class="ficha" data-id="${esc(a.id)}">
         ${prev(a.archivo, a.semitono)}
@@ -378,7 +384,12 @@
     $("#filtroLista").innerHTML = [["todos", "Todos"], ["semitono", "Semitono"], ["full", "Full color"]]
       .map(([id, n]) => `<button role="radio" aria-checked="${id === filtro}" data-v="${id}">${n}</button>`).join("");
   }
-  $("#filtroLista").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { filtro = b.dataset.v; pintarLista(); } });
+  $("#filtroLista").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { filtro = b.dataset.v; limiteLista = 30; pintarLista(); } });
+  // Con miles de artes: de a 30, con buscador y filtro por categoría
+  let limiteLista = 30, tBuscar;
+  $("#buscarArte").addEventListener("input", () => { clearTimeout(tBuscar); tBuscar = setTimeout(() => { limiteLista = 30; pintarLista(); }, 250); });
+  $("#catLista").addEventListener("change", () => { limiteLista = 30; pintarLista(); });
+  $("#verMas").addEventListener("click", () => { limiteLista += 30; pintarLista(); });
   $("#lista").addEventListener("change", (e) => {
     if (e.target.dataset.f === "categoria") { e.target.closest(".ficha").querySelector('[data-f="sub"]').innerHTML = opcionesSub(e.target.value, ""); return; }
     if (e.target.dataset.f !== "semitono") return;
@@ -422,11 +433,11 @@
     catsEd = categorias.map((c) => {
       // Subcategorías que ya usan los artes pero no están en la lista
       const extra = [...new Set(publicados.filter((a) => a.categoria === c.id && a.sub && !(c.subs || []).includes(a.sub)).map((a) => a.sub))];
-      return { id: c.id, nombre: c.nombre, icono: c.icono || "", nueva: false, subs: [...(c.subs || []), ...extra].map((x) => ({ nombre: x, orig: x })) };
+      return { id: c.id, nombre: c.nombre, icono: c.icono || "", claves: [...(c.claves || [])], nueva: false, subs: [...(c.subs || []), ...extra].map((x) => ({ nombre: x, orig: x, claves: [...(c.subClaves?.[x] || [])] })) };
     });
     // Categorías que tienen artes y no están en la lista (no se pueden perder)
     for (const id of new Set(publicados.map((a) => a.categoria))) {
-      if (!catsEd.some((c) => c.id === id)) catsEd.push({ id, nombre: id.charAt(0).toUpperCase() + id.slice(1), icono: "", nueva: false, subs: [] });
+      if (!catsEd.some((c) => c.id === id)) catsEd.push({ id, nombre: id.charAt(0).toUpperCase() + id.slice(1), icono: "", claves: [], nueva: false, subs: [] });
     }
     pintarCats();
   }
@@ -438,12 +449,13 @@
           <button type="button" class="cat-ico" data-a="icono" title="Cambiar ícono">${IC.svg(c.icono, c.id)}</button>
           <input data-k="nombre" value="${esc(c.nombre)}" maxlength="20" aria-label="Nombre de la categoría">
           <span class="cat-n">${n} arte${n === 1 ? "" : "s"}</span>
+          <button type="button" class="mini-btn${c.claves.length ? " con" : ""}" data-a="claves" title="Palabras clave: ${esc(c.claves.join(", ") || "ninguna")}">🔑</button>
           <button type="button" class="mini-btn" data-a="arriba" title="Subir"${i ? "" : " disabled"}>↑</button>
           <button type="button" class="mini-btn" data-a="abajo" title="Bajar"${i < catsEd.length - 1 ? "" : " disabled"}>↓</button>
           <button type="button" class="mini-btn peligro" data-a="borrar" title="${n ? "Tiene artes: muévelos antes de borrarla" : "Borrar categoría"}"${n ? " disabled" : ""}>✕</button>
         </div>
         <div class="subs-ed">
-          ${c.subs.map((x, j) => `<span class="sub-chip" data-j="${j}"><input data-k="sub" value="${esc(x.nombre)}" maxlength="30" aria-label="Subcategoría"><small>${x.orig ? cuantos(c.id, x.orig) : 0}</small><button type="button" data-a="sub-arriba" title="Mover antes"${j ? "" : " disabled"}>‹</button><button type="button" data-a="sub-quitar" title="Quitar subcategoría">✕</button></span>`).join("")}
+          ${c.subs.map((x, j) => `<span class="sub-chip" data-j="${j}"><input data-k="sub" value="${esc(x.nombre)}" maxlength="30" aria-label="Subcategoría"><small>${x.orig ? cuantos(c.id, x.orig) : 0}</small><button type="button" data-a="sub-claves" class="${x.claves.length ? "con" : ""}" title="Palabras clave: ${esc(x.claves.join(", ") || "ninguna")}">🔑</button><button type="button" data-a="sub-arriba" title="Mover antes"${j ? "" : " disabled"}>‹</button><button type="button" data-a="sub-quitar" title="Quitar subcategoría">✕</button></span>`).join("")}
           <span class="sub-nueva"><input placeholder="+ Subcategoría" maxlength="30" aria-label="Nueva subcategoría"><button type="button" data-a="sub-agregar">Agregar</button></span>
         </div>
       </div>`;
@@ -468,6 +480,13 @@
     const mover = (arr, a, z) => { const [x] = arr.splice(a, 1); arr.splice(z, 0, x); };
     switch (b.dataset.a) {
       case "icono": catIcono = c; pintarIconos(); $("#iconos").showModal(); return;
+      case "claves": case "sub-claves": {
+        const obj = b.dataset.a === "claves" ? c : c.subs[j];
+        const r = prompt(`Palabras clave de "${obj.nombre}", separadas por comas.\nSi el nombre de un archivo o de su carpeta tiene alguna, la carga masiva lo pone aquí.\nEj.: ataque a los titanes, shingeki, aot`, obj.claves.join(", "));
+        if (r === null) return;
+        obj.claves = [...new Set(r.split(",").map((x) => x.trim().toLowerCase()).filter((x) => x.length >= 2))].slice(0, 20);
+        break;
+      }
       case "arriba": mover(catsEd, i, i - 1); break;
       case "abajo": mover(catsEd, i, i + 1); break;
       case "borrar": if (!confirm(`¿Quitar la categoría "${c.nombre}"? (Se aplica al guardar)`)) return; catsEd.splice(i, 1); break;
@@ -482,7 +501,7 @@
         const t = inp.value.trim().slice(0, 30);
         if (!t) return inp.focus();
         if (c.subs.some((x) => x.nombre.toLowerCase() === t.toLowerCase())) return toast("Esa subcategoría ya existe");
-        c.subs.push({ nombre: t, orig: "" }); break;
+        c.subs.push({ nombre: t, orig: "", claves: [] }); break;
       }
     }
     pintarCats();
@@ -492,7 +511,7 @@
     if (!nombre?.trim()) return;
     let id = slug(nombre), k = 2;
     while (catsEd.some((c) => c.id === id) || id === "todas" || id === "otra") id = `${slug(nombre).slice(0, 17)}-${k++}`;
-    catsEd.push({ id, nombre: nombre.trim().slice(0, 20), icono: "estrella", nueva: true, subs: [] });
+    catsEd.push({ id, nombre: nombre.trim().slice(0, 20), icono: "estrella", claves: [], nueva: true, subs: [] });
     pintarCats();
     catIcono = catsEd[catsEd.length - 1]; pintarIconos(); $("#iconos").showModal();
   });
@@ -514,6 +533,11 @@
   });
   $("#iconos").addEventListener("click", (e) => { if (e.target.id === "iconos" || e.target.closest("[data-close]")) $("#iconos").close(); });
   $("#catDeshacer").addEventListener("click", editarCats);
+  const catsParaGuardar = () => catsEd.map((c) => ({
+    id: c.id, nombre: c.nombre.trim(), icono: c.icono, claves: c.claves,
+    subs: c.subs.map((x) => x.nombre.trim()).filter(Boolean),
+    subClaves: Object.fromEntries(c.subs.filter((x) => x.nombre.trim() && x.claves.length).map((x) => [x.nombre.trim(), x.claves])),
+  }));
   $("#catGuardar").addEventListener("click", async (e) => {
     const b = e.target;
     const vacia = catsEd.find((c) => !c.nombre.trim());
@@ -522,7 +546,7 @@
     for (const c of catsEd) for (const x of c.subs) if (x.orig && x.nombre.trim() && x.orig !== x.nombre.trim()) renombrar.push({ categoria: c.id, de: x.orig, a: x.nombre.trim() });
     b.disabled = true;
     try {
-      const r = await api({ action: "categorias", categorias: catsEd.map((c) => ({ id: c.id, nombre: c.nombre.trim(), icono: c.icono, subs: c.subs.map((x) => x.nombre.trim()).filter(Boolean) })), renombrar });
+      const r = await api({ action: "categorias", categorias: catsParaGuardar(), renombrar });
       categorias = r.categorias;
       editarCats();
       pintarLista(r.artes);
@@ -531,6 +555,278 @@
     } catch (err) { toast(err.message); }
     b.disabled = false;
   });
+
+  // ---------- Carga masiva: carpetas enteras que se ordenan solas ----------
+  // Cada archivo se clasifica por el nombre de sus carpetas y el suyo: nombre o
+  // palabras clave (🔑) de una subcategoría → esa subcategoría; de una
+  // categoría → esa categoría; si no, va a la categoría elegida en "Los que no
+  // reconozca" y su carpeta (si no es genérica, tipo "PNG") pasa a ser una
+  // subcategoría nueva. Al subir, cada imagen se mira para marcar semitono y
+  // "solo camisetas oscuras". Se sube de a uno (sin guardar miles de imágenes en
+  // memoria) y la ruta del archivo evita duplicados si se repite la carpeta.
+  const norm = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const compacto = (t) => norm(t).replace(/ /g, "");
+  const GENERICAS = new Set(["png", "jpg", "jpeg", "webp", "artes", "arte", "disenos", "diseno", "imagenes", "imagen", "images", "img", "final", "finales", "export", "exports", "mockups", "mockup", "nueva carpeta", "new folder", "varios", "dtf", "listos", "para imprimir"]);
+  const titulo = (t) => t.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
+  let masiva = { items: [], abiertos: new Set(), corriendo: false, pausa: false, defecto: "" };
+  // Coincidencia: palabra completa, o pegada (sin espacios) si el término es largo
+  function coincide(term, texto) {
+    const tn = norm(term);
+    if (!tn) return 0;
+    if (` ${texto.n} `.includes(` ${tn} `)) return tn.length;
+    const tc = tn.replace(/ /g, "");
+    return tc.length >= 6 && texto.c.includes(tc) ? tc.length : 0;
+  }
+  function clasificar(ruta, sinRaiz) {
+    const partes = ruta.split("/");
+    if (sinRaiz) partes.shift(); // la carpeta elegida solo contiene a las demás
+    const archivo = partes.pop().replace(/\.[^.]+$/, "");
+    const carpetas = partes.filter((x) => !GENERICAS.has(norm(x)) && norm(x).replace(/\d/g, "").trim());
+    const todo = `${partes.join(" ")} ${archivo}`;
+    const texto = { n: norm(todo), c: compacto(todo) };
+    let mejor = null; // { cat, sub, puntos, term }
+    for (const c of categorias) {
+      for (const sub of c.subs || []) {
+        for (const t of [sub, ...(c.subClaves?.[sub] || [])]) {
+          const k = coincide(t, texto);
+          if (k && (!mejor || k + 100 > mejor.puntos)) mejor = { cat: c.id, sub, puntos: k + 100, term: t };
+        }
+      }
+      for (const t of [c.nombre, c.id, ...(c.claves || [])]) {
+        const k = coincide(t, texto);
+        if (k && (!mejor || k > mejor.puntos)) mejor = { cat: c.id, sub: "", puntos: k, term: t };
+      }
+    }
+    const it = { ruta, categoria: mejor?.cat || "", sub: mejor?.sub || "", reconocido: !!mejor, subNueva: false, estado: "pendiente" };
+    // Sin subcategoría: la carpeta más cercana que no sea genérica ni la categoría
+    if (!it.sub) {
+      const cat = categorias.find((c) => c.id === it.categoria);
+      const carpeta = [...carpetas].reverse().find((x) => !cat || (compacto(x) !== compacto(cat.nombre) && compacto(x) !== compacto(cat.id)));
+      if (carpeta) {
+        const limpia = carpeta.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+        const legible = limpia === limpia.toUpperCase() || limpia === limpia.toLowerCase() || /[_-]/.test(carpeta) ? titulo(limpia) : limpia;
+        // ¿Ya existe con otras mayúsculas o espacios? Se usa la existente
+        const igual = (cat ? [cat] : categorias).flatMap((c) => (c.subs || []).map((x) => [c.id, x])).find(([, x]) => compacto(x) === compacto(limpia));
+        if (igual) { it.sub = igual[1]; if (!it.categoria) { it.categoria = igual[0]; it.reconocido = true; } }
+        else { it.sub = legible.slice(0, 30); it.subNueva = true; }
+      }
+    }
+    // Nombre: el del archivo; si solo repite la colección y un número, "<Subcategoría> <número>"
+    const limpio = archivo.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+    let resto = compacto(limpio);
+    if (mejor) resto = resto.replace(compacto(mejor.term), "");
+    if (it.sub) resto = resto.replace(compacto(it.sub), "");
+    const num = (limpio.match(/(\d+)(?!.*\d)/) || [])[1] || "";
+    it.nombreAuto = resto.replace(/\d/g, "").length < 3 && (it.sub || mejor) ? `${it.sub || categorias.find((c) => c.id === it.categoria)?.nombre || limpio} ${num}`.trim() : limpio;
+    if (it.nombreAuto === it.nombreAuto.toLowerCase()) it.nombreAuto = titulo(it.nombreAuto); // "goku super saiyan" → "Goku Super Saiyan"
+    it.nombre = it.nombreAuto.slice(0, 60);
+    return it;
+  }
+  async function recolectar(entradas) {
+    // entradas: [{ file, ruta }]
+    const ya = new Set(publicados.map((a) => a.fuente).filter(Boolean));
+    const vistas = new Set(masiva.items.map((x) => x.ruta));
+    // Si la carpeta elegida tiene subcarpetas, su nombre no cuenta (suele ser "Mis artes")
+    const raices = new Set(entradas.map((x) => x.ruta.split("/")[0]));
+    const sinRaiz = raices.size === 1 && entradas.some((x) => x.ruta.split("/").length >= 3);
+    for (const { file, ruta } of entradas) {
+      if (!/\.(png|webp)$/i.test(ruta) || vistas.has(ruta)) continue;
+      vistas.add(ruta);
+      const it = clasificar(ruta, sinRaiz);
+      it.file = file;
+      if (ya.has(ruta)) it.estado = "repetido";
+      masiva.items.push(it);
+    }
+    pintarMasiva();
+  }
+  // Carpetas arrastradas: recorrer el árbol (Chrome/Edge/Firefox/Safari)
+  async function leerEntrada(entry, base = "") {
+    if (entry.isFile) return [await new Promise((ok, no) => entry.file((f) => ok({ file: f, ruta: base + f.name }), no))];
+    if (!entry.isDirectory) return [];
+    const lector = entry.createReader(), hijos = [];
+    for (;;) {
+      const lote = await new Promise((ok, no) => lector.readEntries(ok, no));
+      if (!lote.length) break;
+      hijos.push(...lote);
+    }
+    const out = [];
+    for (const h of hijos) out.push(...(await leerEntrada(h, `${base}${entry.name}/`)));
+    return out;
+  }
+  $("#masivaCarpeta").addEventListener("change", (e) => { recolectar([...e.target.files].map((f) => ({ file: f, ruta: f.webkitRelativePath || f.name }))); e.target.value = ""; });
+  $("#masivaArchivos").addEventListener("change", (e) => { recolectar([...e.target.files].map((f) => ({ file: f, ruta: f.name }))); e.target.value = ""; });
+  const zona = $("#masivaZona");
+  ["dragenter", "dragover"].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) => zona.addEventListener(t, () => zona.classList.remove("over")));
+  zona.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    const entradas = [...e.dataTransfer.items].map((i) => i.webkitGetAsEntry?.()).filter(Boolean);
+    const archivos = [];
+    for (const en of entradas) archivos.push(...(await leerEntrada(en)));
+    recolectar(archivos);
+  });
+
+  const destino = (it) => it.categoria || masiva.defecto;
+  const nombreCat = (id) => categorias.find((c) => c.id === id)?.nombre || id || "—";
+  function grupos() {
+    const g = new Map();
+    for (const it of masiva.items) {
+      const k = JSON.stringify([destino(it), it.sub]);
+      if (!g.has(k)) g.set(k, { cat: destino(it), sub: it.sub, items: [] });
+      g.get(k).items.push(it);
+    }
+    return [...g.values()].sort((a, b) => nombreCat(a.cat).localeCompare(nombreCat(b.cat), "es") || a.sub.localeCompare(b.sub, "es"));
+  }
+  function pintarMasiva() {
+    const items = masiva.items;
+    $("#masivaResumen").hidden = !items.length;
+    if (!items.length) return;
+    if (!masiva.defecto || !categorias.some((c) => c.id === masiva.defecto)) masiva.defecto = categorias[0]?.id || "";
+    const n = (f) => items.filter(f).length;
+    const pend = n((x) => x.estado === "pendiente"), listos = n((x) => x.estado === "listo"), rep = n((x) => x.estado === "repetido"), err = n((x) => x.estado === "error");
+    const sinRec = n((x) => !x.reconocido && x.estado === "pendiente");
+    const nuevas = [...new Set(items.filter((x) => x.subNueva && x.estado === "pendiente").map((x) => `${nombreCat(destino(x))} › ${x.sub}`))];
+    $("#masivaStats").innerHTML = `<b>${items.length}</b> archivos · <b>${pend}</b> por subir${listos ? ` · ✓ ${listos} subidos` : ""}${rep ? ` · ${rep} ya estaban` : ""}${err ? ` · <span class="mal">${err} con error</span>` : ""}`
+      + (sinRec ? `<br>${sinRec} sin reconocer: van a la categoría de abajo (podés cambiarlos uno por uno).` : "")
+      + (nuevas.length ? `<br>Subcategorías nuevas (salen de las carpetas): ${nuevas.map(esc).join(", ")}` : "");
+    $("#masivaDefecto").innerHTML = opciones(masiva.defecto);
+    $("#masivaGrupos").innerHTML = grupos().map((g) => {
+      const k = JSON.stringify([g.cat, g.sub]), abierto = masiva.abiertos.has(k);
+      const nueva = g.items.some((x) => x.subNueva);
+      const filas = abierto ? g.items.slice(0, 200).map((it) => `<div class="m-fila ${it.estado}" data-r="${esc(it.ruta)}">
+          <input data-m="nombre" value="${esc(it.nombre)}" maxlength="60" aria-label="Nombre"${it.estado !== "pendiente" ? " disabled" : ""}>
+          <select data-m="categoria" aria-label="Categoría"${it.estado !== "pendiente" ? " disabled" : ""}>${opciones(destino(it))}</select>
+          <input data-m="sub" value="${esc(it.sub)}" maxlength="30" placeholder="Subcategoría" aria-label="Subcategoría" list="masivaSubs"${it.estado !== "pendiente" ? " disabled" : ""}>
+          <small title="${esc(it.ruta)}">${esc(it.ruta)}${it.estado === "error" ? ` · ${esc(it.error)}` : it.estado === "listo" ? " · ✓" : it.estado === "repetido" ? " · ya estaba" : ""}</small>
+        </div>`).join("") + (g.items.length > 200 ? `<p class="adm-nota">… y ${g.items.length - 200} más con la misma clasificación.</p>` : "") : "";
+      const hechos = g.items.filter((x) => x.estado !== "pendiente").length;
+      return `<div class="m-grupo${abierto ? " abierto" : ""}" data-k="${esc(k)}">
+        <button type="button" class="m-tit" data-a="abrir"><span>${esc(nombreCat(g.cat))}${g.sub ? ` › ${esc(g.sub)}` : ""}${nueva ? ' <em>nueva</em>' : ""}${g.items.some((x) => !x.reconocido) ? ' <em class="gris">sin reconocer</em>' : ""}</span><b>${hechos ? `${hechos}/` : ""}${g.items.length}</b></button>
+        ${filas}
+      </div>`;
+    }).join("");
+    $("#masivaSubs").innerHTML = [...new Set(categorias.flatMap((c) => c.subs || []))].map((x) => `<option value="${esc(x)}">`).join("");
+    $("#masivaSubir").disabled = masiva.corriendo || !pend;
+    $("#masivaSubir").textContent = listos || err ? `Seguir subiendo (${pend})` : `Subir todo (${pend})`;
+    $("#masivaPausa").hidden = !masiva.corriendo;
+    $("#masivaQuitar").hidden = masiva.corriendo;
+  }
+  $("#masivaDefecto").addEventListener("change", (e) => { masiva.defecto = e.target.value; pintarMasiva(); });
+  $("#masivaGrupos").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-a=abrir]");
+    if (!b) return;
+    const k = b.closest(".m-grupo").dataset.k;
+    if (masiva.abiertos.has(k)) masiva.abiertos.delete(k); else masiva.abiertos.add(k);
+    pintarMasiva();
+  });
+  $("#masivaGrupos").addEventListener("change", (e) => {
+    const f = e.target.closest(".m-fila");
+    const it = f && masiva.items.find((x) => x.ruta === f.dataset.r);
+    if (!it) return;
+    const k = e.target.dataset.m;
+    if (k === "nombre") it.nombre = e.target.value.trim().slice(0, 60) || it.nombreAuto;
+    if (k === "categoria") { it.categoria = e.target.value; it.reconocido = true; }
+    if (k === "sub") { it.sub = e.target.value.trim().slice(0, 30); it.subNueva = !!it.sub && !(categorias.find((c) => c.id === destino(it))?.subs || []).includes(it.sub); }
+    pintarMasiva();
+  });
+  $("#masivaQuitar").addEventListener("click", () => { if (confirm("¿Descartar la lista de la carga masiva? (Lo ya subido queda en la tienda)")) { masiva.items = []; masiva.abiertos.clear(); pintarMasiva(); } });
+  $("#masivaPausa").addEventListener("click", () => { masiva.pausa = true; $("#masivaPausa").disabled = true; $("#masivaProg").textContent = "Pausando al terminar el arte actual…"; });
+
+  // Mirar la imagen: "solo camisetas oscuras" (casi sin negro: la tela hace las
+  // sombras) y pocas tintas planas (semitono). Probado con 25 artes reales.
+  async function analizar(file) {
+    const bmp = await createImageBitmap(file);
+    const k = Math.min(1, 200 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close?.();
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let n = 0, oscuro = 0;
+    const cubos = new Map();
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] <= 200) continue;
+      n++;
+      if (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2] < 45) oscuro++;
+      const key = ((d[i] / 48) | 0) * 36 + ((d[i + 1] / 48) | 0) * 6 + ((d[i + 2] / 48) | 0);
+      cubos.set(key, (cubos.get(key) || 0) + 1);
+    }
+    if (!n) return { oscuras: false, pocasTintas: false };
+    let acc = 0, tintas = 0;
+    for (const v of [...cubos.values()].sort((a, b) => b - a)) { acc += v; tintas++; if (acc >= 0.95 * n) break; }
+    return { oscuras: oscuro / n < 0.03, pocasTintas: tintas <= 4 }; // calibrado: 21 de 25 y 22 de 25
+  }
+
+  $("#masivaSubir").addEventListener("click", async () => {
+    if (masiva.corriendo) return;
+    masiva.corriendo = true; masiva.pausa = false;
+    $("#masivaPausa").disabled = false;
+    pintarMasiva();
+    const prog = $("#masivaProg"), barra = $("#masivaBarra");
+    try {
+      // 1) Subcategorías nuevas a su categoría (una sola vez)
+      const faltan = new Map();
+      for (const it of masiva.items) {
+        if (it.estado !== "pendiente" || !it.sub) continue;
+        const c = categorias.find((x) => x.id === destino(it));
+        if (c && !(c.subs || []).includes(it.sub)) faltan.set(JSON.stringify([c.id, it.sub]), [c.id, it.sub]);
+      }
+      if (faltan.size) {
+        prog.textContent = `Creando ${faltan.size} subcategoría${faltan.size === 1 ? "" : "s"}…`;
+        editarCats();
+        for (const [cat, sub] of faltan.values()) {
+          const c = catsEd.find((x) => x.id === cat);
+          if (c && !c.subs.some((x) => x.nombre === sub)) c.subs.push({ nombre: sub, orig: "", claves: [] });
+        }
+        const r = await api({ action: "categorias", categorias: catsParaGuardar(), renombrar: [] });
+        categorias = r.categorias;
+        editarCats();
+      }
+      // 2) Los artes, de a uno
+      const cola = masiva.items.filter((x) => x.estado === "pendiente");
+      const t0 = Date.now();
+      for (let i = 0; i < cola.length; i++) {
+        if (masiva.pausa) break;
+        const it = cola[i];
+        const resta = i ? Math.round(((Date.now() - t0) / i) * (cola.length - i) / 60000) : null;
+        prog.textContent = `Subiendo ${i + 1} de ${cola.length}: ${it.nombre}${resta !== null ? ` · faltan ~${resta} min` : ""}`;
+        barra.style.width = `${(i / cola.length) * 100}%`;
+        try {
+          const img = await preparar(it.file);
+          const vis = await analizar(it.file);
+          const r = await api({ action: "subir", corto: true, fuente: it.ruta, nombre: it.nombre, categoria: destino(it), sub: it.sub, precio: "",
+            semitono: vis.pocasTintas, oscuras: img.transparente && vis.oscuras, imagen: await aDataUrl(img.vista) });
+          if (r.repetido) { it.estado = "repetido"; URL.revokeObjectURL(img.url); continue; }
+          await api({ action: "original", corto: true, id: r.arte.id, imagen: await aDataUrl(img.blob) });
+          const vurl = URL.createObjectURL(img.vista);
+          try {
+            const mini = await hacerMini(vurl);
+            r.arte = (await api({ action: "miniatura", corto: true, id: r.arte.id, imagen: await aDataUrl(mini) })).arte || r.arte;
+          } catch {} // la miniatura se rehace sola al abrir el panel
+          URL.revokeObjectURL(vurl); URL.revokeObjectURL(img.url);
+          r.arte.protegido = true;
+          publicados.unshift(r.arte);
+          it.estado = "listo";
+          if (!img.transparente) it.error = "sin fondo transparente";
+        } catch (err) {
+          if (err.status === 401) { masiva.pausa = true; toast("Tu sesión venció: vuelve a entrar y toca Seguir subiendo"); guardarToken(""); mostrarLogin("Tu sesión venció: vuelve a entrar. La carga masiva sigue donde quedó."); $("#panel").hidden = false; break; }
+          it.estado = "error"; it.error = err.message;
+        }
+        if (i % 10 === 9) pintarMasiva();
+      }
+      barra.style.width = "100%";
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      masiva.corriendo = false;
+      const listos = masiva.items.filter((x) => x.estado === "listo").length;
+      prog.textContent = masiva.pausa ? "En pausa." : `Listo: ${listos} subidos.`;
+      pintarMasiva();
+      try { const ind = await api({ action: "listar" }); publicados = ind.artes; if (ind.categorias?.length) categorias = ind.categorias; editarCats(); pintarLista(ind.artes); } catch {}
+    }
+  });
+  window.addEventListener("beforeunload", (e) => { if (masiva.corriendo) { e.preventDefault(); e.returnValue = ""; } });
 
   // ---------- Lookbook / banners ----------
   async function prepararFoto(file) {
