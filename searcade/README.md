@@ -127,3 +127,12 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
 - Elegir qué subir: casilla por grupo (Categoría › Subcategoría) y por arte, y
   "Marcar todo / Desmarcar todo"; "Subir marcados" sube solo esos. El código
   del organizador se ve en la ficha de cada arte publicado ("Código: …").
+- Buscador de Artes (BUSCADOR_DE_ARTES.html, en la carpeta principal de artes
+  junto a `_CATALOGO/catalogo.js`): se marcan con ⭐ los diseños para la web y
+  "Bajar JSON para la web" descarga `artes-para-web.json`
+  (`{ artes: [{ codigo, titulo, categoria, fechaEspecial, tema, formatos,
+  vistaPrevia, archivos }] }`, rutas relativas a la carpeta principal). En
+  Carga masiva: "📄 JSON del Buscador de Artes" y después "📁 Elegir carpeta"
+  (la principal): se busca el PNG/WebP de cada arte y se usan su código,
+  título, categoría (nueva si no existe) y tema (subcategoría). Los que solo
+  tienen vectores/PSD o cuyo PNG no está quedan con error y no se suben.
