@@ -124,3 +124,6 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   "Las carpetas que no reconozca son: categorías nuevas" crea en la tienda las
   categorías del organizador (Navidad, Motos…); la carpeta pesa más que una
   palabra suelta del nombre del archivo.
+- Elegir qué subir: casilla por grupo (Categoría › Subcategoría) y por arte, y
+  "Marcar todo / Desmarcar todo"; "Subir marcados" sube solo esos. El código
+  del organizador se ve en la ficha de cada arte publicado ("Código: …").

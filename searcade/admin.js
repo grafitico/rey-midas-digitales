@@ -377,7 +377,7 @@
         ${campoSemi(a.semitono)}
         ${camposExtra(a)}
         ${camposTexto(a)}
-        <p class="meta">Código: <b>${esc(a.id)}</b> · ${a.protegido ? "🔒 original protegido" : "⚠️ sin proteger"}</p>
+        <p class="meta">${a.codigo ? `Código: <b>${esc(a.codigo)}</b> · ` : ""}ID: ${esc(a.id)} · ${a.protegido ? "🔒 original protegido" : "⚠️ sin proteger"}</p>
         <div class="botones"><button class="adm-btn ghost" data-a="guardar">Guardar</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn danger" data-a="borrar">Borrar</button></div>
         <div class="botones"><button class="adm-btn ghost" data-a="descargar">⬇ Original</button>${a.protegido ? "" : '<button class="adm-btn" data-a="proteger">🔒 Proteger</button>'}</div>
       </div>`).join("") : `<p class="vacio">${publicados.length ? "No hay artes de este tipo." : "Todavía no hay artes. Sube el primero arriba."}</p>`;
@@ -685,6 +685,8 @@
   });
 
   const destino = (it) => it.categoria || masiva.defecto;
+  // Se sube solo lo pendiente y marcado (casillas por arte y por grupo)
+  const va = (x) => x.estado === "pendiente" && x.incluir !== false;
   const nombreCat = (id) => categorias.find((c) => c.id === id)?.nombre || masiva.items.find((x) => x.catNueva?.id === id)?.catNueva.nombre || id || "—";
   function grupos() {
     const g = new Map();
@@ -701,11 +703,11 @@
     if (!items.length) return;
     if (!masiva.defecto || !categorias.some((c) => c.id === masiva.defecto)) masiva.defecto = categorias[0]?.id || "";
     const n = (f) => items.filter(f).length;
-    const pend = n((x) => x.estado === "pendiente"), listos = n((x) => x.estado === "listo"), rep = n((x) => x.estado === "repetido"), err = n((x) => x.estado === "error");
-    const sinRec = n((x) => !x.reconocido && x.estado === "pendiente");
-    const nuevas = [...new Set(items.filter((x) => x.subNueva && x.estado === "pendiente").map((x) => `${nombreCat(destino(x))} › ${x.sub}`))];
-    const catsNuevas = [...new Set(items.filter((x) => x.catNueva && x.estado === "pendiente" && !categorias.some((c) => c.id === x.catNueva.id)).map((x) => x.catNueva.nombre))];
-    $("#masivaStats").innerHTML = `<b>${items.length}</b> archivos · <b>${pend}</b> por subir${listos ? ` · ✓ ${listos} subidos` : ""}${rep ? ` · ${rep} ya estaban` : ""}${err ? ` · <span class="mal">${err} con error</span>` : ""}`
+    const pend = n(va), apartados = n((x) => x.estado === "pendiente" && x.incluir === false), listos = n((x) => x.estado === "listo"), rep = n((x) => x.estado === "repetido"), err = n((x) => x.estado === "error");
+    const sinRec = n((x) => !x.reconocido && va(x));
+    const nuevas = [...new Set(items.filter((x) => x.subNueva && va(x)).map((x) => `${nombreCat(destino(x))} › ${x.sub}`))];
+    const catsNuevas = [...new Set(items.filter((x) => x.catNueva && va(x) && !categorias.some((c) => c.id === x.catNueva.id)).map((x) => x.catNueva.nombre))];
+    $("#masivaStats").innerHTML = `<b>${items.length}</b> archivos · <b>${pend}</b> marcados para subir${apartados ? ` · ${apartados} sin marcar (no se suben)` : ""}${listos ? ` · ✓ ${listos} subidos` : ""}${rep ? ` · ${rep} ya estaban` : ""}${err ? ` · <span class="mal">${err} con error</span>` : ""}`
       + (sinRec ? `<br>${sinRec} sin reconocer: van a la categoría de abajo (podés cambiarlos uno por uno).` : "")
       + (catsNuevas.length ? `<br>Categorías nuevas (salen de las carpetas): ${catsNuevas.map(esc).join(", ")}` : "")
       + (nuevas.length ? `<br>Subcategorías nuevas (salen de las carpetas): ${nuevas.map(esc).join(", ")}` : "");
@@ -714,21 +716,25 @@
     $("#masivaGrupos").innerHTML = grupos().map((g) => {
       const k = JSON.stringify([g.cat, g.sub]), abierto = masiva.abiertos.has(k);
       const nueva = g.items.some((x) => x.subNueva || (x.catNueva && !categorias.some((c) => c.id === x.catNueva.id)));
-      const filas = abierto ? g.items.slice(0, 200).map((it) => `<div class="m-fila ${it.estado}" data-r="${esc(it.ruta)}">
+      const filas = abierto ? g.items.slice(0, 200).map((it) => `<div class="m-fila ${it.estado}${it.incluir === false ? " fuera" : ""}" data-r="${esc(it.ruta)}">
+          <label class="m-chk" title="Subir este arte"><input type="checkbox" data-m="incluir"${it.incluir !== false ? " checked" : ""}${it.estado !== "pendiente" ? " disabled" : ""}></label>
           <input data-m="nombre" value="${esc(it.nombre)}" maxlength="60" aria-label="Nombre"${it.estado !== "pendiente" ? " disabled" : ""}>
           <select data-m="categoria" aria-label="Categoría"${it.estado !== "pendiente" ? " disabled" : ""}>${opciones(destino(it))}${it.catNueva && !categorias.some((c) => c.id === it.catNueva.id) ? `<option value="${esc(it.catNueva.id)}" selected>${esc(it.catNueva.nombre)} (nueva)</option>` : ""}</select>
           <input data-m="sub" value="${esc(it.sub)}" maxlength="30" placeholder="Subcategoría" aria-label="Subcategoría" list="masivaSubs"${it.estado !== "pendiente" ? " disabled" : ""}>
           <small title="${esc(it.ruta)}">${it.codigo ? `<b>${esc(it.codigo)}</b> · ` : ""}${esc(it.ruta)}${it.estado === "error" ? ` · ${esc(it.error)}` : it.estado === "listo" ? " · ✓" : it.estado === "repetido" ? " · ya estaba" : ""}</small>
         </div>`).join("") + (g.items.length > 200 ? `<p class="adm-nota">… y ${g.items.length - 200} más con la misma clasificación.</p>` : "") : "";
       const hechos = g.items.filter((x) => x.estado !== "pendiente").length;
-      return `<div class="m-grupo${abierto ? " abierto" : ""}" data-k="${esc(k)}">
-        <button type="button" class="m-tit" data-a="abrir"><span>${esc(nombreCat(g.cat))}${g.sub ? ` › ${esc(g.sub)}` : ""}${nueva ? ' <em>nueva</em>' : ""}${g.items.some((x) => !x.reconocido) ? ' <em class="gris">sin reconocer</em>' : ""}</span><b>${hechos ? `${hechos}/` : ""}${g.items.length}</b></button>
+      const pendG = g.items.filter((x) => x.estado === "pendiente"), marcados = pendG.filter((x) => x.incluir !== false).length;
+      return `<div class="m-grupo${abierto ? " abierto" : ""}${pendG.length && !marcados ? " fuera" : ""}" data-k="${esc(k)}">
+        <div class="m-cab"><label class="m-chk" title="Subir este grupo"><input type="checkbox" data-a="grupo"${marcados ? " checked" : ""}${marcados && marcados < pendG.length ? " data-mixto" : ""}${pendG.length ? "" : " disabled"}></label>
+        <button type="button" class="m-tit" data-a="abrir"><span>${esc(nombreCat(g.cat))}${g.sub ? ` › ${esc(g.sub)}` : ""}${nueva ? ' <em>nueva</em>' : ""}${g.items.some((x) => !x.reconocido) ? ' <em class="gris">sin reconocer</em>' : ""}</span><b>${pendG.length && marcados < pendG.length ? `${marcados} de ` : ""}${hechos ? `${hechos}/` : ""}${g.items.length}</b></button></div>
         ${filas}
       </div>`;
     }).join("");
+    document.querySelectorAll("#masivaGrupos [data-mixto]").forEach((x) => (x.indeterminate = true));
     $("#masivaSubs").innerHTML = [...new Set(categorias.flatMap((c) => c.subs || []))].map((x) => `<option value="${esc(x)}">`).join("");
     $("#masivaSubir").disabled = masiva.corriendo || !pend;
-    $("#masivaSubir").textContent = listos || err ? `Seguir subiendo (${pend})` : `Subir todo (${pend})`;
+    $("#masivaSubir").textContent = listos || err ? `Seguir subiendo (${pend})` : `Subir marcados (${pend})`;
     $("#masivaPausa").hidden = !masiva.corriendo;
     $("#masivaQuitar").hidden = masiva.corriendo;
   }
@@ -741,7 +747,7 @@
     masiva.items = masiva.items.map((it) => {
       if (it.estado !== "pendiente") return it;
       const n = clasificar(it.ruta, sinRaiz);
-      return { ...n, file: it.file, nombre: it.nombre !== it.nombreAuto ? it.nombre : n.nombre };
+      return { ...n, file: it.file, incluir: it.incluir, nombre: it.nombre !== it.nombreAuto ? it.nombre : n.nombre };
     });
     pintarMasiva();
   });
@@ -753,15 +759,25 @@
     pintarMasiva();
   });
   $("#masivaGrupos").addEventListener("change", (e) => {
+    if (e.target.dataset.a === "grupo") {
+      const k = e.target.closest(".m-grupo").dataset.k;
+      const g = grupos().find((x) => JSON.stringify([x.cat, x.sub]) === k);
+      for (const it of g?.items || []) if (it.estado === "pendiente") it.incluir = e.target.checked;
+      return pintarMasiva();
+    }
     const f = e.target.closest(".m-fila");
     const it = f && masiva.items.find((x) => x.ruta === f.dataset.r);
     if (!it) return;
     const k = e.target.dataset.m;
+    if (k === "incluir") it.incluir = e.target.checked;
     if (k === "nombre") it.nombre = e.target.value.trim().slice(0, 60) || it.nombreAuto;
     if (k === "categoria") { it.categoria = e.target.value; it.reconocido = true; if (it.catNueva && it.catNueva.id !== it.categoria) it.catNueva = null; }
     if (k === "sub") { it.sub = e.target.value.trim().slice(0, 30); it.subNueva = !!it.sub && !(categorias.find((c) => c.id === destino(it))?.subs || []).includes(it.sub); }
     pintarMasiva();
   });
+  const marcarTodo = (v) => { for (const it of masiva.items) if (it.estado === "pendiente") it.incluir = v; pintarMasiva(); };
+  $("#masivaTodos").addEventListener("click", () => marcarTodo(true));
+  $("#masivaNinguno").addEventListener("click", () => marcarTodo(false));
   $("#masivaQuitar").addEventListener("click", () => { if (confirm("¿Descartar la lista de la carga masiva? (Lo ya subido queda en la tienda)")) { masiva.items = []; masiva.abiertos.clear(); pintarMasiva(); } });
   $("#masivaPausa").addEventListener("click", () => { masiva.pausa = true; $("#masivaPausa").disabled = true; $("#masivaProg").textContent = "Pausando al terminar el arte actual…"; });
 
@@ -801,8 +817,8 @@
       // 1) Subcategorías nuevas a su categoría (una sola vez)
       const faltan = new Map(), catsFaltan = new Map();
       for (const it of masiva.items) {
-        if (it.estado === "pendiente" && it.catNueva && !categorias.some((c) => c.id === it.catNueva.id)) catsFaltan.set(it.catNueva.id, it.catNueva);
-        if (it.estado !== "pendiente" || !it.sub) continue;
+        if (va(it) && it.catNueva && !categorias.some((c) => c.id === it.catNueva.id)) catsFaltan.set(it.catNueva.id, it.catNueva);
+        if (!va(it) || !it.sub) continue;
         const c = categorias.find((x) => x.id === destino(it));
         if ((c && !(c.subs || []).includes(it.sub)) || catsFaltan.has(destino(it))) faltan.set(JSON.stringify([destino(it), it.sub]), [destino(it), it.sub]);
       }
@@ -819,7 +835,7 @@
         editarCats();
       }
       // 2) Los artes, de a uno
-      const cola = masiva.items.filter((x) => x.estado === "pendiente");
+      const cola = masiva.items.filter(va);
       const t0 = Date.now();
       for (let i = 0; i < cola.length; i++) {
         if (masiva.pausa) break;
