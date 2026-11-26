@@ -136,3 +136,12 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   (la principal): se busca el PNG/WebP de cada arte y se usan su código,
   título, categoría (nueva si no existe) y tema (subcategoría). Los que solo
   tienen vectores/PSD o cuyo PNG no está quedan con error y no se suben.
+- Huella de imagen (`huella.js`, campo `huella` en `artes.json`): dHash de 64
+  bits del dibujo recortado y sobre gris. Mismo arte = 0–5 bits distintos aunque
+  tenga marca de agua u otro tamaño; artes distintos ≥ 14 (calibrado con los 25
+  de Attack on Titan, originales contra miniaturas). Umbral 8. La carga masiva y
+  la subida de a pocos no suben un dibujo que ya está (aunque tenga otro nombre o
+  no tenga código) y la API lo vuelve a revisar (`forzar: true` lo permite). Los
+  artes viejos reciben su huella solos al abrir el panel. Panel → Artes
+  publicados → "🔍 Buscar repetidos": grupos del mismo dibujo, sugiere quedarse
+  con el que tiene subcategoría y código, y borra las copias.

@@ -236,7 +236,11 @@
     el?.classList.add("subiendo");
     try {
       // 1) la vista previa pública, 2) el original a la carpeta privada
-      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, sub: p.sub || "", oscuras: !!p.oscuras, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
+      const huella = await H.deImagen(p.vista);
+      const igual = mismoDibujo(huella);
+      const forzar = !!igual && confirm(`"${p.nombre}" parece el mismo dibujo que "${igual.nombre}", que ya está en la tienda. ¿Subirlo igual?`);
+      if (igual && !forzar) { quitar(p); pintarPendientes(); toast(`No se subió: ya está como "${igual.nombre}"`); return true; }
+      const r = await api({ action: "subir", huella, forzar, nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, sub: p.sub || "", oscuras: !!p.oscuras, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
       const r2 = await api({ action: "original", id: r.arte.id, imagen: await aDataUrl(p.blob) });
       r.artes = r2.artes;
       quitar(p);
@@ -334,6 +338,81 @@
     }
     throw new Error("No se pudo achicar la miniatura");
   }
+  // ---------- Huella de imagen: mismo dibujo con otro nombre (huella.js) ----------
+  const H = window.SearcadeHuella;
+  const mismoDibujo = (h) => publicados.find((a) => a.huella && H.distancia(h, a.huella) <= H.UMBRAL);
+  let haciendoHuellas = false;
+  // Los artes subidos antes de la huella la reciben solos (desde su miniatura)
+  async function completarHuellas() {
+    if (haciendoHuellas) return;
+    haciendoHuellas = true;
+    try {
+      for (;;) {
+        const a = publicados.find((x) => !x.huella && (x.mini || x.archivo) && !x.sinHuella);
+        if (!a) break;
+        try {
+          a.huella = await H.deImagen(a.mini || a.archivo);
+          await api({ action: "editar", corto: true, id: a.id, huella: a.huella });
+        } catch (err) {
+          a.sinHuella = true;
+          if (err.status === 401) break;
+          console.warn("huella", a.nombre, err);
+        }
+      }
+    } finally { haciendoHuellas = false; }
+  }
+  // Repetidos ya publicados: grupos con el mismo dibujo
+  async function buscarRepetidos() {
+    const b = $("#buscarRepetidos");
+    b.disabled = true;
+    const faltan = publicados.filter((a) => !a.huella && (a.mini || a.archivo)).length;
+    if (faltan) { b.textContent = `Revisando ${faltan} artes…`; await completarHuellas(); }
+    const con = publicados.filter((a) => a.huella);
+    const visto = new Set(), grupos = [];
+    for (const a of con) {
+      if (visto.has(a.id)) continue;
+      const g = con.filter((x) => x.id === a.id || (!visto.has(x.id) && H.distancia(a.huella, x.huella) <= H.UMBRAL));
+      g.forEach((x) => visto.add(x.id));
+      if (g.length > 1) grupos.push(g);
+    }
+    // Sugerencia: quedarse con el más ordenado (subcategoría y código), borrar los demás
+    const puntaje = (x) => (x.codigo ? 2 : 0) + (x.sub ? 2 : 0) + (/\d{2,}$/.test(x.nombre) && !x.sub ? -1 : 0);
+    grupos.forEach((g) => g.sort((x, y) => puntaje(y) - puntaje(x) || String(x.creado).localeCompare(String(y.creado))));
+    $("#repetidos").hidden = false;
+    $("#repetidos").innerHTML = grupos.length
+      ? `<p class="adm-nota"><b>${grupos.length}</b> dibujo${grupos.length === 1 ? "" : "s"} repetido${grupos.length === 1 ? "" : "s"} (${grupos.reduce((n, g) => n + g.length - 1, 0)} copias de más). Se sugiere quedarse con el primero de cada fila (el que tiene subcategoría y código).</p>`
+        + grupos.map((g) => `<div class="rep-fila">${g.map((x, i) => `<div class="rep-arte${i ? " sobra" : ""}" data-id="${esc(x.id)}"><img src="${esc(x.mini || x.archivo)}" alt="" loading="lazy"><b>${esc(x.nombre)}</b><small>${esc(nombreCat(x.categoria))}${x.sub ? ` › ${esc(x.sub)}` : ""}${x.codigo ? ` · ${esc(x.codigo)}` : ""}</small>${i ? `<button type="button" class="adm-btn danger" data-a="borrar-rep">Borrar esta copia</button>` : `<span class="rep-queda">✓ queda</span>`}</div>`).join("")}</div>`).join("")
+        + `<div class="adm-row"><button type="button" class="adm-btn danger" id="borrarSobrantes">Borrar las ${grupos.reduce((n, g) => n + g.length - 1, 0)} copias sugeridas</button></div>`
+      : `<p class="adm-nota">✓ No hay dibujos repetidos en la tienda.</p>`;
+    b.disabled = false;
+    b.textContent = "🔍 Buscar repetidos";
+  }
+  async function borrarCopia(id) {
+    pintarLista((await api({ action: "borrar", id })).artes);
+    document.querySelector(`.rep-arte[data-id="${CSS.escape(id)}"]`)?.classList.add("borrado");
+  }
+  $("#buscarRepetidos").addEventListener("click", buscarRepetidos);
+  $("#repetidos").addEventListener("click", async (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    try {
+      if (b.dataset.a === "borrar-rep") {
+        const x = b.closest(".rep-arte");
+        if (!confirm(`¿Borrar "${x.querySelector("b").textContent}" de la tienda?`)) return;
+        b.disabled = true;
+        await borrarCopia(x.dataset.id);
+        toast("Copia borrada");
+      } else if (b.id === "borrarSobrantes") {
+        const ids = [...document.querySelectorAll("#repetidos .rep-arte.sobra:not(.borrado)")].map((x) => x.dataset.id);
+        if (!ids.length || !confirm(`¿Borrar ${ids.length} copias repetidas? Queda una de cada dibujo (la marcada "✓ queda").`)) return;
+        b.disabled = true;
+        for (const id of ids) { b.textContent = `Borrando ${ids.indexOf(id) + 1} de ${ids.length}…`; await borrarCopia(id); }
+        toast(`✓ ${ids.length} copias borradas`);
+        b.remove();
+      }
+    } catch (err) { b.disabled = false; toast(err.message); }
+  });
+
   let haciendoMinis = false;
   async function completarMiniaturas() {
     if (haciendoMinis) return;
@@ -357,7 +436,7 @@
   function pintarLista(artes) {
     if (artes) publicados = artes;
     if (artes) pintarFotos();
-    setTimeout(completarMiniaturas, 400);
+    setTimeout(async () => { await completarMiniaturas(); completarHuellas(); }, 400);
     const semis = publicados.filter((a) => a.semitono).length;
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
     $("#protegerTodos").hidden = !publicados.some((a) => !a.protegido);
@@ -853,7 +932,7 @@
           <input data-m="nombre" value="${esc(it.nombre)}" maxlength="60" aria-label="Nombre"${it.estado !== "pendiente" ? " disabled" : ""}>
           <select data-m="categoria" aria-label="Categoría"${it.estado !== "pendiente" ? " disabled" : ""}>${opciones(destino(it))}${it.catNueva && !categorias.some((c) => c.id === it.catNueva.id) ? `<option value="${esc(it.catNueva.id)}" selected>${esc(it.catNueva.nombre)} (nueva)</option>` : ""}</select>
           <input data-m="sub" value="${esc(it.sub)}" maxlength="30" placeholder="Subcategoría" aria-label="Subcategoría" list="masivaSubs"${it.estado !== "pendiente" ? " disabled" : ""}>
-          <small title="${esc(it.ruta)}">${it.codigo ? `<b>${esc(it.codigo)}</b> · ` : ""}${esc(it.ruta)}${it.estado === "error" ? ` · ${esc(it.error)}` : it.estado === "listo" ? " · ✓" : it.estado === "repetido" ? " · ya estaba" : ""}</small>
+          <small title="${esc(it.ruta)}">${it.codigo ? `<b>${esc(it.codigo)}</b> · ` : ""}${esc(it.ruta)}${it.estado === "error" ? ` · ${esc(it.error)}` : it.estado === "listo" ? " · ✓" : it.estado === "repetido" ? ` · ya estaba${it.error ? ` (${esc(it.error)})` : ""}` : ""}</small>
         </div>`).join("") + (g.items.length > 200 ? `<p class="adm-nota">… y ${g.items.length - 200} más con la misma clasificación.</p>` : "") : "";
       const hechos = g.items.filter((x) => x.estado !== "pendiente").length;
       const pendG = g.items.filter((x) => x.estado === "pendiente"), marcados = pendG.filter((x) => x.incluir !== false).length;
@@ -977,10 +1056,14 @@
         barra.style.width = `${(i / cola.length) * 100}%`;
         try {
           const img = await preparar(it.file);
+          // ¿Ya está en la tienda el mismo dibujo (otro nombre, sin código)?
+          const huella = await H.deImagen(img.vista);
+          const igual = mismoDibujo(huella);
+          if (igual) { it.estado = "repetido"; it.error = `misma imagen que «${igual.nombre}»`; URL.revokeObjectURL(img.url); continue; }
           const vis = await analizar(it.file);
-          const r = await api({ action: "subir", corto: true, fuente: it.ruta, codigo: it.codigo, nombre: it.nombre, categoria: destino(it), sub: it.sub, precio: "",
+          const r = await api({ action: "subir", corto: true, fuente: it.ruta, codigo: it.codigo, huella, nombre: it.nombre, categoria: destino(it), sub: it.sub, precio: "",
             semitono: vis.pocasTintas, oscuras: img.transparente && vis.oscuras, imagen: await aDataUrl(img.vista) });
-          if (r.repetido) { it.estado = "repetido"; URL.revokeObjectURL(img.url); continue; }
+          if (r.repetido) { it.estado = "repetido"; if (r.mismaImagen) it.error = `misma imagen que «${r.arte.nombre}»`; URL.revokeObjectURL(img.url); continue; }
           await api({ action: "original", corto: true, id: r.arte.id, imagen: await aDataUrl(img.blob) });
           const vurl = URL.createObjectURL(img.vista);
           try {
