@@ -20,6 +20,10 @@
 //    oscuras = el arte solo se ofrece en camisetas oscuras: es de recorte y en
 //    las claras pierde las sombras)
 //   { action: "borrar", id }
+//   { action: "categorias", categorias: [{ id, nombre, icono, subs: [..] }], renombrar?: [{ categoria, de, a }] }
+//     guarda las categorías de la tienda (orden, nombre, ícono y subcategorías);
+//     una categoría con artes no se puede quitar; al renombrar una subcategoría
+//     sus artes la siguen, y al quitarla sus artes quedan sin subcategoría.
 //   { action: "original", id, imagen }   el ORIGINAL va a una carpeta privada
 //   { action: "descargar", id }          → { nombre, imagen } (solo con sesión)
 //   { action: "proteger", id, imagen }   artes viejos: original a privado + vista previa
@@ -66,7 +70,7 @@ const indexPath = () => path.join(artesDir(), "artes.json");
 function leerIndice() {
   try {
     const d = JSON.parse(fs.readFileSync(indexPath(), "utf8"));
-    return { artes: Array.isArray(d.artes) ? d.artes : [], lookbook: Array.isArray(d.lookbook) ? d.lookbook : [] };
+    return { artes: Array.isArray(d.artes) ? d.artes : [], lookbook: Array.isArray(d.lookbook) ? d.lookbook : [], ...(Array.isArray(d.categorias) ? { categorias: d.categorias } : {}) };
   } catch {
     return { artes: [], lookbook: [] };
   }
@@ -78,7 +82,7 @@ function escribirIndice(cambios) {
   const d = { ...leerIndice(), ...cambios };
   fs.mkdirSync(artesDir(), { recursive: true });
   const tmp = `${indexPath()}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ actualizado: new Date().toISOString(), artes: d.artes, lookbook: d.lookbook }, null, 1));
+  fs.writeFileSync(tmp, JSON.stringify({ actualizado: new Date().toISOString(), ...(d.categorias ? { categorias: d.categorias } : {}), artes: d.artes, lookbook: d.lookbook }, null, 1));
   fs.renameSync(tmp, indexPath());
 }
 const escribirArtes = (artes) => escribirIndice({ artes });
@@ -186,6 +190,57 @@ export async function borrarArte(body) {
     for (const f of lookbook) if (f.arte === a.id) delete f.arte;
     escribirIndice({ artes, lookbook });
     return { ok: true, artes };
+  });
+}
+
+// ===== Categorías y subcategorías (las edita el panel) =====
+const MAX_CATS = 20, MAX_SUBS = 30;
+const limpiarIcono = (v) => {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  if (/^[a-z]{2,20}$/.test(s)) return s; // ícono de la galería (iconos.js)
+  // o un emoji (hasta 2 caracteres visibles, sin letras ni signos de HTML)
+  if (s.length <= 16 && !/[\u0000-\u007f]/.test(s.replace(/\u200d|\ufe0f/g, ""))) return s;
+  throw bad("Ícono inválido: elige uno de la galería o un emoji");
+};
+export async function guardarCategorias(body) {
+  const lista = Array.isArray(body.categorias) ? body.categorias : null;
+  if (!lista || !lista.length) throw bad("Tiene que quedar al menos una categoría");
+  if (lista.length > MAX_CATS) throw bad(`Máximo ${MAX_CATS} categorías`);
+  const ids = new Set();
+  const categorias = lista.map((c) => {
+    const id = limpiarCategoria(c?.id);
+    if (id === "todas" || id === "otra") throw bad(`"${id}" está reservado`);
+    if (ids.has(id)) throw bad(`Categoría repetida: ${id}`);
+    ids.add(id);
+    const nombre = limpiarTexto(c.nombre, 20);
+    if (!nombre) throw bad("Cada categoría necesita un nombre");
+    const subs = [];
+    for (const x of Array.isArray(c.subs) ? c.subs : []) {
+      const t = limpiarTexto(x, 30);
+      if (t && !subs.some((y) => y.toLowerCase() === t.toLowerCase())) subs.push(t);
+    }
+    if (subs.length > MAX_SUBS) throw bad(`Máximo ${MAX_SUBS} subcategorías en ${nombre}`);
+    return { id, nombre, icono: limpiarIcono(c.icono), subs };
+  });
+  const renombrar = (Array.isArray(body.renombrar) ? body.renombrar : []).map((r) => ({ categoria: String(r?.categoria || ""), de: limpiarTexto(r?.de, 30), a: limpiarTexto(r?.a, 30) }));
+  return enCola(() => {
+    const { artes } = leerIndice();
+    const sinCategoria = [...new Set(artes.filter((a) => !ids.has(a.categoria)).map((a) => a.categoria))];
+    if (sinCategoria.length) {
+      const n = artes.filter((a) => !ids.has(a.categoria)).length;
+      throw bad(`No se puede quitar "${sinCategoria.join('", "')}": tiene ${n} arte${n === 1 ? "" : "s"}. Muévelos a otra categoría primero.`);
+    }
+    let cambiados = 0;
+    for (const a of artes) {
+      if (!a.sub) continue;
+      const r = renombrar.find((x) => x.categoria === a.categoria && x.de === a.sub && x.a);
+      if (r) { a.sub = r.a; cambiados++; }
+      const subs = categorias.find((c) => c.id === a.categoria).subs;
+      if (!subs.includes(a.sub)) { delete a.sub; cambiados++; }
+    }
+    escribirIndice({ categorias, artes });
+    return { ok: true, categorias, artes, cambiados };
   });
 }
 
@@ -366,7 +421,7 @@ export async function borrarFoto(body) {
   });
 }
 
-const ACCIONES_ASISTENTE = new Set(["yo", "listar", "subir", "editar", "original", "miniatura"]);
+const ACCIONES_ASISTENTE = new Set(["yo", "listar", "subir", "editar", "original", "miniatura", "categorias"]);
 
 function cors(req, res) {
   const origin = req.headers.origin;
@@ -408,6 +463,7 @@ export default async function handler(req, res) {
       case "subir": return res.status(200).json(await subirArte(body));
       case "editar": return res.status(200).json(await editarArte(body));
       case "borrar": return res.status(200).json(await borrarArte(body));
+      case "categorias": return res.status(200).json(await guardarCategorias(body));
       case "original": return res.status(200).json(await guardarOriginal(body));
       case "descargar": return res.status(200).json(descargarOriginal(body));
       case "proteger": return res.status(200).json(await protegerArte(body));

@@ -13,17 +13,9 @@
   let idx = 0;
   let talla = null;
 
-  // ---------- Íconos ----------
-  const ICON = {
-    todas: '<path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3c-.5 1.5-2 2.5-4 2.5S8.5 4.5 8 3Z"/>',
-    pop: '<path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8l-5.4 2.9 1.1-6.1L3.2 9.4l6.1-.8Z"/>',
-    urbana: '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5Z"/><path d="M5 22h14"/>',
-    gamer: '<path d="M8 6h8a6 6 0 0 1 6 6v1a5 5 0 0 1-9 3h-2a5 5 0 0 1-9-3v-1a6 6 0 0 1 6-6Z"/><path d="M8 9.5v5M5.5 12h5"/><circle cx="16" cy="11" r=".6"/><circle cx="18" cy="13.5" r=".6"/>',
-    anime: '<path d="M12 20s-8-4.8-8-10.5A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5C20 15.2 12 20 12 20Z"/>',
-    verano: '<path d="M12 22V11"/><path d="M12 11c-1-3-4-4-7-3 2-3 6-3 7 0 0-3 3-5 7-4-3 0-5 2-5 4 3-1 6 1 6 4-2-2-5-2-8-1Z"/><path d="M7 22h10"/>',
-    otra: '<rect x="4" y="4" width="16" height="16" rx="3"/>',
-  };
-  const icon = (id) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[id] || ICON.otra}</svg>`;
+  // ---------- Íconos (galería en iconos.js; una categoría puede tener emoji) ----------
+  const IC = window.SEARCADE_ICONOS;
+  const icon = (id) => IC.svg((data.categorias.find((c) => c.id === id) || {}).icono, id);
   const HOOK = `<svg class="hook" viewBox="0 0 60 44" aria-hidden="true"><path d="M30 3q8 0 8 7 0 6-8 8v5L4 40h52L30 23" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
   // Camiseta de muestra (productos de ejemplo sin mockup).
@@ -171,7 +163,10 @@
 
   // Subcategorías (p. ej. Anime → Attack on Titan): solo con una categoría elegida
   function pintarSubs() {
-    const subs = filtro === "todas" ? [] : [...new Set(data.productos.filter((p) => p.categoria === filtro && p.sub).map((p) => p.sub))].sort((a, b) => a.localeCompare(b, "es"));
+    // En el orden del panel; las que no estén en la lista van al final
+    const orden = data.categorias.find((c) => c.id === filtro)?.subs || [];
+    const usadas = new Set(filtro === "todas" ? [] : data.productos.filter((p) => p.categoria === filtro && p.sub).map((p) => p.sub));
+    const subs = [...orden.filter((x) => usadas.has(x)), ...[...usadas].filter((x) => !orden.includes(x)).sort((a, b) => a.localeCompare(b, "es"))];
     if (!subs.includes(subFiltro)) subFiltro = "";
     $("#subs").hidden = !subs.length;
     $("#subs").innerHTML = subs.length ? [["", "Todos"], ...subs.map((x) => [x, x])]
@@ -924,7 +919,8 @@
       if (!d) throw new Error("sin catálogo");
       const artes = (a?.artes || []).map(desdeArte);
       // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan foto propia).
-      data = { categorias: d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
+      // Categorías del panel (artes.json); si no hay, las de productos.json
+      data = { categorias: a?.categorias?.length ? a.categorias : d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
       const look = [...(a?.lookbook || []), ...(CFG.lookbook || [])];
       for (const f of look) { const p = f.arte && byId(f.arte); if (p) (p.fotosModelo ||= []).push(f); }
       pintarLookbook(look);
