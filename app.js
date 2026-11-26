@@ -10645,6 +10645,10 @@ async function renderRanking() {
   document.getElementById("rkMes").textContent = mesLargo(data.mes);
   if (data.reglas?.minimo) document.getElementById("rkMinimo").textContent = data.reglas.minimo;
   const top = data.top || [];
+  // Al podio (y al premio) solo sube quien llega al mínimo del mes: con menos
+  // puntos se ve en la tabla, pero no parece que va ganando.
+  const minimo = Number(data.reglas?.minimo) || 30;
+  const podio = top.filter(f => f.puntos >= minimo);
   const lugar = (f, i) => f ? `
     <div class="rk-step rk-step-${i + 1}">
       <div class="rk-crown">${["👑", "🥈", "🥉"][i]}</div>
@@ -10653,10 +10657,13 @@ async function renderRanking() {
       <div class="rk-block"><b>${i + 1}</b></div>
     </div>` : `
     <div class="rk-step rk-step-${i + 1} is-empty">
-      <div class="rk-crown">❔</div><div class="rk-name">¿Vos?</div><div class="rk-pts">00000 PTS</div>
+      <div class="rk-crown">❔</div><div class="rk-name">¿Vos?</div><div class="rk-pts">MÍN. ${minimo} PTS</div>
       <div class="rk-block"><b>${i + 1}</b></div>
     </div>`;
-  document.getElementById("rkPodio").innerHTML = lugar(top[1], 1) + lugar(top[0], 0) + lugar(top[2], 2);
+  const lider = top[0]?.puntos || 0;
+  const nota = podio.length < 3 ? `<p class="rk-podio-nota">Para subir al podio y ganar premio hacen falta <b>${minimo} puntos</b> en el mes.${
+    !podio.length && lider ? ` El que va primero tiene ${lider} ${lider === 1 ? "punto" : "puntos"}: ¡todavía nadie califica!` : ""}</p>` : "";
+  document.getElementById("rkPodio").innerHTML = lugar(podio[1], 1) + lugar(podio[0], 0) + lugar(podio[2], 2) + nota;
   document.getElementById("rkTabla").innerHTML = top.length ? `
     <div class="rk-row rk-head"><span>RANK</span><span>JUGADOR</span><span>NIVEL</span><span>PTS</span></div>
     ${top.map((f, i) => `

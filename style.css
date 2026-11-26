@@ -5908,6 +5908,7 @@ html { scroll-behavior: smooth; }
 .rk-step-2 .rk-block { height: 96px; background: linear-gradient(#f2f2f2, #c0c7d1 60%, #8a93a0); }
 .rk-step-3 .rk-block { height: 72px; background: linear-gradient(#f3c79a, #cd7f32 60%, #8a5222); }
 .rk-step.is-empty { opacity: .45; }
+.rk-podio-nota { grid-column: 1 / -1; text-align: center; margin: 10px 0 0; color: #ffd770; font-size: .9rem; letter-spacing: .03em; }
 @keyframes rk-rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes rk-float { 50% { transform: translateY(-6px); } }
 
