@@ -43,14 +43,17 @@
       </div>
 
       <h2 class="adm-h">Carga masiva <small>carpetas enteras que se ordenan solas</small></h2>
-      <p class="adm-nota">Elegí o arrastrá una carpeta con tus artes (pueden ser miles). Se ordenan por el nombre de las carpetas y de los archivos y por las palabras clave 🔑 de cada categoría; las subcarpetas que no se reconozcan pasan a ser subcategorías nuevas. Al subir, cada imagen se revisa para marcar semitono y "solo camisetas oscuras". Si repetís una carpeta, lo ya subido se salta.</p>
+      <p class="adm-nota">Elegí o arrastrá una carpeta con tus artes (pueden ser miles). Se ordenan por el nombre de las carpetas y de los archivos y por las palabras clave 🔑 de cada categoría; las subcarpetas que no se reconozcan pasan a ser subcategorías nuevas. Al subir, cada imagen se revisa para marcar semitono y "solo camisetas oscuras". Si repetís una carpeta, lo ya subido se salta.<br><b>Con el Buscador de Artes:</b> marcá con ⭐ lo que va a la tienda, tocá "Bajar JSON para la web", cargá ese JSON aquí y después elegí tu carpeta principal de artes: se suben esos diseños con su código, título, categoría y tema.</p>
       <div class="masiva-zona cut" id="masivaZona">
         <label class="adm-btn" for="masivaCarpeta">📁 Elegir carpeta</label>
         <input type="file" id="masivaCarpeta" webkitdirectory directory multiple hidden>
         <label class="adm-btn ghost" for="masivaArchivos">Elegir archivos</label>
         <input type="file" id="masivaArchivos" accept="image/png,image/webp" multiple hidden>
+        <label class="adm-btn ghost" for="masivaJson">📄 JSON del Buscador de Artes</label>
+        <input type="file" id="masivaJson" accept=".json,application/json" hidden>
         <span>o arrastrá carpetas aquí · PNG o WebP</span>
       </div>
+      <p class="m-json" id="masivaJsonInfo" hidden></p>
       <div class="masiva" id="masivaResumen" hidden>
         <p class="m-stats" id="masivaStats"></p>
         <label class="m-defecto">Los que no reconozca van a <select id="masivaDefecto"></select></label>

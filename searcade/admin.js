@@ -671,7 +671,87 @@
     for (const h of hijos) out.push(...(await leerEntrada(h, `${base}${entry.name}/`)));
     return out;
   }
-  $("#masivaCarpeta").addEventListener("change", (e) => { recolectar([...e.target.files].map((f) => ({ file: f, ruta: f.webkitRelativePath || f.name }))); e.target.value = ""; });
+  // ---------- Trabajo en equipo con el Buscador de Artes (BUSCADOR_DE_ARTES.html) ----------
+  // El buscador baja "artes-para-web.json" con los diseños marcados con ⭐:
+  // { artes: [{ codigo, titulo, categoria, fechaEspecial, tema, formatos, vistaPrevia, archivos: ["ANIME/…/x.png", …] }] }
+  // Las rutas son relativas a la carpeta principal de artes (la que tiene
+  // _CATALOGO). Con el JSON cargado, al elegir esa carpeta el panel busca el PNG
+  // de cada arte y usa su código, título, categoría y tema tal cual.
+  $("#masivaJson").addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      const artes = Array.isArray(d) ? d : d.artes;
+      if (!Array.isArray(artes) || !artes.length || !artes.every((a) => a && (a.codigo || a.titulo))) throw new Error("no es un JSON del Buscador de Artes");
+      masiva.json = { nombre: f.name, artes };
+      $("#masivaJsonInfo").innerHTML = `📄 <b>${esc(f.name)}</b>: ${artes.length} arte${artes.length === 1 ? "" : "s"} marcados. Ahora tocá <b>📁 Elegir carpeta</b> y elegí tu carpeta principal de artes (la que tiene <code>_CATALOGO</code>). <button type="button" class="adm-link-btn" id="masivaJsonQuitar">quitar JSON</button>`;
+      $("#masivaJsonInfo").hidden = false;
+    } catch (err) { toast(`${f.name}: ${err.message}`); }
+  });
+  $("#masivaJsonInfo").addEventListener("click", (e) => { if (e.target.id === "masivaJsonQuitar") { masiva.json = null; $("#masivaJsonInfo").hidden = true; } });
+  const IMG_WEB = /\.(png|webp)$/i;
+  function recolectarDesdeJson(entradas) {
+    const { artes } = masiva.json;
+    // Índice de la carpeta elegida: ruta sin la carpeta raíz, en minúsculas
+    const sinRaiz = (r) => r.split("/").slice(1).join("/").toLowerCase();
+    const porRuta = new Map(), porNombre = new Map();
+    for (const en of entradas) {
+      porRuta.set(sinRaiz(en.ruta), en);
+      porRuta.set(en.ruta.toLowerCase(), en);
+      const k = en.ruta.split("/").pop().toLowerCase();
+      if (!porNombre.has(k)) porNombre.set(k, []);
+      porNombre.get(k).push(en);
+    }
+    const buscar = (p) => {
+      const r = String(p || "").replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
+      if (!r) return null;
+      if (porRuta.has(r)) return porRuta.get(r);
+      // Se eligió una subcarpeta o la carpeta de más arriba: comparar por el final de la ruta
+      const mismos = porNombre.get(r.split("/").pop()) || [];
+      return mismos.find((en) => en.ruta.toLowerCase().endsWith("/" + r) || r.endsWith("/" + sinRaiz(en.ruta))) || (mismos.length === 1 ? mismos[0] : null);
+    };
+    const ya = new Set(publicados.flatMap((a) => [a.fuente, a.codigo]).filter(Boolean));
+    const vistas = new Set(masiva.items.map((x) => x.codigo || x.ruta));
+    let sinArchivo = 0;
+    for (const a of artes) {
+      const codigo = String(a.codigo || "").trim().toUpperCase().slice(0, 20);
+      if (vistas.has(codigo)) continue;
+      const rutas = [...(a.archivos || []), a.vistaPrevia].filter((x) => IMG_WEB.test(String(x || "")));
+      let en = null;
+      for (const r of rutas) if ((en = buscar(r))) break;
+      // Categoría: la de la tienda con el mismo nombre, o una nueva
+      const catTxt = String(a.categoria || "").trim();
+      const cat = categorias.find((c) => compacto(c.nombre) === compacto(catTxt) || c.id === slug(catTxt));
+      const nombreCatNueva = catTxt ? titulo(catTxt.replace(/[_-]+/g, " ")).slice(0, 20) : "";
+      const titulo0 = String(a.titulo || codigo).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+      let sub = String(a.tema || "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 30);
+      if (sub && GENERICAS.has(norm(sub))) sub = "";
+      if (sub && (sub === sub.toUpperCase() || sub === sub.toLowerCase())) sub = titulo(sub); // "ONE PIECE" → "One Piece"
+      if (sub && cat) { const igual = (cat.subs || []).find((x) => compacto(x) === compacto(sub)); if (igual) sub = igual; }
+      if (!sub && cat) { const c2 = clasificar(`${titulo0}.png`); if (c2.categoria === cat.id && !c2.subNueva) sub = c2.sub; } // palabras clave 🔑
+      const it = {
+        ruta: en ? en.ruta : (rutas[0] || codigo), file: en?.file || null, codigo, json: true,
+        nombre: (titulo0 === titulo0.toLowerCase() ? titulo(titulo0) : titulo0).slice(0, 60),
+        categoria: cat ? cat.id : nombreCatNueva ? slug(nombreCatNueva) : "",
+        catNueva: !cat && nombreCatNueva ? { id: slug(nombreCatNueva), nombre: nombreCatNueva } : null,
+        sub, subNueva: !!sub && !(cat?.subs || []).includes(sub), reconocido: !!catTxt, estado: "pendiente",
+      };
+      it.nombreAuto = it.nombre;
+      if (!en) { it.estado = "error"; it.error = rutas.length ? "no encontré su PNG en la carpeta elegida" : "no tiene PNG ni WebP (solo vectores o PSD)"; sinArchivo++; }
+      else if (ya.has(codigo) || ya.has(en.ruta)) it.estado = "repetido";
+      vistas.add(codigo || it.ruta);
+      masiva.items.push(it);
+    }
+    if (sinArchivo) toast(`${sinArchivo} arte${sinArchivo === 1 ? "" : "s"} del JSON sin PNG en esa carpeta: quedan marcados con error`);
+    pintarMasiva();
+  }
+  $("#masivaCarpeta").addEventListener("change", (e) => {
+    const entradas = [...e.target.files].map((f) => ({ file: f, ruta: f.webkitRelativePath || f.name }));
+    e.target.value = "";
+    if (masiva.json) recolectarDesdeJson(entradas); else recolectar(entradas);
+  });
   $("#masivaArchivos").addEventListener("change", (e) => { recolectar([...e.target.files].map((f) => ({ file: f, ruta: f.name }))); e.target.value = ""; });
   const zona = $("#masivaZona");
   ["dragenter", "dragover"].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.add("over"); }));
@@ -681,7 +761,7 @@
     const entradas = [...e.dataTransfer.items].map((i) => i.webkitGetAsEntry?.()).filter(Boolean);
     const archivos = [];
     for (const en of entradas) archivos.push(...(await leerEntrada(en)));
-    recolectar(archivos);
+    if (masiva.json) recolectarDesdeJson(archivos); else recolectar(archivos);
   });
 
   const destino = (it) => it.categoria || masiva.defecto;
@@ -709,8 +789,8 @@
     const catsNuevas = [...new Set(items.filter((x) => x.catNueva && va(x) && !categorias.some((c) => c.id === x.catNueva.id)).map((x) => x.catNueva.nombre))];
     $("#masivaStats").innerHTML = `<b>${items.length}</b> archivos · <b>${pend}</b> marcados para subir${apartados ? ` · ${apartados} sin marcar (no se suben)` : ""}${listos ? ` · ✓ ${listos} subidos` : ""}${rep ? ` · ${rep} ya estaban` : ""}${err ? ` · <span class="mal">${err} con error</span>` : ""}`
       + (sinRec ? `<br>${sinRec} sin reconocer: van a la categoría de abajo (podés cambiarlos uno por uno).` : "")
-      + (catsNuevas.length ? `<br>Categorías nuevas (salen de las carpetas): ${catsNuevas.map(esc).join(", ")}` : "")
-      + (nuevas.length ? `<br>Subcategorías nuevas (salen de las carpetas): ${nuevas.map(esc).join(", ")}` : "");
+      + (catsNuevas.length ? `<br>Categorías nuevas: ${catsNuevas.map(esc).join(", ")}` : "")
+      + (nuevas.length ? `<br>Subcategorías nuevas: ${nuevas.map(esc).join(", ")}` : "");
     $("#masivaDefecto").innerHTML = opciones(masiva.defecto);
     $("#masivaCarpetasModo").value = masiva.carpetas;
     $("#masivaGrupos").innerHTML = grupos().map((g) => {
@@ -745,7 +825,7 @@
     const raices = new Set(masiva.items.map((x) => x.ruta.split("/")[0]));
     const sinRaiz = raices.size === 1 && masiva.items.some((x) => x.ruta.split("/").length >= 3);
     masiva.items = masiva.items.map((it) => {
-      if (it.estado !== "pendiente") return it;
+      if (it.estado !== "pendiente" || it.json) return it;
       const n = clasificar(it.ruta, sinRaiz);
       return { ...n, file: it.file, incluir: it.incluir, nombre: it.nombre !== it.nombreAuto ? it.nombre : n.nombre };
     });
