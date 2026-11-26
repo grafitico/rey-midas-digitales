@@ -364,7 +364,7 @@
     const q = norm($("#buscarArte").value);
     const catF = $("#catLista").value;
     $("#catLista").innerHTML = `<option value="">Todas las categorías</option>` + categorias.map((c) => `<option value="${esc(c.id)}"${c.id === catF ? " selected" : ""}>${esc(c.nombre)} (${cuantos(c.id)})</option>`).join("");
-    const todos = publicados.filter((a) => (filtro === "todos" || (filtro === "semitono") === !!a.semitono) && (!catF || a.categoria === catF) && (!q || norm(`${a.nombre} ${a.sub || ""} ${a.id}`).includes(q)));
+    const todos = publicados.filter((a) => (filtro === "todos" || (filtro === "semitono") === !!a.semitono) && (!catF || a.categoria === catF) && (!q || norm(`${a.nombre} ${a.sub || ""} ${a.id} ${a.codigo || ""}`).includes(q)));
     const ver = todos.slice(0, limiteLista);
     $("#verMas").hidden = todos.length <= ver.length;
     $("#verMas").textContent = `Ver más (${todos.length - ver.length})`;
@@ -566,9 +566,13 @@
   // memoria) y la ruta del archivo evita duplicados si se repite la carpeta.
   const norm = (t) => String(t).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const compacto = (t) => norm(t).replace(/ /g, "");
-  const GENERICAS = new Set(["png", "jpg", "jpeg", "webp", "artes", "arte", "disenos", "diseno", "imagenes", "imagen", "images", "img", "final", "finales", "export", "exports", "mockups", "mockup", "nueva carpeta", "new folder", "varios", "dtf", "listos", "para imprimir"]);
+  const GENERICAS = new Set(["png", "jpg", "jpeg", "webp", "artes", "arte", "disenos", "diseno", "imagenes", "imagen", "images", "img", "final", "finales", "export", "exports", "mockups", "mockup", "nueva carpeta", "new folder", "varios", "dtf", "listos", "para imprimir",
+    // Marcas del organizador de artes (Marca → Categoría): no son subcategorías
+    "searcade", "grafitico", "rey midas", "reymidas", "tikicia", "tikicia records", "organizado", "organizados", "artes organizados"]);
+  // Código del organizador de artes al inicio del archivo: "SRC-ANI-0003_naruto"
+  const CODIGO = /^([A-Z]{2,5}-[A-Z0-9]{2,5}-\d{2,6})[\s_-]*/i;
   const titulo = (t) => t.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
-  let masiva = { items: [], abiertos: new Set(), corriendo: false, pausa: false, defecto: "" };
+  let masiva = { items: [], abiertos: new Set(), corriendo: false, pausa: false, defecto: "", carpetas: "sub" };
   // Coincidencia: palabra completa, o pegada (sin espacios) si el término es largo
   function coincide(term, texto) {
     const tn = norm(term);
@@ -580,7 +584,9 @@
   function clasificar(ruta, sinRaiz) {
     const partes = ruta.split("/");
     if (sinRaiz) partes.shift(); // la carpeta elegida solo contiene a las demás
-    const archivo = partes.pop().replace(/\.[^.]+$/, "");
+    let archivo = partes.pop().replace(/\.[^.]+$/, "");
+    const cod = archivo.match(CODIGO);
+    if (cod && archivo.length > cod[0].length) archivo = archivo.slice(cod[0].length);
     const carpetas = partes.filter((x) => !GENERICAS.has(norm(x)) && norm(x).replace(/\d/g, "").trim());
     const todo = `${partes.join(" ")} ${archivo}`;
     const texto = { n: norm(todo), c: compacto(todo) };
@@ -594,15 +600,27 @@
       }
       for (const t of [c.nombre, c.id, ...(c.claves || [])]) {
         const k = coincide(t, texto);
-        if (k && (!mejor || k > mejor.puntos)) mejor = { cat: c.id, sub: "", puntos: k, term: t };
+        // enCarpeta: la categoría sale de una carpeta (pesa más que una palabra del nombre del archivo)
+        const enCarpeta = !!coincide(t, { n: norm(partes.join(" ")), c: compacto(partes.join(" ")) });
+        if (k && (!mejor || k + (enCarpeta ? 50 : 0) > mejor.puntos)) mejor = { cat: c.id, sub: "", puntos: k + (enCarpeta ? 50 : 0), term: t, enCarpeta };
       }
     }
-    const it = { ruta, categoria: mejor?.cat || "", sub: mejor?.sub || "", reconocido: !!mejor, subNueva: false, estado: "pendiente" };
+    // Modo "categorías nuevas": una carpeta desconocida gana a una categoría que
+    // solo aparece como palabra en el nombre del archivo ("Navidad/arbol-gamer")
+    const carpetaDesconocida = [...carpetas].reverse().find((x) => !categorias.some((c) => compacto(x) === compacto(c.nombre) || compacto(x) === compacto(c.id)));
+    if (masiva.carpetas === "cat" && mejor && !mejor.sub && !mejor.enCarpeta && carpetaDesconocida) mejor = null;
+    const it = { ruta, codigo: cod ? cod[1].toUpperCase() : "", categoria: mejor?.cat || "", sub: mejor?.sub || "", reconocido: !!mejor, subNueva: false, catNueva: null, estado: "pendiente" };
     // Sin subcategoría: la carpeta más cercana que no sea genérica ni la categoría
     if (!it.sub) {
       const cat = categorias.find((c) => c.id === it.categoria);
       const carpeta = [...carpetas].reverse().find((x) => !cat || (compacto(x) !== compacto(cat.nombre) && compacto(x) !== compacto(cat.id)));
-      if (carpeta) {
+      if (carpeta && !it.categoria && masiva.carpetas === "cat") {
+        // Modo "categorías nuevas": la carpeta desconocida es una categoría de la tienda
+        const nombre = titulo(carpeta.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()).slice(0, 20);
+        it.catNueva = { id: slug(nombre), nombre };
+        it.categoria = it.catNueva.id;
+        it.reconocido = true; // va a su categoría nueva, no a "los que no reconozca"
+      } else if (carpeta) {
         const limpia = carpeta.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
         const legible = limpia === limpia.toUpperCase() || limpia === limpia.toLowerCase() || /[_-]/.test(carpeta) ? titulo(limpia) : limpia;
         // ¿Ya existe con otras mayúsculas o espacios? Se usa la existente
@@ -624,7 +642,7 @@
   }
   async function recolectar(entradas) {
     // entradas: [{ file, ruta }]
-    const ya = new Set(publicados.map((a) => a.fuente).filter(Boolean));
+    const ya = new Set(publicados.flatMap((a) => [a.fuente, a.codigo]).filter(Boolean));
     const vistas = new Set(masiva.items.map((x) => x.ruta));
     // Si la carpeta elegida tiene subcarpetas, su nombre no cuenta (suele ser "Mis artes")
     const raices = new Set(entradas.map((x) => x.ruta.split("/")[0]));
@@ -634,7 +652,7 @@
       vistas.add(ruta);
       const it = clasificar(ruta, sinRaiz);
       it.file = file;
-      if (ya.has(ruta)) it.estado = "repetido";
+      if (ya.has(ruta) || (it.codigo && ya.has(it.codigo))) it.estado = "repetido";
       masiva.items.push(it);
     }
     pintarMasiva();
@@ -667,7 +685,7 @@
   });
 
   const destino = (it) => it.categoria || masiva.defecto;
-  const nombreCat = (id) => categorias.find((c) => c.id === id)?.nombre || id || "—";
+  const nombreCat = (id) => categorias.find((c) => c.id === id)?.nombre || masiva.items.find((x) => x.catNueva?.id === id)?.catNueva.nombre || id || "—";
   function grupos() {
     const g = new Map();
     for (const it of masiva.items) {
@@ -686,18 +704,21 @@
     const pend = n((x) => x.estado === "pendiente"), listos = n((x) => x.estado === "listo"), rep = n((x) => x.estado === "repetido"), err = n((x) => x.estado === "error");
     const sinRec = n((x) => !x.reconocido && x.estado === "pendiente");
     const nuevas = [...new Set(items.filter((x) => x.subNueva && x.estado === "pendiente").map((x) => `${nombreCat(destino(x))} › ${x.sub}`))];
+    const catsNuevas = [...new Set(items.filter((x) => x.catNueva && x.estado === "pendiente" && !categorias.some((c) => c.id === x.catNueva.id)).map((x) => x.catNueva.nombre))];
     $("#masivaStats").innerHTML = `<b>${items.length}</b> archivos · <b>${pend}</b> por subir${listos ? ` · ✓ ${listos} subidos` : ""}${rep ? ` · ${rep} ya estaban` : ""}${err ? ` · <span class="mal">${err} con error</span>` : ""}`
       + (sinRec ? `<br>${sinRec} sin reconocer: van a la categoría de abajo (podés cambiarlos uno por uno).` : "")
+      + (catsNuevas.length ? `<br>Categorías nuevas (salen de las carpetas): ${catsNuevas.map(esc).join(", ")}` : "")
       + (nuevas.length ? `<br>Subcategorías nuevas (salen de las carpetas): ${nuevas.map(esc).join(", ")}` : "");
     $("#masivaDefecto").innerHTML = opciones(masiva.defecto);
+    $("#masivaCarpetasModo").value = masiva.carpetas;
     $("#masivaGrupos").innerHTML = grupos().map((g) => {
       const k = JSON.stringify([g.cat, g.sub]), abierto = masiva.abiertos.has(k);
-      const nueva = g.items.some((x) => x.subNueva);
+      const nueva = g.items.some((x) => x.subNueva || (x.catNueva && !categorias.some((c) => c.id === x.catNueva.id)));
       const filas = abierto ? g.items.slice(0, 200).map((it) => `<div class="m-fila ${it.estado}" data-r="${esc(it.ruta)}">
           <input data-m="nombre" value="${esc(it.nombre)}" maxlength="60" aria-label="Nombre"${it.estado !== "pendiente" ? " disabled" : ""}>
-          <select data-m="categoria" aria-label="Categoría"${it.estado !== "pendiente" ? " disabled" : ""}>${opciones(destino(it))}</select>
+          <select data-m="categoria" aria-label="Categoría"${it.estado !== "pendiente" ? " disabled" : ""}>${opciones(destino(it))}${it.catNueva && !categorias.some((c) => c.id === it.catNueva.id) ? `<option value="${esc(it.catNueva.id)}" selected>${esc(it.catNueva.nombre)} (nueva)</option>` : ""}</select>
           <input data-m="sub" value="${esc(it.sub)}" maxlength="30" placeholder="Subcategoría" aria-label="Subcategoría" list="masivaSubs"${it.estado !== "pendiente" ? " disabled" : ""}>
-          <small title="${esc(it.ruta)}">${esc(it.ruta)}${it.estado === "error" ? ` · ${esc(it.error)}` : it.estado === "listo" ? " · ✓" : it.estado === "repetido" ? " · ya estaba" : ""}</small>
+          <small title="${esc(it.ruta)}">${it.codigo ? `<b>${esc(it.codigo)}</b> · ` : ""}${esc(it.ruta)}${it.estado === "error" ? ` · ${esc(it.error)}` : it.estado === "listo" ? " · ✓" : it.estado === "repetido" ? " · ya estaba" : ""}</small>
         </div>`).join("") + (g.items.length > 200 ? `<p class="adm-nota">… y ${g.items.length - 200} más con la misma clasificación.</p>` : "") : "";
       const hechos = g.items.filter((x) => x.estado !== "pendiente").length;
       return `<div class="m-grupo${abierto ? " abierto" : ""}" data-k="${esc(k)}">
@@ -712,6 +733,18 @@
     $("#masivaQuitar").hidden = masiva.corriendo;
   }
   $("#masivaDefecto").addEventListener("change", (e) => { masiva.defecto = e.target.value; pintarMasiva(); });
+  // Cambiar el modo reclasifica lo que aún no se subió (se conservan los nombres editados)
+  $("#masivaCarpetasModo").addEventListener("change", (e) => {
+    masiva.carpetas = e.target.value;
+    const raices = new Set(masiva.items.map((x) => x.ruta.split("/")[0]));
+    const sinRaiz = raices.size === 1 && masiva.items.some((x) => x.ruta.split("/").length >= 3);
+    masiva.items = masiva.items.map((it) => {
+      if (it.estado !== "pendiente") return it;
+      const n = clasificar(it.ruta, sinRaiz);
+      return { ...n, file: it.file, nombre: it.nombre !== it.nombreAuto ? it.nombre : n.nombre };
+    });
+    pintarMasiva();
+  });
   $("#masivaGrupos").addEventListener("click", (e) => {
     const b = e.target.closest("[data-a=abrir]");
     if (!b) return;
@@ -725,7 +758,7 @@
     if (!it) return;
     const k = e.target.dataset.m;
     if (k === "nombre") it.nombre = e.target.value.trim().slice(0, 60) || it.nombreAuto;
-    if (k === "categoria") { it.categoria = e.target.value; it.reconocido = true; }
+    if (k === "categoria") { it.categoria = e.target.value; it.reconocido = true; if (it.catNueva && it.catNueva.id !== it.categoria) it.catNueva = null; }
     if (k === "sub") { it.sub = e.target.value.trim().slice(0, 30); it.subNueva = !!it.sub && !(categorias.find((c) => c.id === destino(it))?.subs || []).includes(it.sub); }
     pintarMasiva();
   });
@@ -766,15 +799,17 @@
     const prog = $("#masivaProg"), barra = $("#masivaBarra");
     try {
       // 1) Subcategorías nuevas a su categoría (una sola vez)
-      const faltan = new Map();
+      const faltan = new Map(), catsFaltan = new Map();
       for (const it of masiva.items) {
+        if (it.estado === "pendiente" && it.catNueva && !categorias.some((c) => c.id === it.catNueva.id)) catsFaltan.set(it.catNueva.id, it.catNueva);
         if (it.estado !== "pendiente" || !it.sub) continue;
         const c = categorias.find((x) => x.id === destino(it));
-        if (c && !(c.subs || []).includes(it.sub)) faltan.set(JSON.stringify([c.id, it.sub]), [c.id, it.sub]);
+        if ((c && !(c.subs || []).includes(it.sub)) || catsFaltan.has(destino(it))) faltan.set(JSON.stringify([destino(it), it.sub]), [destino(it), it.sub]);
       }
-      if (faltan.size) {
-        prog.textContent = `Creando ${faltan.size} subcategoría${faltan.size === 1 ? "" : "s"}…`;
+      if (faltan.size || catsFaltan.size) {
+        prog.textContent = `Creando ${catsFaltan.size ? `${catsFaltan.size} categoría${catsFaltan.size === 1 ? "" : "s"} y ` : ""}${faltan.size} subcategoría${faltan.size === 1 ? "" : "s"}…`;
         editarCats();
+        for (const c of catsFaltan.values()) if (!catsEd.some((x) => x.id === c.id)) catsEd.push({ id: c.id, nombre: c.nombre, icono: "", claves: [], nueva: true, subs: [] });
         for (const [cat, sub] of faltan.values()) {
           const c = catsEd.find((x) => x.id === cat);
           if (c && !c.subs.some((x) => x.nombre === sub)) c.subs.push({ nombre: sub, orig: "", claves: [] });
@@ -795,7 +830,7 @@
         try {
           const img = await preparar(it.file);
           const vis = await analizar(it.file);
-          const r = await api({ action: "subir", corto: true, fuente: it.ruta, nombre: it.nombre, categoria: destino(it), sub: it.sub, precio: "",
+          const r = await api({ action: "subir", corto: true, fuente: it.ruta, codigo: it.codigo, nombre: it.nombre, categoria: destino(it), sub: it.sub, precio: "",
             semitono: vis.pocasTintas, oscuras: img.transparente && vis.oscuras, imagen: await aDataUrl(img.vista) });
           if (r.repetido) { it.estado = "repetido"; URL.revokeObjectURL(img.url); continue; }
           await api({ action: "original", corto: true, id: r.arte.id, imagen: await aDataUrl(img.blob) });
