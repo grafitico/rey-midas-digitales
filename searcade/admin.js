@@ -692,6 +692,23 @@
   });
   $("#masivaJsonInfo").addEventListener("click", (e) => { if (e.target.id === "masivaJsonQuitar") { masiva.json = null; $("#masivaJsonInfo").hidden = true; } });
   const IMG_WEB = /\.(png|webp)$/i;
+  // Títulos internos de archivo ("DS100", "32", "D2", "Recurso 1", "Anime action 07")
+  // no sirven en la tienda: pasan a "<Tema> <número>". Los que dicen algo
+  // ("NEZUKO", "tanjiro POSTURA") se quedan, con mayúsculas arregladas.
+  const GENERICOS = /^(recurso|anime|anime action|arte|artes|diseno|disenos|design|imagen|image|img|png|sin titulo|untitled|copia|copy)$/;
+  function nombreDesdeTitulo(t, tema) {
+    const letras = norm(t.replace(/\(\d+\)/g, "")).replace(/\d+/g, " ").replace(/\s+/g, " ").trim();
+    const nums = t.match(/\d+/g) || [];
+    const extra = (t.match(/\(\d+\)/) || [""])[0];
+    if (tema && (letras.replace(/ /g, "").length <= 2 || GENERICOS.test(letras))) {
+      const num = (extra ? nums.slice(0, -1) : nums).pop() || "";
+      return `${titulo(tema)} ${num} ${extra}`.replace(/\s+/g, " ").trim();
+    }
+    // Inosuke1 → Inosuke 1; todo mayúsculas o minúsculas → Tipo Título
+    let n = t.replace(/([a-z])(\d)/gi, "$1 $2").replace(/\s+/g, " ").trim();
+    if (n === n.toLowerCase() || /\b[A-ZÁÉÍÓÚÑ]{3,}\b/.test(n)) n = titulo(n);
+    return n;
+  }
   function recolectarDesdeJson(entradas) {
     const { artes } = masiva.json;
     // Índice de la carpeta elegida: ruta sin la carpeta raíz, en minúsculas
@@ -727,13 +744,13 @@
       const nombreCatNueva = catTxt ? titulo(catTxt.replace(/[_-]+/g, " ")).slice(0, 20) : "";
       const titulo0 = String(a.titulo || codigo).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
       let sub = String(a.tema || "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 30);
-      if (sub && GENERICAS.has(norm(sub))) sub = "";
+      if (sub && (GENERICAS.has(norm(sub)) || !/[a-z]{2}/i.test(sub))) sub = ""; // "13", "PNG"… no son temas
       if (sub && (sub === sub.toUpperCase() || sub === sub.toLowerCase())) sub = titulo(sub); // "ONE PIECE" → "One Piece"
       if (sub && cat) { const igual = (cat.subs || []).find((x) => compacto(x) === compacto(sub)); if (igual) sub = igual; }
       if (!sub && cat) { const c2 = clasificar(`${titulo0}.png`); if (c2.categoria === cat.id && !c2.subNueva) sub = c2.sub; } // palabras clave 🔑
       const it = {
         ruta: en ? en.ruta : (rutas[0] || codigo), file: en?.file || null, codigo, json: true,
-        nombre: (titulo0 === titulo0.toLowerCase() ? titulo(titulo0) : titulo0).slice(0, 60),
+        nombre: nombreDesdeTitulo(titulo0, sub || cat?.nombre || nombreCatNueva).slice(0, 60),
         categoria: cat ? cat.id : nombreCatNueva ? slug(nombreCatNueva) : "",
         catNueva: !cat && nombreCatNueva ? { id: slug(nombreCatNueva), nombre: nombreCatNueva } : null,
         sub, subNueva: !!sub && !(cat?.subs || []).includes(sub), reconocido: !!catTxt, estado: "pendiente",
