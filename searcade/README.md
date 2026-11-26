@@ -98,3 +98,22 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   marca de agua, original ≤ 1400 px en la carpeta privada, miniatura).
 - Mejor recibir los artes en ZIP/RAR: llegan en alta resolución y con fondo
   transparente.
+
+## Carga masiva (26/11/2026)
+
+- Panel → Carga masiva: elegir o arrastrar una carpeta (miles de PNG/WebP). Cada
+  archivo se clasifica por el nombre de sus carpetas y el suyo: nombre o
+  palabras clave 🔑 de una subcategoría → esa subcategoría; de una categoría →
+  esa categoría; si no, a la categoría de "Los que no reconozca", y la carpeta
+  más cercana (no genérica: PNG, artes, final…) pasa a ser subcategoría nueva.
+  La carpeta elegida no cuenta si tiene subcarpetas. Nombre: el del archivo, o
+  "<Subcategoría> <número>" si solo repite la colección.
+- Al subir, cada imagen se mira: "solo camisetas oscuras" si casi no tiene negro
+  (< 3 %: la tela hace las sombras) y semitono si 4 tintas o menos cubren el
+  95 % (calibrado con 25 artes reales: 22/25 y 21/25). Se sube de a uno (vista,
+  original y miniatura, con `corto: true`), con pausa y tiempo restante; la ruta
+  del archivo queda en `fuente` y repetir la carpeta salta lo ya subido.
+- Tope: 5000 artes (`MAX_ARTES`). La tienda solo dibuja las camisetas cercanas a
+  la del centro (`VENTANA`) y "Arma tu espalda" muestra hasta 40, primero las de
+  la misma subcategoría: con 2000 artes pasar de camiseta bajó de 8 s a < 0,3 s.
+- Panel → Artes publicados: de a 30, con buscador y filtro por categoría.

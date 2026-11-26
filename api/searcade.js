@@ -14,13 +14,18 @@
 //   { action: "entrar", usuario, clave }               → { ok, token, nombre }
 //   { action: "yo", token }                            → { ok, nombre }
 //   { action: "listar" }                               → { artes }
-//   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
+//   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,...", fuente?, corto? }
+//     fuente = ruta del archivo en la carga masiva: si ya hay un arte con esa
+//     fuente no se repite (devuelve { repetido: true, arte }). corto = no
+//     devolver la lista completa (con miles de artes pesa más de 1 MB).
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion?, sub?, oscuras? }
 //   (sub = subcategoría dentro de la categoría, p. ej. "Attack on Titan";
 //    oscuras = el arte solo se ofrece en camisetas oscuras: es de recorte y en
 //    las claras pierde las sombras)
 //   { action: "borrar", id }
-//   { action: "categorias", categorias: [{ id, nombre, icono, subs: [..] }], renombrar?: [{ categoria, de, a }] }
+//   { action: "categorias", categorias: [{ id, nombre, icono, subs: [..], claves?: [..], subClaves?: { sub: [..] } }], renombrar?: [{ categoria, de, a }] }
+//     claves/subClaves: palabras que, en el nombre del archivo o de su carpeta,
+//     mandan el arte a esa categoría/subcategoría en la carga masiva del panel.
 //     guarda las categorías de la tienda (orden, nombre, ícono y subcategorías);
 //     una categoría con artes no se puede quitar; al renombrar una subcategoría
 //     sus artes la siguen, y al quitarla sus artes quedan sin subcategoría.
@@ -53,7 +58,7 @@ const ORIGINS = new Set(["https://searcade.reymidascr.com"]);
 // El cuerpo de una consulta tiene tope de 1 MB (server/app.mjs) y el base64
 // agranda un tercio: la imagen ya comprimida no puede pasar de ~720 KB.
 export const MAX_IMG = 720 * 1024;
-const MAX_ARTES = 500;
+const MAX_ARTES = 5000;
 
 export function artesDir() {
   const base = process.env.SEARCADE_DIR || path.join(os.homedir(), "searcade.reymidascr.com");
@@ -134,22 +139,26 @@ export function decodificarImagen(dataUrl, { jpeg = false } = {}) {
   return { buf, ext: m[1] === "jpeg" ? "jpg" : m[1] };
 }
 
+const limpiarFuente = (v) => String(v ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 160);
 export async function subirArte(body) {
   const nombre = limpiarNombre(body.nombre);
   const categoria = limpiarCategoria(body.categoria);
   const precio = limpiarPrecio(body.precio);
+  const fuente = limpiarFuente(body.fuente);
   const { buf, ext } = decodificarImagen(body.imagen);
   return enCola(() => {
     const artes = leerArtes();
+    const ya = fuente && artes.find((a) => a.fuente === fuente);
+    if (ya) return { ok: true, repetido: true, arte: ya, ...(body.corto ? {} : { artes }) };
     if (artes.length >= MAX_ARTES) throw bad(`Ya hay ${MAX_ARTES} artes; borra alguno antes de subir más`);
     const id = `a-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
     const archivo = `${id}.${ext}`;
     fs.mkdirSync(artesDir(), { recursive: true });
     fs.writeFileSync(path.join(artesDir(), archivo), buf);
-    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...(body.oscuras === true ? { oscuras: true } : {}), ...textosDe(body), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
+    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...(body.oscuras === true ? { oscuras: true } : {}), ...textosDe(body), ...(fuente ? { fuente } : {}), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
     artes.unshift(arte);
     escribirArtes(artes);
-    return { ok: true, arte, artes };
+    return { ok: true, arte, ...(body.corto ? {} : { artes }) };
   });
 }
 
@@ -203,6 +212,9 @@ const limpiarIcono = (v) => {
   if (s.length <= 16 && !/[\u0000-\u007f]/.test(s.replace(/\u200d|\ufe0f/g, ""))) return s;
   throw bad("Ícono inválido: elige uno de la galería o un emoji");
 };
+// Palabras clave: hasta 20 por categoría o subcategoría, de 2 a 40 caracteres
+const limpiarClaves = (v) => [...new Set((Array.isArray(v) ? v : String(v ?? "").split(","))
+  .map((x) => limpiarTexto(x, 40).toLowerCase()).filter((x) => x.length >= 2))].slice(0, 20);
 export async function guardarCategorias(body) {
   const lista = Array.isArray(body.categorias) ? body.categorias : null;
   if (!lista || !lista.length) throw bad("Tiene que quedar al menos una categoría");
@@ -221,7 +233,10 @@ export async function guardarCategorias(body) {
       if (t && !subs.some((y) => y.toLowerCase() === t.toLowerCase())) subs.push(t);
     }
     if (subs.length > MAX_SUBS) throw bad(`Máximo ${MAX_SUBS} subcategorías en ${nombre}`);
-    return { id, nombre, icono: limpiarIcono(c.icono), subs };
+    const claves = limpiarClaves(c.claves);
+    const subClaves = {};
+    for (const x of subs) { const k = limpiarClaves(c.subClaves?.[x]); if (k.length) subClaves[x] = k; }
+    return { id, nombre, icono: limpiarIcono(c.icono), subs, ...(claves.length ? { claves } : {}), ...(Object.keys(subClaves).length ? { subClaves } : {}) };
   });
   const renombrar = (Array.isArray(body.renombrar) ? body.renombrar : []).map((r) => ({ categoria: String(r?.categoria || ""), de: limpiarTexto(r?.de, 30), a: limpiarTexto(r?.a, 30) }));
   return enCola(() => {
@@ -261,7 +276,7 @@ export async function guardarOriginal(body) {
     a.original = nombre;
     a.protegido = true;
     escribirArtes(artes);
-    return { ok: true, artes };
+    return { ok: true, ...(body.corto ? { arte: a } : { artes }) };
   });
 }
 export function descargarOriginal(body) {
@@ -313,7 +328,7 @@ export async function guardarMiniatura(body) {
     fs.writeFileSync(path.join(artesDir(), nombre), buf);
     a.mini = `artes/${nombre}?v=${Date.now().toString(36)}`;
     escribirArtes(artes);
-    return { ok: true, artes };
+    return { ok: true, ...(body.corto ? { arte: a } : { artes }) };
   });
 }
 

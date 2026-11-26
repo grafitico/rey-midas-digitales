@@ -42,6 +42,30 @@
         <div class="vivo-fila"><span>Lado</span><div class="seg" id="vivoLado" role="radiogroup" aria-label="Lado"></div></div>
       </div>
 
+      <h2 class="adm-h">Carga masiva <small>carpetas enteras que se ordenan solas</small></h2>
+      <p class="adm-nota">Elegí o arrastrá una carpeta con tus artes (pueden ser miles). Se ordenan por el nombre de las carpetas y de los archivos y por las palabras clave 🔑 de cada categoría; las subcarpetas que no se reconozcan pasan a ser subcategorías nuevas. Al subir, cada imagen se revisa para marcar semitono y "solo camisetas oscuras". Si repetís una carpeta, lo ya subido se salta.</p>
+      <div class="masiva-zona cut" id="masivaZona">
+        <label class="adm-btn" for="masivaCarpeta">📁 Elegir carpeta</label>
+        <input type="file" id="masivaCarpeta" webkitdirectory directory multiple hidden>
+        <label class="adm-btn ghost" for="masivaArchivos">Elegir archivos</label>
+        <input type="file" id="masivaArchivos" accept="image/png,image/webp" multiple hidden>
+        <span>o arrastrá carpetas aquí · PNG o WebP</span>
+      </div>
+      <div class="masiva" id="masivaResumen" hidden>
+        <p class="m-stats" id="masivaStats"></p>
+        <label class="m-defecto">Los que no reconozca van a <select id="masivaDefecto"></select></label>
+        <div class="m-grupos" id="masivaGrupos"></div>
+        <datalist id="masivaSubs"></datalist>
+        <div class="m-barra"><span id="masivaBarra"></span></div>
+        <p class="m-prog" id="masivaProg" role="status"></p>
+        <div class="adm-row">
+          <button class="adm-btn" id="masivaSubir" type="button">Subir todo</button>
+          <button class="adm-btn ghost" id="masivaPausa" type="button" hidden>Pausar</button>
+          <button class="adm-btn ghost" id="masivaQuitar" type="button">Descartar lista</button>
+        </div>
+      </div>
+
+      <h2 class="adm-h">Subir de a pocos <small>con vista previa y los datos de cada arte</small></h2>
       <label class="drop cut" id="drop">
         <input type="file" id="archivos" accept="image/png,image/webp" multiple hidden>
         <strong>Toca para elegir artes</strong>
@@ -66,7 +90,9 @@
       <h2 class="adm-h">Artes publicados <small id="cuenta"></small></h2>
       <button class="adm-btn proteger-todos" id="protegerTodos" hidden>🔒 Proteger artes existentes</button>
       <div class="estilos izq" id="filtroLista" role="radiogroup" aria-label="Filtrar"></div>
+      <div class="lista-filtros"><input id="buscarArte" type="search" placeholder="Buscar por nombre, subcategoría o código" aria-label="Buscar arte"><select id="catLista" aria-label="Categoría"></select></div>
       <div class="lista" id="lista"></div>
+      <button class="adm-btn ghost ver-mas" id="verMas" type="button" hidden>Ver más</button>
 
       <h2 class="adm-h">Lookbook / Banners <small id="cuentaFotos"></small></h2>
       <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel. Si elegís el diseño que sale en la foto, la ficha de ese diseño muestra "📸 Verla puesta" y el botón del Lookbook lleva directo a él.</p>

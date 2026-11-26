@@ -184,18 +184,48 @@
   function armar(start) {
     lista = data.productos.filter((p) => (filtro === "todas" || p.categoria === filtro) && (!subFiltro || p.sub === subFiltro) && (estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono)));
     idx = Math.max(0, Math.min(start, lista.length - 1));
-    $("#items").innerHTML = lista.length ? lista.map((p, i) => `
-      <button class="item" data-i="${i}" style="--glow:${esc(p.archivo ? "#19e6ffaa" : p.arte?.tono || "#19e6ffaa")}" aria-label="${esc(p.nombre)}">
-        <span class="colgante">${HOOK}<span class="inclina"><span class="tee${p.archivo ? ` volteable${ladoDe(i) === "espalda" ? " volteada" : ""}` : ""}">${teeDe(p, i)}</span></span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}</span>
-      </button>`).join("") : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
+    $("#items").innerHTML = lista.length ? "" : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
     mover(idx, true);
   }
+  // Con miles de artes no se pueden dibujar todas las camisetas: en el perchero
+  // solo existen las que están a VENTANA pasos de la del centro (las demás no se
+  // verían: desde 3 pasos son transparentes).
+  const VENTANA = 4;
+  const itemHTML = (p, i) => `<button class="item" data-i="${i}" style="--glow:${esc(p.archivo ? "#19e6ffaa" : p.arte?.tono || "#19e6ffaa")}" aria-label="${esc(p.nombre)}">
+        <span class="colgante">${HOOK}<span class="inclina"><span class="tee${p.archivo ? ` volteable${ladoDe(i) === "espalda" ? " volteada" : ""}` : ""}">${teeDe(p, i)}</span></span>${p.nuevo ? '<span class="badge">NUEVO</span>' : ""}${sello(p)}</span>
+      </button>`;
+  const distancia = (j) => {
+    let d = j - idx;
+    if (d > lista.length / 2) d -= lista.length;
+    if (d < -lista.length / 2) d += lista.length;
+    return d;
+  };
+  function pintarVentana() {
+    const box = $("#items");
+    const quiero = new Set();
+    for (let d = -VENTANA; d <= VENTANA; d++) quiero.add(((idx + d) % lista.length + lista.length) % lista.length);
+    box.querySelectorAll(".item").forEach((el) => { if (!quiero.has(+el.dataset.i)) el.remove(); });
+    const hay = new Set([...box.querySelectorAll(".item")].map((el) => +el.dataset.i));
+    for (const i of quiero) {
+      if (hay.has(i)) continue;
+      const t = document.createElement("template");
+      t.innerHTML = itemHTML(lista[i], i).trim();
+      const el = t.content.firstChild;
+      const a = Math.abs(distancia(i));
+      el.style.opacity = a > 2 ? 0 : 1; // entra sin saltar desde el centro
+      box.appendChild(el);
+    }
+  }
   // ---------- Fichas flotantes: elegir el arte de la espalda ----------
+  const MAX_FICHAS = 40;
   function pintarFichas() {
     const p = lista[idx];
     // Respeta el filtro Semitono / Full color (el arte ya elegido se queda visible)
     const actualId = espaldaDe(p || {}, sel)?.id || null;
-    const artes = data.productos.filter((x) => x.archivo && (estilo === "todos" || (estilo === "semitono") === !!x.semitono || x.id === actualId));
+    // Con miles de artes: primero los de la misma subcategoría y categoría, hasta MAX_FICHAS
+    const peso = (x) => (x.id === actualId ? 0 : p?.sub && x.sub === p.sub ? 1 : x.categoria === p?.categoria ? 2 : 3);
+    const artes = data.productos.filter((x) => x.archivo && (estilo === "todos" || (estilo === "semitono") === !!x.semitono || x.id === actualId))
+      .map((x, i) => [x, peso(x), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).slice(0, MAX_FICHAS + 1).map(([x]) => x);
     const box = $("#fichas");
     box.hidden = !p?.archivo || !artes.some((x) => x.id !== p.id);
     if (box.hidden) return;
@@ -232,13 +262,12 @@
     const nuevo = (i + lista.length) % lista.length;
     if (nuevo !== idx) sel.vista = ladoNatural();
     idx = nuevo;
+    pintarVentana();
     ladosEnPerchero();
     const k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--step-k")) || 0.6;
     const step = (document.querySelector(".item")?.offsetWidth || 220) * k;
-    document.querySelectorAll(".item").forEach((el, j) => {
-      let d = j - idx;
-      if (d > lista.length / 2) d -= lista.length;
-      if (d < -lista.length / 2) d += lista.length;
+    document.querySelectorAll(".item").forEach((el) => {
+      const d = distancia(+el.dataset.i);
       const a = Math.abs(d);
       el.style.transform = `translateX(${d * step}px) translateZ(${-a * 170}px) rotateY(${d * -12}deg)`;
       el.style.zIndex = 20 - a;
