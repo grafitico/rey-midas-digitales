@@ -147,3 +147,11 @@ body.admin { padding-bottom: 40px; }
 .lista-filtros input, .lista-filtros select { flex: 1 1 200px; min-width: 0; padding: 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #0b0614; color: #fff; font: 600 14px Inter, sans-serif; }
 .ver-mas { margin-top: 12px; width: 100%; }
 [hidden] { display: none !important; }
+.m-cab { display: flex; align-items: center; }
+.m-cab .m-tit { flex: 1; padding-left: 4px; }
+.m-chk { display: grid; place-items: center; padding: 0 0 0 12px; cursor: pointer; }
+.m-chk input { width: 18px; height: 18px; accent-color: var(--cyan); cursor: pointer; }
+.m-fila { grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+.m-fila .m-chk { padding: 0; }
+.m-fila.fuera > :not(.m-chk):not(small), .m-grupo.fuera .m-tit span { opacity: .4; }
+@media (max-width: 600px) { .m-fila { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); } .m-fila input[data-m=nombre] { grid-column: 2 / -1; } }
