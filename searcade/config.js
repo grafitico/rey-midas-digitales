@@ -78,6 +78,8 @@ window.SEARCADE_CONFIG = {
   ],
   // Colores donde se ofrecen los artes marcados "Solo camisetas oscuras"
   coloresOscuros: ["negra", "azul", "morada", "verde"],
+  // Y donde se ofrecen los marcados "Solo camisetas claras" (dibujo de líneas negras)
+  coloresClaros: ["blanca", "gris"],
   // Medidas de la foto base (salen de scripts/searcade-camisetas-base.py):
   // cuánto % de la imagen ocupa 1 cm, y dónde empieza cada estampado (en %).
   foto: {

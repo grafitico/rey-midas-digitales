@@ -61,7 +61,13 @@
   // Artes de recorte (oscuras): solo en camisetas oscuras. Si el color elegido
   // no va con el arte (o con el de la espalda), se muestra en negra.
   const OSCUROS = new Set(CFG.coloresOscuros || ["negra", "azul", "morada", "verde"]);
-  const coloresDe = (p, o = sel) => (p?.oscuras || espaldaDe(p || {}, o)?.oscuras ? COLORES.filter((c) => OSCUROS.has(c.id)) : COLORES);
+  const CLAROS = new Set(CFG.coloresClaros || ["blanca", "gris"]);
+  const coloresDe = (p, o = sel) => {
+    const e = espaldaDe(p || {}, o);
+    const osc = p?.oscuras || e?.oscuras, cla = p?.claras || e?.claras;
+    if (osc && cla) return COLORES; // frente y espalda piden cosas opuestas: no limitar
+    return osc ? COLORES.filter((c) => OSCUROS.has(c.id)) : cla ? COLORES.filter((c) => CLAROS.has(c.id)) : COLORES;
+  };
   const colorEf = (p, o = sel) => { const cs = coloresDe(p, o); return cs.some((c) => c.id === o.color) ? o.color : cs[0].id; };
   const precioDe = (p, o = sel) => (p.archivo ? p.precio + (formatoDe(o.formato).extra || 0) + (colocacionDe(o.colocacion).extra || 0) : p.precio);
   // Arte de la espalda: otro arte elegido en las fichas flotantes (o el mismo)
@@ -468,7 +474,7 @@
   function pintarPerso() {
     const p = lista[idx];
     const ef = colorEf(p);
-    $("#colorNombre").textContent = `· ${colorDe(ef).nombre}${coloresDe(p).length < COLORES.length ? " · arte para camisetas oscuras" : ""}`;
+    $("#colorNombre").textContent = `· ${colorDe(ef).nombre}${coloresDe(p).length < COLORES.length ? (coloresDe(p).every((c) => CLAROS.has(c.id)) ? " · arte para camisetas claras" : " · arte para camisetas oscuras") : ""}`;
     $("#colores").innerHTML = coloresDe(p).map((c) => `<button class="swatch" role="radio" aria-checked="${c.id === ef}" aria-label="${esc(c.nombre)}" title="${esc(c.nombre)}" data-c="${esc(c.id)}" style="--sw:${esc(c.hex)}"></button>`).join("");
     $("#colocaciones").innerHTML = COLOCACIONES.map((c) => `<button role="radio" aria-checked="${c.id === sel.colocacion}" data-v="${esc(c.id)}">${esc(c.nombre)}${extraTxt(c.extra)}</button>`).join("");
     const f = formatoDe(sel.formato);
@@ -936,7 +942,7 @@
   // ---------- Datos ----------
   const desdeArte = (a) => ({
     id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, mini: a.mini || "", semitono: !!a.semitono,
-    sub: a.sub || "", oscuras: !!a.oscuras,
+    sub: a.sub || "", oscuras: !!a.oscuras, claras: !!a.claras,
     coleccion: a.coleccion || "", lema: a.lema || "", descripcionPropia: a.descripcion || "",
     precio: a.precio || CFG.precioBase || 11000,
     descripcion: CFG.descripcionArte || "", material: "Algodón premium",
