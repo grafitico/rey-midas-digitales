@@ -84,6 +84,9 @@
   lo demás es solo de admin y `requireAuth` rechaza tokens con scope.
 - Antes de cargar una venta o crear una cuenta para el dueño, mostrale el
   resumen y esperá su "dale".
+- El mismo token sirve en `/api/searcade` (tienda SEARCADE) para listar, subir
+  y editar artes (ver `searcade/README.md`); antes de publicar artes, también
+  resumen y "dale".
 - `cuenta-nueva` registra la cuenta con una contraseña generada y DESPUÉS
   crea el buzón <usuario>@reymidascr.com por la API web de cPanel (UAPI por
   HTTPS al 2083, autenticación básica con las variables CPANEL_USER,
