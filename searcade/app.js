@@ -175,6 +175,12 @@
     const subs = [...orden.filter((x) => usadas.has(x)), ...[...usadas].filter((x) => !orden.includes(x)).sort((a, b) => a.localeCompare(b, "es"))];
     if (!subs.includes(subFiltro)) subFiltro = "";
     $("#subs").hidden = !subs.length;
+    requestAnimationFrame(() => {
+      const box = $("#subs");
+      box.classList.toggle("centro", box.scrollWidth <= box.clientWidth + 2); // pocas: centradas
+      const b = box.querySelector('[aria-checked="true"]'); // la elegida a la vista (sin mover la página)
+      if (b) box.scrollLeft = b.offsetLeft - box.offsetLeft - (box.clientWidth - b.offsetWidth) / 2;
+    });
     $("#subs").innerHTML = subs.length ? [["", "Todos"], ...subs.map((x) => [x, x])]
       .map(([id, n]) => `<button role="radio" aria-checked="${id === subFiltro}" data-s="${esc(id)}">${esc(n)}</button>`).join("") : "";
   }
