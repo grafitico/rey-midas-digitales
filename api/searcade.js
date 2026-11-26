@@ -17,7 +17,9 @@
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,...", fuente?, corto? }
 //     fuente = ruta del archivo en la carga masiva (y codigo = el del
 //     organizador de artes, p. ej. SRC-ANI-0003): si ya hay un arte con esa
-//     fuente o ese código no se repite (devuelve { repetido: true, arte }). corto = no
+//     fuente o ese código no se repite; huella = la de searcade/huella.js: si
+//     ya hay un arte con la misma imagen tampoco ({ repetido, mismaImagen }),
+//     salvo forzar: true (devuelve { repetido: true, arte }). corto = no
 //     devolver la lista completa (con miles de artes pesa más de 1 MB).
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion?, sub?, oscuras? }
 //   (sub = subcategoría dentro de la categoría, p. ej. "Attack on Titan";
@@ -110,14 +112,27 @@ function limpiarCategoria(v) {
   return s;
 }
 // Textos opcionales de cada arte (colección, lema, descripción)
-const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180, sub: 30, codigo: 20 };
+const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180, sub: 30, codigo: 20, huella: 16 };
 function limpiarTexto(v, max) {
   return String(v ?? "").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 }
 function textosDe(body) {
   const t = {};
   for (const [k, max] of Object.entries(TEXTOS)) if (k in body) t[k] = limpiarTexto(body[k], max);
+  if ("huella" in t && !/^[0-9a-f]{16}$/.test(t.huella)) delete t.huella;
   return t;
+}
+// Huella de imagen (searcade/huella.js): bits distintos entre dos huellas.
+// Mismo arte ≈ 0–5 (aunque tenga marca de agua u otro tamaño); distintos ≥ 14.
+export const UMBRAL_HUELLA = 8;
+export function distanciaHuella(a, b) {
+  if (!/^[0-9a-f]{16}$/.test(a || "") || !/^[0-9a-f]{16}$/.test(b || "")) return 64;
+  let n = 0;
+  for (let i = 0; i < 16; i += 8) {
+    let v = (parseInt(a.slice(i, i + 8), 16) ^ parseInt(b.slice(i, i + 8), 16)) >>> 0;
+    while (v) { n += v & 1; v >>>= 1; }
+  }
+  return n;
 }
 
 function limpiarPrecio(v) {
@@ -153,6 +168,10 @@ export async function subirArte(body) {
     const codigo = limpiarTexto(body.codigo, 20);
     const ya = (fuente && artes.find((a) => a.fuente === fuente)) || (codigo && artes.find((a) => a.codigo === codigo));
     if (ya) return { ok: true, repetido: true, arte: ya, ...(body.corto ? {} : { artes }) };
+    // Mismo dibujo con otro nombre o sin código (huella de imagen), salvo forzar
+    const h = limpiarTexto(body.huella, 16);
+    const igual = body.forzar !== true && /^[0-9a-f]{16}$/.test(h) && artes.find((a) => distanciaHuella(h, a.huella) <= UMBRAL_HUELLA);
+    if (igual) return { ok: true, repetido: true, mismaImagen: true, arte: igual, ...(body.corto ? {} : { artes }) };
     if (artes.length >= MAX_ARTES) throw bad(`Ya hay ${MAX_ARTES} artes; borra alguno antes de subir más`);
     const id = `a-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
     const archivo = `${id}.${ext}`;
@@ -177,7 +196,7 @@ export async function editarArte(body) {
     if ("oscuras" in body) { if (body.oscuras === true) a.oscuras = true; else delete a.oscuras; }
     Object.assign(a, textosDe(body));
     escribirArtes(artes);
-    return { ok: true, artes };
+    return { ok: true, ...(body.corto ? { arte: a } : { artes }) };
   });
 }
 
