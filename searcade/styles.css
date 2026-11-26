@@ -534,3 +534,9 @@ a { color: var(--cyan); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Subcategorías: una fila de pastillas que se desliza de lado (pueden ser muchas) */
+.estilos.subs { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; max-width: min(1100px, calc(100% - 32px)); margin: 10px auto 0; padding: 2px 4px 6px; -webkit-mask: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); mask: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); }
+.estilos.subs::-webkit-scrollbar { display: none; }
+.estilos.subs button { flex: none; white-space: nowrap; padding: 5px 12px; font-size: 12.5px; }
+.estilos.subs.centro { justify-content: center; }
