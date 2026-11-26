@@ -117,3 +117,10 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   la del centro (`VENTANA`) y "Arma tu espalda" muestra hasta 40, primero las de
   la misma subcategoría: con 2000 artes pasar de camiseta bajó de 8 s a < 0,3 s.
 - Panel → Artes publicados: de a 30, con buscador y filtro por categoría.
+- Carpeta del organizador de artes (Marca → Categoría, `SRC-ANI-0003_naruto.png`):
+  las carpetas de marca (SEARCADE, Grafitico, Rey Midas, Tikicia) no cuentan
+  como subcategoría; el código del inicio se quita del nombre, se guarda en
+  `codigo` (buscable en el panel) y evita duplicados aunque cambie la carpeta.
+  "Las carpetas que no reconozca son: categorías nuevas" crea en la tienda las
+  categorías del organizador (Navidad, Motos…); la carpeta pesa más que una
+  palabra suelta del nombre del archivo.

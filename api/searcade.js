@@ -15,8 +15,9 @@
 //   { action: "yo", token }                            → { ok, nombre }
 //   { action: "listar" }                               → { artes }
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,...", fuente?, corto? }
-//     fuente = ruta del archivo en la carga masiva: si ya hay un arte con esa
-//     fuente no se repite (devuelve { repetido: true, arte }). corto = no
+//     fuente = ruta del archivo en la carga masiva (y codigo = el del
+//     organizador de artes, p. ej. SRC-ANI-0003): si ya hay un arte con esa
+//     fuente o ese código no se repite (devuelve { repetido: true, arte }). corto = no
 //     devolver la lista completa (con miles de artes pesa más de 1 MB).
 //   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion?, sub?, oscuras? }
 //   (sub = subcategoría dentro de la categoría, p. ej. "Attack on Titan";
@@ -109,7 +110,7 @@ function limpiarCategoria(v) {
   return s;
 }
 // Textos opcionales de cada arte (colección, lema, descripción)
-const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180, sub: 30 };
+const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180, sub: 30, codigo: 20 };
 function limpiarTexto(v, max) {
   return String(v ?? "").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 }
@@ -148,7 +149,9 @@ export async function subirArte(body) {
   const { buf, ext } = decodificarImagen(body.imagen);
   return enCola(() => {
     const artes = leerArtes();
-    const ya = fuente && artes.find((a) => a.fuente === fuente);
+    // Repetido: misma ruta de archivo o mismo código del organizador (GRF-NAV-0012)
+    const codigo = limpiarTexto(body.codigo, 20);
+    const ya = (fuente && artes.find((a) => a.fuente === fuente)) || (codigo && artes.find((a) => a.codigo === codigo));
     if (ya) return { ok: true, repetido: true, arte: ya, ...(body.corto ? {} : { artes }) };
     if (artes.length >= MAX_ARTES) throw bad(`Ya hay ${MAX_ARTES} artes; borra alguno antes de subir más`);
     const id = `a-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
