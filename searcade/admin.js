@@ -764,12 +764,45 @@
     if (sinArchivo) toast(`${sinArchivo} arte${sinArchivo === 1 ? "" : "s"} del JSON sin PNG en esa carpeta: quedan marcados con error`);
     pintarMasiva();
   }
+  // Aviso mientras Chrome lee la carpeta (con miles de archivos tarda y la página no se entera hasta el final)
+  function avisoCarga(texto) {
+    const el = $("#masivaCargando");
+    el.hidden = !texto;
+    if (texto) el.querySelector("span").textContent = texto;
+  }
+  ["#masivaCarpeta", "#masivaArchivos"].forEach((s) => {
+    const inp = $(s);
+    inp.addEventListener("click", () => avisoCarga(s === "#masivaCarpeta" ? "Esperando que elijas la carpeta y que Chrome la lea… con miles de archivos puede tardar un minuto." : "Esperando los archivos…"));
+    inp.addEventListener("cancel", () => avisoCarga(""));
+  });
+  async function procesarEntradas(entradas, conJson) {
+    masiva.leyendo = true;
+    avisoCarga(`Revisando ${entradas.length.toLocaleString("es-CR")} archivos…`);
+    await new Promise((ok) => setTimeout(ok, 30)); // que se vea el aviso antes del trabajo
+    const antes = masiva.items.length;
+    try {
+      if (conJson && masiva.json) recolectarDesdeJson(entradas); else await recolectar(entradas);
+      const nuevos = masiva.items.length - antes;
+      avisoCarga("");
+      if (!nuevos) toast(conJson ? "No encontré ninguno de los artes del JSON en esa carpeta" : "No encontré PNG ni WebP nuevos en esa carpeta");
+      else {
+        const pend = masiva.items.filter(va).length;
+        toast(`✓ ${nuevos.toLocaleString("es-CR")} artes listos para revisar · ${pend.toLocaleString("es-CR")} marcados para subir`);
+        $("#masivaResumen").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } catch (err) {
+      avisoCarga("");
+      $("#masivaCargando").hidden = false;
+      $("#masivaCargando").querySelector("span").textContent = `No se pudo leer la carpeta: ${err.message}`;
+      console.error(err);
+    } finally { masiva.leyendo = false; }
+  }
   $("#masivaCarpeta").addEventListener("change", (e) => {
     const entradas = [...e.target.files].map((f) => ({ file: f, ruta: f.webkitRelativePath || f.name }));
     e.target.value = "";
-    if (masiva.json) recolectarDesdeJson(entradas); else recolectar(entradas);
+    procesarEntradas(entradas, true);
   });
-  $("#masivaArchivos").addEventListener("change", (e) => { recolectar([...e.target.files].map((f) => ({ file: f, ruta: f.name }))); e.target.value = ""; });
+  $("#masivaArchivos").addEventListener("change", (e) => { const entradas = [...e.target.files].map((f) => ({ file: f, ruta: f.name })); e.target.value = ""; procesarEntradas(entradas, false); });
   const zona = $("#masivaZona");
   ["dragenter", "dragover"].forEach((t) => zona.addEventListener(t, (e) => { e.preventDefault(); zona.classList.add("over"); }));
   ["dragleave", "drop"].forEach((t) => zona.addEventListener(t, () => zona.classList.remove("over")));
@@ -777,8 +810,10 @@
     e.preventDefault();
     const entradas = [...e.dataTransfer.items].map((i) => i.webkitGetAsEntry?.()).filter(Boolean);
     const archivos = [];
+    avisoCarga("Leyendo la carpeta…");
+    masiva.leyendo = true;
     for (const en of entradas) archivos.push(...(await leerEntrada(en)));
-    if (masiva.json) recolectarDesdeJson(archivos); else recolectar(archivos);
+    procesarEntradas(archivos, true);
   });
 
   const destino = (it) => it.categoria || masiva.defecto;
