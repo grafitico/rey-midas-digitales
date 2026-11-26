@@ -24,7 +24,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Kanit:ital,wght@1,800;1,900&family=Rajdhani:wght@600;700&family=Permanent+Marker&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
+  <!-- Si styles.css no llega (corte del hosting), los SVG sin tamaño ocupaban
+       toda la pantalla ("se ve gigante"): este mínimo los contiene y el enlace
+       reintenta una vez. styles.css lo anula con :where(svg) (especificidad 0). -->
+  <style>:where(svg:not([width])){width:1.5em;height:1.5em}</style>
+  <link rel="stylesheet" href="styles.css" onerror="if(!this.dataset.r){this.dataset.r=1;this.href+=(this.href.indexOf('?')<0?'?':'&amp;')+'r='+Date.now()}">
 </head>
 <body>
   <div class="intro" id="intro" role="dialog" aria-label="Bienvenida">

@@ -1,3 +1,6 @@
+/* Deshace el tamaño mínimo de SVG que index.html pone por si este archivo no carga */
+:where(svg:not([width])) { width: auto; height: auto; }
+
 /* Color de ambiente: lo pone app.js según el color dominante de cada arte */
 @property --acento { syntax: "<color>"; inherits: true; initial-value: #fbb51d; }
 :root { transition: --acento .9s ease; }
