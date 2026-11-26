@@ -65,6 +65,12 @@
     espaldas: {},
   };
   let estilo = "todos"; // filtro: todos | semitono | full
+  let subFiltro = ""; // subcategoría dentro de la categoría ("" = todas)
+  // Artes de recorte (oscuras): solo en camisetas oscuras. Si el color elegido
+  // no va con el arte (o con el de la espalda), se muestra en negra.
+  const OSCUROS = new Set(CFG.coloresOscuros || ["negra", "azul", "morada", "verde"]);
+  const coloresDe = (p, o = sel) => (p?.oscuras || espaldaDe(p || {}, o)?.oscuras ? COLORES.filter((c) => OSCUROS.has(c.id)) : COLORES);
+  const colorEf = (p, o = sel) => { const cs = coloresDe(p, o); return cs.some((c) => c.id === o.color) ? o.color : cs[0].id; };
   const precioDe = (p, o = sel) => (p.archivo ? p.precio + (formatoDe(o.formato).extra || 0) + (colocacionDe(o.colocacion).extra || 0) : p.precio);
   // Arte de la espalda: otro arte elegido en las fichas flotantes (o el mismo)
   // o = sel (o una copia): usa el mapa por camiseta; o = línea del carrito: su campo espalda.
@@ -78,8 +84,8 @@
   const ladoDe = (i) => (i === idx ? sel.vista : ladoNatural());
   // En el perchero, las fichas y el carrito va la miniatura liviana del arte;
   // el archivo completo solo en la vista de cerca (camisetaGrande).
-  const camiseta = (p, o = sel) => T.camiseta(p.mini ? { ...p, archivo: p.mini } : p, { ...o, espaldaArchivo: (espaldaDe(p, o)?.mini || espaldaDe(p, o)?.archivo) });
-  const camisetaGrande = (p, o = sel) => T.camiseta(p, { ...o, espaldaArchivo: espaldaDe(p, o)?.archivo });
+  const camiseta = (p, o = sel) => T.camiseta(p.mini ? { ...p, archivo: p.mini } : p, { ...o, color: colorEf(p, o), espaldaArchivo: (espaldaDe(p, o)?.mini || espaldaDe(p, o)?.archivo) });
+  const camisetaGrande = (p, o = sel) => T.camiseta(p, { ...o, color: colorEf(p, o), espaldaArchivo: espaldaDe(p, o)?.archivo });
   const sello = (p) => (p.archivo ? `<span class="sello ${p.semitono ? "semi" : "full"}">${p.semitono ? "SEMITONO" : "FULL COLOR"}</span>` : "");
   const imgFoto = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
   // Artes: dos caras (frente y espalda) que giran en 3D; brillo que las recorre al girar.
@@ -141,7 +147,9 @@
     const b = e.target.closest(".cat");
     if (!b || b.dataset.cat === filtro) return;
     filtro = b.dataset.cat;
+    subFiltro = "";
     renderCats();
+    pintarSubs();
     armar(0);
   });
 
@@ -161,9 +169,25 @@
     armar(0);
   });
 
+  // Subcategorías (p. ej. Anime → Attack on Titan): solo con una categoría elegida
+  function pintarSubs() {
+    const subs = filtro === "todas" ? [] : [...new Set(data.productos.filter((p) => p.categoria === filtro && p.sub).map((p) => p.sub))].sort((a, b) => a.localeCompare(b, "es"));
+    if (!subs.includes(subFiltro)) subFiltro = "";
+    $("#subs").hidden = !subs.length;
+    $("#subs").innerHTML = subs.length ? [["", "Todos"], ...subs.map((x) => [x, x])]
+      .map(([id, n]) => `<button role="radio" aria-checked="${id === subFiltro}" data-s="${esc(id)}">${esc(n)}</button>`).join("") : "";
+  }
+  $("#subs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-s]");
+    if (!b || b.dataset.s === subFiltro) return;
+    subFiltro = b.dataset.s;
+    pintarSubs();
+    armar(0);
+  });
+
   // ---------- Carrusel ----------
   function armar(start) {
-    lista = data.productos.filter((p) => (filtro === "todas" || p.categoria === filtro) && (estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono)));
+    lista = data.productos.filter((p) => (filtro === "todas" || p.categoria === filtro) && (!subFiltro || p.sub === subFiltro) && (estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono)));
     idx = Math.max(0, Math.min(start, lista.length - 1));
     $("#items").innerHTML = lista.length ? lista.map((p, i) => `
       <button class="item" data-i="${i}" style="--glow:${esc(p.archivo ? "#19e6ffaa" : p.arte?.tono || "#19e6ffaa")}" aria-label="${esc(p.nombre)}">
@@ -192,7 +216,8 @@
     if (!p) return;
     const elegido = b.dataset.e || null;
     if (elegido) sel.espaldas[p.id] = elegido; else delete sel.espaldas[p.id];
-    if (elegido && sel.colocacion === "pecho") { sel.colocacion = "ambas"; pintarPerso(); pintarPrecio(); }
+    if (elegido && sel.colocacion === "pecho") { sel.colocacion = "ambas"; pintarPrecio(); }
+    pintarPerso(); // el arte de atrás puede ser solo para camisetas oscuras
     repintarArtes();
     pintarFichas();
     if (elegido || sel.colocacion !== "pecho") girar("espalda", true);
@@ -417,8 +442,10 @@
   const etiquetaTalla = (t) => (/^\d+$/.test(t) ? `${t} años` : t);
   const extraTxt = (n) => (n ? ` <small>+${fmt(n)}</small>` : "");
   function pintarPerso() {
-    $("#colorNombre").textContent = `· ${colorDe(sel.color).nombre}`;
-    $("#colores").innerHTML = COLORES.map((c) => `<button class="swatch" role="radio" aria-checked="${c.id === sel.color}" aria-label="${esc(c.nombre)}" title="${esc(c.nombre)}" data-c="${esc(c.id)}" style="--sw:${esc(c.hex)}"></button>`).join("");
+    const p = lista[idx];
+    const ef = colorEf(p);
+    $("#colorNombre").textContent = `· ${colorDe(ef).nombre}${coloresDe(p).length < COLORES.length ? " · arte para camisetas oscuras" : ""}`;
+    $("#colores").innerHTML = coloresDe(p).map((c) => `<button class="swatch" role="radio" aria-checked="${c.id === ef}" aria-label="${esc(c.nombre)}" title="${esc(c.nombre)}" data-c="${esc(c.id)}" style="--sw:${esc(c.hex)}"></button>`).join("");
     $("#colocaciones").innerHTML = COLOCACIONES.map((c) => `<button role="radio" aria-checked="${c.id === sel.colocacion}" data-v="${esc(c.id)}">${esc(c.nombre)}${extraTxt(c.extra)}</button>`).join("");
     const f = formatoDe(sel.formato);
     $("#formatoMedida").textContent = `· ${f.ancho} × ${f.alto} cm`;
@@ -426,7 +453,7 @@
   }
   $("#colores").addEventListener("click", (e) => {
     const b = e.target.closest(".swatch");
-    if (!b || b.dataset.c === sel.color) return;
+    if (!b || b.dataset.c === colorEf(lista[idx])) return;
     sel.color = b.dataset.c;
     pintarPerso();
     repintarArtes();
@@ -558,7 +585,7 @@
       return false;
     }
     const nueva = p.archivo
-      ? { id: p.id, talla, color: sel.color, formato: sel.formato, colocacion: sel.colocacion, espalda: espaldaDe(p, sel)?.id || null, qty: 1 }
+      ? { id: p.id, talla, color: colorEf(p), formato: sel.formato, colocacion: sel.colocacion, espalda: espaldaDe(p, sel)?.id || null, qty: 1 }
       : { id: p.id, talla, qty: 1 };
     const l = carrito.find((x) => mismaLinea(x, nueva));
     if (l) l.qty++; else carrito.push(nueva);
@@ -630,7 +657,7 @@
     const id = decodeURIComponent(location.hash.slice(1));
     if (!id || lista[idx]?.id === id) return;
     let i = lista.findIndex((p) => p.id === id);
-    if (i < 0 && byId(id)) { filtro = "todas"; renderCats(); armar(0); i = lista.findIndex((p) => p.id === id); }
+    if (i < 0 && byId(id)) { filtro = "todas"; subFiltro = ""; renderCats(); pintarSubs(); armar(0); i = lista.findIndex((p) => p.id === id); }
     if (i >= 0) mover(i, true);
   }
   window.addEventListener("hashchange", () => { desdeHash(); $("#stage").scrollIntoView({ behavior: "smooth", block: "center" }); });
@@ -885,6 +912,7 @@
   // ---------- Datos ----------
   const desdeArte = (a) => ({
     id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, mini: a.mini || "", semitono: !!a.semitono,
+    sub: a.sub || "", oscuras: !!a.oscuras,
     coleccion: a.coleccion || "", lema: a.lema || "", descripcionPropia: a.descripcion || "",
     precio: a.precio || CFG.precioBase || 11000,
     descripcion: CFG.descripcionArte || "", material: "Algodón premium",
@@ -901,6 +929,7 @@
       for (const f of look) { const p = f.arte && byId(f.arte); if (p) (p.fotosModelo ||= []).push(f); }
       pintarLookbook(look);
       renderCats();
+      pintarSubs();
       pintarEstilos();
       armar(0);
       desdeHash();

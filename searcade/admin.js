@@ -191,6 +191,9 @@
         <label>Descripción<textarea data-f="descripcion" maxlength="180" rows="2" placeholder="Automática por categoría">${esc(a.descripcion || "")}</textarea></label>
       </details>`;
   const campoSemi = (semi) => `<label class="chk"><input type="checkbox" data-f="semitono"${semi ? " checked" : ""}> Es semitono <small>(puntos que dejan ver la tela)</small></label>`;
+  // Subcategoría (p. ej. "Attack on Titan") y artes de recorte solo para camisetas oscuras
+  const camposExtra = (a = {}) => `<label>Subcategoría <small>(opcional)</small><input data-f="sub" maxlength="30" value="${esc(a.sub || "")}" placeholder="Ej.: Attack on Titan" list="listaSubs"></label>
+        <label class="chk"><input type="checkbox" data-f="oscuras"${a.oscuras ? " checked" : ""}> Solo camisetas oscuras <small>(arte de recorte: en las claras pierde las sombras)</small></label>`;
 
   function pintarPendientes() {
     $("#pendientes").innerHTML = pendientes.map((p) => `
@@ -200,6 +203,7 @@
         <label>Categoría<select data-f="categoria">${opciones(p.categoria)}</select></label>
         <label>Precio (vacío = ₡${(CFG.precioBase || 11000).toLocaleString("es-CR")})<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${esc(p.precio)}"></label>
         ${campoSemi(p.semitono)}
+        ${camposExtra(p)}
         ${camposTexto(p)}
         <p class="meta">${p.ancho}×${p.alto} px · ${Math.round(p.blob.size / 1024)} KB${p.semitono ? " · detectado como semitono" : ""}</p>
         <div class="botones"><button class="adm-btn" data-a="subir">Subir</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn ghost" data-a="quitar">Quitar</button></div>
@@ -228,7 +232,7 @@
     el?.classList.add("subiendo");
     try {
       // 1) la vista previa pública, 2) el original a la carpeta privada
-      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
+      const r = await api({ action: "subir", nombre: p.nombre, categoria: p.categoria, precio: p.precio, semitono: !!p.semitono, sub: p.sub || "", oscuras: !!p.oscuras, coleccion: p.coleccion || "", lema: p.lema || "", descripcion: p.descripcion || "", imagen: await aDataUrl(p.vista) });
       const r2 = await api({ action: "original", id: r.arte.id, imagen: await aDataUrl(p.blob) });
       r.artes = r2.artes;
       quitar(p);
@@ -351,6 +355,7 @@
     if (artes) pintarFotos();
     setTimeout(completarMiniaturas, 400);
     const semis = publicados.filter((a) => a.semitono).length;
+    $("#listaSubs").innerHTML = [...new Set(publicados.map((a) => a.sub).filter(Boolean))].map((x) => `<option value="${esc(x)}">`).join("");
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
     $("#protegerTodos").hidden = !publicados.some((a) => !a.protegido);
     const ver = publicados.filter((a) => filtro === "todos" || (filtro === "semitono") === !!a.semitono);
@@ -361,6 +366,7 @@
         <label>Categoría<select data-f="categoria">${opciones(a.categoria)}</select></label>
         <label>Precio<input data-f="precio" type="number" inputmode="numeric" min="500" step="500" value="${a.precio ?? ""}" placeholder="${CFG.precioBase || 11000}"></label>
         ${campoSemi(a.semitono)}
+        ${camposExtra(a)}
         ${camposTexto(a)}
         <p class="meta">Código: <b>${esc(a.id)}</b> · ${a.protegido ? "🔒 original protegido" : "⚠️ sin proteger"}</p>
         <div class="botones"><button class="adm-btn ghost" data-a="guardar">Guardar</button><button class="adm-btn ghost" data-a="comparar">Colores</button><button class="adm-btn danger" data-a="borrar">Borrar</button></div>
@@ -393,7 +399,7 @@
         toast("Arte borrado");
       } else {
         b.disabled = true;
-        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked, coleccion: v("coleccion").value, lema: v("lema").value, descripcion: v("descripcion").value })).artes);
+        pintarLista((await api({ action: "editar", id, nombre: v("nombre").value, categoria: v("categoria").value, precio: v("precio").value, semitono: v("semitono").checked, sub: v("sub").value, oscuras: v("oscuras").checked, coleccion: v("coleccion").value, lema: v("lema").value, descripcion: v("descripcion").value })).artes);
         toast("✓ Cambios guardados");
       }
     } catch (err) {

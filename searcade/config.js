@@ -76,6 +76,8 @@ window.SEARCADE_CONFIG = {
     { id: "morada", nombre: "Morada", hex: "#5b2c86" },
     { id: "verde", nombre: "Verde militar", hex: "#4b5634" },
   ],
+  // Colores donde se ofrecen los artes marcados "Solo camisetas oscuras"
+  coloresOscuros: ["negra", "azul", "morada", "verde"],
   // Medidas de la foto base (salen de scripts/searcade-camisetas-base.py):
   // cuánto % de la imagen ocupa 1 cm, y dónde empieza cada estampado (en %).
   foto: {

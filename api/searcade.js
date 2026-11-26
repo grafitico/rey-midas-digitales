@@ -15,7 +15,10 @@
 //   { action: "yo", token }                            → { ok, nombre }
 //   { action: "listar" }                               → { artes }
 //   { action: "subir", nombre, categoria, precio, semitono, imagen: "data:image/webp;base64,..." }
-//   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion? }
+//   { action: "editar", id, nombre?, categoria?, precio?, semitono?, coleccion?, lema?, descripcion?, sub?, oscuras? }
+//   (sub = subcategoría dentro de la categoría, p. ej. "Attack on Titan";
+//    oscuras = el arte solo se ofrece en camisetas oscuras: es de recorte y en
+//    las claras pierde las sombras)
 //   { action: "borrar", id }
 //   { action: "original", id, imagen }   el ORIGINAL va a una carpeta privada
 //   { action: "descargar", id }          → { nombre, imagen } (solo con sesión)
@@ -28,6 +31,11 @@
 // agua, la arma el panel). El archivo original para imprimir queda en
 // ~/searcade-privado/artes (fuera de la web) y solo se baja con sesión.
 //
+// Acceso del asistente (Claude): el mismo token de Admin → 🤖 Asistente de Rey
+// Midas, en "Authorization: Bearer". Solo sirve para listar, subir, editar y
+// guardar original/miniatura (ACCIONES_ASISTENTE): no borra ni descarga
+// originales. Revocarlo en Rey Midas lo corta también aquí.
+//
 // Variables opcionales: SEARCADE_DIR (carpeta del subdominio; por defecto
 // ~/searcade.reymidascr.com) y SEARCADE_PRIVADO (por defecto ~/searcade-privado).
 
@@ -35,7 +43,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { handleError, readJson, signPayload, verifyToken, verifyPassword } from "./_lib.js";
+import { handleError, readJson, signPayload, verifyToken, verifyPassword, requireAssistant } from "./_lib.js";
 
 const ORIGINS = new Set(["https://searcade.reymidascr.com"]);
 // El cuerpo de una consulta tiene tope de 1 MB (server/app.mjs) y el base64
@@ -92,7 +100,7 @@ function limpiarCategoria(v) {
   return s;
 }
 // Textos opcionales de cada arte (colección, lema, descripción)
-const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180 };
+const TEXTOS = { coleccion: 30, lema: 60, descripcion: 180, sub: 30 };
 function limpiarTexto(v, max) {
   return String(v ?? "").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 }
@@ -134,7 +142,7 @@ export async function subirArte(body) {
     const archivo = `${id}.${ext}`;
     fs.mkdirSync(artesDir(), { recursive: true });
     fs.writeFileSync(path.join(artesDir(), archivo), buf);
-    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...textosDe(body), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
+    const arte = { id, nombre, categoria, precio, semitono: body.semitono === true, ...(body.oscuras === true ? { oscuras: true } : {}), ...textosDe(body), archivo: `artes/${archivo}`, creado: new Date().toISOString() };
     artes.unshift(arte);
     escribirArtes(artes);
     return { ok: true, arte, artes };
@@ -150,6 +158,7 @@ export async function editarArte(body) {
     if ("categoria" in body) a.categoria = limpiarCategoria(body.categoria);
     if ("precio" in body) a.precio = limpiarPrecio(body.precio);
     if ("semitono" in body) a.semitono = body.semitono === true;
+    if ("oscuras" in body) { if (body.oscuras === true) a.oscuras = true; else delete a.oscuras; }
     Object.assign(a, textosDe(body));
     escribirArtes(artes);
     return { ok: true, artes };
@@ -357,6 +366,8 @@ export async function borrarFoto(body) {
   });
 }
 
+const ACCIONES_ASISTENTE = new Set(["yo", "listar", "subir", "editar", "original", "miniatura"]);
+
 function cors(req, res) {
   const origin = req.headers.origin;
   if (origin && ORIGINS.has(origin)) {
@@ -382,7 +393,12 @@ export default async function handler(req, res) {
       try { body = JSON.parse(req.body || "{}"); } catch { return res.status(400).json({ error: "Datos inválidos" }); }
     } else body = await readJson(req);
     if (body.action === "entrar") return res.status(200).json(entrar(body, ipDe(req)));
-    const user = requirePanel(body);
+    let user;
+    if (!body.token && /^Bearer\s+\S/i.test(String(req.headers.authorization || ""))) {
+      await requireAssistant(req);
+      if (!ACCIONES_ASISTENTE.has(body.action)) return res.status(403).json({ error: "El acceso del asistente no permite esta acción" });
+      user = { nombre: "asistente" };
+    } else user = requirePanel(body);
     switch (body.action) {
       case "yo": return res.status(200).json({ ok: true, nombre: user.nombre });
       case "listar": return res.status(200).json(leerIndice());

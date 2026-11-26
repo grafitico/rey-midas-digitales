@@ -76,3 +76,19 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   (`#marcoSvg`, el trazo lo ajusta `app.js` al tamaño para que las esquinas en
   diagonal cierren). Partículas y energía en el canvas `#energia`. Nada de eso
   usa imágenes ni filtros animados (rendimiento en teléfonos).
+
+## Subcategorías, camisetas oscuras y acceso del asistente (26/11/2026)
+
+- `sub` en `artes.json` (campo "Subcategoría" del panel): al tocar una
+  categoría que tenga artes con subcategoría aparece una fila de botones
+  (Anime → Todos · Attack on Titan · Dragon Ball Z).
+- `oscuras: true` ("Solo camisetas oscuras" en el panel): arte de recorte, la
+  tela hace las sombras. La tienda solo ofrece `config.js` → `coloresOscuros`
+  y, si el color elegido no va, lo muestra y lo vende en negra.
+- `api/searcade.js` acepta también el token de Admin → 🤖 Asistente de Rey Midas
+  en `Authorization: Bearer`, solo para `yo`, `listar`, `subir`, `editar`,
+  `original` y `miniatura` (no borra ni descarga originales). Así Claude puede
+  cargar artes con la misma protección que el panel (vista previa de 800 px con
+  marca de agua, original ≤ 1400 px en la carpeta privada, miniatura).
+- Mejor recibir los artes en ZIP/RAR: llegan en alta resolución y con fondo
+  transparente.
