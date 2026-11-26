@@ -79,9 +79,15 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
 
 ## Subcategorías, camisetas oscuras y acceso del asistente (26/11/2026)
 
-- `sub` en `artes.json` (campo "Subcategoría" del panel): al tocar una
-  categoría que tenga artes con subcategoría aparece una fila de botones
-  (Anime → Todos · Attack on Titan · Dragon Ball Z).
+- `sub` en `artes.json` (lista "Subcategoría" de cada arte en el panel): al
+  tocar una categoría que tenga artes con subcategoría aparece una fila de
+  botones (Anime → Todos · Attack on Titan · Dragon Ball Z).
+- Panel → Categorías (acción `categorias`, se guarda en `artes.json` →
+  `categorias`): crear, renombrar, ordenar y borrar categorías (solo sin
+  artes), ícono de la galería `iconos.js` o un emoji, y subcategorías (crear,
+  renombrar —sus artes las siguen—, ordenar y quitar). Sin esa lista, la tienda
+  usa las de `productos.json`. Una categoría nueva aparece en la tienda cuando
+  tiene al menos un diseño.
 - `oscuras: true` ("Solo camisetas oscuras" en el panel): arte de recorte, la
   tela hace las sombras. La tienda solo ofrece `config.js` → `coloresOscuros`
   y, si el color elegido no va, lo muestra y lo vende en negra.

@@ -54,6 +54,15 @@
         <button class="adm-btn ghost" id="limpiar">Descartar</button>
       </div>
 
+      <h2 class="adm-h">Categorías <small>orden, nombre, ícono y subcategorías</small></h2>
+      <p class="adm-nota">Toca el ícono para cambiarlo. Las subcategorías aparecen en la tienda al elegir su categoría (ej.: Anime → Attack on Titan). Una categoría con artes no se puede borrar: primero mueve sus artes. Los cambios se aplican al tocar <b>Guardar categorías</b>.</p>
+      <div class="cats-ed" id="catsEd"></div>
+      <div class="adm-row">
+        <button class="adm-btn ghost" id="catNueva" type="button">＋ Nueva categoría</button>
+        <button class="adm-btn" id="catGuardar" type="button">Guardar categorías</button>
+        <button class="adm-btn ghost" id="catDeshacer" type="button">Deshacer cambios</button>
+      </div>
+
       <h2 class="adm-h">Artes publicados <small id="cuenta"></small></h2>
       <button class="adm-btn proteger-todos" id="protegerTodos" hidden>🔒 Proteger artes existentes</button>
       <div class="estilos izq" id="filtroLista" role="radiogroup" aria-label="Filtrar"></div>
@@ -78,11 +87,18 @@
     <div class="comp-grid" id="compGrid"></div>
   </dialog>
 
+  <dialog class="modal iconos" id="iconos" aria-labelledby="iconosTit">
+    <button class="modal-close" data-close aria-label="Cerrar">✕</button>
+    <h2 id="iconosTit">Ícono de la categoría</h2>
+    <div class="iconos-grid" id="iconosGrid"></div>
+    <div class="icono-emoji"><label>O un emoji<input id="iconoEmoji" maxlength="16" placeholder="🎸"></label><button class="adm-btn" id="iconoEmojiOk" type="button">Usar emoji</button></div>
+  </dialog>
+
   <div class="toast" id="toast" role="status"></div>
 
   <script src="config.js"></script>
+  <script src="iconos.js"></script>
   <script src="tee.js"></script>
   <script src="admin.js"></script>
-  <datalist id="listaSubs"></datalist>
 </body>
 </html>

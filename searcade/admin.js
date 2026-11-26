@@ -192,7 +192,10 @@
       </details>`;
   const campoSemi = (semi) => `<label class="chk"><input type="checkbox" data-f="semitono"${semi ? " checked" : ""}> Es semitono <small>(puntos que dejan ver la tela)</small></label>`;
   // Subcategoría (p. ej. "Attack on Titan") y artes de recorte solo para camisetas oscuras
-  const camposExtra = (a = {}) => `<label>Subcategoría <small>(opcional)</small><input data-f="sub" maxlength="30" value="${esc(a.sub || "")}" placeholder="Ej.: Attack on Titan" list="listaSubs"></label>
+  const subsDe = (cat) => categorias.find((c) => c.id === cat)?.subs || [];
+  const opcionesSub = (cat, sel) => `<option value="">— Ninguna —</option>` + [...subsDe(cat), ...(sel && !subsDe(cat).includes(sel) ? [sel] : [])]
+    .map((x) => `<option value="${esc(x)}"${x === sel ? " selected" : ""}>${esc(x)}</option>`).join("");
+  const camposExtra = (a = {}) => `<label>Subcategoría <small>(se crean en Categorías)</small><select data-f="sub">${opcionesSub(a.categoria, a.sub || "")}</select></label>
         <label class="chk"><input type="checkbox" data-f="oscuras"${a.oscuras ? " checked" : ""}> Solo camisetas oscuras <small>(arte de recorte: en las claras pierde las sombras)</small></label>`;
 
   function pintarPendientes() {
@@ -215,6 +218,7 @@
     const p = pendientes.find((x) => x.key === f?.dataset.k);
     if (!p || !e.target.dataset.f) return;
     p[e.target.dataset.f] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    if (e.target.dataset.f === "categoria") { p.sub = ""; f.querySelector('[data-f="sub"]').innerHTML = opcionesSub(p.categoria, ""); }
     if (e.target.dataset.f === "semitono") f.querySelector(".prev").outerHTML = prev(p.url, p.semitono);
   });
   $("#pendientes").addEventListener("click", async (e) => {
@@ -355,7 +359,6 @@
     if (artes) pintarFotos();
     setTimeout(completarMiniaturas, 400);
     const semis = publicados.filter((a) => a.semitono).length;
-    $("#listaSubs").innerHTML = [...new Set(publicados.map((a) => a.sub).filter(Boolean))].map((x) => `<option value="${esc(x)}">`).join("");
     $("#cuenta").textContent = `(${publicados.length} · ${semis} semitono · ${publicados.length - semis} full color)`;
     $("#protegerTodos").hidden = !publicados.some((a) => !a.protegido);
     const ver = publicados.filter((a) => filtro === "todos" || (filtro === "semitono") === !!a.semitono);
@@ -377,6 +380,7 @@
   }
   $("#filtroLista").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { filtro = b.dataset.v; pintarLista(); } });
   $("#lista").addEventListener("change", (e) => {
+    if (e.target.dataset.f === "categoria") { e.target.closest(".ficha").querySelector('[data-f="sub"]').innerHTML = opcionesSub(e.target.value, ""); return; }
     if (e.target.dataset.f !== "semitono") return;
     const f = e.target.closest(".ficha");
     const a = publicados.find((x) => x.id === f.dataset.id);
@@ -406,6 +410,126 @@
       b.disabled = false;
       toast(err.message);
     }
+  });
+
+  // ---------- Categorías y subcategorías ----------
+  // Copia editable: subs como { nombre, orig } para saber qué se renombró.
+  let catsEd = [];
+  const IC = window.SEARCADE_ICONOS;
+  const cuantos = (cat, sub) => publicados.filter((a) => a.categoria === cat && (sub === undefined || a.sub === sub)).length;
+  const slug = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "cat";
+  function editarCats() {
+    catsEd = categorias.map((c) => {
+      // Subcategorías que ya usan los artes pero no están en la lista
+      const extra = [...new Set(publicados.filter((a) => a.categoria === c.id && a.sub && !(c.subs || []).includes(a.sub)).map((a) => a.sub))];
+      return { id: c.id, nombre: c.nombre, icono: c.icono || "", nueva: false, subs: [...(c.subs || []), ...extra].map((x) => ({ nombre: x, orig: x })) };
+    });
+    // Categorías que tienen artes y no están en la lista (no se pueden perder)
+    for (const id of new Set(publicados.map((a) => a.categoria))) {
+      if (!catsEd.some((c) => c.id === id)) catsEd.push({ id, nombre: id.charAt(0).toUpperCase() + id.slice(1), icono: "", nueva: false, subs: [] });
+    }
+    pintarCats();
+  }
+  function pintarCats() {
+    $("#catsEd").innerHTML = catsEd.map((c, i) => {
+      const n = cuantos(c.id);
+      return `<div class="cat-ed" data-i="${i}">
+        <div class="cat-fila">
+          <button type="button" class="cat-ico" data-a="icono" title="Cambiar ícono">${IC.svg(c.icono, c.id)}</button>
+          <input data-k="nombre" value="${esc(c.nombre)}" maxlength="20" aria-label="Nombre de la categoría">
+          <span class="cat-n">${n} arte${n === 1 ? "" : "s"}</span>
+          <button type="button" class="mini-btn" data-a="arriba" title="Subir"${i ? "" : " disabled"}>↑</button>
+          <button type="button" class="mini-btn" data-a="abajo" title="Bajar"${i < catsEd.length - 1 ? "" : " disabled"}>↓</button>
+          <button type="button" class="mini-btn peligro" data-a="borrar" title="${n ? "Tiene artes: muévelos antes de borrarla" : "Borrar categoría"}"${n ? " disabled" : ""}>✕</button>
+        </div>
+        <div class="subs-ed">
+          ${c.subs.map((x, j) => `<span class="sub-chip" data-j="${j}"><input data-k="sub" value="${esc(x.nombre)}" maxlength="30" aria-label="Subcategoría"><small>${x.orig ? cuantos(c.id, x.orig) : 0}</small><button type="button" data-a="sub-arriba" title="Mover antes"${j ? "" : " disabled"}>‹</button><button type="button" data-a="sub-quitar" title="Quitar subcategoría">✕</button></span>`).join("")}
+          <span class="sub-nueva"><input placeholder="+ Subcategoría" maxlength="30" aria-label="Nueva subcategoría"><button type="button" data-a="sub-agregar">Agregar</button></span>
+        </div>
+      </div>`;
+    }).join("");
+  }
+  $("#catsEd").addEventListener("input", (e) => {
+    const box = e.target.closest(".cat-ed");
+    if (!box) return;
+    const c = catsEd[+box.dataset.i];
+    if (e.target.dataset.k === "nombre") c.nombre = e.target.value;
+    if (e.target.dataset.k === "sub") c.subs[+e.target.closest(".sub-chip").dataset.j].nombre = e.target.value;
+  });
+  $("#catsEd").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.closest(".sub-nueva")) { e.preventDefault(); e.target.closest(".sub-nueva").querySelector("button").click(); }
+  });
+  let catIcono = null; // categoría a la que se le elige ícono
+  $("#catsEd").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-a]");
+    if (!b) return;
+    const i = +b.closest(".cat-ed").dataset.i, c = catsEd[i];
+    const j = +b.closest(".sub-chip")?.dataset.j;
+    const mover = (arr, a, z) => { const [x] = arr.splice(a, 1); arr.splice(z, 0, x); };
+    switch (b.dataset.a) {
+      case "icono": catIcono = c; pintarIconos(); $("#iconos").showModal(); return;
+      case "arriba": mover(catsEd, i, i - 1); break;
+      case "abajo": mover(catsEd, i, i + 1); break;
+      case "borrar": if (!confirm(`¿Quitar la categoría "${c.nombre}"? (Se aplica al guardar)`)) return; catsEd.splice(i, 1); break;
+      case "sub-arriba": mover(c.subs, j, j - 1); break;
+      case "sub-quitar": {
+        const n = c.subs[j].orig ? cuantos(c.id, c.subs[j].orig) : 0;
+        if (n && !confirm(`"${c.subs[j].nombre}" tiene ${n} arte${n === 1 ? "" : "s"}: quedarán sin subcategoría (siguen en ${c.nombre}). ¿Quitarla?`)) return;
+        c.subs.splice(j, 1); break;
+      }
+      case "sub-agregar": {
+        const inp = b.parentElement.querySelector("input");
+        const t = inp.value.trim().slice(0, 30);
+        if (!t) return inp.focus();
+        if (c.subs.some((x) => x.nombre.toLowerCase() === t.toLowerCase())) return toast("Esa subcategoría ya existe");
+        c.subs.push({ nombre: t, orig: "" }); break;
+      }
+    }
+    pintarCats();
+  });
+  $("#catNueva").addEventListener("click", () => {
+    const nombre = prompt("Nombre de la nueva categoría (ej.: Rock, Fútbol, Mascotas)");
+    if (!nombre?.trim()) return;
+    let id = slug(nombre), k = 2;
+    while (catsEd.some((c) => c.id === id) || id === "todas" || id === "otra") id = `${slug(nombre).slice(0, 17)}-${k++}`;
+    catsEd.push({ id, nombre: nombre.trim().slice(0, 20), icono: "estrella", nueva: true, subs: [] });
+    pintarCats();
+    catIcono = catsEd[catsEd.length - 1]; pintarIconos(); $("#iconos").showModal();
+  });
+  function pintarIconos() {
+    $("#iconosGrid").innerHTML = Object.keys(IC.lista).map((k) => `<button type="button" data-k="${k}" aria-pressed="${catIcono?.icono === k}" title="${esc(IC.nombres[k] || k)}">${IC.svg(k)}<span>${esc(IC.nombres[k] || k)}</span></button>`).join("");
+    $("#iconoEmoji").value = catIcono && !IC.lista[catIcono.icono] ? catIcono.icono : "";
+  }
+  $("#iconosGrid").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-k]");
+    if (!b || !catIcono) return;
+    catIcono.icono = b.dataset.k;
+    $("#iconos").close(); pintarCats();
+  });
+  $("#iconoEmojiOk").addEventListener("click", () => {
+    const v = $("#iconoEmoji").value.trim();
+    if (!v || /[\u0000-\u007f]/.test(v.replace(/\u200d|\ufe0f/g, "")) || v.length > 16) return toast("Pega un solo emoji (ej.: 🎸)");
+    catIcono.icono = v;
+    $("#iconos").close(); pintarCats();
+  });
+  $("#iconos").addEventListener("click", (e) => { if (e.target.id === "iconos" || e.target.closest("[data-close]")) $("#iconos").close(); });
+  $("#catDeshacer").addEventListener("click", editarCats);
+  $("#catGuardar").addEventListener("click", async (e) => {
+    const b = e.target;
+    const vacia = catsEd.find((c) => !c.nombre.trim());
+    if (vacia) return toast("Hay una categoría sin nombre");
+    const renombrar = [];
+    for (const c of catsEd) for (const x of c.subs) if (x.orig && x.nombre.trim() && x.orig !== x.nombre.trim()) renombrar.push({ categoria: c.id, de: x.orig, a: x.nombre.trim() });
+    b.disabled = true;
+    try {
+      const r = await api({ action: "categorias", categorias: catsEd.map((c) => ({ id: c.id, nombre: c.nombre.trim(), icono: c.icono, subs: c.subs.map((x) => x.nombre.trim()).filter(Boolean) })), renombrar });
+      categorias = r.categorias;
+      editarCats();
+      pintarLista(r.artes);
+      pintarPendientes();
+      toast(`✓ Categorías guardadas${r.cambiados ? ` · ${r.cambiados} arte${r.cambiados === 1 ? "" : "s"} actualizado${r.cambiados === 1 ? "" : "s"}` : ""}`);
+    } catch (err) { toast(err.message); }
+    b.disabled = false;
   });
 
   // ---------- Lookbook / banners ----------
@@ -495,6 +619,9 @@
       $("#salir").hidden = false;
       $("#estado").textContent = `Hola, ${yo.nombre}. Lo que subas aparece en la tienda al instante.`;
       const ind = await api({ action: "listar" });
+      if (ind.categorias?.length) categorias = ind.categorias;
+      publicados = ind.artes;
+      editarCats();
       pintarLista(ind.artes);
       pintarFotos(ind.lookbook);
     } catch (e) {
@@ -521,7 +648,7 @@
   $("#salir").addEventListener("click", () => { guardarToken(""); mostrarLogin(); });
 
   Promise.all([fetch("productos.json").then((r) => r.json()).catch(() => ({})), T.precargar()]).then(([d]) => {
-    categorias = d.categorias || [{ id: "pop", nombre: "Pop" }];
+    categorias = (d.categorias || [{ id: "pop", nombre: "Pop" }]).map((c) => ({ icono: "", subs: [], ...c }));
     pintarVivo();
     iniciar();
   });
