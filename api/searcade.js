@@ -32,7 +32,9 @@
 //     mandan el arte a esa categoría/subcategoría en la carga masiva del panel.
 //     guarda las categorías de la tienda (orden, nombre, ícono y subcategorías);
 //     una categoría con artes no se puede quitar; al renombrar una subcategoría
-//     sus artes la siguen, y al quitarla sus artes quedan sin subcategoría.
+//     sus artes la siguen. Una subcategoría en uso que falte en la lista se
+//     conserva (una lista vieja de otra pestaña no borra nada); solo se quita,
+//     y sus artes quedan sin subcategoría, si viene en quitar: [{ categoria, sub }].
 //   { action: "original", id, imagen }   el ORIGINAL va a una carpeta privada
 //   { action: "descargar", id }          → { nombre, imagen } (solo con sesión)
 //   { action: "proteger", id, imagen }   artes viejos: original a privado + vista previa
@@ -263,6 +265,7 @@ export async function guardarCategorias(body) {
     return { id, nombre, icono: limpiarIcono(c.icono), subs, ...(claves.length ? { claves } : {}), ...(Object.keys(subClaves).length ? { subClaves } : {}) };
   });
   const renombrar = (Array.isArray(body.renombrar) ? body.renombrar : []).map((r) => ({ categoria: String(r?.categoria || ""), de: limpiarTexto(r?.de, 30), a: limpiarTexto(r?.a, 30) }));
+  const quitar = new Set((Array.isArray(body.quitar) ? body.quitar : []).map((q) => JSON.stringify([String(q?.categoria || ""), limpiarTexto(q?.sub, 30)])));
   return enCola(() => {
     const { artes } = leerIndice();
     const sinCategoria = [...new Set(artes.filter((a) => !ids.has(a.categoria)).map((a) => a.categoria))];
@@ -275,8 +278,10 @@ export async function guardarCategorias(body) {
       if (!a.sub) continue;
       const r = renombrar.find((x) => x.categoria === a.categoria && x.de === a.sub && x.a);
       if (r) { a.sub = r.a; cambiados++; }
-      const subs = categorias.find((c) => c.id === a.categoria).subs;
-      if (!subs.includes(a.sub)) { delete a.sub; cambiados++; }
+      const cat = categorias.find((c) => c.id === a.categoria);
+      if (cat.subs.includes(a.sub)) continue;
+      if (quitar.has(JSON.stringify([a.categoria, a.sub]))) { delete a.sub; cambiados++; }
+      else cat.subs.push(a.sub); // en uso: se conserva aunque la lista venga sin ella
     }
     escribirIndice({ categorias, artes });
     return { ok: true, categorias, artes, cambiados };

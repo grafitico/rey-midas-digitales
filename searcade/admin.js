@@ -506,6 +506,7 @@
   // ---------- Categorías y subcategorías ----------
   // Copia editable: subs como { nombre, orig } para saber qué se renombró.
   let catsEd = [];
+  let subsQuitadas = []; // las que el dueño quitó con ✕ (solo esas dejan artes sin subcategoría)
   const IC = window.SEARCADE_ICONOS;
   const cuantos = (cat, sub) => publicados.filter((a) => a.categoria === cat && (sub === undefined || a.sub === sub)).length;
   const slug = (t) => String(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 20) || "cat";
@@ -574,6 +575,7 @@
       case "sub-quitar": {
         const n = c.subs[j].orig ? cuantos(c.id, c.subs[j].orig) : 0;
         if (n && !confirm(`"${c.subs[j].nombre}" tiene ${n} arte${n === 1 ? "" : "s"}: quedarán sin subcategoría (siguen en ${c.nombre}). ¿Quitarla?`)) return;
+        if (c.subs[j].orig) subsQuitadas.push({ categoria: c.id, sub: c.subs[j].orig });
         c.subs.splice(j, 1); break;
       }
       case "sub-agregar": {
@@ -612,7 +614,7 @@
     $("#iconos").close(); pintarCats();
   });
   $("#iconos").addEventListener("click", (e) => { if (e.target.id === "iconos" || e.target.closest("[data-close]")) $("#iconos").close(); });
-  $("#catDeshacer").addEventListener("click", editarCats);
+  $("#catDeshacer").addEventListener("click", () => { subsQuitadas = []; editarCats(); });
   const catsParaGuardar = () => catsEd.map((c) => ({
     id: c.id, nombre: c.nombre.trim(), icono: c.icono, claves: c.claves,
     subs: c.subs.map((x) => x.nombre.trim()).filter(Boolean),
@@ -626,7 +628,8 @@
     for (const c of catsEd) for (const x of c.subs) if (x.orig && x.nombre.trim() && x.orig !== x.nombre.trim()) renombrar.push({ categoria: c.id, de: x.orig, a: x.nombre.trim() });
     b.disabled = true;
     try {
-      const r = await api({ action: "categorias", categorias: catsParaGuardar(), renombrar });
+      const r = await api({ action: "categorias", categorias: catsParaGuardar(), renombrar, quitar: subsQuitadas });
+      subsQuitadas = [];
       categorias = r.categorias;
       editarCats();
       pintarLista(r.artes);
@@ -1036,6 +1039,8 @@
         if ((c && !(c.subs || []).includes(it.sub)) || catsFaltan.has(destino(it))) faltan.set(JSON.stringify([destino(it), it.sub]), [destino(it), it.sub]);
       }
       if (faltan.size || catsFaltan.size) {
+        // Lista al día (otra pestaña o el asistente pudo cambiarla mientras tanto)
+        try { const ind = await api({ action: "listar" }); if (ind.categorias?.length) categorias = ind.categorias; publicados = ind.artes; } catch {}
         prog.textContent = `Creando ${catsFaltan.size ? `${catsFaltan.size} categoría${catsFaltan.size === 1 ? "" : "s"} y ` : ""}${faltan.size} subcategoría${faltan.size === 1 ? "" : "s"}…`;
         editarCats();
         for (const c of catsFaltan.values()) if (!catsEd.some((x) => x.id === c.id)) catsEd.push({ id: c.id, nombre: c.nombre, icono: "", claves: [], nueva: true, subs: [] });
