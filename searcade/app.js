@@ -55,6 +55,8 @@
     // Arte de la espalda POR camiseta: { idDeLaCamiseta: idDelArteDeAtrás }.
     // Elegir una ficha cambia solo la camiseta seleccionada, no todas.
     espaldas: {},
+    // Arte del frente POR camiseta (otro arte elegido en las fichas con la camiseta de frente)
+    frentes: {},
   };
   let estilo = "todos"; // filtro: todos | semitono | full
   let subFiltro = ""; // subcategoría dentro de la categoría ("" = todas)
@@ -63,8 +65,8 @@
   const OSCUROS = new Set(CFG.coloresOscuros || ["negra", "azul", "morada", "verde"]);
   const CLAROS = new Set(CFG.coloresClaros || ["blanca", "gris"]);
   const coloresDe = (p, o = sel) => {
-    const e = espaldaDe(p || {}, o);
-    const osc = p?.oscuras || e?.oscuras, cla = p?.claras || e?.claras;
+    const e = espaldaDe(p || {}, o), f = frenteDe(p || {}, o);
+    const osc = (f || p)?.oscuras || e?.oscuras, cla = (f || p)?.claras || e?.claras;
     if (osc && cla) return COLORES; // frente y espalda piden cosas opuestas: no limitar
     return osc ? COLORES.filter((c) => OSCUROS.has(c.id)) : cla ? COLORES.filter((c) => CLAROS.has(c.id)) : COLORES;
   };
@@ -76,14 +78,26 @@
     const e = o.espaldas ? o.espaldas[p.id] : o.espalda;
     return e && e !== p.id && o.colocacion !== "pecho" ? byId(e) : null;
   };
+  // Arte del frente: otro arte elegido en las fichas con la camiseta de frente
+  const frenteDe = (p, o) => {
+    const f = o.frentes ? o.frentes[p.id] : o.frente;
+    return f && f !== p.id && o.colocacion !== "espalda" ? byId(f) : null;
+  };
+  // Archivos de cada lado (miniatura en el perchero; completo en la vista de cerca).
+  // Con otro frente, la espalda "mismo arte" es el diseño original.
+  const ladosArte = (p, o, grande) => {
+    const a = (x) => (grande ? x.archivo : x.mini || x.archivo);
+    const fr = frenteDe(p, o), es = espaldaDe(p, o);
+    return { frente: a(fr || p), espalda: es ? a(es) : fr ? a(p) : undefined };
+  };
   // Lado que muestra cada camiseta: la seleccionada, el que eligió el cliente;
   // las demás, el lado donde va el arte.
   const ladoNatural = () => (sel.colocacion === "espalda" ? "espalda" : "frente");
   const ladoDe = (i) => (i === idx ? sel.vista : ladoNatural());
   // En el perchero, las fichas y el carrito va la miniatura liviana del arte;
   // el archivo completo solo en la vista de cerca (camisetaGrande).
-  const camiseta = (p, o = sel) => T.camiseta(p.mini ? { ...p, archivo: p.mini } : p, { ...o, color: colorEf(p, o), espaldaArchivo: (espaldaDe(p, o)?.mini || espaldaDe(p, o)?.archivo) });
-  const camisetaGrande = (p, o = sel) => T.camiseta(p, { ...o, color: colorEf(p, o), espaldaArchivo: espaldaDe(p, o)?.archivo });
+  const camiseta = (p, o = sel) => { const l = ladosArte(p, o); return T.camiseta({ ...p, archivo: l.frente }, { ...o, color: colorEf(p, o), espaldaArchivo: l.espalda }); };
+  const camisetaGrande = (p, o = sel) => { const l = ladosArte(p, o, true); return T.camiseta({ ...p, archivo: l.frente }, { ...o, color: colorEf(p, o), espaldaArchivo: l.espalda }); };
   const sello = (p) => (p.archivo ? `<span class="sello ${p.semitono ? "semi" : "full"}">${p.semitono ? "SEMITONO" : "FULL COLOR"}</span>` : "");
   const imgFoto = (p, src, uid) => (src ? `<img src="${esc(src)}" alt="${esc(p.nombre)}" loading="lazy" draggable="false">` : teeSVG(p, uid));
   // Artes: dos caras (frente y espalda) que giran en 3D; brillo que las recorre al girar.
@@ -339,12 +353,20 @@
       box.appendChild(el);
     }
   }
-  // ---------- Fichas flotantes: elegir el arte de la espalda ----------
+  // ---------- Fichas flotantes: otro arte para el lado que se está viendo ----------
+  const ladoFicha = () => sel.vista; // las fichas cambian el lado que muestra la camiseta
+  const elegidoEn = (p, lado) => (lado === "frente" ? frenteDe(p, sel) : espaldaDe(p, sel))?.id || null;
+  $("#fichasLado").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-l]");
+    if (!b || b.dataset.l === sel.vista) return;
+    girar(b.dataset.l, true);
+    pintarFichas();
+  });
   const MAX_FICHAS = 40;
   function pintarFichas() {
     const p = lista[idx];
     // Respeta el filtro Semitono / Full color (el arte ya elegido se queda visible)
-    const actualId = espaldaDe(p || {}, sel)?.id || null;
+    const actualId = p ? elegidoEn(p, ladoFicha()) : null;
     // Con miles de artes: primero los de la misma subcategoría y categoría, hasta MAX_FICHAS
     const peso = (x) => (x.id === actualId ? 0 : p?.sub && x.sub === p.sub ? 1 : x.categoria === p?.categoria ? 2 : 3);
     const artes = data.productos.filter((x) => x.archivo && (esAdulto(x) === esAdulto(p)) && (estilo === "todos" || (estilo === "semitono") === !!x.semitono || x.id === actualId))
@@ -352,7 +374,9 @@
     const box = $("#fichas");
     box.hidden = !p?.archivo || !artes.some((x) => x.id !== p.id);
     if (box.hidden) return;
-    const actual = espaldaDe(p, sel)?.id || null;
+    const lado = ladoFicha(), actual = elegidoEn(p, lado);
+    $("#fichasLado").querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", b.dataset.l === lado));
+    $("#fichasTit").textContent = lado === "frente" ? "toca un arte y va al frente" : "toca un arte y va atrás";
     $("#fichasLista").innerHTML =
       `<button class="ficha-arte mismo" data-e="" aria-pressed="${!actual}" style="--d:0s"><span class="fa-img">↺</span><span class="fa-n">Mismo arte</span></button>` +
       artes.filter((x) => x.id !== p.id).map((x, i) => `<button class="ficha-arte" data-e="${esc(x.id)}" aria-pressed="${x.id === actual}" style="--d:${((i + 1) * 0.37) % 3}s"><span class="fa-img"><img src="${esc(x.mini || x.archivo)}" alt="" draggable="false" loading="lazy"></span><span class="fa-n">${esc(x.nombre)}</span></button>`).join("");
@@ -363,13 +387,18 @@
     const p = lista[idx];
     if (!p) return;
     const elegido = b.dataset.e || null;
-    if (elegido) sel.espaldas[p.id] = elegido; else delete sel.espaldas[p.id];
-    if (elegido && sel.colocacion === "pecho") { sel.colocacion = "ambas"; pintarPrecio(); }
-    pintarPerso(); // el arte de atrás puede ser solo para camisetas oscuras
+    const lado = ladoFicha();
+    const mapa = lado === "frente" ? sel.frentes : sel.espaldas;
+    if (elegido) mapa[p.id] = elegido; else delete mapa[p.id];
+    // El lado elegido tiene que llevar estampado
+    if (elegido && lado === "espalda" && sel.colocacion === "pecho") sel.colocacion = "ambas";
+    if (elegido && lado === "frente" && sel.colocacion === "espalda") sel.colocacion = "ambas";
+    pintarPrecio();
+    pintarPerso(); // el arte nuevo puede ser solo para camisetas oscuras o claras
     repintarArtes();
     pintarFichas();
-    if (elegido || sel.colocacion !== "pecho") girar("espalda", true);
-    if (elegido) toast(`Espalda de ${p.nombre}: ${byId(elegido)?.nombre}`);
+    girar(lado, true);
+    if (elegido) toast(`${lado === "frente" ? "Frente" : "Espalda"}: ${byId(elegido)?.nombre}`);
   });
 
   // Redibuja las camisetas con arte (al cambiar color, tamaño, colocación o lado).
@@ -456,6 +485,7 @@
       t.classList.remove("brillando"); void t.offsetWidth; t.classList.add("brillando");
     }
     pintarGirar();
+    pintarFichas();
   }
   // Al cambiar de camiseta o de colocación, cada una vuelve a su lado.
   function ladosEnPerchero() {
@@ -608,8 +638,8 @@
     $("#formatoMedida").textContent = `· ${f.ancho} × ${f.alto} cm`;
     $("#formatos").innerHTML = FORMATOS.map((x) => `<button role="radio" aria-checked="${x.id === sel.formato}" data-v="${esc(x.id)}" title="${esc(x.nota || "")}">${esc(x.nombre)}${extraTxt(x.extra)}</button>`).join("");
     // Resumen en "Personalizar (opcional)": lo elegido sin abrirlo
-    const esp = p && espaldaDe(p, sel);
-    $("#persoResumen").textContent = `${colocacionDe(sel.colocacion).nombre} · ${f.nombre} ${f.ancho}×${f.alto} cm${esp ? ` · Espalda: ${esp.nombre}` : ""}`;
+    const esp = p && espaldaDe(p, sel), fre = p && frenteDe(p, sel);
+    $("#persoResumen").textContent = `${colocacionDe(sel.colocacion).nombre} · ${f.nombre} ${f.ancho}×${f.alto} cm${fre ? ` · Frente: ${fre.nombre}` : ""}${esp ? ` · Espalda: ${esp.nombre}` : ""}`;
   }
   $("#colores").addEventListener("click", (e) => {
     const b = e.target.closest(".swatch");
@@ -649,36 +679,72 @@
   });
 
   // ---------- Vista de cerca ----------
+  // Vista de cerca: frente, espalda y cada arte por separado; tocar amplía (2,5×) y se mueve
+  // con el dedo o el mouse; flechas, teclado y deslizar cambian de vista.
   function abrirZoom(conModelo) {
     const p = lista[idx];
     if (!p) return;
     let vistas;
     if (p.archivo) {
+      const l = ladosArte(p, sel, true);
+      const nombreDe = (lado) => (lado === "frente" ? frenteDe(p, sel) || p : espaldaDe(p, sel) || (frenteDe(p, sel) ? p : null))?.nombre || p.nombre;
+      const lleva = (lado) => T.lleva(sel.colocacion, lado);
       vistas = [
-        { html: () => camisetaGrande(p, { ...sel, vista: "frente" }), thumb: "Frente" },
-        { html: () => camisetaGrande(p, { ...sel, vista: "espalda" }), thumb: "Espalda" },
-        { html: () => `<img src="${esc(p.archivo)}" alt="${esc(p.nombre)}" class="solo-arte" draggable="false">`, thumb: "Arte" },
+        { html: () => camisetaGrande(p, { ...sel, vista: "frente" }), thumb: "Frente", lado: "frente" },
+        { html: () => camisetaGrande(p, { ...sel, vista: "espalda" }), thumb: "Espalda", lado: "espalda" },
       ];
-      if (sel.vista === "espalda") vistas.unshift(vistas.splice(1, 1)[0]);
+      if (lleva("frente")) vistas.push({ html: () => `<img src="${esc(l.frente)}" alt="${esc(nombreDe("frente"))}" class="solo-arte" draggable="false">`, thumb: "Arte frente", lado: "frente" });
+      if (lleva("espalda")) vistas.push({ html: () => `<img src="${esc(l.espalda || l.frente)}" alt="${esc(nombreDe("espalda"))}" class="solo-arte" draggable="false">`, thumb: "Arte espalda", lado: "espalda" });
       // Fotos con modelo de este diseño (Lookbook ligado desde el panel)
       const modelo = (p.fotosModelo || []).map((f) => ({ html: () => `<img src="${esc(f.archivo)}" alt="${esc(f.titulo || p.nombre)}" class="con-modelo" draggable="false">`, thumb: "Puesta" }));
-      vistas = conModelo ? [...modelo, ...vistas] : [...vistas.slice(0, 2), ...modelo, ...vistas.slice(2)];
+      vistas = conModelo ? [...modelo, ...vistas] : [...vistas, ...modelo];
     } else {
       const fotos = [p.imagen, ...(p.fotos || [])].filter(Boolean);
       vistas = (fotos.length ? fotos : [""]).map((f, i) => ({ html: () => imgFoto(p, f, "z" + i) + (f ? "" : '<span class="slot">Espacio para mockup / foto con modelo (PNG)</span>'), thumb: null }));
     }
+    let actual = conModelo ? 0 : Math.max(0, vistas.findIndex((v) => v.lado === sel.vista));
     $("#zoomTitle").textContent = p.nombre;
-    const ver = (i) => { $("#zoomPhoto").innerHTML = vistas[i].html(); };
-    $("#zoomThumbs").innerHTML = vistas.length > 1 ? vistas.map((v, i) => `<button data-i="${i}" aria-current="${i === 0}" aria-label="${esc(v.thumb || `Foto ${i + 1}`)}">${v.html()}${v.thumb ? `<span>${esc(v.thumb)}</span>` : ""}</button>`).join("") : "";
-    $("#zoomThumbs").onclick = (e) => {
-      const b = e.target.closest("button");
-      if (!b) return;
-      $("#zoomThumbs").querySelectorAll("button").forEach((x) => x.setAttribute("aria-current", x === b));
-      ver(+b.dataset.i);
+    const foto = $("#zoomPhoto");
+    const ver = (i) => {
+      actual = (i + vistas.length) % vistas.length;
+      foto.innerHTML = `<div class="z-lienzo">${vistas[actual].html()}</div>` +
+        (vistas.length > 1 ? `<button class="z-nav z-prev" type="button" aria-label="Vista anterior">‹</button><button class="z-nav z-next" type="button" aria-label="Vista siguiente">›</button>` : "") +
+        `<span class="z-ayuda">🔍 Tocá para ampliar</span>`;
+      foto.classList.remove("ampliada");
+      $("#zoomThumbs").querySelectorAll("button").forEach((x, k) => x.setAttribute("aria-current", k === actual));
+      $("#zoomThumbs").querySelector(`[data-i="${actual}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
     };
-    ver(0);
+    $("#zoomThumbs").innerHTML = vistas.length > 1 ? vistas.map((v, i) => `<button data-i="${i}" aria-label="${esc(v.thumb || `Foto ${i + 1}`)}"><span class="z-mini">${v.html()}</span>${v.thumb ? `<span class="z-et">${esc(v.thumb)}</span>` : ""}</button>`).join("") : "";
+    $("#zoomThumbs").onclick = (e) => { const b = e.target.closest("button[data-i]"); if (b) ver(+b.dataset.i); };
+    // Ampliar / mover
+    const mover = (x, y) => {
+      const r = foto.getBoundingClientRect();
+      const lz = foto.querySelector(".z-lienzo");
+      if (lz) lz.style.transformOrigin = `${Math.min(100, Math.max(0, ((x - r.left) / r.width) * 100))}% ${Math.min(100, Math.max(0, ((y - r.top) / r.height) * 100))}%`;
+    };
+    let toque = null, arrastro = false;
+    foto.onpointerdown = (e) => {
+      if (e.target.closest(".z-nav")) return;
+      toque = { x: e.clientX, y: e.clientY }; arrastro = false;
+      if (foto.classList.contains("ampliada")) foto.setPointerCapture?.(e.pointerId);
+    };
+    foto.onpointermove = (e) => {
+      if (toque && Math.hypot(e.clientX - toque.x, e.clientY - toque.y) > 8) arrastro = true;
+      if (foto.classList.contains("ampliada") && (e.pointerType === "mouse" || toque)) mover(e.clientX, e.clientY);
+    };
+    foto.onpointerup = (e) => {
+      if (!toque || e.target.closest(".z-nav")) { toque = null; return; }
+      const dx = e.clientX - toque.x;
+      if (!foto.classList.contains("ampliada") && arrastro && Math.abs(dx) > 50) ver(actual + (dx < 0 ? 1 : -1)); // deslizar
+      else if (!arrastro) { foto.classList.toggle("ampliada"); mover(e.clientX, e.clientY); }
+      toque = null;
+    };
+    foto.onclick = (e) => { const n = e.target.closest(".z-nav"); if (n) ver(actual + (n.classList.contains("z-next") ? 1 : -1)); };
+    $("#zoom").onkeydown = (e) => { if (e.key === "ArrowRight") ver(actual + 1); else if (e.key === "ArrowLeft") ver(actual - 1); };
+    ver(actual);
     $("#zoom").showModal();
   }
+
   $("#verPuesta").addEventListener("click", () => abrirZoom(true));
 
   // ---------- Carrito ----------
@@ -686,14 +752,14 @@
   let carrito = [];
   try { carrito = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { carrito = []; }
   const guardar = () => { try { localStorage.setItem(KEY, JSON.stringify(carrito)); } catch {} };
-  const mismaLinea = (a, b) => a.id === b.id && a.talla === b.talla && a.color === b.color && a.formato === b.formato && a.colocacion === b.colocacion && (a.espalda || null) === (b.espalda || null);
+  const mismaLinea = (a, b) => a.id === b.id && a.talla === b.talla && a.color === b.color && a.formato === b.formato && a.colocacion === b.colocacion && (a.espalda || null) === (b.espalda || null) && (a.frente || null) === (b.frente || null);
   const lineas = () => carrito.map((l) => ({ ...l, p: byId(l.id) })).filter((l) => l.p);
   const total = () => lineas().reduce((s, l) => s + precioDe(l.p, l) * l.qty, 0);
   const detalle = (l) => {
     if (!l.p.archivo) return `Talla ${etiquetaTalla(l.talla)}`;
     const f = formatoDe(l.formato);
-    const esp = espaldaDe(l.p, l);
-    return `Camiseta ${colorDe(l.color).nombre.toLowerCase()}, talla ${etiquetaTalla(l.talla)} · Arte ${f.nombre.toLowerCase()} (${f.ancho} × ${f.alto} cm) en ${colocacionDe(l.colocacion).nombre.toLowerCase()}${esp ? ` · Espalda: ${esp.nombre}` : ""}`;
+    const esp = espaldaDe(l.p, l), fre = frenteDe(l.p, l);
+    return `Camiseta ${colorDe(l.color).nombre.toLowerCase()}, talla ${etiquetaTalla(l.talla)} · Arte ${f.nombre.toLowerCase()} (${f.ancho} × ${f.alto} cm) en ${colocacionDe(l.colocacion).nombre.toLowerCase()}${fre ? ` · Frente: ${fre.nombre}` : ""}${esp ? ` · Espalda: ${esp.nombre}` : ""}`;
   };
 
   function pintarCarrito() {
@@ -711,7 +777,7 @@
     const wa = $("#cartWa");
     if (ls.length) {
       const msg = "¡Hola SEARCADE! 👋 Quiero hacer este pedido:\n\n" +
-        ls.map((l) => { const esp = espaldaDe(l.p, l); return `• ${l.qty}× ${l.p.nombre} — ${fmt(precioDe(l.p, l) * l.qty)}\n   ${detalle(l)}\n   Código: ${l.p.id}${esp ? ` / espalda ${esp.id}` : ""}`; }).join("\n") +
+        ls.map((l) => { const esp = espaldaDe(l.p, l), fre = frenteDe(l.p, l); return `• ${l.qty}× ${l.p.nombre} — ${fmt(precioDe(l.p, l) * l.qty)}\n   ${detalle(l)}\n   Código: ${l.p.codigo || l.p.id}${fre ? ` / frente ${fre.codigo || fre.id}` : ""}${esp ? ` / espalda ${esp.codigo || esp.id}` : ""}`; }).join("\n") +
         `\n\nTotal: ${fmt(total())}\n\nNombre:\nLugar de entrega:`;
       wa.href = waLink(msg);
       wa.removeAttribute("aria-disabled");
@@ -752,7 +818,7 @@
       return false;
     }
     const nueva = p.archivo
-      ? { id: p.id, talla, color: colorEf(p), formato: sel.formato, colocacion: sel.colocacion, espalda: espaldaDe(p, sel)?.id || null, qty: 1 }
+      ? { id: p.id, talla, color: colorEf(p), formato: sel.formato, colocacion: sel.colocacion, espalda: espaldaDe(p, sel)?.id || null, frente: frenteDe(p, sel)?.id || null, qty: 1 }
       : { id: p.id, talla, qty: 1 };
     const l = carrito.find((x) => mismaLinea(x, nueva));
     if (l) l.qty++; else carrito.push(nueva);
@@ -1099,7 +1165,7 @@
   // ---------- Datos ----------
   const desdeArte = (a) => ({
     id: a.id, nombre: a.nombre, categoria: a.categoria, archivo: a.archivo, mini: a.mini || "", semitono: !!a.semitono,
-    sub: a.sub || "", oscuras: !!a.oscuras, claras: !!a.claras,
+    sub: a.sub || "", oscuras: !!a.oscuras, claras: !!a.claras, codigo: a.codigo || "",
     coleccion: a.coleccion || "", lema: a.lema || "", descripcionPropia: a.descripcion || "",
     precio: a.precio || CFG.precioBase || 11000,
     descripcion: CFG.descripcionArte || "", material: "Algodón premium",
