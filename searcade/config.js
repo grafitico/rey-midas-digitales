@@ -80,6 +80,9 @@ window.SEARCADE_CONFIG = {
   coloresOscuros: ["negra", "azul", "morada", "verde"],
   // Y donde se ofrecen los marcados "Solo camisetas claras" (dibujo de líneas negras)
   coloresClaros: ["blanca", "gris"],
+  // Categorías solo para mayores: al final del menú, fuera de "Todas" y de la
+  // búsqueda, y con aviso +18 al abrirlas.
+  categoriasAdultas: ["hentai"],
   // Medidas de la foto base (salen de scripts/searcade-camisetas-base.py):
   // cuánto % de la imagen ocupa 1 cm, y dónde empieza cada estampado (en %).
   foto: {

@@ -148,3 +148,19 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
 - `claras: true` ("Solo camisetas claras"): arte de líneas negras que en camiseta
   oscura no se ve; la tienda solo ofrece `config.js` → `coloresClaros` (blanca,
   gris). La carga masiva lo marca sola si más del 60 % del dibujo es negro.
+
+## Tienda: buscar, cuadrícula y compra (auditoría 27/11/2026)
+
+- Buscador arriba (nombre, subcategoría, categoría, código): busca en todo menos
+  las categorías adultas. Vista Perchero / Cuadrícula (`#vistaTog`): sin elección
+  del cliente, cuadrícula al buscar o con subcategoría, perchero si no; la
+  elección se guarda en localStorage. La cuadrícula carga de a 36 ("Ver más") y
+  tocar un diseño lo abre en el perchero con su ficha.
+- Teléfono: categorías en dos filas que se deslizan, subcategorías y la barra de
+  vista DEBAJO de las categorías (`ubicarFiltros`), encabezado compacto, la ficha
+  (talla, precio, comprar) antes de "Arma tu espalda" y una barra fija con nombre,
+  precio y "Elegir talla" / "Agregar al carrito".
+- `config.js` → `categoriasAdultas` (hentai): al final del menú, fuera de
+  "Todas", de la búsqueda y de "Arma tu espalda", con aviso +18 (localStorage
+  `searcade-18`).
+- Enlace `#<id>`: abre el diseño dentro de su categoría y subcategoría.
