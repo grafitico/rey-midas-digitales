@@ -136,19 +136,37 @@
   };
 
   // ---------- Categorías ----------
+  // Categorías para adultos (config.js: categoriasAdultas): al final del menú,
+  // fuera de "Todas", de la búsqueda y de "Arma tu espalda", y con aviso +18.
+  const ADULTAS = new Set(CFG.categoriasAdultas || ["hentai"]);
+  const esAdulto = (p) => ADULTAS.has(p?.categoria);
+  let edadOk = false;
+  try { edadOk = localStorage.getItem("searcade-18") === "1"; } catch {}
+  function pedirEdad(seguir) {
+    if (edadOk) return seguir();
+    const d = $("#edad");
+    $("#edadSi").onclick = () => { edadOk = true; try { localStorage.setItem("searcade-18", "1"); } catch {} d.close(); seguir(); };
+    $("#edadNo").onclick = () => d.close();
+    d.showModal();
+  }
   function renderCats() {
     const conDiseños = new Set(data.productos.map((p) => p.categoria));
-    const cats = [{ id: "todas", nombre: "Todas" }, ...data.categorias.filter((c) => conDiseños.has(c.id))];
+    const visibles = data.categorias.filter((c) => conDiseños.has(c.id));
+    const cats = [{ id: "todas", nombre: "Todas" }, ...visibles.filter((c) => !ADULTAS.has(c.id)), ...visibles.filter((c) => ADULTAS.has(c.id))];
     $("#cats").innerHTML = cats.map((c) => `<button class="cat" data-cat="${esc(c.id)}" aria-pressed="${c.id === filtro}">${icon(c.id)}<span>${esc(c.nombre)}</span></button>`).join("");
   }
   $("#cats").addEventListener("click", (e) => {
     const b = e.target.closest(".cat");
-    if (!b || b.dataset.cat === filtro) return;
-    filtro = b.dataset.cat;
-    subFiltro = "";
-    renderCats();
-    pintarSubs();
-    armar(0);
+    if (!b || (b.dataset.cat === filtro && !busqueda)) return;
+    const ir = () => {
+      filtro = b.dataset.cat;
+      subFiltro = "";
+      limpiarBusqueda();
+      renderCats();
+      pintarSubs();
+      armar(0);
+    };
+    if (ADULTAS.has(b.dataset.cat)) pedirEdad(ir); else ir();
   });
 
   // Filtro Todos / Semitono / Full color (solo si hay artes de los dos tipos)
@@ -192,12 +210,105 @@
     armar(0);
   });
 
+  // En el teléfono: categorías → subcategorías → vista (en la compu, arriba del perchero)
+  const MQ = matchMedia("(min-width: 1000px)");
+  function ubicarFiltros() {
+    if (MQ.matches) { $(".arena").before($("#subs")); $("#subs").after($("#vistaBar")); }
+    else { $("#cats").after($("#subs")); $("#subs").after($("#vistaBar")); }
+  }
+  MQ.addEventListener?.("change", ubicarFiltros);
+
+  // ---------- Buscador ----------
+  let busqueda = "";
+  const normB = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const textoBusqueda = (p) => (p._b ||= normB(`${p.nombre} ${p.sub || ""} ${data.categorias.find((c) => c.id === p.categoria)?.nombre || p.categoria} ${p.codigo || ""} ${p.coleccion || ""}`));
+  function limpiarBusqueda() { busqueda = ""; $("#buscar").value = ""; $("#buscarX").hidden = true; }
+  let tBuscar;
+  $("#buscar").addEventListener("input", () => {
+    clearTimeout(tBuscar);
+    tBuscar = setTimeout(() => {
+      busqueda = normB($("#buscar").value);
+      $("#buscarX").hidden = !busqueda;
+      armar(0);
+    }, 200);
+  });
+  $("#buscar").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#buscar").blur(); } });
+  $("#buscarX").addEventListener("click", () => { limpiarBusqueda(); armar(0); $("#buscar").focus(); });
+
+  // ---------- Perchero o cuadrícula ----------
+  let vistaElegida = null, mantenerVista = false;
+  try { vistaElegida = localStorage.getItem("searcade-vista"); } catch {}
+  let vista = vistaElegida || "perchero";
+  $("#vistaTog").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    vista = vistaElegida = b.dataset.v;
+    try { localStorage.setItem("searcade-vista", vista); } catch {}
+    pintarVista();
+  });
+  let limiteGrilla = 0;
+  const POR_PAGINA = 36;
+  function pintarVista() {
+    const g = vista === "grilla" && lista.length > 0;
+    document.body.classList.toggle("modo-grilla", g);
+    $("#stage").hidden = g;
+    $("#grilla").hidden = !g;
+    $("#vistaTog").querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", b.dataset.v === (g ? "grilla" : "perchero")));
+    mover(idx, true); // ficha y barra de compra al día (también en cuadrícula, para la ficha de la compu)
+    if (g) { limiteGrilla = POR_PAGINA; pintarGrilla(); }
+  }
+  function pintarGrilla() {
+    const ver = lista.slice(0, limiteGrilla);
+    $("#grillaItems").innerHTML = ver.map((p, i) => `<button class="g-item" data-i="${i}" type="button">
+        <span class="g-tee">${p.archivo ? camiseta(p, { ...sel, vista: "frente" }) : imgFoto(p, p.imagen, "g" + i)}</span>
+        <span class="g-txt"><b>${esc(p.nombre)}</b><small>${esc(p.sub || data.categorias.find((c) => c.id === p.categoria)?.nombre || "")}</small><em>${fmt(p.precio)}</em></span>
+      </button>`).join("");
+    $("#grillaMas").hidden = lista.length <= limiteGrilla;
+    $("#grillaMas").textContent = `Ver más diseños (${lista.length - limiteGrilla})`;
+  }
+  $("#grillaMas").addEventListener("click", () => {
+    const antes = limiteGrilla;
+    limiteGrilla += POR_PAGINA;
+    const box = $("#grillaItems");
+    const extra = document.createElement("template");
+    extra.innerHTML = lista.slice(antes, limiteGrilla).map((p, k) => { const i = antes + k; return `<button class="g-item" data-i="${i}" type="button"><span class="g-tee">${p.archivo ? camiseta(p, { ...sel, vista: "frente" }) : imgFoto(p, p.imagen, "g" + i)}</span><span class="g-txt"><b>${esc(p.nombre)}</b><small>${esc(p.sub || data.categorias.find((c) => c.id === p.categoria)?.nombre || "")}</small><em>${fmt(p.precio)}</em></span></button>`; }).join("");
+    box.append(extra.content);
+    $("#grillaMas").hidden = lista.length <= limiteGrilla;
+    $("#grillaMas").textContent = `Ver más diseños (${lista.length - limiteGrilla})`;
+  });
+  // Tocar un diseño de la cuadrícula: se abre en el perchero con su ficha
+  $("#grillaItems").addEventListener("click", (e) => {
+    const b = e.target.closest(".g-item");
+    if (!b) return;
+    vista = "perchero";
+    pintarVista();
+    mover(+b.dataset.i);
+    requestAnimationFrame(() => $("#stage").scrollIntoView({ behavior: "smooth", block: "start" }));
+  });
+  function pintarCuenta() {
+    const n = String(lista.length).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const donde = busqueda ? `para “${$("#buscar").value.trim()}”` : subFiltro || (filtro === "todas" ? "" : data.categorias.find((c) => c.id === filtro)?.nombre || "");
+    $("#cuentaLista").innerHTML = lista.length ? `<b>${n}</b> diseño${lista.length === 1 ? "" : "s"}${donde ? ` · ${esc(donde)}` : ""}` : (busqueda ? `Sin resultados ${esc(donde)}` : "");
+  }
+
   // ---------- Carrusel ----------
   function armar(start) {
-    lista = data.productos.filter((p) => (filtro === "todas" || p.categoria === filtro) && (!subFiltro || p.sub === subFiltro) && (estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono)));
+    const pasaEstilo = (p) => estilo === "todos" || (p.archivo && (estilo === "semitono") === !!p.semitono);
+    if (busqueda) {
+      const palabras = busqueda.split(" ");
+      lista = data.productos.filter((p) => !esAdulto(p) && pasaEstilo(p) && palabras.every((w) => textoBusqueda(p).includes(w)));
+    } else {
+      lista = data.productos.filter((p) => (filtro === "todas" ? !esAdulto(p) : p.categoria === filtro) && (!subFiltro || p.sub === subFiltro) && pasaEstilo(p));
+    }
     idx = Math.max(0, Math.min(start, lista.length - 1));
-    $("#items").innerHTML = lista.length ? "" : `<p class="empty">Pronto habrá diseños en esta categoría.</p>`;
-    mover(idx, true);
+    $("#items").innerHTML = lista.length ? "" : `<p class="empty">${busqueda ? "No encontramos diseños con esa búsqueda. Probá con otra palabra o escribinos por WhatsApp: te lo diseñamos." : "Pronto habrá diseños en esta categoría."}</p>`;
+    // Sin elección del cliente: cuadrícula al buscar o con una subcategoría; perchero si no
+    if (!vistaElegida && !mantenerVista) vista = busqueda || subFiltro ? "grilla" : "perchero";
+    mantenerVista = false;
+    pintarCuenta();
+    $("#cats").querySelectorAll(".cat").forEach((b) => b.setAttribute("aria-pressed", !busqueda && b.dataset.cat === filtro));
+    $("#subs").hidden = !!busqueda || !$("#subs").children.length;
+    pintarVista();
   }
   // Con miles de artes no se pueden dibujar todas las camisetas: en el perchero
   // solo existen las que están a VENTANA pasos de la del centro (las demás no se
@@ -236,7 +347,7 @@
     const actualId = espaldaDe(p || {}, sel)?.id || null;
     // Con miles de artes: primero los de la misma subcategoría y categoría, hasta MAX_FICHAS
     const peso = (x) => (x.id === actualId ? 0 : p?.sub && x.sub === p.sub ? 1 : x.categoria === p?.categoria ? 2 : 3);
-    const artes = data.productos.filter((x) => x.archivo && (estilo === "todos" || (estilo === "semitono") === !!x.semitono || x.id === actualId))
+    const artes = data.productos.filter((x) => x.archivo && (esAdulto(x) === esAdulto(p)) && (estilo === "todos" || (estilo === "semitono") === !!x.semitono || x.id === actualId))
       .map((x, i) => [x, peso(x), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).slice(0, MAX_FICHAS + 1).map(([x]) => x);
     const box = $("#fichas");
     box.hidden = !p?.archivo || !artes.some((x) => x.id !== p.id);
@@ -297,7 +408,6 @@
 
   $("#prev").addEventListener("click", () => mover(idx - 1));
   $("#next").addEventListener("click", () => mover(idx + 1));
-  $("#ctlNav").addEventListener("click", () => mover(idx + 1));
 
   let x0 = null, arrastre = false;
   const stage = $("#stage");
@@ -417,7 +527,16 @@
     const precio = precioDe(p);
     $("#infoPrice").textContent = fmt(precio);
     $("#precioEt").textContent = precio > p.precio ? "TU CAMISETA" : "DESDE";
+    pintarBarra();
   };
+  // Barra fija de abajo (teléfono): nombre, precio y un solo botón
+  function pintarBarra() {
+    const p = lista[idx];
+    if (!p) return;
+    $("#cbNombre").textContent = p.nombre;
+    $("#cbPrecio").textContent = fmt(precioDe(p));
+    $("#ctlAddTxt").textContent = talla ? "AGREGAR AL CARRITO" : "ELEGIR TALLA";
+  }
   const FEAT = {
     algodon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-7M12 14c-2-3-7-2-7 1.5S9 20 12 14Zm0 0c2-3 7-2 7 1.5S15 20 12 14ZM8 8a4 4 0 0 1 8 0 3.5 3.5 0 0 1 3 5.5M8 8a3.5 3.5 0 0 0-3 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     capas: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
@@ -521,6 +640,7 @@
     if (!b) return;
     talla = b.dataset.t;
     $("#sizes").querySelectorAll(".size").forEach((x) => x.setAttribute("aria-checked", x === b));
+    pintarBarra();
   });
 
   // ---------- Vista de cerca ----------
@@ -554,7 +674,6 @@
     ver(0);
     $("#zoom").showModal();
   }
-  $("#ctlSel").addEventListener("click", () => abrirZoom());
   $("#verPuesta").addEventListener("click", () => abrirZoom(true));
 
   // ---------- Carrito ----------
@@ -609,7 +728,14 @@
 
   // Compra ahora: agrega y abre el carrito
   $("#comprar").addEventListener("click", () => { if (agregar()) { pintarCarrito(); $("#cart").showModal(); } });
-  $("#ctlAdd").addEventListener("click", () => agregar());
+  $("#ctlAdd").addEventListener("click", () => {
+    if (!talla) { // primero la talla: lleva a elegirla
+      $("#sizes").scrollIntoView({ behavior: "smooth", block: "center" });
+      const s = $("#sizes"); s.classList.remove("shake"); void s.offsetWidth; s.classList.add("shake");
+      return;
+    }
+    if (agregar()) { pintarCarrito(); $("#cart").showModal(); }
+  });
   function agregar() {
     const p = lista[idx];
     if (!p) return false;
@@ -693,7 +819,17 @@
     const id = decodeURIComponent(location.hash.slice(1));
     if (!id || lista[idx]?.id === id) return;
     let i = lista.findIndex((p) => p.id === id);
-    if (i < 0 && byId(id)) { filtro = "todas"; subFiltro = ""; renderCats(); pintarSubs(); armar(0); i = lista.findIndex((p) => p.id === id); }
+    const p = byId(id);
+    // Enlace a un diseño: se abre dentro de su categoría y subcategoría (no perdido en "Todas")
+    if (p && (i < 0 || (filtro === "todas" && !busqueda && p.categoria))) {
+      const abrir = () => {
+        filtro = p.categoria; subFiltro = p.sub || ""; limpiarBusqueda(); vista = "perchero"; mantenerVista = true;
+        renderCats(); pintarSubs(); armar(0);
+        const j = lista.findIndex((x) => x.id === id);
+        if (j >= 0) mover(j, true);
+      };
+      return esAdulto(p) ? pedirEdad(abrir) : abrir();
+    }
     if (i >= 0) mover(i, true);
   }
   window.addEventListener("hashchange", () => { desdeHash(); $("#stage").scrollIntoView({ behavior: "smooth", block: "center" }); });
@@ -721,7 +857,12 @@
 
   // Teléfono: la barra NAVEGAR / SELECCIONAR / AGREGAR solo con el perchero a la vista
   if ("IntersectionObserver" in window) {
-    new IntersectionObserver(([e]) => document.body.classList.toggle("sin-controles", !e.isIntersecting), { rootMargin: "0px 0px -15% 0px" }).observe($("#stage"));
+    const vistos = new Set();
+    const io = new IntersectionObserver((es) => {
+      es.forEach((e) => (e.isIntersecting ? vistos.add(e.target) : vistos.delete(e.target)));
+      document.body.classList.toggle("sin-controles", !vistos.size);
+    }, { rootMargin: "0px 0px -15% 0px" });
+    io.observe($("#stage")); io.observe($("#info"));
   }
 
   // ---------- Música de fondo (config.js: musica) ----------
@@ -968,6 +1109,7 @@
       renderCats();
       pintarSubs();
       pintarEstilos();
+      ubicarFiltros();
       armar(0);
       desdeHash();
       pintarCarrito();

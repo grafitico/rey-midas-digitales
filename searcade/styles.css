@@ -546,3 +546,96 @@ a { color: var(--cyan); }
 .estilos.subs::-webkit-scrollbar { display: none; }
 .estilos.subs button { flex: none; white-space: nowrap; padding: 5px 12px; font-size: 12.5px; }
 .estilos.subs.centro { justify-content: center; }
+
+/* ================= Auditoría 27/11/2026: encontrar y comprar más fácil ================= */
+/* Buscador */
+.buscar { display: flex; align-items: center; gap: 8px; max-width: 640px; margin: 12px auto 0; padding: 0 6px 0 14px; width: calc(100% - 32px); background: #0b0718cc; --cut: 10px; --line: linear-gradient(90deg, var(--cyan), var(--violet)); }
+.buscar svg { width: 20px; flex: none; color: var(--cyan); }
+.buscar input { flex: 1; min-width: 0; height: 46px; border: 0; background: none; color: #fff; font: 600 16px Inter, sans-serif; outline: none; }
+.buscar input::placeholder { color: #ffffff80; }
+.buscar input::-webkit-search-cancel-button { display: none; }
+.buscar button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: #ffffff14; color: #fff; cursor: pointer; font-size: 16px; }
+.buscar:focus-within { box-shadow: 0 0 0 2px var(--cyan), 0 0 18px #19e6ff55; }
+
+/* Barra: cuántos diseños · técnica · perchero/cuadrícula */
+.vista-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; max-width: 1100px; margin: 10px auto 0; padding: 0 16px; }
+.vista-bar .cuenta { margin: 0; font-size: 13px; color: var(--muted); }
+.vista-bar .cuenta b { color: #fff; }
+.vista-bar .estilos { margin: 0; }
+.estilos.tecnica button { padding: 6px 12px; font-size: 12px; min-height: 36px; }
+.vista-tog { display: inline-flex; border: 1px solid #ffffff33; border-radius: 999px; overflow: hidden; }
+.vista-tog button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 0; background: #0006; color: #fff; cursor: pointer; font: 700 13px Rajdhani, sans-serif; letter-spacing: 1px; }
+.vista-tog button svg { width: 18px; }
+.vista-tog button[aria-checked="true"] { background: var(--cyan); color: #04121a; }
+
+/* Cuadrícula */
+.grilla[hidden], .stage[hidden] { display: none; }
+.grilla { min-width: 0; }
+.grilla-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.g-item { display: grid; gap: 6px; padding: 8px; border-radius: 14px; border: 1px solid #ffffff1f; background: #0f0a20cc; color: #fff; cursor: pointer; text-align: left; transition: .15s; }
+.g-item:hover, .g-item:focus-visible { border-color: var(--cyan); box-shadow: 0 0 16px #19e6ff44; transform: translateY(-2px); }
+.g-tee { display: block; aspect-ratio: 1 / 1.05; overflow: hidden; border-radius: 10px; background: radial-gradient(circle at 50% 40%, #2a1660, #0b0718 75%); }
+.g-tee > * { width: 100%; height: 100%; }
+.g-tee img, .g-tee svg { width: 100%; height: 100%; object-fit: contain; }
+.g-txt { display: grid; gap: 1px; min-width: 0; }
+.g-txt b { font: 700 14px Rajdhani, sans-serif; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-txt small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g-txt em { font: 800 15px Rajdhani, sans-serif; font-style: normal; color: var(--amber); }
+.grilla-mas { display: block; width: min(420px, 100%); min-height: 48px; margin: 16px auto 0; border: 0; background: #ffffff14; color: #fff; cursor: pointer; font: 700 15px Rajdhani, sans-serif; letter-spacing: 1px; --line: linear-gradient(90deg, var(--cyan), var(--pink)); }
+body.modo-grilla .fichas { display: none; }
+
+/* Barra de compra (teléfono): nombre + precio + un solo botón */
+.controls { grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; background: #0b0718f2; }
+.cb-info { display: grid; min-width: 0; line-height: 1.15; }
+.cb-info b { font: 700 14px Rajdhani, sans-serif; letter-spacing: .5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-info span { font: 900 italic 18px Kanit, sans-serif; color: var(--amber); }
+.controls .ctl-add { min-height: 48px; padding: 0 16px; border-radius: 10px; background: linear-gradient(90deg, var(--pink), #ff5a3c); color: #fff; font-size: 14px; white-space: nowrap; }
+.controls .ctl-add svg { color: #fff; filter: none; width: 22px; }
+.controls .ctl + .ctl { border-left: 0; }
+body.modo-grilla .controls { transform: translateY(140%); opacity: 0; pointer-events: none; }
+.edad h2 { margin: 0 0 8px; font: 900 italic 22px Kanit, sans-serif; }
+.edad p { color: var(--muted); }
+.edad-btns { display: grid; gap: 8px; margin-top: 14px; }
+
+/* Botones cómodos para el dedo */
+.estilos button { min-height: 36px; }
+.sizes .size { min-width: 44px; height: 44px; }
+
+@media (max-width: 999px) {
+  /* Encabezado compacto: las camisetas se ven al abrir */
+  .slogan { display: none; }
+  .hud-top { gap: 8px; padding-top: 10px; }
+  .title-plate { padding: 6px 10px; }
+  .title-plate h1 { font-size: clamp(15px, 4.4vw, 22px); }
+  .title-plate svg { width: 22px; }
+  .buscar { margin-top: 10px; }
+  /* Categorías en dos filas que se deslizan: se nota que hay más */
+  .cats { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: minmax(70px, 1fr); gap: 2px; overflow-x: auto; padding: 6px; -webkit-mask: linear-gradient(90deg, #000 85%, transparent); mask: linear-gradient(90deg, #000 85%, transparent); }
+  .cat { padding: 6px 2px; gap: 2px; }
+  .cat svg { width: 22px; height: 22px; }
+  .cat .emo { font-size: 19px; line-height: 22px; height: 22px; }
+  .cat span { font-size: 10.5px; letter-spacing: .5px; white-space: nowrap; }
+  .arena > .estilos.subs { margin: 0; max-width: 100%; }
+  .arena > .vista-bar { margin: 0; padding: 0; justify-content: space-between; }
+  .vista-tog span { display: none; }
+  .vista-tog button { padding: 0 12px; min-height: 40px; }
+  .grilla-items { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+  body.modo-grilla .info { display: none; }
+  /* La talla y el precio antes que "Arma tu espalda" */
+  .stage { order: 1; } .grilla { order: 1; } .info { order: 2; } .fichas { order: 3; }
+  .arena > .cats { order: -3; } .arena > .estilos.subs { order: -2; } .arena > .vista-bar { order: -1; }
+  .controls { left: 6px; right: 6px; }
+}
+@media (min-width: 1000px) {
+  /* En la compu la cuadrícula ocupa el lugar del perchero y "Arma tu espalda" */
+  .grilla { grid-column: 2; grid-row: 1 / span 2; align-self: start; max-height: calc(100vh - 120px); overflow-y: auto; padding: 4px; scrollbar-width: thin; }
+  .grilla-items { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  /* Más categorías de las que caben: se insinúa que se puede bajar */
+  .cats { -webkit-mask: linear-gradient(180deg, #000 88%, transparent); mask: linear-gradient(180deg, #000 88%, transparent); }
+  .cats { scrollbar-width: thin; }
+  .controls { display: none; }
+  /* La ficha: lo de comprar arriba, las características al final */
+  .info { max-height: calc(100vh - 120px); }
+}
+.estilos[hidden], .vista-bar[hidden] { display: none !important; }
+@media (max-width: 599px) { .grilla-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
