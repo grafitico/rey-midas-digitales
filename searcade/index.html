@@ -144,7 +144,12 @@
 
 
     <div class="fichas" id="fichas" hidden>
-      <p class="fichas-tit">ARMA TU ESPALDA <small>toca un arte y va atrás</small></p>
+      <div class="fichas-cab">
+        <p class="fichas-tit">ARMA TU CAMISETA <small id="fichasTit">toca un arte y va atrás</small></p>
+        <div class="fichas-lado" id="fichasLado" role="radiogroup" aria-label="Lado de la camiseta">
+          <button type="button" role="radio" data-l="frente" aria-checked="true">Frente</button><button type="button" role="radio" data-l="espalda" aria-checked="false">Espalda</button>
+        </div>
+      </div>
       <div class="fichas-lista" id="fichasLista"></div>
     </div>
 

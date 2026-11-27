@@ -263,7 +263,7 @@ a { color: var(--cyan); }
 .zoom-thumbs button { flex: none; width: 60px; height: 60px; padding: 3px; border-radius: 10px; border: 2px solid #3a3260; background: #0b0718; cursor: pointer; }
 .zoom-thumbs button[aria-current="true"] { border-color: var(--cyan); }
 .zoom-thumbs button { position: relative; width: 70px; height: 76px; }
-.zoom-thumbs button span:not(.comp) { position: absolute; left: 0; right: 0; bottom: 2px; font: 700 10px Rajdhani, sans-serif; letter-spacing: 1px; color: #fff; text-shadow: 0 1px 3px #000; text-transform: uppercase; }
+.zoom-thumbs button span.z-et { position: absolute; left: 0; right: 0; bottom: 2px; font: 700 10px Rajdhani, sans-serif; letter-spacing: 1px; color: #fff; text-shadow: 0 1px 3px #000; text-transform: uppercase; }
 .zoom-thumbs .comp { width: 100%; }
 .zoom-thumbs .comp img, .zoom-thumbs .comp svg { width: auto; height: auto; }
 .zoom-thumbs .comp .base { width: 100%; height: 100%; }
@@ -728,4 +728,47 @@ details.perso .fa-img { width: 58px; height: 58px; }
   .paso > b { width: 19px; height: 19px; font-size: 11px; }
   details.perso { margin-top: 10px; }
   details.perso > summary { min-height: 38px; padding: 6px 32px 6px 10px; }
+}
+
+/* ===== Fichas: Frente / Espalda (27/11/2026) ===== */
+.fichas-cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; margin-bottom: 4px; }
+.fichas-cab .fichas-tit { margin: 0; }
+.fichas-lado { display: inline-flex; border: 1px solid #ffffff44; border-radius: 999px; overflow: hidden; }
+.fichas-lado button { min-height: 34px; padding: 0 16px; border: 0; background: #0006; color: #fff; cursor: pointer; font: 700 13px Rajdhani, sans-serif; letter-spacing: 1px; }
+.fichas-lado button[aria-checked="true"] { background: var(--acento); color: #0b0614; }
+
+/* ===== Vista de cerca pro: nada cortado, ampliar y mover ===== */
+#zoom { width: min(1100px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 16px; overflow: hidden; display: none; }
+#zoom[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; }
+#zoom h2 { margin: 0; padding-right: 50px; font-size: clamp(18px, 2.4vw, 26px); }
+.zoom-photo { aspect-ratio: auto; height: min(72vh, calc(100vh - 230px)); min-height: 260px; overflow: hidden; touch-action: none; cursor: zoom-in; user-select: none; }
+.zoom-photo.ampliada { cursor: zoom-out; }
+.z-lienzo { position: absolute; inset: 12px; display: flex; align-items: center; justify-content: center; transition: transform .25s ease; }
+.zoom-photo.ampliada .z-lienzo { transform: scale(2.5); transition: transform .25s ease, transform-origin .05s linear; }
+.z-lienzo > *, .z-lienzo img, .z-lienzo svg { max-width: 100%; max-height: 100%; }
+.z-lienzo img.solo-arte { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 10px 24px #000c); }
+.z-lienzo img.con-modelo { width: 100%; height: 100%; object-fit: contain; }
+.z-lienzo .comp { width: auto; height: 100%; max-width: 100%; }
+.z-lienzo .comp .print, .z-lienzo .comp .base { max-width: none; max-height: none; }
+.z-nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ffffff44; background: #0b0718cc; color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }
+.z-prev { left: 8px; } .z-next { right: 8px; }
+.zoom-photo.ampliada .z-nav, .zoom-photo.ampliada .z-ayuda { opacity: 0; pointer-events: none; }
+.z-ayuda { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); padding: 4px 12px; border-radius: 999px; background: #000a; color: #fff; font-size: 12px; pointer-events: none; transition: opacity .2s; }
+.zoom-thumbs { margin: 0; padding: 2px; justify-content: center; }
+.zoom-thumbs button { width: 78px; height: 88px; padding: 4px 4px 18px; display: grid; place-items: center; }
+.zoom-thumbs .z-mini { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.zoom-thumbs .z-mini > *, .zoom-thumbs .z-mini img { max-width: 100%; max-height: 100%; }
+.zoom-thumbs .z-mini .comp { width: auto; height: 100%; }
+.zoom-thumbs .z-et { position: absolute; left: 0; right: 0; bottom: 3px; font: 700 9.5px Rajdhani, sans-serif; letter-spacing: .5px; color: #fff; text-transform: uppercase; text-align: center; }
+@media (min-width: 900px) {
+  #zoom[open] { grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #zoom h2 { grid-column: 1 / -1; }
+  .zoom-photo { grid-column: 2; grid-row: 2; height: min(80vh, calc(100vh - 110px)); }
+  .zoom-thumbs { grid-column: 1; grid-row: 2; flex-direction: column; justify-content: flex-start; overflow-y: auto; overflow-x: hidden; }
+  .zoom-thumbs button { width: 86px; height: 96px; }
+}
+@media (max-width: 599px) {
+  #zoom { width: 100vw; max-width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 0; padding: 12px 10px; }
+  .zoom-photo { height: auto; min-height: 0; }
+  .zoom-thumbs { justify-content: flex-start; }
 }

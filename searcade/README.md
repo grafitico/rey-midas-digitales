@@ -169,3 +169,9 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   tamaño). "Arma tu espalda" sigue visible debajo del perchero. Un solo botón "Elegí tu talla" / "Agregar ·
   ₡precio"; la barra fija del teléfono se oculta cuando ese botón está a la
   vista. Tablet (700–999 px): perchero a la izquierda y ficha a la derecha.
+- Fichas flotantes ("Arma tu camiseta"): selector Frente / Espalda; el arte
+  tocado va al lado que muestra la camiseta (`sel.frentes` / `sel.espaldas`;
+  en el carrito, `frente` y `espalda`, y en el WhatsApp sus códigos).
+- Vista de cerca: Frente, Espalda, Arte frente y Arte espalda (según la
+  colocación) y fotos puestas; nada se corta (flex + max 100 %), tocar amplía
+  2,5× y se mueve con el dedo o el mouse, flechas, teclado y deslizar.
