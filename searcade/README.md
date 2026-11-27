@@ -158,7 +158,7 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
   tocar un diseño lo abre en el perchero con su ficha.
 - Teléfono: categorías en dos filas que se deslizan, subcategorías y la barra de
   vista DEBAJO de las categorías (`ubicarFiltros`), encabezado compacto, la ficha
-  (talla, precio, comprar) antes de "Arma tu espalda" y una barra fija con nombre,
+  después de "Arma tu espalda" (que va justo debajo del perchero) y una barra fija con nombre,
   precio y "Elegir talla" / "Agregar al carrito".
 - `config.js` → `categoriasAdultas` (hentai): al final del menú, fuera de
   "Todas", de la búsqueda y de "Arma tu espalda", con aviso +18 (localStorage
