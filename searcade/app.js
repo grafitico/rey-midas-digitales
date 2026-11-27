@@ -398,7 +398,6 @@
     repintarArtes();
     pintarFichas();
     girar(lado, true);
-    if (elegido) toast(`${lado === "frente" ? "Frente" : "Espalda"}: ${byId(elegido)?.nombre}`);
   });
 
   // Redibuja las camisetas con arte (al cambiar color, tamaño, colocación o lado).

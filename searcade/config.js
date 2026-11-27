@@ -44,7 +44,7 @@ window.SEARCADE_CONFIG = {
     { id: "espalda", nombre: "Espalda", extra: 0 },
     { id: "ambas", nombre: "Pecho y espalda", extra: 3500 },
   ],
-  formatoInicial: "mediano",
+  formatoInicial: "grande",
   // Textos de cada arte cuando el panel los deja vacíos: cambian según la
   // categoría y el arte (se elige uno fijo por arte, no al azar en cada visita).
   textosAuto: {
