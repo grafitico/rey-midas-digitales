@@ -166,6 +166,6 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
 - Enlace `#<id>`: abre el diseño dentro de su categoría y subcategoría.
 - Ficha en 3 pasos (27/11/2026): precio junto al nombre, ① Talla, ② Color y
   "Personalizar (opcional)" (`details#perso`, cerrado, con resumen: colocación,
-  tamaño y "Arma tu espalda"). Un solo botón "Elegí tu talla" / "Agregar ·
+  tamaño). "Arma tu espalda" sigue visible debajo del perchero. Un solo botón "Elegí tu talla" / "Agregar ·
   ₡precio"; la barra fija del teléfono se oculta cuando ese botón está a la
   vista. Tablet (700–999 px): perchero a la izquierda y ficha a la derecha.
