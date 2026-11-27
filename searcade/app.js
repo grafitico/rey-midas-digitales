@@ -498,7 +498,7 @@
   // ---------- Ficha ----------
   function renderInfo(p) {
     talla = null;
-    if (!p) { $("#infoName").textContent = ""; $("#infoDesc").textContent = ""; $("#infoPrice").textContent = ""; $("#sizes").innerHTML = ""; $("#perso").hidden = true; return; }
+    if (!p) { $("#infoName").textContent = ""; $("#infoDesc").textContent = ""; $("#infoPrice").textContent = ""; $("#sizes").innerHTML = ""; $("#perso").hidden = true; $("#pasoColor").hidden = true; return; }
     const [w1, ...resto] = p.nombre.split(" ");
     $("#infoName").innerHTML = resto.length ? `${esc(w1)} <em>${esc(resto.join(" "))}</em>` : esc(w1);
     const tx = textos(p);
@@ -506,6 +506,7 @@
     $("#infoCat").textContent = tx.coleccion.toUpperCase();
     pintarLema(tx.lema);
     $("#perso").hidden = !p.archivo;
+    $("#pasoColor").hidden = !p.archivo;
     $("#feats").innerHTML = [
       [FEAT.algodon, p.material || "Algodón premium", "Suave, resistente y transpirable."],
       p.archivo && p.semitono
@@ -536,6 +537,7 @@
     $("#cbNombre").textContent = p.nombre;
     $("#cbPrecio").textContent = fmt(precioDe(p));
     $("#ctlAddTxt").textContent = talla ? "AGREGAR AL CARRITO" : "ELEGIR TALLA";
+    $("#comprarTxt").textContent = talla ? `AGREGAR · ${fmt(precioDe(p))}` : "ELEGÍ TU TALLA";
   }
   const FEAT = {
     algodon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-7M12 14c-2-3-7-2-7 1.5S9 20 12 14Zm0 0c2-3 7-2 7 1.5S15 20 12 14ZM8 8a4 4 0 0 1 8 0 3.5 3.5 0 0 1 3 5.5M8 8a3.5 3.5 0 0 0-3 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -605,6 +607,9 @@
     const f = formatoDe(sel.formato);
     $("#formatoMedida").textContent = `· ${f.ancho} × ${f.alto} cm`;
     $("#formatos").innerHTML = FORMATOS.map((x) => `<button role="radio" aria-checked="${x.id === sel.formato}" data-v="${esc(x.id)}" title="${esc(x.nota || "")}">${esc(x.nombre)}${extraTxt(x.extra)}</button>`).join("");
+    // Resumen en "Personalizar (opcional)": lo elegido sin abrirlo
+    const esp = p && espaldaDe(p, sel);
+    $("#persoResumen").textContent = `${colocacionDe(sel.colocacion).nombre} · ${f.nombre} ${f.ancho}×${f.alto} cm${esp ? ` · Espalda: ${esp.nombre}` : ""}`;
   }
   $("#colores").addEventListener("click", (e) => {
     const b = e.target.closest(".swatch");
@@ -857,12 +862,17 @@
 
   // Teléfono: la barra NAVEGAR / SELECCIONAR / AGREGAR solo con el perchero a la vista
   if ("IntersectionObserver" in window) {
+    // La barra de abajo aparece con el perchero o la ficha a la vista, pero no
+    // cuando ya se ve el botón Agregar de la ficha (nunca dos botones a la vez)
     const vistos = new Set();
+    let botonVisto = false;
+    const actualizar = () => document.body.classList.toggle("sin-controles", !vistos.size || botonVisto);
     const io = new IntersectionObserver((es) => {
       es.forEach((e) => (e.isIntersecting ? vistos.add(e.target) : vistos.delete(e.target)));
-      document.body.classList.toggle("sin-controles", !vistos.size);
+      actualizar();
     }, { rootMargin: "0px 0px -15% 0px" });
     io.observe($("#stage")); io.observe($("#info"));
+    new IntersectionObserver(([e]) => { botonVisto = e.isIntersecting; actualizar(); }, { rootMargin: "0px 0px -90px 0px" }).observe($("#comprar"));
   }
 
   // ---------- Música de fondo (config.js: musica) ----------

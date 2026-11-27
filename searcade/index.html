@@ -142,31 +142,39 @@
       <button class="grilla-mas cut" id="grillaMas" type="button" hidden>Ver más</button>
     </section>
 
-    <div class="fichas" id="fichas" hidden>
-      <p class="fichas-tit">ARMA TU ESPALDA <small>toca un arte y va atrás</small></p>
-      <div class="fichas-lista" id="fichasLista"></div>
-    </div>
 
     <aside class="info cut" id="info" aria-live="polite">
-      <p class="coleccion">COLECCIÓN EXCLUSIVA</p>
       <p class="franja"><span id="infoCat"></span></p>
-      <h2 id="infoName"></h2>
-      <button class="ver-puesta" id="verPuesta" type="button" hidden>📸 Verla puesta</button>
+      <div class="info-cabeza">
+        <h2 id="infoName"></h2>
+        <p class="info-precio"><small id="precioEt">DESDE</small><strong id="infoPrice"></strong></p>
+      </div>
       <p class="info-desc" id="infoDesc"></p>
-      <div class="precio-box"><small id="precioEt">DESDE</small><strong id="infoPrice"></strong></div>
-      <div class="perso" id="perso" hidden>
-        <p class="info-label">COLOR <span id="colorNombre"></span></p>
+      <button class="ver-puesta" id="verPuesta" type="button" hidden>📸 Verla puesta</button>
+
+      <p class="paso"><b>1</b>TALLA <button class="guia-btn" id="guiaBtn" type="button" hidden>📏 Guía de tallas</button></p>
+      <div class="sizes" id="sizes" role="radiogroup" aria-label="Talla"></div>
+
+      <div id="pasoColor" hidden>
+        <p class="paso"><b>2</b>COLOR <span id="colorNombre"></span></p>
         <div class="swatches" id="colores" role="radiogroup" aria-label="Color de camiseta"></div>
+      </div>
+
+      <details class="perso" id="perso" hidden>
+        <summary><span class="perso-tit">Personalizar <small>(opcional)</small></span><span class="perso-res" id="persoResumen"></span></summary>
         <p class="info-label">COLOCACIÓN</p>
         <div class="seg" id="colocaciones" role="radiogroup" aria-label="Colocación del estampado"></div>
         <p class="info-label">TAMAÑO DEL ARTE <span id="formatoMedida"></span></p>
         <div class="seg" id="formatos" role="radiogroup" aria-label="Tamaño del estampado"></div>
-      </div>
-      <p class="info-label">TALLA <button class="guia-btn" id="guiaBtn" type="button" hidden>📏 Guía de tallas</button></p>
-      <div class="sizes" id="sizes" role="radiogroup" aria-label="Talla"></div>
+        <div class="fichas" id="fichas" hidden>
+      <p class="fichas-tit">ARMA TU ESPALDA <small>toca un arte y va atrás</small></p>
+      <div class="fichas-lista" id="fichasLista"></div>
+    </div>
+      </details>
+
       <button class="comprar" id="comprar" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h3l2.4 11.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L21 7H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.6" fill="currentColor"/><circle cx="17" cy="20" r="1.6" fill="currentColor"/></svg>
-        <span>COMPRA AHORA</span><b aria-hidden="true">›</b>
+        <span id="comprarTxt">AGREGAR</span><b aria-hidden="true">›</b>
       </button>
       <p class="nota-compra" id="notaCompra"></p>
       <button class="compartir" id="compartir" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="m8.3 10.8 7.4-4.4M8.3 13.2l7.4 4.4"/></svg>Compartir este diseño</button>
