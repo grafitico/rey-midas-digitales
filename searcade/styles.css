@@ -639,3 +639,47 @@ body.modo-grilla .controls { transform: translateY(140%); opacity: 0; pointer-ev
 }
 .estilos[hidden], .vista-bar[hidden] { display: none !important; }
 @media (max-width: 599px) { .grilla-items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ===== Compu: menú y ficha flotantes, sin barras de desplazamiento propias (27/11/2026) ===== */
+@media (min-width: 1000px) {
+  .arena { align-items: start; }
+  /* Categorías: todas entran (se achican según el alto de la pantalla) y acompañan al bajar */
+  .cats, .cats:has(.cat:nth-child(7)) { position: sticky; top: 10px; max-height: none; overflow: visible; -webkit-mask: none; mask: none; align-self: start; padding: 6px; gap: 0; }
+  .cats .cat, .cats:has(.cat:nth-child(7)) .cat { padding: clamp(3px, .7vh, 9px) 2px; gap: 1px; }
+  .cats .cat svg, .cats:has(.cat:nth-child(7)) .cat svg { width: clamp(18px, 2.9vh, 28px); height: clamp(18px, 2.9vh, 28px); }
+  .cats .cat .emo, .cats:has(.cat:nth-child(7)) .cat .emo { font-size: clamp(15px, 2.5vh, 24px); line-height: clamp(18px, 2.9vh, 28px); height: clamp(18px, 2.9vh, 28px); }
+  .cats .cat span { font-size: clamp(9.5px, 1.3vh, 12px); letter-spacing: .5px; }
+  /* Ficha: compacta, sin scroll propio, fija al bajar */
+  .info { position: sticky; top: 10px; max-height: none; overflow: visible; padding: 14px 16px 12px; }
+  .coleccion { margin-bottom: 4px; font-size: 10.5px; }
+  .franja { margin-bottom: 6px; }
+  .franja span { font-size: 14px; padding: 3px 18px 3px 10px; }
+  .info h2#infoName { font-size: clamp(22px, 2vw, 30px); margin: 0 0 6px; }
+  .info-desc { font-size: 13px; margin-bottom: 6px; line-height: 1.35; }
+  .precio-box { margin: 2px 0 8px; padding: 4px 20px 6px 14px; }
+  .precio-box small { font-size: 11px; }
+  .precio-box strong#infoPrice { font-size: 28px; }
+  .info-label { margin-bottom: 5px; font-size: 11.5px; }
+  .perso .info-label { margin-top: 8px; }
+  .swatches { gap: 6px; flex-wrap: nowrap; }
+  .swatch { width: 26px; height: 26px; }
+  .seg { gap: 4px; }
+  .seg button { min-height: 30px; padding: 3px 4px; font-size: 12.5px; border-width: 1.5px; }
+  .seg button small { font-size: 10px; }
+  .talla-tabs { margin-bottom: 5px; }
+  .talla-tabs button { padding: 3px 6px; font-size: 11.5px; }
+  .talla-chips { flex-wrap: nowrap; gap: 4px; }
+  .sizes .size { min-width: 0; flex: 1; height: 30px; padding: 0 2px; font-size: 13px; }
+  .comprar { margin-top: 10px; padding: 10px 14px; font-size: 18px; }
+  .comprar svg { width: 20px; }
+  .nota-compra { margin-top: 6px; font-size: 11.5px; }
+  .compartir { min-height: 34px; margin-top: 6px; font-size: 13px; }
+  /* Las 3 características en una sola línea chica */
+  .feats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 0; }
+  .feat { padding: 0; border: 0; background: none; box-shadow: none; gap: 4px; }
+  .feat svg { width: 14px; padding: 0; border: 0; }
+  .feat p { display: block; }
+  .feat b { font-size: 11px; letter-spacing: .5px; color: var(--muted); }
+  .feat span { display: none; }
+  .ver-puesta { min-height: 30px; margin-bottom: 6px; font-size: 12px; }
+}
