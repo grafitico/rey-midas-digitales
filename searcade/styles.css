@@ -717,7 +717,7 @@ details.perso .fa-img { width: 58px; height: 58px; }
 @media (min-width: 700px) and (max-width: 999px) {
   .arena { grid-template-columns: minmax(0, 1fr) 330px; align-items: start; column-gap: 14px; }
   .arena > .cats, .arena > .estilos.subs, .arena > .vista-bar { grid-column: 1 / -1; }
-  .stage { grid-column: 1; }
+  .stage { grid-column: 1; grid-row: 4; } .fichas { grid-column: 1; grid-row: 5; } .info { grid-row: 4 / span 3; }
   .info { grid-column: 2; position: sticky; top: 10px; }
   body.modo-grilla .grilla { grid-column: 1 / -1; }
   :root { --tw: clamp(190px, min(40vw, 42vh), 330px); }
