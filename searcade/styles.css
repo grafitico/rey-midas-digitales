@@ -621,8 +621,8 @@ body.modo-grilla .controls { transform: translateY(140%); opacity: 0; pointer-ev
   .vista-tog button { padding: 0 12px; min-height: 40px; }
   .grilla-items { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
   body.modo-grilla .info { display: none; }
-  /* La talla y el precio antes que "Arma tu espalda" */
-  .stage { order: 1; } .grilla { order: 1; } .info { order: 2; } .fichas { order: 3; }
+  /* "Arma tu espalda" justo debajo del perchero, después la ficha */
+  .stage { order: 1; } .grilla { order: 1; } .fichas { order: 2; } .info { order: 3; }
   .arena > .cats { order: -3; } .arena > .estilos.subs { order: -2; } .arena > .vista-bar { order: -1; }
   .controls { left: 6px; right: 6px; }
 }
