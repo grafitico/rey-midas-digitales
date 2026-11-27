@@ -487,6 +487,12 @@ a { color: var(--cyan); }
   .cat { flex: none; padding: 12px 4px; }
   .cat svg { width: 32px; height: 32px; }
   .cat .emo { font-size: 28px; line-height: 32px; height: 32px; }
+  /* Muchas categorías: la columna no crece más que el perchero (si no, lo empuja hacia abajo) */
+  .cats { max-height: min(600px, calc(100vh - 190px)); overflow-y: auto; scrollbar-width: none; align-self: center; }
+  .cats::-webkit-scrollbar { display: none; }
+  .cats:has(.cat:nth-child(7)) .cat { padding: 8px 4px; }
+  .cats:has(.cat:nth-child(7)) .cat svg { width: 26px; height: 26px; }
+  .cats:has(.cat:nth-child(7)) .cat .emo { font-size: 23px; line-height: 26px; height: 26px; }
   .arrow.prev { left: 0; } .arrow.next { right: 0; }
   .info { max-height: calc(100vh - 150px); overflow-y: auto; scrollbar-width: thin; }
   .controls { position: relative; left: auto; right: auto; bottom: auto; max-width: min(1100px, 70vw); margin: 10px auto 0; }
