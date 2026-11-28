@@ -37,6 +37,15 @@
       <nav class="adm-nav" aria-label="Secciones del panel">
         <a href="#sec-musica">🎵 Música</a><a href="#sec-masiva">📁 Carga masiva</a><a href="#sec-subir">⬆ Subir</a><a href="#sec-cats">🗂 Categorías</a><a href="#sec-artes">🖼 Artes</a><a href="#sec-look">📸 Lookbook</a>
       </nav>
+      <h2 class="adm-h" id="sec-musica">Música de la tienda <small id="cuentaMusica"></small></h2>
+      <p class="adm-nota">Canciones del reproductor de la tienda (MP3 o M4A, hasta 15 MB cada una). Suenan en este orden y se repiten; el visitante puede pausar, pasar a la siguiente o silenciar. Usá música tuya o libre de derechos.</p>
+      <div class="musica-subir cut">
+        <label class="adm-btn" for="musicaArchivos">🎵 Elegir canciones</label>
+        <input type="file" id="musicaArchivos" accept="audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a" multiple hidden>
+        <span class="mus-prog" id="musicaProg" role="status"></span>
+      </div>
+      <ol class="musica-lista" id="musicaLista"></ol>
+
       <div class="vivo cut" aria-label="Vista en vivo">
         <p class="vivo-tit">VISTA EN VIVO <small>cambia todas las camisetas de esta página</small></p>
         <div class="vivo-fila"><span>Color</span><div class="swatches" id="vivoColores" role="radiogroup" aria-label="Color"></div></div>
@@ -105,15 +114,6 @@
       <div class="lista-filtros"><input id="buscarArte" type="search" placeholder="Buscar por nombre, subcategoría o código (GRF-NAV-0012)" aria-label="Buscar arte"><select id="catLista" aria-label="Categoría"></select></div>
       <div class="lista" id="lista"></div>
       <button class="adm-btn ghost ver-mas" id="verMas" type="button" hidden>Ver más</button>
-
-      <h2 class="adm-h" id="sec-musica">Música de la tienda <small id="cuentaMusica"></small></h2>
-      <p class="adm-nota">Canciones del reproductor de la tienda (MP3 o M4A, hasta 15 MB cada una). Suenan en este orden y se repiten; el visitante puede pausar, pasar a la siguiente o silenciar. Usá música tuya o libre de derechos.</p>
-      <div class="musica-subir cut">
-        <label class="adm-btn" for="musicaArchivos">🎵 Elegir canciones</label>
-        <input type="file" id="musicaArchivos" accept="audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a" multiple hidden>
-        <span class="mus-prog" id="musicaProg" role="status"></span>
-      </div>
-      <ol class="musica-lista" id="musicaLista"></ol>
 
       <h2 class="adm-h" id="sec-look">Lookbook / Banners <small id="cuentaFotos"></small></h2>
       <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel. Si elegís el diseño que sale en la foto, la ficha de ese diseño muestra "📸 Verla puesta" y el botón del Lookbook lleva directo a él.</p>
