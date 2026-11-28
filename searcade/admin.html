@@ -34,6 +34,9 @@
     </form>
 
     <section id="panel" hidden>
+      <nav class="adm-nav" aria-label="Secciones del panel">
+        <a href="#sec-musica">🎵 Música</a><a href="#sec-masiva">📁 Carga masiva</a><a href="#sec-subir">⬆ Subir</a><a href="#sec-cats">🗂 Categorías</a><a href="#sec-artes">🖼 Artes</a><a href="#sec-look">📸 Lookbook</a>
+      </nav>
       <div class="vivo cut" aria-label="Vista en vivo">
         <p class="vivo-tit">VISTA EN VIVO <small>cambia todas las camisetas de esta página</small></p>
         <div class="vivo-fila"><span>Color</span><div class="swatches" id="vivoColores" role="radiogroup" aria-label="Color"></div></div>
@@ -42,7 +45,7 @@
         <div class="vivo-fila"><span>Lado</span><div class="seg" id="vivoLado" role="radiogroup" aria-label="Lado"></div></div>
       </div>
 
-      <h2 class="adm-h">Carga masiva <small>carpetas enteras que se ordenan solas</small></h2>
+      <h2 class="adm-h" id="sec-masiva">Carga masiva <small>carpetas enteras que se ordenan solas</small></h2>
       <p class="adm-nota">Elegí o arrastrá una carpeta con tus artes (pueden ser miles). Se ordenan por el nombre de las carpetas y de los archivos y por las palabras clave 🔑 de cada categoría; las subcarpetas que no se reconozcan pasan a ser subcategorías nuevas. Al subir, cada imagen se revisa para marcar semitono y "solo camisetas oscuras". Si repetís una carpeta, lo ya subido se salta.<br><b>Con el Buscador de Artes:</b> marcá con ⭐ lo que va a la tienda, tocá "Bajar JSON para la web", cargá ese JSON aquí y después elegí tu carpeta principal de artes: se suben esos diseños con su código, título, categoría y tema.</p>
       <div class="masiva-zona cut" id="masivaZona">
         <label class="adm-btn" for="masivaCarpeta">📁 Elegir carpeta</label>
@@ -72,7 +75,7 @@
         </div>
       </div>
 
-      <h2 class="adm-h">Subir de a pocos <small>con vista previa y los datos de cada arte</small></h2>
+      <h2 class="adm-h" id="sec-subir">Subir de a pocos <small>con vista previa y los datos de cada arte</small></h2>
       <label class="drop cut" id="drop">
         <input type="file" id="archivos" accept="image/png,image/webp" multiple hidden>
         <strong>Toca para elegir artes</strong>
@@ -85,7 +88,7 @@
         <button class="adm-btn ghost" id="limpiar">Descartar</button>
       </div>
 
-      <h2 class="adm-h">Categorías <small>orden, nombre, ícono y subcategorías</small></h2>
+      <h2 class="adm-h" id="sec-cats">Categorías <small>orden, nombre, ícono y subcategorías</small></h2>
       <p class="adm-nota">Toca el ícono para cambiarlo. Las subcategorías aparecen en la tienda al elegir su categoría (ej.: Anime → Attack on Titan). Una categoría con artes no se puede borrar: primero mueve sus artes. Los cambios se aplican al tocar <b>Guardar categorías</b>.</p>
       <div class="cats-ed" id="catsEd"></div>
       <div class="adm-row">
@@ -94,7 +97,7 @@
         <button class="adm-btn ghost" id="catDeshacer" type="button">Deshacer cambios</button>
       </div>
 
-      <h2 class="adm-h">Artes publicados <small id="cuenta"></small></h2>
+      <h2 class="adm-h" id="sec-artes">Artes publicados <small id="cuenta"></small></h2>
       <div class="adm-row"><button class="adm-btn ghost" id="buscarRepetidos" type="button">🔍 Buscar repetidos</button></div>
       <div class="repetidos" id="repetidos" hidden></div>
       <button class="adm-btn proteger-todos" id="protegerTodos" hidden>🔒 Proteger artes existentes</button>
@@ -103,7 +106,7 @@
       <div class="lista" id="lista"></div>
       <button class="adm-btn ghost ver-mas" id="verMas" type="button" hidden>Ver más</button>
 
-      <h2 class="adm-h">Música de la tienda <small id="cuentaMusica"></small></h2>
+      <h2 class="adm-h" id="sec-musica">Música de la tienda <small id="cuentaMusica"></small></h2>
       <p class="adm-nota">Canciones del reproductor de la tienda (MP3 o M4A, hasta 15 MB cada una). Suenan en este orden y se repiten; el visitante puede pausar, pasar a la siguiente o silenciar. Usá música tuya o libre de derechos.</p>
       <div class="musica-subir cut">
         <label class="adm-btn" for="musicaArchivos">🎵 Elegir canciones</label>
@@ -112,7 +115,7 @@
       </div>
       <ol class="musica-lista" id="musicaLista"></ol>
 
-      <h2 class="adm-h">Lookbook / Banners <small id="cuentaFotos"></small></h2>
+      <h2 class="adm-h" id="sec-look">Lookbook / Banners <small id="cuentaFotos"></small></h2>
       <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel. Si elegís el diseño que sale en la foto, la ficha de ese diseño muestra "📸 Verla puesta" y el botón del Lookbook lleva directo a él.</p>
       <div class="foto-subir cut">
         <label>Título (opcional)<input id="fotoTitulo" maxlength="80" placeholder="Ej.: Nueva colección"></label>
