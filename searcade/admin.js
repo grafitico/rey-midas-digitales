@@ -1101,6 +1101,62 @@
   });
   window.addEventListener("beforeunload", (e) => { if (masiva.corriendo) { e.preventDefault(); e.returnValue = ""; } });
 
+  // ---------- Música de la tienda (se sube en partes: la API acepta 1 MB por consulta) ----------
+  let canciones = [];
+  let sonando = null; // { id, audio }
+  function pintarMusica(lista) {
+    if (lista) canciones = lista;
+    $("#cuentaMusica").textContent = canciones.length ? `(${canciones.length})` : "";
+    $("#musicaLista").innerHTML = canciones.length ? canciones.map((c, i) => `<li data-id="${esc(c.id)}">
+        <button type="button" class="mini-btn" data-a="oir" title="Escuchar">${sonando?.id === c.id ? "⏸" : "▶"}</button>
+        <input value="${esc(c.titulo)}" maxlength="60" aria-label="Nombre de la canción">
+        <button type="button" class="mini-btn" data-a="guardar" title="Guardar nombre">✓</button>
+        <button type="button" class="mini-btn" data-a="arriba" title="Subir"${i ? "" : " disabled"}>↑</button>
+        <button type="button" class="mini-btn" data-a="abajo" title="Bajar"${i < canciones.length - 1 ? "" : " disabled"}>↓</button>
+        <button type="button" class="mini-btn peligro" data-a="borrar" title="Borrar">✕</button>
+      </li>`).join("") : `<li class="vacio">Todavía no hay canciones.</li>`;
+  }
+  const aBase64 = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = no; r.readAsDataURL(blob); });
+  $("#musicaArchivos").addEventListener("change", async (e) => {
+    const files = [...e.target.files];
+    e.target.value = "";
+    const prog = $("#musicaProg");
+    for (const f of files) {
+      const tipo = /\.m4a$/i.test(f.name) || /mp4|m4a/.test(f.type) ? "m4a" : /\.mp3$/i.test(f.name) || /mpeg/.test(f.type) ? "mp3" : null;
+      if (!tipo) { toast(`${f.name}: usa MP3 o M4A`); continue; }
+      if (f.size > 15 * 1024 * 1024) { toast(`${f.name}: pesa más de 15 MB`); continue; }
+      const titulo = f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Canción";
+      try {
+        const ini = await api({ action: "cancion-inicio", titulo, tipo, tamano: f.size });
+        for (let d = 0; d < f.size; d += ini.parte) {
+          prog.textContent = `Subiendo "${titulo}": ${Math.round((d / f.size) * 100)} %`;
+          await api({ action: "cancion-parte", id: ini.id, desde: d, datos: await aBase64(f.slice(d, d + ini.parte)) });
+        }
+        pintarMusica((await api({ action: "cancion-fin", id: ini.id })).musica);
+        toast(`✓ "${titulo}" ya suena en la tienda`);
+      } catch (err) { toast(`${f.name}: ${err.message}`); }
+    }
+    prog.textContent = "";
+  });
+  $("#musicaLista").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-a]");
+    if (!b) return;
+    const li = b.closest("li"), id = li.dataset.id, i = canciones.findIndex((c) => c.id === id);
+    try {
+      if (b.dataset.a === "oir") {
+        if (sonando?.id === id) { sonando.audio.pause(); sonando = null; }
+        else { sonando?.audio.pause(); const audio = new Audio(`${canciones[i].archivo}?t=${Date.now()}`); audio.play().catch(() => toast("No se pudo reproducir")); audio.onended = () => { sonando = null; pintarMusica(); }; sonando = { id, audio }; }
+        return pintarMusica();
+      }
+      if (b.dataset.a === "guardar") { pintarMusica((await api({ action: "cancion-editar", id, titulo: li.querySelector("input").value })).musica); return toast("✓ Nombre guardado"); }
+      if (b.dataset.a === "borrar") { if (!confirm(`¿Borrar "${canciones[i].titulo}" del reproductor?`)) return; if (sonando?.id === id) { sonando.audio.pause(); sonando = null; } return pintarMusica((await api({ action: "cancion-borrar", id })).musica); }
+      const ids = canciones.map((c) => c.id), j = b.dataset.a === "arriba" ? i - 1 : i + 1;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      pintarMusica((await api({ action: "cancion-orden", ids })).musica);
+    } catch (err) { toast(err.message); }
+  });
+  $("#musicaLista").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.tagName === "INPUT") e.target.closest("li").querySelector('[data-a="guardar"]').click(); });
+
   // ---------- Lookbook / banners ----------
   async function prepararFoto(file) {
     const bmp = await createImageBitmap(file);
@@ -1193,6 +1249,7 @@
       editarCats();
       pintarLista(ind.artes);
       pintarFotos(ind.lookbook);
+      pintarMusica(ind.musica || []);
     } catch (e) {
       if (e.status === 401) { guardarToken(""); mostrarLogin("Tu sesión venció: vuelve a entrar."); }
       else mostrarLogin(e.status === 0 ? sinConexion : e.message);

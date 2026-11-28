@@ -175,3 +175,16 @@ mismo nombre (por ejemplo, la espalda de la camiseta), el cambio se ve enseguida
 - Vista de cerca: Frente, Espalda, Arte frente y Arte espalda (según la
   colocación) y fotos puestas; nada se corta (flex + max 100 %), tocar amplía
   2,5× y se mueve con el dedo o el mouse, flechas, teclado y deslizar.
+
+## Música (28/11/2026)
+
+- Panel → "Música de la tienda": subir MP3/M4A (≤ 15 MB; en partes de 700 KB
+  porque la API acepta 1 MB por consulta: `cancion-inicio/parte/fin`), escuchar,
+  renombrar, ordenar y borrar. Archivos en `~/searcade.reymidascr.com/musica/`
+  (fuera del repo, el deploy no los toca) y lista en `artes.json` → `musica`.
+- Tienda: reproductor (`#radio`) con pausa, siguiente y silenciar, barritas que
+  se mueven y el nombre de la canción. Compu: pastilla entre el título y el
+  carrito; teléfono: botón con barritas que despliega los controles. Arranca con
+  el primer toque (los navegadores no dejan sonar antes), salvo que el visitante
+  la haya pausado en otra visita (localStorage `searcade-musica`). Sin canciones
+  en el panel usa `config.js` → `musica`; sin ninguna, no se muestra.

@@ -171,3 +171,11 @@ body.admin { padding-bottom: 40px; }
 .rep-arte.sobra { box-shadow: inset 0 0 0 1px #ff3b5c55; }
 .rep-arte.borrado { opacity: .3; pointer-events: none; }
 .rep-queda { color: var(--ok, #2fd082); font-weight: 700; font-size: 13px; }
+/* Música de la tienda */
+.musica-subir { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; --line: linear-gradient(90deg, var(--cyan), var(--pink)); }
+.musica-subir label { cursor: pointer; }
+.mus-prog { color: var(--amber); font-weight: 600; font-size: 14px; }
+.musica-lista { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; counter-reset: c; }
+.musica-lista li { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 12px; background: #0f0a20e6; box-shadow: inset 0 0 0 1px #ffffff22; }
+.musica-lista li.vacio { color: var(--muted); justify-content: center; }
+.musica-lista input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid #ffffff33; background: #0006; color: #fff; font: 600 14px Inter, sans-serif; }

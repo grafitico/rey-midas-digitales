@@ -54,11 +54,15 @@
       <h1>Selecciona tu <em>camiseta</em></h1>
     </div>
     <div class="hud-acciones">
-    <button class="musica-btn cut" id="musicaBtn" type="button" aria-pressed="false" aria-label="Activar música" title="Música" hidden>
-      <svg class="m-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4Z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <svg class="m-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4Z" fill="currentColor"/><path d="m16.5 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <span class="m-barras" aria-hidden="true"><i></i><i></i><i></i></span>
-    </button>
+    <div class="radio" id="radio" hidden>
+      <button class="radio-abrir" id="radioAbrir" type="button" aria-label="Música" aria-expanded="false"><span class="m-barras" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button>
+      <div class="radio-panel" id="radioPanel">
+        <button class="r-btn" id="rPlay" type="button" aria-label="Reproducir"><svg class="r-ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l12-7Z" fill="currentColor"/></svg><svg class="r-ico-pausa" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg></button>
+        <button class="r-btn" id="rNext" type="button" aria-label="Siguiente canción"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14l9-7Z" fill="currentColor"/><path d="M15 5h3v14h-3z" fill="currentColor"/></svg></button>
+        <button class="r-btn" id="rMute" type="button" aria-label="Silenciar"><svg class="r-ico-son" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4Z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><svg class="r-ico-mudo" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4Z" fill="currentColor"/><path d="m16.5 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        <span class="r-tit" aria-live="polite"><span class="m-barras" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="r-marquesina"><span id="rTitulo">Música</span></span></span>
+      </div>
+    </div>
     <button class="cart-btn cut" id="cartBtn" aria-label="Abrir carrito">
       <span class="cart-ico">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h3l2.4 11.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.5L21 7H6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20" r="1.6" fill="currentColor"/><circle cx="17" cy="20" r="1.6" fill="currentColor"/></svg>

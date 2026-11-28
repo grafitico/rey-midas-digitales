@@ -940,70 +940,85 @@
     new IntersectionObserver(([e]) => { botonVisto = e.isIntersecting; actualizar(); }, { rootMargin: "0px 0px -90px 0px" }).observe($("#comprar"));
   }
 
-  // ---------- Música de fondo (config.js: musica) ----------
-  // Los navegadores no dejan sonar audio sin un toque del visitante: arranca
-  // con el primero (p. ej. PRESIONA START). Sube de a poco, se pausa con la
-  // pestaña oculta y el botón 🔊/🔇 guarda la elección en este navegador.
-  (() => {
-    const btn = $("#musicaBtn");
-    if (!btn || !CFG.musica) return;
-    btn.hidden = false;
+  // ---------- Reproductor de música (canciones del panel; si no hay, config.js: musica) ----------
+  // Los navegadores no dejan sonar audio sin un toque del visitante: arranca con
+  // el primero (p. ej. PRESIONA START), salvo que el visitante la haya pausado
+  // antes. Pausa, siguiente y silenciar; la lista se repite. Sube de a poco.
+  function arrancarRadio(canciones) {
+    const lista = (canciones || []).filter((c) => c?.archivo);
+    if (!lista.length && CFG.musica) lista.push({ titulo: "SEARCADE", archivo: CFG.musica });
+    const box = $("#radio");
+    if (!box || !lista.length) return;
+    box.hidden = false;
     const CLAVE = "searcade-musica";
-    let quiere = true;
-    try { quiere = localStorage.getItem(CLAVE) !== "off"; } catch {}
+    let pref = {};
+    try { pref = JSON.parse(localStorage.getItem(CLAVE) || "{}") || {}; } catch {}
+    const guardarPref = () => { try { localStorage.setItem(CLAVE, JSON.stringify(pref)); } catch {} };
     const VOL = Math.min(1, Math.max(0, Number(CFG.musicaVolumen) || 0.35));
-    let audio = null, fade = 0;
-    const pintar = (sonando) => {
-      btn.setAttribute("aria-pressed", sonando ? "true" : "false");
-      btn.setAttribute("aria-label", sonando ? "Silenciar música" : "Activar música");
+    let i = Math.floor(Math.random() * lista.length), audio = null, fade = 0, sonando = false;
+    const pintar = () => {
+      box.classList.toggle("sonando", sonando && !pref.mudo);
+      $("#rPlay").classList.toggle("pausa", sonando);
+      $("#rPlay").setAttribute("aria-label", sonando ? "Pausar" : "Reproducir");
+      $("#rMute").classList.toggle("mudo", !!pref.mudo);
+      $("#rMute").setAttribute("aria-label", pref.mudo ? "Activar sonido" : "Silenciar");
+      const t = lista[i].titulo || "SEARCADE";
+      $("#rTitulo").textContent = t;
+      $("#rTitulo").parentElement.classList.toggle("larga", t.length > 18);
     };
-    const llevarA = (destino, ms, alTerminar) => {
+    const subir = () => {
       cancelAnimationFrame(fade);
-      const desde = audio.volume, t0 = performance.now();
-      const paso = (t) => {
-        const k = Math.min(1, (t - t0) / ms);
-        audio.volume = Math.min(1, Math.max(0, desde + (destino - desde) * k));
-        if (k < 1) fade = requestAnimationFrame(paso); else alTerminar?.();
-      };
+      const t0 = performance.now(), desde = audio.volume;
+      const paso = (t) => { const k = Math.min(1, (t - t0) / 1800); audio.volume = desde + (VOL - desde) * k; if (k < 1) fade = requestAnimationFrame(paso); };
       fade = requestAnimationFrame(paso);
     };
-    const sonar = () => {
+    const cargar = () => {
       if (!audio) {
-        audio = new Audio(CFG.musica);
-        audio.loop = true;
+        audio = new Audio();
         audio.preload = "auto";
-        audio.volume = 0;
+        audio.addEventListener("ended", () => siguiente());
+        audio.addEventListener("error", () => { if (lista.length > 1) siguiente(); else { sonando = false; pintar(); } });
       }
+      audio.src = lista[i].archivo;
+      audio.muted = !!pref.mudo;
+    };
+    const play = () => {
+      if (!audio) cargar();
+      audio.volume = 0;
+      sonando = true;
       const p = audio.play();
-      pintar(true);
-      if (p?.catch) p.catch(() => pintar(false)); // el navegador no dejó: queda en 🔇
-      llevarA(VOL, 2000);
+      if (p?.catch) p.catch(() => { sonando = false; pintar(); });
+      subir();
+      pintar();
     };
-    const callar = () => {
-      pintar(false);
-      if (audio && !audio.paused) llevarA(0, 400, () => audio.pause());
-    };
-    btn.addEventListener("click", (e) => {
+    const pausa = () => { sonando = false; audio?.pause(); pintar(); };
+    function siguiente() { i = (i + 1) % lista.length; cargar(); if (sonando) play(); else pintar(); }
+    $("#rPlay").addEventListener("click", (e) => { e.stopPropagation(); if (sonando) { pausa(); pref.pausada = true; } else { play(); pref.pausada = false; } guardarPref(); });
+    $("#rNext").addEventListener("click", (e) => { e.stopPropagation(); siguiente(); if (!sonando) { play(); pref.pausada = false; guardarPref(); } });
+    $("#rMute").addEventListener("click", (e) => { e.stopPropagation(); pref.mudo = !pref.mudo; if (audio) audio.muted = pref.mudo; guardarPref(); pintar(); });
+    // Teléfono: el botón con barritas abre y cierra los controles
+    $("#radioAbrir").addEventListener("click", (e) => {
       e.stopPropagation();
-      quiere = btn.getAttribute("aria-pressed") !== "true";
-      try { localStorage.setItem(CLAVE, quiere ? "on" : "off"); } catch {}
-      quiere ? sonar() : callar();
+      const abierto = box.classList.toggle("abierto");
+      $("#radioAbrir").setAttribute("aria-expanded", abierto);
     });
-    // Primer toque o tecla en la página: arranca si el visitante no la silenció
+    document.addEventListener("click", (e) => { if (!e.target.closest("#radio")) { box.classList.remove("abierto"); $("#radioAbrir").setAttribute("aria-expanded", "false"); } });
+    // Primer toque o tecla en la página: arranca (si no la pausó en otra visita)
     const primero = (e) => {
-      if (e.target.closest?.("#musicaBtn")) return;
+      if (e.target.closest?.("#radio")) return;
       removeEventListener("pointerdown", primero, true);
       removeEventListener("keydown", primero, true);
-      if (quiere) sonar();
+      if (!pref.pausada && !sonando) play();
     };
     addEventListener("pointerdown", primero, true);
     addEventListener("keydown", primero, true);
     document.addEventListener("visibilitychange", () => {
       if (!audio) return;
       if (document.hidden) audio.pause();
-      else if (quiere && btn.getAttribute("aria-pressed") === "true") audio.play().catch(() => pintar(false));
+      else if (sonando) audio.play().catch(() => { sonando = false; pintar(); });
     });
-  })();
+    pintar();
+  }
 
   // ---------- Marco del perchero: borde con esquinas en diagonal a la medida ----------
   (() => {
@@ -1178,6 +1193,7 @@
       // Con artes reales, los ejemplos dibujados se retiran (quedan los que tengan foto propia).
       // Categorías del panel (artes.json); si no hay, las de productos.json
       data = { categorias: a?.categorias?.length ? a.categorias : d.categorias, productos: artes.length ? [...artes, ...d.productos.filter((p) => p.imagen || p.fotos?.length)] : d.productos };
+      arrancarRadio(a?.musica);
       const look = [...(a?.lookbook || []), ...(CFG.lookbook || [])];
       for (const f of look) { const p = f.arte && byId(f.arte); if (p) (p.fotosModelo ||= []).push(f); }
       pintarLookbook(look);
