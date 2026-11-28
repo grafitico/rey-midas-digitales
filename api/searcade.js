@@ -81,7 +81,7 @@ const indexPath = () => path.join(artesDir(), "artes.json");
 function leerIndice() {
   try {
     const d = JSON.parse(fs.readFileSync(indexPath(), "utf8"));
-    return { artes: Array.isArray(d.artes) ? d.artes : [], lookbook: Array.isArray(d.lookbook) ? d.lookbook : [], ...(Array.isArray(d.categorias) ? { categorias: d.categorias } : {}) };
+    return { artes: Array.isArray(d.artes) ? d.artes : [], lookbook: Array.isArray(d.lookbook) ? d.lookbook : [], ...(Array.isArray(d.categorias) ? { categorias: d.categorias } : {}), ...(Array.isArray(d.musica) ? { musica: d.musica } : {}) };
   } catch {
     return { artes: [], lookbook: [] };
   }
@@ -93,7 +93,7 @@ function escribirIndice(cambios) {
   const d = { ...leerIndice(), ...cambios };
   fs.mkdirSync(artesDir(), { recursive: true });
   const tmp = `${indexPath()}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ actualizado: new Date().toISOString(), ...(d.categorias ? { categorias: d.categorias } : {}), artes: d.artes, lookbook: d.lookbook }, null, 1));
+  fs.writeFileSync(tmp, JSON.stringify({ actualizado: new Date().toISOString(), ...(d.categorias ? { categorias: d.categorias } : {}), ...(d.musica ? { musica: d.musica } : {}), artes: d.artes, lookbook: d.lookbook }, null, 1));
   fs.renameSync(tmp, indexPath());
 }
 const escribirArtes = (artes) => escribirIndice({ artes });
@@ -467,6 +467,97 @@ export async function borrarFoto(body) {
 
 const ACCIONES_ASISTENTE = new Set(["yo", "listar", "subir", "editar", "original", "miniatura", "categorias"]);
 
+// ===== Música de la tienda (reproductor) =====
+// Las canciones (MP3 o M4A, hasta 15 MB) van a ~/searcade.reymidascr.com/musica
+// y la lista a artes.json → musica: [{ id, titulo, archivo, creado }]. Como el
+// cuerpo de una consulta tiene tope de 1 MB, el panel las sube en partes:
+//   { action: "cancion-inicio", titulo, tipo: "mp3"|"m4a", tamano } → { id }
+//   { action: "cancion-parte", id, desde, datos: base64 (≤ 700 KB) }
+//   { action: "cancion-fin", id } → { musica }
+//   { action: "cancion-editar", id, titulo } · { action: "cancion-borrar", id } · { action: "cancion-orden", ids }
+const MAX_CANCION = 15 * 1024 * 1024, MAX_CANCIONES = 30, MAX_PARTE = 720 * 1024;
+const musicaDir = () => path.join(path.dirname(artesDir()), "musica");
+const NOMBRE_CANCION = /^c-[a-z0-9]+-[0-9a-f]{6}\.(mp3|m4a)$/;
+const SUBIDAS = new Map(); // id → { titulo, ext, tamano, recibido, t }
+const limpiarTituloCancion = (v) => { const t = limpiarTexto(v, 60); if (!t) throw bad("Falta el nombre de la canción"); return t; };
+export function cancionInicio(body) {
+  const titulo = limpiarTituloCancion(body.titulo);
+  const ext = body.tipo === "m4a" ? "m4a" : body.tipo === "mp3" ? "mp3" : null;
+  if (!ext) throw bad("La canción debe ser MP3 o M4A");
+  const tamano = Math.round(Number(body.tamano));
+  if (!(tamano > 1024) || tamano > MAX_CANCION) throw bad(`La canción debe pesar menos de ${MAX_CANCION / 1024 / 1024} MB`);
+  if ((leerIndice().musica || []).length >= MAX_CANCIONES) throw bad(`Máximo ${MAX_CANCIONES} canciones`);
+  // Subidas viejas sin terminar (más de 1 h): fuera
+  for (const [k, v] of SUBIDAS) if (Date.now() - v.t > 3600e3) { SUBIDAS.delete(k); try { fs.unlinkSync(path.join(musicaDir(), `${k}.part`)); } catch {} }
+  const id = `c-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
+  fs.mkdirSync(musicaDir(), { recursive: true });
+  fs.writeFileSync(path.join(musicaDir(), `${id}.part`), Buffer.alloc(0));
+  SUBIDAS.set(id, { titulo, ext, tamano, recibido: 0, t: Date.now() });
+  return { ok: true, id, parte: MAX_PARTE };
+}
+export function cancionParte(body) {
+  const sub = SUBIDAS.get(String(body.id || ""));
+  if (!sub) throw Object.assign(new Error("La subida se cortó: vuelve a intentarlo"), { status: 410 });
+  if (Number(body.desde) !== sub.recibido) throw bad(`Parte fuera de orden (esperaba desde ${sub.recibido})`);
+  const datos = String(body.datos || "");
+  if (!/^[A-Za-z0-9+/=]+$/.test(datos)) throw bad("Parte inválida");
+  const buf = Buffer.from(datos, "base64");
+  if (!buf.length || buf.length > MAX_PARTE || sub.recibido + buf.length > sub.tamano) throw bad("Parte de tamaño inválido");
+  fs.appendFileSync(path.join(musicaDir(), `${body.id}.part`), buf);
+  sub.recibido += buf.length; sub.t = Date.now();
+  return { ok: true, recibido: sub.recibido };
+}
+export async function cancionFin(body) {
+  const id = String(body.id || "");
+  const sub = SUBIDAS.get(id);
+  if (!sub) throw Object.assign(new Error("La subida se cortó: vuelve a intentarlo"), { status: 410 });
+  const parte = path.join(musicaDir(), `${id}.part`);
+  if (sub.recibido !== sub.tamano) throw bad("Faltan partes de la canción");
+  const fd = fs.openSync(parte, "r"); const cab = Buffer.alloc(12); fs.readSync(fd, cab, 0, 12, 0); fs.closeSync(fd);
+  const esMp3 = cab.subarray(0, 3).toString("latin1") === "ID3" || (cab[0] === 0xff && (cab[1] & 0xe0) === 0xe0);
+  const esM4a = cab.subarray(4, 8).toString("latin1") === "ftyp";
+  if (sub.ext === "mp3" ? !esMp3 : !esM4a) { SUBIDAS.delete(id); try { fs.unlinkSync(parte); } catch {} throw bad("El archivo no es un audio válido"); }
+  return enCola(() => {
+    const archivo = `${id}.${sub.ext}`;
+    fs.renameSync(parte, path.join(musicaDir(), archivo));
+    SUBIDAS.delete(id);
+    const musica = [...(leerIndice().musica || []), { id, titulo: sub.titulo, archivo: `musica/${archivo}`, creado: new Date().toISOString() }];
+    escribirIndice({ musica });
+    return { ok: true, musica };
+  });
+}
+export async function cancionEditar(body) {
+  return enCola(() => {
+    const musica = leerIndice().musica || [];
+    const c = musica.find((x) => x.id === body.id);
+    if (!c) throw Object.assign(new Error("Esa canción ya no existe"), { status: 404 });
+    c.titulo = limpiarTituloCancion(body.titulo);
+    escribirIndice({ musica });
+    return { ok: true, musica };
+  });
+}
+export async function cancionBorrar(body) {
+  return enCola(() => {
+    const musica = leerIndice().musica || [];
+    const i = musica.findIndex((x) => x.id === body.id);
+    if (i < 0) throw Object.assign(new Error("Esa canción ya no existe"), { status: 404 });
+    const [c] = musica.splice(i, 1);
+    const nombre = path.basename(String(c.archivo || ""));
+    if (NOMBRE_CANCION.test(nombre)) { try { fs.unlinkSync(path.join(musicaDir(), nombre)); } catch {} }
+    escribirIndice({ musica });
+    return { ok: true, musica };
+  });
+}
+export async function cancionOrden(body) {
+  return enCola(() => {
+    const musica = leerIndice().musica || [];
+    const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+    const orden = [...ids.map((id) => musica.find((x) => x.id === id)).filter(Boolean), ...musica.filter((x) => !ids.includes(x.id))];
+    escribirIndice({ musica: orden });
+    return { ok: true, musica: orden };
+  });
+}
+
 function cors(req, res) {
   const origin = req.headers.origin;
   if (origin && ORIGINS.has(origin)) {
@@ -508,6 +599,12 @@ export default async function handler(req, res) {
       case "editar": return res.status(200).json(await editarArte(body));
       case "borrar": return res.status(200).json(await borrarArte(body));
       case "categorias": return res.status(200).json(await guardarCategorias(body));
+      case "cancion-inicio": return res.status(200).json(cancionInicio(body));
+      case "cancion-parte": return res.status(200).json(cancionParte(body));
+      case "cancion-fin": return res.status(200).json(await cancionFin(body));
+      case "cancion-editar": return res.status(200).json(await cancionEditar(body));
+      case "cancion-borrar": return res.status(200).json(await cancionBorrar(body));
+      case "cancion-orden": return res.status(200).json(await cancionOrden(body));
       case "original": return res.status(200).json(await guardarOriginal(body));
       case "descargar": return res.status(200).json(descargarOriginal(body));
       case "proteger": return res.status(200).json(await protegerArte(body));

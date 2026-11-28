@@ -103,6 +103,15 @@
       <div class="lista" id="lista"></div>
       <button class="adm-btn ghost ver-mas" id="verMas" type="button" hidden>Ver más</button>
 
+      <h2 class="adm-h">Música de la tienda <small id="cuentaMusica"></small></h2>
+      <p class="adm-nota">Canciones del reproductor de la tienda (MP3 o M4A, hasta 15 MB cada una). Suenan en este orden y se repiten; el visitante puede pausar, pasar a la siguiente o silenciar. Usá música tuya o libre de derechos.</p>
+      <div class="musica-subir cut">
+        <label class="adm-btn" for="musicaArchivos">🎵 Elegir canciones</label>
+        <input type="file" id="musicaArchivos" accept="audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a" multiple hidden>
+        <span class="mus-prog" id="musicaProg" role="status"></span>
+      </div>
+      <ol class="musica-lista" id="musicaLista"></ol>
+
       <h2 class="adm-h">Lookbook / Banners <small id="cuentaFotos"></small></h2>
       <p class="adm-nota">Fotos con modelo, pósters o banners para la sección Lookbook de la tienda (JPG, PNG o WebP). Se muestran en carrusel. Si elegís el diseño que sale en la foto, la ficha de ese diseño muestra "📸 Verla puesta" y el botón del Lookbook lleva directo a él.</p>
       <div class="foto-subir cut">

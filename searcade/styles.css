@@ -775,3 +775,37 @@ details.perso .fa-img { width: 58px; height: 58px; }
    si se deforma, la foto y el tinte de color quedan de distinto tamaño (se ven dos camisetas) */
 .z-lienzo, .zoom-thumbs .z-mini { container-type: size; }
 .z-lienzo .comp, .zoom-thumbs .z-mini .comp { width: min(100cqw, calc(100cqh * 900 / 920)); height: auto; max-width: none; max-height: none; flex: none; }
+
+/* ===== Reproductor de música (28/11/2026) ===== */
+.radio { position: relative; display: flex; align-items: center; }
+.radio[hidden] { display: none; }
+.radio .m-barras { position: static; opacity: 1; height: 14px; gap: 2px; }
+.radio .m-barras i { width: 3px; animation-play-state: paused; transform: scaleY(.35); background: linear-gradient(var(--cyan), var(--pink)); }
+.radio.sonando .m-barras i { animation-play-state: running; }
+.radio .m-barras i:nth-child(4) { animation-delay: -.45s; }
+.radio-panel { display: flex; align-items: center; gap: 2px; height: 46px; padding: 0 12px 0 6px; border-radius: 999px; background: #0b071899; border: 1px solid #19e6ff55; box-shadow: 0 0 16px #19e6ff22, inset 0 0 12px #7b3dff22; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.radio.sonando .radio-panel { border-color: #19e6ffaa; box-shadow: 0 0 20px #19e6ff44, inset 0 0 12px #7b3dff33; }
+.r-btn { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: #fff; cursor: pointer; transition: .15s; }
+.r-btn:hover { background: #ffffff1a; color: var(--cyan); }
+.r-btn svg { width: 18px; }
+#rPlay { background: var(--cyan); color: #04121a; }
+#rPlay:hover { background: #5ff3ff; }
+#rPlay .r-ico-pausa, #rPlay.pausa .r-ico-play { display: none; }
+#rPlay.pausa .r-ico-pausa { display: block; }
+#rMute .r-ico-mudo, #rMute.mudo .r-ico-son { display: none; }
+#rMute.mudo .r-ico-mudo { display: block; color: var(--pink); }
+.r-tit { display: flex; align-items: center; gap: 8px; margin-left: 6px; max-width: 170px; min-width: 0; font: 700 12px Rajdhani, sans-serif; letter-spacing: .5px; color: #fff; }
+.r-marquesina { overflow: hidden; white-space: nowrap; min-width: 0; }
+.r-marquesina.larga { -webkit-mask: linear-gradient(90deg, transparent, #000 8px, #000 85%, transparent); mask: linear-gradient(90deg, transparent, #000 8px, #000 85%, transparent); }
+.r-marquesina.larga #rTitulo { display: inline-block; padding-left: 8px; animation: rDesliza 12s linear infinite; }
+@keyframes rDesliza { 0%, 15% { transform: translateX(0); } 85%, 100% { transform: translateX(calc(-100% + 120px)); } }
+.radio-abrir { display: none; }
+/* Teléfono y tablet: un botón con barritas; al tocarlo se despliegan los controles */
+@media (max-width: 999px) {
+  .radio-abrir { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; border: 1px solid #19e6ff66; background: #0b071899; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .radio.sonando .radio-abrir { box-shadow: 0 0 14px #19e6ff55; border-color: #19e6ffaa; }
+  .radio-panel { position: absolute; z-index: 60; top: calc(100% + 8px); right: -6px; background: #0b0718ee; opacity: 0; transform: translateY(-6px) scale(.96); pointer-events: none; transition: .18s; }
+  .radio.abierto .radio-panel { opacity: 1; transform: none; pointer-events: auto; }
+  .r-tit { max-width: 130px; }
+}
+@media (prefers-reduced-motion: reduce) { .radio .m-barras i, .r-marquesina.larga #rTitulo { animation: none; } }
